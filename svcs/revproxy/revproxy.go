@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/docker"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
 var (

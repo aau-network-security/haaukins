@@ -2,9 +2,8 @@ package ntp
 
 import "context"
 
-type StartStopper interface {
-	Start(context.Context) error
-	Stop(context.Context) error
+type Stopper interface {
+	Stop() error
 }
 
 func Restart(ctx context.Context, ss StartStopper) error {

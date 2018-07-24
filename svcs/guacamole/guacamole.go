@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/docker"
-	"github.com/aau-network-security/go-ntp/docker/revproxy"
+	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 )
 

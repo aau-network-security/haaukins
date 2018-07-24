@@ -2,12 +2,12 @@ package ntp
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"os"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/docker"
+	"github.com/aau-network-security/go-ntp/svcs/dhcp"
+	"github.com/aau-network-security/go-ntp/svcs/dns"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
 func init() {
@@ -62,7 +62,8 @@ type ExerciseGroup struct {
 	network    *docker.Network
 	containers []docker.Container
 	dnsRecords []string
-	dnsServer  *DNS
+	dnsServer  *dns.Server
+	dnsAddr    string
 }
 
 func NewExerciseGroup(exercises []*Exercise) *ExerciseGroup {
@@ -73,7 +74,7 @@ func NewExerciseGroup(exercises []*Exercise) *ExerciseGroup {
 
 func (eg *ExerciseGroup) startExercise(e *Exercise, updateDNS bool) error {
 	for _, conf := range e.DockerSpecs() {
-		conf.Spec.DNS = []string{"192.168.0.3"}
+		conf.Spec.DNS = []string{eg.dnsAddr}
 		cont, err := docker.NewContainer(conf.Spec)
 		if err != nil {
 			return err
@@ -111,16 +112,17 @@ func (eg *ExerciseGroup) updateDNS() error {
 		}
 	}
 
-	dns, err := NewDNS(eg.dnsRecords)
+	serv, err := dns.New(eg.dnsRecords)
 	if err != nil {
 		return err
 	}
 
-	if _, err := eg.network.Connect(dns.cont, 3); err != nil {
+	if _, err := eg.network.Connect(serv.Container(), dns.PreferedIP); err != nil {
 		return err
 	}
 
-	eg.dnsServer = dns
+	eg.dnsServer = serv
+	eg.dnsAddr = eg.network.FormatIP(dns.PreferedIP)
 
 	return nil
 }
@@ -132,12 +134,12 @@ func (eg *ExerciseGroup) Start() error {
 		return err
 	}
 
-	dhcp, err := NewDHCP(eg.network.FormatIP)
+	dhcp, err := dhcp.New(eg.network.FormatIP)
 	if err != nil {
 		return err
 	}
 
-	if _, err := eg.network.Connect(dhcp.cont, 2); err != nil {
+	if _, err := eg.network.Connect(dhcp.Container(), 2); err != nil {
 		return err
 	}
 
@@ -148,140 +150,6 @@ func (eg *ExerciseGroup) Start() error {
 	}
 
 	if err := eg.updateDNS(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type DNS struct {
-	cont     docker.Container
-	confFile string
-}
-
-func NewDNS(records []string) (*DNS, error) {
-	f, err := ioutil.TempFile("", "unbound-conf")
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	confFile := f.Name()
-
-	for _, r := range records {
-		line := fmt.Sprintf(`local-data: "%s"`, r)
-		_, err = f.Write([]byte(line + "\n"))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	f.Sync()
-
-	cont, err := docker.NewContainer(docker.ContainerConfig{
-		Image: "mvance/unbound",
-		Mounts: []string{
-			fmt.Sprintf("%s:/opt/unbound/etc/unbound/a-records.conf", confFile),
-		},
-		UsedPorts: []string{"53/tcp"},
-		Resources: &docker.Resources{
-			MemoryMB: 50,
-			CPU:      0.3,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cont.Start(); err != nil {
-		return nil, err
-	}
-
-	return &DNS{
-		cont:     cont,
-		confFile: confFile,
-	}, nil
-
-}
-
-func (dns *DNS) Stop() error {
-	if err := os.Remove(dns.confFile); err != nil {
-		return err
-	}
-
-	if err := dns.cont.Kill(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type DHCP struct {
-	cont     docker.Container
-	confFile string
-}
-
-func NewDHCP(format func(n int) string) (*DHCP, error) {
-	f, err := ioutil.TempFile("", "dhcpd-conf")
-	if err != nil {
-		return nil, err
-	}
-	confFile := f.Name()
-
-	subnet := format(0)
-	dns := format(3)
-	minRange := format(4)
-	maxRange := format(29)
-	broadcast := format(255)
-	router := format(1)
-
-	confStr := fmt.Sprintf(
-		`option domain-name-servers %s;
-
-	subnet %s netmask 255.255.255.0 {
-		range %s %s;
-		option subnet-mask 255.255.255.0;
-		option broadcast-address %s;
-		option routers %s;
-	}`, dns, subnet, minRange, maxRange, broadcast, router)
-
-	_, err = f.WriteString(confStr)
-	if err != nil {
-		return nil, err
-	}
-
-	cont, err := docker.NewContainer(docker.ContainerConfig{
-		Image: "networkboot/dhcpd",
-		Mounts: []string{
-			fmt.Sprintf("%s:/data/dhcpd.conf", confFile),
-		},
-		DNS:       []string{dns},
-		UsedPorts: []string{"67/udp"},
-		Resources: &docker.Resources{
-			MemoryMB: 50,
-			CPU:      0.3,
-		},
-		Cmd: []string{"eth0"},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cont.Start(); err != nil {
-		return nil, err
-	}
-
-	return &DHCP{
-		cont:     cont,
-		confFile: confFile,
-	}, nil
-}
-
-func (dhcp *DHCP) Stop() error {
-	if err := os.Remove(dhcp.confFile); err != nil {
-		return err
-	}
-
-	if err := dhcp.cont.Kill(); err != nil {
 		return err
 	}
 
