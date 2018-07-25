@@ -17,7 +17,7 @@ type Environment struct {
 
 func NewEnvironment(exercises ...Config) (*Environment, error) {
 	ee := &Environment{
-		tags: make(map[string]*Exercise),
+		tags: make(map[string]*exercise),
 	}
 
 	var err error
@@ -96,6 +96,10 @@ func (ee *Environment) ResetByTag(t string) error {
 	}
 
 	return nil
+}
+
+func (ee *Environment) Interface() string {
+	return ""
 }
 
 func (ee *Environment) updateDNS() error {

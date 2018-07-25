@@ -14,6 +14,9 @@ var (
 	UnknownTagErr   = errors.New("Unknown tag")
 )
 
+type Flag struct {
+}
+
 type RecordConfig struct {
 	Type string `yaml:"record"`
 	Name string `yaml:"name"`
@@ -75,7 +78,7 @@ type exercise struct {
 	dnsRecords  []string
 }
 
-func (e *Exercise) Start(lastDigit ...int) error {
+func (e *exercise) Start(lastDigit ...int) error {
 	containers, records := e.conf.ContainerOpts()
 
 	var machines []virtual.Instance
@@ -112,7 +115,7 @@ func (e *Exercise) Start(lastDigit ...int) error {
 	return nil
 }
 
-func (e *Exercise) Stop() error {
+func (e *exercise) Stop() error {
 	for _, m := range e.machines {
 		if err := m.Kill(); err != nil {
 			return err
@@ -122,7 +125,7 @@ func (e *Exercise) Stop() error {
 	return nil
 }
 
-func (e *Exercise) Reset() error {
+func (e *exercise) Reset() error {
 	if err := e.Stop(); err != nil {
 		return err
 	}

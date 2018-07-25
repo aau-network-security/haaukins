@@ -25,17 +25,17 @@ const (
 	vboxCtrlVM  = "controlvm"
 )
 
-type VirtualBoxVM interface {
+type VM interface {
 	Snapshot(string) error
-	LinkedClone(string) (VirtualBoxVM, error)
+	LinkedClone(string) (VM, error)
 }
 
-type virtualBoxVM struct {
+type vm struct {
 	id      string
 	running bool
 }
 
-func NewVMFromOVA(path, name string) (VirtualBoxVM, error) {
+func NewVMFromOVA(path, name string) (*vm, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
@@ -45,10 +45,10 @@ func NewVMFromOVA(path, name string) (VirtualBoxVM, error) {
 		return nil, err
 	}
 
-	return &virtualBoxVM{id: name}, nil
+	return &vm{id: name}, nil
 }
 
-func (vm *virtualBoxVM) Start() error {
+func (vm *vm) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -63,7 +63,7 @@ func (vm *virtualBoxVM) Start() error {
 	return nil
 }
 
-func (vm *virtualBoxVM) Stop() error {
+func (vm *vm) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -78,7 +78,7 @@ func (vm *virtualBoxVM) Stop() error {
 	return nil
 }
 
-func (vm *virtualBoxVM) Restart() error {
+func (vm *vm) Restart() error {
 	if err := vm.Stop(); err != nil {
 		return err
 	}
@@ -90,7 +90,11 @@ func (vm *virtualBoxVM) Restart() error {
 	return nil
 }
 
-func (vm *virtualBoxVM) SetRAM(mb uint) error {
+func (vm *vm) SetBridge(n string) error {
+	return nil
+}
+
+func (vm *vm) SetRAM(mb uint) error {
 	wasRunning := vm.running
 	if vm.running {
 		if err := vm.Stop(); err != nil {
@@ -116,7 +120,7 @@ func (vm *virtualBoxVM) SetRAM(mb uint) error {
 	return nil
 }
 
-func (vm *virtualBoxVM) SetCPU(cores uint) error {
+func (vm *vm) SetCPU(cores uint) error {
 	wasRunning := vm.running
 	if vm.running {
 		if err := vm.Stop(); err != nil {
@@ -142,7 +146,7 @@ func (vm *virtualBoxVM) SetCPU(cores uint) error {
 	return nil
 }
 
-func (vm *virtualBoxVM) Snapshot(name string) error {
+func (vm *vm) Snapshot(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -155,7 +159,7 @@ func (vm *virtualBoxVM) Snapshot(name string) error {
 	return nil
 }
 
-func (vm *virtualBoxVM) LinkedClone(snapshot string) (VirtualBoxVM, error) {
+func (*vm) LinkedClone(snapshot string) (VM, error) {
 	newID := uuid.New().String()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -167,20 +171,20 @@ func (vm *virtualBoxVM) LinkedClone(snapshot string) (VirtualBoxVM, error) {
 		return nil, err
 	}
 
-	return &virtualBoxVM{id: newID}, nil
+	return &vm{id: newID}, nil
 }
 
-type VBoxLibrary interface {
-	GetCopy(string) (VirtualBoxVM, error)
+type Library interface {
+	GetCopy(string) (VM, error)
 }
 
 type vBoxLibrary struct {
 	m     sync.Mutex
-	known map[string]VirtualBoxVM
+	known map[string]VM
 	locks map[string]*sync.Mutex
 }
 
-func (lib *vBoxLibrary) GetCopy(path string) (VirtualBoxVM, error) {
+func (lib *vBoxLibrary) GetCopy(path string) (*vm, error) {
 	lib.m.Lock()
 
 	pathLock, ok := lib.locks[path]
@@ -249,7 +253,7 @@ func checksum(filepath string) (string, error) {
 	return hex.EncodeToString(checksum), nil
 }
 
-func vmExists(name string) (VirtualBoxVM, bool) {
+func vmExists(name string) (VM, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -260,7 +264,7 @@ func vmExists(name string) (VirtualBoxVM, bool) {
 	}
 
 	if bytes.Contains(out, []byte("\""+name+"\"")) {
-		return &virtualBoxVM{id: name}, true
+		return &vm{id: name}, true
 	}
 
 	return nil, false
