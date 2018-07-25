@@ -327,12 +327,12 @@ func (n *Network) FormatIP(num int) string {
 	return fmt.Sprintf("%s.%d", n.subnet[0:len(n.subnet)-5], num)
 }
 
-func (n *Network) getRandomIP() string {
+func (n *Network) getRandomIP() int {
 	for randDigit, _ := range n.ipPool {
 		delete(n.ipPool, randDigit)
-		return n.FormatIP(int(randDigit))
+		return int(randDigit)
 	}
-	return ""
+	return 0
 }
 
 func (n *Network) releaseIP(ip string) {
@@ -347,14 +347,16 @@ func (n *Network) releaseIP(ip string) {
 	n.ipPool[uint8(num)] = struct{}{}
 }
 
-func (n *Network) Connect(c Container, ip ...int) (string, error) {
-	var ipAddr string
+func (n *Network) Connect(c Container, ip ...int) (int, error) {
+	var lastDigit int
 
 	if len(ip) > 0 {
-		ipAddr = n.FormatIP(ip[0])
+		lastDigit = ip[0]
 	} else {
-		ipAddr = n.getRandomIP()
+		lastDigit = n.getRandomIP()
 	}
+
+	ipAddr := n.FormatIP(lastDigit)
 
 	err := DefaultClient.ConnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 		Container: c.ID(),
@@ -370,12 +372,12 @@ func (n *Network) Connect(c Container, ip ...int) (string, error) {
 			n.releaseIP(ipAddr)
 		}
 
-		return "", err
+		return lastDigit, err
 	}
 
 	n.connected = append(n.connected, c)
 
-	return ipAddr, nil
+	return lastDigit, nil
 }
 
 func GetAvailablePort() uint {
