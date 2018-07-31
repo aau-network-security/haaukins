@@ -36,7 +36,7 @@ func New(records []string) (*Server, error) {
 	f.Sync()
 
 	cont, err := docker.NewContainer(docker.ContainerConfig{
-		Image: "mvance/unbound",
+		Image: "tpanum/unbound",
 		Mounts: []string{
 			fmt.Sprintf("%s:/opt/unbound/etc/unbound/a-records.conf", confFile),
 		},

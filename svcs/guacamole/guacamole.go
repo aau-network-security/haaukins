@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 )
@@ -138,7 +139,7 @@ func (guac *guacamole) Start(ctx context.Context) error {
 	}
 
 	webInitConf := *webBaseConf
-	webInitPort := docker.GetAvailablePort()
+	webInitPort := virtual.GetAvailablePort()
 	webInitConf.PortBindings = map[string]string{
 		"8080/tcp": fmt.Sprintf("127.0.0.1:%d", webInitPort),
 	}

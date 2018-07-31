@@ -23,6 +23,9 @@ var (
 	TooLowMemErr             = errors.New("Memory needs to be atleast 50mb")
 	InvalidHostBinding       = errors.New("Hostbing does not have correct format (ip:port)")
 	InvalidMount             = errors.New("Incorrect mount format (src:dest)")
+	CantLocateImgErr         = errors.New("Unable to locate image")
+
+	Registiries = []docker.AuthConfiguration{{}}
 )
 
 func init() {
@@ -163,7 +166,37 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	cont, err := DefaultClient.CreateContainer(createContOpts)
 	if err != nil {
-		return nil, err
+		errMsg := err.Error()
+
+		if strings.Contains(errMsg, "no image") {
+			parts := strings.Split(conf.Image, ":")
+
+			repo := parts[0]
+			tag := "latest"
+
+			if len(parts) > 1 {
+				tag = parts[1]
+			}
+
+			err := CantLocateImgErr
+			for _, reg := range Registiries {
+				err = DefaultClient.PullImage(docker.PullImageOptions{
+					Repository: repo,
+					Tag:        tag,
+				}, reg)
+
+				if err == nil {
+					break
+				}
+			}
+
+			cont, err = DefaultClient.CreateContainer(createContOpts)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
@@ -217,6 +250,7 @@ func (c *container) Kill() error {
 }
 
 func (c *container) Start() error {
+
 	return DefaultClient.StartContainer(c.id, nil)
 }
 
@@ -327,6 +361,10 @@ func (n *Network) FormatIP(num int) string {
 	return fmt.Sprintf("%s.%d", n.subnet[0:len(n.subnet)-5], num)
 }
 
+func (n *Network) Interface() string {
+	return fmt.Sprintf("dm-%s", n.net.ID[0:12])
+}
+
 func (n *Network) getRandomIP() int {
 	for randDigit, _ := range n.ipPool {
 		delete(n.ipPool, randDigit)
@@ -378,16 +416,6 @@ func (n *Network) Connect(c Container, ip ...int) (int, error) {
 	n.connected = append(n.connected, c)
 
 	return lastDigit, nil
-}
-
-func GetAvailablePort() uint {
-	l, _ := net.Listen("tcp", ":0")
-	parts := strings.Split(l.Addr().String(), ":")
-	l.Close()
-
-	p, _ := strconv.Atoi(parts[len(parts)-1])
-
-	return uint(p)
 }
 
 func getDockerHostIP() (string, error) {

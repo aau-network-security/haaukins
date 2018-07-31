@@ -99,7 +99,7 @@ func (ee *Environment) ResetByTag(t string) error {
 }
 
 func (ee *Environment) Interface() string {
-	return ""
+	return ee.network.Interface()
 }
 
 func (ee *Environment) updateDNS() error {

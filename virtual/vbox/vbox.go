@@ -25,6 +25,15 @@ const (
 	vboxCtrlVM  = "controlvm"
 )
 
+type VBoxErr struct {
+	Action string
+	Output []byte
+}
+
+func (err *VBoxErr) Error() string {
+	return fmt.Sprintf("VBoxError [%s]: %s", err.Action, string(err.Output))
+}
+
 type VM interface {
 	Snapshot(string) error
 	LinkedClone(string) (VM, error)
@@ -39,8 +48,7 @@ func NewVMFromOVA(path, name string) (*vm, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, "import", path, "--vsys", "0", "--vmname", name)
-	_, err := c.Output()
+	_, err := VBoxCmdContext(ctx, "import", path, "--vsys", "0", "--vmname", name)
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +60,7 @@ func (vm *vm) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, vboxStartVM, vm.id)
-	_, err := c.Output()
+	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id)
 	if err != nil {
 		return err
 	}
@@ -67,8 +74,7 @@ func (vm *vm) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, vboxCtrlVM, vm.id, "poweroff")
-	_, err := c.Output()
+	_, err := VBoxCmdContext(ctx, vboxCtrlVM, vm.id, "poweroff")
 	if err != nil {
 		return err
 	}
@@ -90,57 +96,104 @@ func (vm *vm) Restart() error {
 	return nil
 }
 
-func (vm *vm) SetBridge(n string) error {
+func (vm *vm) SetBridge(nic string) error {
+	start, err := vm.ensureStopped()
+	if err != nil {
+		return err
+	}
+	defer start()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	fmt.Println(nic)
+
+	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (vm *vm) SetLocalRDP(port uint) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrde", "on")
+	if err != nil {
+		return err
+	}
+
+	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdeproperty", "TCP/Address=127.0.0.1")
+	if err != nil {
+		return err
+	}
+
+	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdeproperty", fmt.Sprintf("TCP/Ports=%d", port))
+	if err != nil {
+		return err
+	}
+
+	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdeauthtype", "null")
+	if err != nil {
+		return err
+	}
+
+	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vram", "128")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (vm *vm) SetRAM(mb uint) error {
-	wasRunning := vm.running
-	if vm.running {
-		if err := vm.Stop(); err != nil {
-			return err
-		}
+	start, err := vm.ensureStopped()
+	if err != nil {
+		return err
 	}
+	defer start()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, vboxModVM, vm.id, "--memory", fmt.Sprintf("%d", mb))
-	_, err := c.Output()
+	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--memory", fmt.Sprintf("%d", mb))
 	if err != nil {
 		return err
-	}
-
-	if wasRunning {
-		if err := vm.Start(); err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
-func (vm *vm) SetCPU(cores uint) error {
+func (vm *vm) ensureStopped() (func(), error) {
 	wasRunning := vm.running
 	if vm.running {
 		if err := vm.Stop(); err != nil {
-			return err
+			return nil, err
 		}
 	}
+
+	return func() {
+		if wasRunning {
+			vm.Start()
+		}
+	}, nil
+}
+
+func (vm *vm) SetCPU(cores uint) error {
+	start, err := vm.ensureStopped()
+	if err != nil {
+		return err
+	}
+	defer start()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, vboxModVM, vm.id, "--cpus", fmt.Sprintf("%d", cores))
-	_, err := c.Output()
+	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--cpus", fmt.Sprintf("%d", cores))
 	if err != nil {
 		return err
-	}
-
-	if wasRunning {
-		if err := vm.Start(); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -150,8 +203,7 @@ func (vm *vm) Snapshot(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, "snapshot", vm.id, "take", name)
-	_, err := c.Output()
+	_, err := VBoxCmdContext(ctx, "snapshot", vm.id, "take", name)
 	if err != nil {
 		return err
 	}
@@ -159,15 +211,15 @@ func (vm *vm) Snapshot(name string) error {
 	return nil
 }
 
-func (*vm) LinkedClone(snapshot string) (VM, error) {
-	newID := uuid.New().String()
+func (v *vm) LinkedClone(snapshot string) (*vm, error) {
+	newID := strings.Replace(uuid.New().String(), "-", "", -1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, "clonevm", "--snapshot", snapshot, "--options", "link", "--name", newID, "--register")
-	_, err := c.Output()
+	_, err := VBoxCmdContext(ctx, "clonevm", v.id, "--snapshot", snapshot, "--options", "link", "--name", newID, "--register")
 	if err != nil {
+		fmt.Println("cloning error")
 		return nil, err
 	}
 
@@ -175,16 +227,27 @@ func (*vm) LinkedClone(snapshot string) (VM, error) {
 }
 
 type Library interface {
-	GetCopy(string) (VM, error)
+	GetCopy(string) (*vm, error)
 }
 
 type vBoxLibrary struct {
 	m     sync.Mutex
-	known map[string]VM
+	pwd   string
+	known map[string]*vm
 	locks map[string]*sync.Mutex
 }
 
+func NewLibrary(pwd string) Library {
+	return &vBoxLibrary{
+		pwd:   pwd,
+		known: make(map[string]*vm),
+		locks: make(map[string]*sync.Mutex),
+	}
+}
+
 func (lib *vBoxLibrary) GetCopy(path string) (*vm, error) {
+	path = filepath.Join(lib.pwd, path)
+
 	lib.m.Lock()
 
 	pathLock, ok := lib.locks[path]
@@ -253,12 +316,11 @@ func checksum(filepath string) (string, error) {
 	return hex.EncodeToString(checksum), nil
 }
 
-func vmExists(name string) (VM, bool) {
+func vmExists(name string) (*vm, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	c := exec.CommandContext(ctx, vboxBin, "list", "vms")
-	out, err := c.Output()
+	out, err := VBoxCmdContext(ctx, "list", "vms")
 	if err != nil {
 		return nil, false
 	}
@@ -268,4 +330,20 @@ func vmExists(name string) (VM, bool) {
 	}
 
 	return nil, false
+}
+
+func VBoxCmdContext(ctx context.Context, cmd string, cmds ...string) ([]byte, error) {
+	command := append([]string{cmd}, cmds...)
+
+	fmt.Println(strings.Join(command, " "))
+	c := exec.CommandContext(ctx, vboxBin, command...)
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return nil, &VBoxErr{
+			Action: strings.Join(command, " "),
+			Output: out,
+		}
+	}
+
+	return out, nil
 }
