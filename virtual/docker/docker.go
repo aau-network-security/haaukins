@@ -168,7 +168,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	if err != nil {
 		errMsg := err.Error()
 
-		if strings.Contains(errMsg, "no image") {
+		if strings.Contains(errMsg, "no such image") {
 			parts := strings.Split(conf.Image, ":")
 
 			repo := parts[0]
