@@ -69,16 +69,15 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]string) {
 }
 
 type exercise struct {
-	conf        *Config
-	net         *docker.Network
-	flags       []Flag
-	machines    []virtual.Instance
-	ipLastDigit int
-	dnsIP       string
-	dnsRecords  []string
+	conf       *Config
+	net        *docker.Network
+	flags      []Flag
+	machines   []virtual.Instance
+	dnsIP      string
+	dnsRecords []string
 }
 
-func (e *exercise) Start(lastDigit ...int) error {
+func (e *exercise) Start() error {
 	containers, records := e.conf.ContainerOpts()
 
 	var machines []virtual.Instance
@@ -94,12 +93,12 @@ func (e *exercise) Start(lastDigit ...int) error {
 			return err
 		}
 
-		e.ipLastDigit, err = e.net.Connect(c, lastDigit...)
+		lastDigit, err := e.net.Connect(c, lastDigit...)
 		if err != nil {
 			return err
 		}
 
-		ipaddr := e.net.FormatIP(e.ipLastDigit)
+		ipaddr := e.net.FormatIP(lastDigit)
 
 		var finalRecords []string
 		for _, record := range records[i] {
@@ -129,8 +128,8 @@ func (e *exercise) Reset() error {
 	if err := e.Stop(); err != nil {
 		return err
 	}
-
-	if err := e.Start(e.ipLastDigit); err != nil {
+	// NOT FUNCTIONING: Need to handle that docker containers are spun up on the same IP
+	if err := e.Start(); err != nil {
 		return err
 	}
 

@@ -102,6 +102,10 @@ func (ee *Environment) Interface() string {
 	return ee.network.Interface()
 }
 
+func (ee *Environment) Kill() error {
+	return nil
+}
+
 func (ee *Environment) updateDNS() error {
 	if ee.dnsServer != nil {
 		if err := ee.dnsServer.Stop(); err != nil {
