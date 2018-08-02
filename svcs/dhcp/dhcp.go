@@ -9,12 +9,12 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
-type DHCP struct {
+type Server struct {
 	cont     docker.Container
 	confFile string
 }
 
-func New(format func(n int) string) (*DHCP, error) {
+func New(format func(n int) string) (*Server, error) {
 	f, err := ioutil.TempFile("", "dhcpd-conf")
 	if err != nil {
 		return nil, err
@@ -64,17 +64,17 @@ func New(format func(n int) string) (*DHCP, error) {
 		return nil, err
 	}
 
-	return &DHCP{
+	return &Server{
 		cont:     cont,
 		confFile: confFile,
 	}, nil
 }
 
-func (dhcp *DHCP) Container() docker.Container {
+func (dhcp *Server) Container() docker.Container {
 	return dhcp.cont
 }
 
-func (dhcp *DHCP) Stop() error {
+func (dhcp *Server) Stop() error {
 	if err := os.Remove(dhcp.confFile); err != nil {
 		return err
 	}

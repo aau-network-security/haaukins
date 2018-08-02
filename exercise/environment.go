@@ -10,9 +10,10 @@ type Environment struct {
 	tags      map[string]*exercise
 	exercises []*exercise
 
-	network   *docker.Network
-	dnsServer *dns.Server
-	dnsIP     string
+	network    *docker.Network
+	dnsServer  *dns.Server
+	dhcpServer *dhcp.Server
+	dnsIP      string
 }
 
 func NewEnvironment(exercises ...Config) (*Environment, error) {
@@ -26,12 +27,12 @@ func NewEnvironment(exercises ...Config) (*Environment, error) {
 		return nil, err
 	}
 
-	dhcp, err := dhcp.New(ee.network.FormatIP)
+	ee.dhcpServer, err = dhcp.New(ee.network.FormatIP)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := ee.network.Connect(dhcp.Container(), 2); err != nil {
+	if _, err := ee.network.Connect(ee.dhcpServer.Container(), 2); err != nil {
 		return nil, err
 	}
 
@@ -103,6 +104,24 @@ func (ee *Environment) Interface() string {
 }
 
 func (ee *Environment) Kill() error {
+	if err := ee.dnsServer.Stop(); err != nil {
+		return err
+	}
+
+	if err := ee.dhcpServer.Stop(); err != nil {
+		return err
+	}
+
+	for _, e := range ee.exercises {
+		if err := e.Stop(); err != nil {
+			return err
+		}
+	}
+
+	if err := ee.network.Stop(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -25,7 +25,7 @@ var (
 	InvalidMount             = errors.New("Incorrect mount format (src:dest)")
 	CantLocateImgErr         = errors.New("Unable to locate image")
 
-	Registiries = []docker.AuthConfiguration{{}}
+	Registries = []docker.AuthConfiguration{{}}
 )
 
 func init() {
@@ -179,7 +179,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 			}
 
 			err := CantLocateImgErr
-			for _, reg := range Registiries {
+			for _, reg := range Registries {
 				err = DefaultClient.PullImage(docker.PullImageOptions{
 					Repository: repo,
 					Tag:        tag,
@@ -345,7 +345,7 @@ func NewNetwork() (*Network, error) {
 	return &Network{net: net, subnet: subnet, ipPool: ipPool}, nil
 }
 
-func (n *Network) Stop() {
+func (n *Network) Stop() error {
 	for _, cont := range n.connected {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 			Container: cont.ID(),
@@ -354,7 +354,7 @@ func (n *Network) Stop() {
 		}
 	}
 
-	DefaultClient.RemoveNetwork(n.net.ID)
+	return DefaultClient.RemoveNetwork(n.net.ID)
 }
 
 func (n *Network) FormatIP(num int) string {
