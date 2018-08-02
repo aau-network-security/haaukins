@@ -117,6 +117,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	hostConf := docker.HostConfig{
 		ExtraHosts: []string{fmt.Sprintf("host:%s", hostIP)},
 	}
+
 	if conf.Resources != nil {
 		if conf.Resources.MemoryMB > 0 {
 			if conf.Resources.MemoryMB < 50 {
@@ -166,9 +167,8 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	cont, err := DefaultClient.CreateContainer(createContOpts)
 	if err != nil {
-		errMsg := err.Error()
 
-		if strings.Contains(errMsg, "no such image") {
+		if err == docker.ErrNoSuchImage {
 			parts := strings.Split(conf.Image, ":")
 
 			repo := parts[0]
