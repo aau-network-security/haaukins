@@ -22,6 +22,10 @@ type RecordConfig struct {
 	Name string `yaml:"name"`
 }
 
+func (rc RecordConfig) Format(ip string) string {
+	return fmt.Sprintf("%s %s %s", rc.Name, rc.Type, ip)
+}
+
 type FlagConfig struct {
 	EnvVar  string `yaml:"env"`
 	Default string `yaml:"default"`
@@ -43,9 +47,9 @@ type Config struct {
 	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
 }
 
-func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]string) {
+func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	var contSpecs []docker.ContainerConfig
-	var contRecords [][]string
+	var contRecords [][]RecordConfig
 
 	for _, conf := range ec.DockerConfs {
 		spec := docker.ContainerConfig{
@@ -56,13 +60,8 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]string) {
 			},
 		}
 
-		var records []string
-		for _, r := range conf.Records {
-			records = append(records, fmt.Sprintf("%s %s", r.Name, r.Type))
-		}
-
 		contSpecs = append(contSpecs, spec)
-		contRecords = append(contRecords, records)
+		contRecords = append(contRecords, conf.Records)
 	}
 
 	return contSpecs, contRecords
@@ -73,6 +72,7 @@ type exercise struct {
 	net        *docker.Network
 	flags      []Flag
 	machines   []virtual.Instance
+	ips        []int
 	dnsIP      string
 	dnsRecords []string
 }
@@ -93,18 +93,31 @@ func (e *exercise) Start() error {
 			return err
 		}
 
-		lastDigit, err := e.net.Connect(c, lastDigit...)
-		if err != nil {
-			return err
+		var lastDigit int
+		// Example: 216
+
+		if e.ips != nil {
+			// Containers need specific ips
+			lastDigit, err = e.net.Connect(c, e.ips[i])
+			if err != nil {
+				return err
+			}
+		} else {
+			// Let network assign ips
+			lastDigit, err = e.net.Connect(c)
+			if err != nil {
+				return err
+			}
+
+			e.ips = append(e.ips, lastDigit)
 		}
 
 		ipaddr := e.net.FormatIP(lastDigit)
+		// Example: 172.16.5.216
 
-		var finalRecords []string
 		for _, record := range records[i] {
-			finalRecords = append(finalRecords, fmt.Sprintf("%s %s", record, ipaddr))
+			e.dnsRecords = append(e.dnsRecords, record.Format(ipaddr))
 		}
-		e.dnsRecords = finalRecords
 
 		machines = append(machines, c)
 	}
@@ -128,7 +141,7 @@ func (e *exercise) Reset() error {
 	if err := e.Stop(); err != nil {
 		return err
 	}
-	// NOT FUNCTIONING: Need to handle that docker containers are spun up on the same IP
+
 	if err := e.Start(); err != nil {
 		return err
 	}
