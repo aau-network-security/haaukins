@@ -21,8 +21,8 @@ import (
 var (
 	DefaultClient, dockerErr = docker.NewClient("unix:///var/run/docker.sock")
 	TooLowMemErr             = errors.New("Memory needs to be atleast 50mb")
-	InvalidHostBinding       = errors.New("Hostbing does not have correct format (ip:port)")
-	InvalidMount             = errors.New("Incorrect mount format (src:dest)")
+	InvalidHostBinding       = errors.New("Hostbing does not have correct format - (ip:)port")
+	InvalidMount             = errors.New("Incorrect mount format - src:dest")
 	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
 
 	Registries = []docker.AuthConfiguration{{}}
@@ -78,19 +78,36 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	bindings := make(map[docker.Port][]docker.PortBinding)
 	for guestPort, hostListen := range conf.PortBindings {
+        log.Debug().Msgf("guestPort: %s, hostListen: %s", guestPort, hostListen)
+
+        hostIP := ""
+        hostPort := hostListen
+
+        if strings.Contains(guestPort, "/") == false {
+            log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
+            guestPort = guestPort+"/tcp"
+        }
+
+		if strings.Contains(hostListen, "/") {
+            return nil, InvalidHostBinding
+        }
+
 		if strings.Contains(hostListen, ":") {
 			parts := strings.Split(hostListen, ":")
 			if len(parts) != 2 {
 				return nil, InvalidHostBinding
 			}
 
-			bindings[docker.Port(guestPort)] = []docker.PortBinding{
-				{
-					HostIP:   parts[0],
-					HostPort: parts[1],
-				},
-			}
-		}
+            hostIP   = parts[0]
+            hostPort = parts[1]
+        }
+
+        bindings[docker.Port(guestPort)] = []docker.PortBinding{
+            {
+                HostIP:   hostIP,
+                HostPort: hostPort,
+            },
+        }
 	}
 
 	var mounts []docker.HostMount

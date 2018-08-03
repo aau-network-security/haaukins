@@ -4,49 +4,157 @@ import (
 	"fmt"
 	"testing"
 
-	docker "github.com/fsouza/go-dockerclient"
+    "github.com/rs/zerolog/log"
+    "github.com/stretchr/testify/assert"
+    ntpdocker "github.com/aau-network-security/go-ntp/virtual/docker"
+    fdocker "github.com/fsouza/go-dockerclient"
 )
 
-func TestDocker(t *testing.T) {
-	DefaultClient, _ := docker.NewClient("unix:///var/run/docker.sock")
+var dockerClient, dockerErr = fdocker.NewClient("unix:///var/run/docker.sock")
 
-	fmt.Println(DefaultClient.PullImage(docker.PullImageOptions{
-		Repository: "ubuntu",
-		Tag:        "latest",
-	}, docker.AuthConfiguration{}))
-	// c1, err := docker.NewContainer(docker.ContainerConfig{
-	// 	Image: "aau/sql-server",
-	// 	EnvVars: map[string]string{
-	// 		"HOST": "server",
-	// 	},
-	// 	Resources: &docker.Resources{
-	// 		MemoryMB: 50,
-	// 	},
-	// })
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// defer c1.Kill()
+func init() {
+    fmt.Println("Init function!")
 
-	// c2, err := docker.NewContainer(docker.ContainerConfig{
-	// 	Image: "aau/sql-client",
-	// 	EnvVars: map[string]string{
-	// 		"HOST": "server",
-	// 	},
-	// })
-	// defer c2.Kill()
+    if dockerErr != nil {
+        log.Fatal().Err(dockerErr)
+    }
+}
 
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
 
-	// err = c2.Link(c1, "server")
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+func testCleanup(t *testing.T, c ntpdocker.Container) func() {
+    return func() {
+        err := c.Kill()
+        if err != nil {
+            t.Fatalf("Could not cleanup machine after test")
+        }
+    }
+}
 
-	// fmt.Println(c1.Start())
-	// fmt.Println(c2.Start())
+func TestDockerContainer(t *testing.T) {
+    c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+        Image: "alpine",
+        Resources: &ntpdocker.Resources{
+            MemoryMB: 50,
+            CPU: 5000,
+    }})
+    defer testCleanup(t, c1)()
 
-	// time.Sleep(29 * time.Second)
+    if err != nil {
+        t.Fatalf("Could not create new container: %v", err)
+    }
+}
+
+func TestErrorHostBinding(t *testing.T) {
+    tests := []struct{
+        portBinding map[string]string
+        hostIP string
+        hostPort string
+        guestPort fdocker.Port
+        err error
+    }{
+        {
+            portBinding: map[string]string{"8080": "0.0.0.0:80"},
+            hostIP: "0.0.0.0",
+            hostPort: "80",
+            guestPort: "8080/tcp",
+            err: nil,
+        },{
+            portBinding: map[string]string{"8080/tcp": "0.0.0.0:80"},
+            hostIP: "0.0.0.0",
+            hostPort: "80",
+            guestPort: "8080/tcp",
+            err: nil,
+        },{
+            portBinding: map[string]string{"8080/udp": "0.0.0.0:80"},
+            hostIP: "0.0.0.0",
+            hostPort: "80",
+            guestPort: "8080/udp",
+            err: nil,
+        },{
+            portBinding: map[string]string{"8080": "127.0.0.1:80"},
+            hostIP: "127.0.0.1",
+            hostPort: "80",
+            guestPort: "8080/tcp",
+            err: nil,
+        },{
+            portBinding: map[string]string{"8080/tcp": "80"},
+            hostIP: "",
+            hostPort: "80",
+            guestPort: "8080/tcp",
+            err: nil,
+        },{
+            portBinding: map[string]string{"8080/tcp": "0.0.0.0:invalid:80"},
+            hostIP: "0.0.0.0",
+            hostPort: "80",
+            guestPort: "8080/tcp",
+            err: ntpdocker.InvalidHostBinding,
+        },{
+            portBinding: map[string]string{"8080": "0.0.0.0:80/tcp"},
+            hostIP: "",
+            hostPort: "80",
+            guestPort: "8080/tcp",
+            err: ntpdocker.InvalidHostBinding,
+        },
+    }
+
+    for _, test := range tests {
+        c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+            Image: "alpine",
+            PortBindings: test.portBinding,
+        })
+
+        if err != test.err {
+            t.Fatalf("Did not get expected error: %s, but instead %s", test.err, err)
+        }
+
+        if c1 == nil  {
+            if test.err == err {
+                continue
+            }
+
+            t.Fatalf("Unexpected error: %s", err)
+        }
+
+        con, err := dockerClient.InspectContainer(c1.ID())
+
+        if err != nil {
+            t.Fatalf("Could not inspect container: %v", err)
+        }
+
+        for guestPort, host := range con.HostConfig.PortBindings {
+            assert.Equal(t, test.guestPort.Port(), guestPort.Port())
+            assert.Equal(t, test.hostIP, host[0].HostIP)
+            assert.Equal(t, test.hostPort, host[0].HostPort)
+        }
+
+        err = c1.Kill()
+        if err != nil {
+            t.Fatalf("Could not destroy container after use..")
+        }
+    }
+}
+
+func TestErrorMem(t *testing.T) {
+    _, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+        Image: "alpine",
+        Resources: &ntpdocker.Resources{
+            MemoryMB: 49,
+            CPU: 5000,
+        }})
+
+    if err != ntpdocker.TooLowMemErr {
+        t.Fatalf("Allowed to create machine with less than 50 MB Memory: %v", err)
+    }
+
+    c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+        Image: "alpine",
+        Resources: &ntpdocker.Resources{
+            MemoryMB: 50,
+            CPU: 5000,
+    }})
+    defer testCleanup(t, c1)()
+
+    if err != nil {
+        t.Fatalf("Could not create machine with 50 MB Memory: %v", err)
+    }
 }
