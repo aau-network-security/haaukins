@@ -6,7 +6,7 @@ import (
 )
 
 func spawn() *event.Event {
-	es, _ := event.New("app/config.yml")
+	es, _ := event.New("app/config.yml", "app/exercises.yml")
 	return es
 }
 

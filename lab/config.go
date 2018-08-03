@@ -11,6 +11,14 @@ type Config struct {
 	Exercises []exercise.Config `yaml:"exercise"`
 }
 
+func (conf Config) Flags() []exercise.FlagConfig {
+	var res []exercise.FlagConfig
+	for _, exercise := range conf.Exercises {
+		res = append(res, exercise.Flags()...)
+	}
+	return res
+}
+
 func LoadConfig(path string) (*Config, error) {
 	var config *Config
 

@@ -6,18 +6,25 @@ exercise:
   - image: image_1
     memoryMB: 100
     flag:
-    - env: FLAG_1
+    - name: First flag
+      env: FLAG_1
       default: flag_default_1
       points: 10
-    - env: FLAG_2
+    - name: Second flag
+      env: FLAG_2
       default: flag_default_2
       points: 15
+- name: Exercise 2
+  tags:
+  - tag_2
+  docker:
   - image: image_2
     memoryMB: 50
     dns:
     - name: example.org
       record: A
     flag:
-    - env: FLAG_3
+    - name: Third flag
+      env: FLAG_3
       default: flag_default_3
       points: 5

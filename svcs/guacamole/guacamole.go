@@ -37,10 +37,10 @@ type Guacamole interface {
 }
 
 type Config struct {
-	AdminUser string "yaml:admin_user"
-	AdminPass string "yaml:admin_pass"
-	Host      string "yaml:host"
-	Port      uint   "yaml:port"
+	AdminUser string `yaml:"admin_user"`
+	AdminPass string `yaml:"admin_pass"`
+	Host      string `yaml:"host"`
+	Port      uint   `yaml:"port"`
 }
 
 func New(conf Config) (Guacamole, error) {

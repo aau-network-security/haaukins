@@ -27,6 +27,7 @@ func (rc RecordConfig) Format(ip string) string {
 }
 
 type FlagConfig struct {
+	Name    string `yaml:"name"`
 	EnvVar  string `yaml:"env"`
 	Default string `yaml:"default"`
 	Points  uint   `yaml:"points"`
@@ -45,6 +46,14 @@ type Config struct {
 	Tags        []string       `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
 	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
+}
+
+func (conf Config) Flags() []FlagConfig {
+	var res []FlagConfig
+	for _, dockerConf := range conf.DockerConfs {
+		res = append(res, dockerConf.Flags...)
+	}
+	return res
 }
 
 func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {

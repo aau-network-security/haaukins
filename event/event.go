@@ -29,11 +29,13 @@ func New(eventPath string, labPath string) (*Event, error) {
 		return nil, err
 	}
 
-	labHub, err := lab.NewHub(5, 10, labConfig)
+	labHub, err := lab.NewHub(5, 10, *labConfig)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: this is not implemented with dynamic flags in mind; dynamic flag string can simply not be specified in the initial config
+	eventConfig.CTFd.Flags = labConfig.Flags()
 	ctf, err := ctfd.New(eventConfig.CTFd)
 	if err != nil {
 		return nil, err
@@ -71,6 +73,7 @@ func (ev *Event) initialize() error {
 }
 
 func (ev *Event) Start() error {
+	// TODO: Start all components
 	return nil
 }
 
@@ -83,5 +86,6 @@ func (ev *Event) Close() error {
 }
 
 func (ev *Event) Register(group Group) error {
+	// TODO: implement
 	return nil
 }

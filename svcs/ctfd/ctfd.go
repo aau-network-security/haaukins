@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
@@ -28,34 +29,21 @@ type CTFd interface {
 	revproxy.Connector
 	Start(context.Context) error
 	Close()
-}
-
-type Flag struct {
-	Name  string "yaml:name"
-	Flag  string "yaml:flag"
-	Value uint   "yaml:value"
+	Flags() []exercise.FlagConfig
 }
 
 type Config struct {
-	Name       string "yaml:name"
-	AdminUser  string "yaml:admin_user"
-	AdminEmail string "yaml:admin_email"
-	AdminPass  string "yaml:admin_pass"
-	Flags      []Flag
+	Name       string `yaml:"name"`
+	AdminUser  string `yaml:"admin_user"`
+	AdminEmail string `yaml:"admin_email"`
+	AdminPass  string `yaml:"admin_pass"`
+	Flags      []exercise.FlagConfig
 }
 
 type ctfd struct {
 	conf       Config
 	cont       docker.Container
 	httpclient *http.Client
-}
-
-func (ctf *ctfd) Set(string) error {
-	panic("implement me")
-}
-
-func (ctf *ctfd) Get() interface{} {
-	panic("implement me")
 }
 
 func New(conf Config) (CTFd, error) {
@@ -130,6 +118,10 @@ func (ctf *ctfd) Start(ctx context.Context) error {
 
 func (ctf *ctfd) Close() {
 	ctf.cont.Kill()
+}
+
+func (ctf *ctfd) Flags() []exercise.FlagConfig {
+	return ctf.conf.Flags
 }
 
 func (ctf *ctfd) ID() string {
@@ -244,7 +236,7 @@ func (ctf *ctfd) configureInstance(ctx context.Context) error {
 
 	for _, f := range ctf.conf.Flags {
 		fmt.Println(f)
-		err := ctf.createFlag(ctx, f.Name, f.Flag, f.Value)
+		err := ctf.createFlag(ctx, f.Name, f.Default, f.Points)
 		if err != nil {
 			fmt.Println(err)
 			return err
