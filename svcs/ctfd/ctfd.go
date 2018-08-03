@@ -31,16 +31,16 @@ type CTFd interface {
 }
 
 type Flag struct {
-	Name  string
-	Flag  string
-	Value uint
+	Name  string "yaml:name"
+	Flag  string "yaml:flag"
+	Value uint   "yaml:value"
 }
 
 type Config struct {
-	Name       string
-	AdminUser  string
-	AdminEmail string
-	AdminPass  string
+	Name       string "yaml:name"
+	AdminUser  string "yaml:admin_user"
+	AdminEmail string "yaml:admin_email"
+	AdminPass  string "yaml:admin_pass"
 	Flags      []Flag
 }
 

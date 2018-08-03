@@ -1,0 +1,12 @@
+ctfd:
+  name: Test CTFd
+  admin_user: admin
+  admin_email: email
+  admin_pass: admin
+guac:
+  admin_user: admin
+  admin_pass: admin
+  host: localhost
+  port: 10000
+revproxy:
+  host: localhost
