@@ -14,15 +14,15 @@ type Config struct {
 	RevProxy revproxy.Config  "yaml:revproxy"
 }
 
-func loadConfig(path string) (Config, error) {
-	var config Config
+func loadConfig(path string) (*Config, error) {
+	var config *Config
 	rawData, err := ioutil.ReadFile(path)
 	if err != nil {
-		return config, err
+		return nil, err
 	}
 
 	if err := yaml.Unmarshal(rawData, &config); err != nil {
-		return config, err
+		return nil, err
 	}
 
 	return config, nil

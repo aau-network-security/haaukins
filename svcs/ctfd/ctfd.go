@@ -50,6 +50,14 @@ type ctfd struct {
 	httpclient *http.Client
 }
 
+func (ctf *ctfd) Set(string) error {
+	panic("implement me")
+}
+
+func (ctf *ctfd) Get() interface{} {
+	panic("implement me")
+}
+
 func New(conf Config) (CTFd, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {

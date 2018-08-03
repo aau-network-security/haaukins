@@ -7,6 +7,10 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 )
 
+type Group struct {
+	Name string
+}
+
 type Event struct {
 	CTFd   ctfd.CTFd
 	Proxy  revproxy.Proxy
@@ -14,55 +18,70 @@ type Event struct {
 	LabHub lab.Hub
 }
 
-func New(path string) (*Event, error) {
-	config, err := loadConfig(path)
+func New(eventPath string, labPath string) (*Event, error) {
+	eventConfig, err := loadConfig(eventPath)
 	if err != nil {
 		return nil, err
 	}
 
-	ctf, err := ctfd.New(config.CTFd)
+	labConfig, err := lab.LoadConfig(labPath)
 	if err != nil {
 		return nil, err
 	}
 
-	guac, err := guacamole.New(config.Guac)
+	labHub, err := lab.NewHub(5, 10, labConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	proxy, err := revproxy.New(config.RevProxy)
+	ctf, err := ctfd.New(eventConfig.CTFd)
+	if err != nil {
+		return nil, err
+	}
+
+	guac, err := guacamole.New(eventConfig.Guac)
+	if err != nil {
+		return nil, err
+	}
+
+	proxy, err := revproxy.New(eventConfig.RevProxy)
 	if err != nil {
 		return nil, err
 	}
 
 	ev := &Event{
-		CTFd:  ctf,
-		Guac:  guac,
-		Proxy: proxy}
+		CTFd:   ctf,
+		Guac:   guac,
+		Proxy:  proxy,
+		LabHub: labHub}
 
-	ev.initialize("app/exercises.yml")
+	err = ev.initialize()
+	if err != nil {
+		return nil, err
+	}
 
 	return ev, nil
 }
 
-func (es *Event) initialize(path string) error {
-	config, err := lab.LoadConfig(path)
-	if err != nil {
-		return err
-	}
-	hub, _ := lab.NewHub(10, 50, config)
-	es.LabHub = hub
-
-	es.CTFd.ConnectProxy(es.Proxy)
-	es.Guac.ConnectProxy(es.Proxy)
+func (ev *Event) initialize() error {
+	ev.CTFd.ConnectProxy(ev.Proxy)
+	ev.Guac.ConnectProxy(ev.Proxy)
 
 	return nil
 }
 
-func (es *Event) Start() error {
+func (ev *Event) Start() error {
 	return nil
 }
 
-func (es *Event) Kill() error {
+func (ev *Event) Close() error {
+	ev.Proxy.Close()
+	ev.Guac.Close()
+	ev.CTFd.Close()
+	ev.LabHub.Close()
+	return nil
+}
+
+func (ev *Event) Register(group Group) error {
 	return nil
 }

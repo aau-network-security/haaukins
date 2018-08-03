@@ -34,6 +34,7 @@ type Proxy interface {
 	Start(context.Context) error
 	Add(docker.Identifier, string) error
 	Close()
+	NumberOfEndpoints() int
 }
 
 type Connector interface {
@@ -65,6 +66,10 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 
 func (ng *nginx) Close() {
 	ng.cont.Kill()
+}
+
+func (ng *nginx) NumberOfEndpoints() int {
+	return len(ng.endpoints)
 }
 
 func (ng *nginx) Start(ctx context.Context) error {
