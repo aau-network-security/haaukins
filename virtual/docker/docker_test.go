@@ -205,3 +205,52 @@ func TestErrorMem(t *testing.T) {
         t.Fatalf("Could not create machine with 50 MB Memory: %v", err)
     }
 }
+
+func TestErrorMount(t *testing.T) {
+    tests := []struct{
+        value string
+        expected string
+        err error
+    }{
+        {
+            value: "/tmp:/myextratmp",
+            expected: "/tmp:/myextratmp",
+            err: nil,
+        },{
+            value: "/myextratmp",
+            expected: "/myextratmp",
+            err: ntpdocker.InvalidMount,
+        },
+    }
+
+    for _, test := range tests {
+        c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+            Image: "eyjhb/backup-rotate",
+            Mounts: []string{test.value},
+        })
+
+        if err != test.err {
+            t.Fatalf("Did not get expected error: %s, but instead %s", test.err, err)
+        }
+
+        if c1 == nil  {
+            if test.err == err {
+                continue
+            }
+            t.Fatalf("Unexpected error: %s", err)
+        }
+
+        con, err := dockerClient.InspectContainer(c1.ID())
+
+        if err != nil {
+            t.Fatalf("Could not inspect container: %v", err)
+        }
+
+        assert.Equal(t, test.expected, con.HostConfig.Mounts[0].Source+":"+con.HostConfig.Mounts[0].Target)
+
+        err = c1.Kill()
+        if err != nil {
+            t.Fatalf("Could not destroy container after use..")
+        }
+    }
+}
