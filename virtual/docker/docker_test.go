@@ -111,7 +111,6 @@ func TestErrorHostBinding(t *testing.T) {
             if test.err == err {
                 continue
             }
-
             t.Fatalf("Unexpected error: %s", err)
         }
 
@@ -135,6 +134,54 @@ func TestErrorHostBinding(t *testing.T) {
 }
 
 func TestErrorMem(t *testing.T) {
+    tests := []struct{
+        memory uint
+        expected int64
+        err error
+    }{
+        {
+            memory: 49,
+            expected: 0,
+            err: ntpdocker.TooLowMemErr,
+        },{
+            memory: 50,
+            expected: 50*1024*1024,
+            err: nil,
+        },
+    }
+
+    for _, test := range tests {
+        c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+            Image: "alpine",
+            Resources: &ntpdocker.Resources{
+                MemoryMB: test.memory,
+                CPU: 5000,
+        }})
+
+        if err != test.err {
+            t.Fatalf("Did not get expected error: %s, but instead %s", test.err, err)
+        }
+
+        if c1 == nil  {
+            if test.err == err {
+                continue
+            }
+            t.Fatalf("Unexpected error: %s", err)
+        }
+
+        con, err := dockerClient.InspectContainer(c1.ID())
+
+        if err != nil {
+            t.Fatalf("Could not inspect container: %v", err)
+        }
+
+        assert.Equal(t, test.expected, con.HostConfig.Memory)
+
+        err = c1.Kill()
+        if err != nil {
+            t.Fatalf("Could not destroy container after use..")
+        }
+    }
     _, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
         Image: "alpine",
         Resources: &ntpdocker.Resources{
