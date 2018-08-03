@@ -23,7 +23,7 @@ var (
 	TooLowMemErr             = errors.New("Memory needs to be atleast 50mb")
 	InvalidHostBinding       = errors.New("Hostbing does not have correct format (ip:port)")
 	InvalidMount             = errors.New("Incorrect mount format (src:dest)")
-	CantLocateImgErr         = errors.New("Unable to locate image")
+	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
 
 	Registries = []docker.AuthConfiguration{{}}
 )
@@ -167,8 +167,12 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	cont, err := DefaultClient.CreateContainer(createContOpts)
 	if err != nil {
-
 		if err == docker.ErrNoSuchImage {
+            if len(Registries) < 1 {
+                log.Error().Msg("No registries to pull from, could not get image")
+                return nil, NoRegistriesToPullFrom
+            }
+
 			parts := strings.Split(conf.Image, ":")
 
 			repo := parts[0]
@@ -178,7 +182,6 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 				tag = parts[1]
 			}
 
-			err := CantLocateImgErr
 			for _, reg := range Registries {
 				err = DefaultClient.PullImage(docker.PullImageOptions{
 					Repository: repo,
@@ -189,6 +192,10 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 					break
 				}
 			}
+
+            if err != nil {
+                return nil, err
+            }
 
 			cont, err = DefaultClient.CreateContainer(createContOpts)
 			if err != nil {
