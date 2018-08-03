@@ -26,6 +26,10 @@ server {
 	AlreadyRunningErr = errors.New("Cannot add container when running")
 )
 
+type Config struct {
+	Host string "yaml:host"
+}
+
 type Proxy interface {
 	Start(context.Context) error
 	Add(docker.Identifier, string) error
@@ -44,9 +48,9 @@ type nginx struct {
 	aliasCont map[string]docker.Identifier
 }
 
-func New(host string, connectors ...Connector) (Proxy, error) {
+func New(conf Config, connectors ...Connector) (Proxy, error) {
 	ng := &nginx{
-		host:      host,
+		host:      conf.Host,
 		aliasCont: make(map[string]docker.Identifier),
 	}
 

@@ -9,15 +9,26 @@ import (
 
 type Library interface {
 	ByTag(string) *Config
+	Exercises() []*Config
+	Flags() []*FlagConfig
 }
 
 type library struct {
-	Exercises   []*Config `yaml:"exercise"`
+	exercises   []*Config `yaml:"exercise"`
 	tagExercise map[string]*Config
 }
 
 func (lib *library) ByTag(t string) *Config {
 	return lib.tagExercise[t]
+}
+
+func (lib *library) Exercises() []*Config {
+	return lib.exercises
+}
+
+func (lib *library) Flags() []*FlagConfig {
+	//return lib.exercises
+	return nil
 }
 
 func LoadConfig(path string) (Library, error) {
@@ -32,7 +43,7 @@ func LoadConfig(path string) (Library, error) {
 	}
 
 	lib.tagExercise = make(map[string]*Config)
-	for _, e := range lib.Exercises {
+	for _, e := range lib.exercises {
 		for _, t := range e.Tags {
 			exer, ok := lib.tagExercise[t]
 			if ok {

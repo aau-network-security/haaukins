@@ -1,14 +1,3 @@
-name: NTP
-base:
-  dns-image: aau/dns
-  dhcp-image: aau/dhcp
-  vbox:
-    - ovafile: path/to/kali.ova
-      memoryMB: 2048
-      cpu: 2
-      rdp: true
-      promisc: true
-
 exercise:
   - name: SQL Injection
     tags:

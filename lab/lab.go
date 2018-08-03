@@ -93,7 +93,7 @@ type hub struct {
 	buffer chan Lab
 }
 
-func NewHub(buffer uint, max uint, exer ...exercise.Config) (Hub, error) {
+func NewHub(buffer uint, max uint, config Config) (Hub, error) {
 	if buffer > max {
 		return nil, BufferMaxRatioErr
 	}
@@ -101,7 +101,7 @@ func NewHub(buffer uint, max uint, exer ...exercise.Config) (Hub, error) {
 	createLimit := 3
 	h := &hub{
 		labs:        make(map[string]Lab),
-		exercises:   exer,
+		exercises:   config.exercises,
 		createSema:  NewSemaphore(createLimit),
 		maximumSema: NewSemaphore(int(max)),
 		buffer:      make(chan Lab, buffer),
