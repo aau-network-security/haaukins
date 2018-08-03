@@ -114,7 +114,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	for _, mount := range conf.Mounts {
 		parts := strings.Split(mount, ":")
 		if len(parts) != 2 {
-			return nil, InvalidHostBinding
+			return nil, InvalidMount
 		}
 		src, dest := parts[0], parts[1]
 
