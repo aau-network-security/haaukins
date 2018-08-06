@@ -43,6 +43,7 @@ type Identifier interface {
 type Container interface {
 	Identifier
 	Start() error
+	Stop() error
 	Kill() error
 	Link(Identifier, string) error
 }
@@ -274,8 +275,11 @@ func (c *container) Kill() error {
 }
 
 func (c *container) Start() error {
-
 	return DefaultClient.StartContainer(c.id, nil)
+}
+
+func (c *container) Stop() error {
+	return DefaultClient.StopContainer(c.id, 5)
 }
 
 func (c *container) Link(other Identifier, alias string) error {

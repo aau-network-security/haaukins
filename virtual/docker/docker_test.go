@@ -30,20 +30,55 @@ func testCleanup(t *testing.T, c ntpdocker.Container) func() {
     }
 }
 
-func TestDockerContainer(t *testing.T) {
+
+// tests - Create, ID, Start, Stop, Kill
+func TestMisc(t *testing.T) {
+    // testing create
     c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
         Image: "alpine",
-        Resources: &ntpdocker.Resources{
-            MemoryMB: 50,
-            CPU: 5000,
-    }})
-    defer testCleanup(t, c1)()
+    })
 
     if err != nil {
         t.Fatalf("Could not create new container: %v", err)
     }
+
+    // testing ID
+    containerId := c1.ID()
+
+    // Container created
+    _, err = dockerClient.InspectContainer(containerId)
+    _, noContainer := err.(*fdocker.NoSuchContainer)
+    if noContainer {
+        t.Fatalf("Could not find container: %v", err)
+    }
+
+    // testing start
+    err = c1.Start()
+    if err != nil {
+        t.Fatalf("Could not start container: %v", err)
+    }
+
+    // testing stop 
+    err = c1.Stop()
+    if err != nil {
+        t.Fatalf("Could not stop container: %v", err)
+    }
+
+    // testing kill 
+    err = c1.Kill()
+    if err != nil {
+        t.Fatalf("Could not kill container: %v", err)
+    }
+
+    // inspecting to see if it actully killed it
+    _, err = dockerClient.InspectContainer(containerId)
+    _, noContainer = err.(*fdocker.NoSuchContainer)
+    if !noContainer {
+        t.Fatalf("Container still exists after kill: %v", err)
+    }
 }
 
+// test error with host binding 
 func TestErrorHostBinding(t *testing.T) {
     tests := []struct{
         portBinding map[string]string
@@ -133,6 +168,7 @@ func TestErrorHostBinding(t *testing.T) {
     }
 }
 
+// test error with too low mem assigned
 func TestErrorMem(t *testing.T) {
     tests := []struct{
         memory uint
@@ -206,6 +242,7 @@ func TestErrorMem(t *testing.T) {
     }
 }
 
+// test error with mounting
 func TestErrorMount(t *testing.T) {
     tests := []struct{
         value string
