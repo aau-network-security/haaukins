@@ -3,6 +3,8 @@ package docker_test
 import (
 	"fmt"
 	"testing"
+    "bytes"
+    "strings"
 
     "github.com/rs/zerolog/log"
     "github.com/stretchr/testify/assert"
@@ -32,7 +34,7 @@ func testCleanup(t *testing.T, c ntpdocker.Container) func() {
 
 
 // tests - Create, ID, Start, Stop, Kill
-func TestMisc(t *testing.T) {
+func TestContainerBase(t *testing.T) {
     // testing create
     c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
         Image: "alpine",
@@ -65,6 +67,70 @@ func TestMisc(t *testing.T) {
     _, notOk = err.(*fdocker.NoSuchContainer)
     assert.Equal(t, true, notOk)
 }
+
+func TestLink(t *testing.T) {
+    t.Skip()
+    c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+        Image: "alpine",
+    })
+    assert.Equal(t, nil, err)
+    defer testCleanup(t, c1)()
+    c2, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+        Image: "alpine",
+    })
+    assert.Equal(t, nil, err)
+    defer testCleanup(t, c2)()
+
+    err = c1.Start()
+    assert.Equal(t, nil, err)
+
+    //exec, err := dockerClient.CreateExec(fdocker.CreateExecOptions{
+    //    Container: c1.ID(),
+    //    Cmd: []string{"ls /"},
+    //    AttachStdin: true,
+    //    AttachStdout: true,
+    //})
+    //assert.Equal(t, nil, err)
+    //fmt.Println(exec)
+
+
+    //details, err := dockerClient.InspectExec(exec.ID)
+    //assert.Equal(t, nil, err)
+    //fmt.Println(details)
+    var dExec  *fdocker.Exec
+
+    de := fdocker.CreateExecOptions{
+        AttachStderr: true,
+        AttachStdin:  true,
+        AttachStdout: true,
+        Tty:          false,
+        Cmd:          []string{"ls", "/"},
+        Container:    "9aa026aafb46",
+    }
+    if dExec, err = dockerClient.CreateExec(de); err != nil {
+        fmt.Println(err)
+        return
+    }
+    var stdout, stderr bytes.Buffer
+    var reader = strings.NewReader("ls /")
+    execId := dExec.ID
+    opts := fdocker.StartExecOptions{
+        OutputStream: &stdout,
+        ErrorStream:  &stderr,
+        InputStream:  reader,
+        RawTerminal:  true,
+    }
+    if err = dockerClient.StartExec(execId, opts); err != nil {
+        fmt.Println(err)
+        return
+    }
+    fmt.Println("stdout: ", stdout)
+    //<-opts.Success
+    fmt.Println(stdout.String())
+
+}
+
+
 
 // test error with host binding 
 func TestErrorHostBinding(t *testing.T) {
