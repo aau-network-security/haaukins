@@ -257,6 +257,10 @@ func TestErrorMount(t *testing.T) {
             value: "/myextratmp",
             expected: "/myextratmp",
             err: ntpdocker.InvalidMount,
+        },{
+            value: "/tmp:/myextratmp:/canihaveanotheroneplease",
+            expected: "/myextratmp",
+            err: ntpdocker.InvalidMount,
         },
     }
 
