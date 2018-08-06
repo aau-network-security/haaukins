@@ -21,9 +21,9 @@ import (
 var (
 	DefaultClient, dockerErr = docker.NewClient("unix:///var/run/docker.sock")
 	TooLowMemErr             = errors.New("Memory needs to be atleast 50mb")
-	InvalidHostBinding       = errors.New("Hostbing does not have correct format (ip:port)")
-	InvalidMount             = errors.New("Incorrect mount format (src:dest)")
-	CantLocateImgErr         = errors.New("Unable to locate image")
+	InvalidHostBinding       = errors.New("Hostbing does not have correct format - (ip:)port")
+	InvalidMount             = errors.New("Incorrect mount format - src:dest")
+	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
 
 	Registries = []docker.AuthConfiguration{{}}
 )
@@ -43,6 +43,7 @@ type Identifier interface {
 type Container interface {
 	Identifier
 	Start() error
+	Stop() error
 	Kill() error
 	Link(Identifier, string) error
 }
@@ -78,26 +79,43 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	bindings := make(map[docker.Port][]docker.PortBinding)
 	for guestPort, hostListen := range conf.PortBindings {
+        log.Debug().Msgf("guestPort: %s, hostListen: %s", guestPort, hostListen)
+
+        hostIP := ""
+        hostPort := hostListen
+
+        if strings.Contains(guestPort, "/") == false {
+            log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
+            guestPort = guestPort+"/tcp"
+        }
+
+		if strings.Contains(hostListen, "/") {
+            return nil, InvalidHostBinding
+        }
+
 		if strings.Contains(hostListen, ":") {
 			parts := strings.Split(hostListen, ":")
 			if len(parts) != 2 {
 				return nil, InvalidHostBinding
 			}
 
-			bindings[docker.Port(guestPort)] = []docker.PortBinding{
-				{
-					HostIP:   parts[0],
-					HostPort: parts[1],
-				},
-			}
-		}
+            hostIP   = parts[0]
+            hostPort = parts[1]
+        }
+
+        bindings[docker.Port(guestPort)] = []docker.PortBinding{
+            {
+                HostIP:   hostIP,
+                HostPort: hostPort,
+            },
+        }
 	}
 
 	var mounts []docker.HostMount
 	for _, mount := range conf.Mounts {
 		parts := strings.Split(mount, ":")
 		if len(parts) != 2 {
-			return nil, InvalidHostBinding
+			return nil, InvalidMount
 		}
 		src, dest := parts[0], parts[1]
 
@@ -167,8 +185,12 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	cont, err := DefaultClient.CreateContainer(createContOpts)
 	if err != nil {
-
 		if err == docker.ErrNoSuchImage {
+            if len(Registries) < 1 {
+                log.Error().Msg("No registries to pull from, could not get image")
+                return nil, NoRegistriesToPullFrom
+            }
+
 			parts := strings.Split(conf.Image, ":")
 
 			repo := parts[0]
@@ -178,7 +200,6 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 				tag = parts[1]
 			}
 
-			err := CantLocateImgErr
 			for _, reg := range Registries {
 				err = DefaultClient.PullImage(docker.PullImageOptions{
 					Repository: repo,
@@ -189,6 +210,10 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 					break
 				}
 			}
+
+            if err != nil {
+                return nil, err
+            }
 
 			cont, err = DefaultClient.CreateContainer(createContOpts)
 			if err != nil {
@@ -250,8 +275,11 @@ func (c *container) Kill() error {
 }
 
 func (c *container) Start() error {
-
 	return DefaultClient.StartContainer(c.id, nil)
+}
+
+func (c *container) Stop() error {
+	return DefaultClient.StopContainer(c.id, 5)
 }
 
 func (c *container) Link(other Identifier, alias string) error {
