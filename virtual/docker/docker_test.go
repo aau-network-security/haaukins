@@ -38,44 +38,32 @@ func TestMisc(t *testing.T) {
         Image: "alpine",
     })
 
-    if err != nil {
-        t.Fatalf("Could not create new container: %v", err)
-    }
+    assert.Equal(t, nil, err)
 
     // testing ID
     containerId := c1.ID()
 
     // Container created
     _, err = dockerClient.InspectContainer(containerId)
-    _, noContainer := err.(*fdocker.NoSuchContainer)
-    if noContainer {
-        t.Fatalf("Could not find container: %v", err)
-    }
+    _, notOk := err.(*fdocker.NoSuchContainer)
+    assert.Equal(t, false, notOk)
 
     // testing start
     err = c1.Start()
-    if err != nil {
-        t.Fatalf("Could not start container: %v", err)
-    }
+    assert.Equal(t, nil, err)
 
     // testing stop 
     err = c1.Stop()
-    if err != nil {
-        t.Fatalf("Could not stop container: %v", err)
-    }
+    assert.Equal(t, nil, err)
 
     // testing kill 
     err = c1.Kill()
-    if err != nil {
-        t.Fatalf("Could not kill container: %v", err)
-    }
+    assert.Equal(t, nil, err)
 
     // inspecting to see if it actully killed it
     _, err = dockerClient.InspectContainer(containerId)
-    _, noContainer = err.(*fdocker.NoSuchContainer)
-    if !noContainer {
-        t.Fatalf("Container still exists after kill: %v", err)
-    }
+    _, notOk = err.(*fdocker.NoSuchContainer)
+    assert.Equal(t, true, notOk)
 }
 
 // test error with host binding 
@@ -138,9 +126,7 @@ func TestErrorHostBinding(t *testing.T) {
             PortBindings: test.portBinding,
         })
 
-        if err != test.err {
-            t.Fatalf("Did not get expected error: %s, but instead %s", test.err, err)
-        }
+        assert.Equal(t, test.err, err)
 
         if c1 == nil  {
             if test.err == err {
@@ -150,10 +136,7 @@ func TestErrorHostBinding(t *testing.T) {
         }
 
         con, err := dockerClient.InspectContainer(c1.ID())
-
-        if err != nil {
-            t.Fatalf("Could not inspect container: %v", err)
-        }
+        assert.Equal(t, nil, err)
 
         for guestPort, host := range con.HostConfig.PortBindings {
             assert.Equal(t, test.guestPort.Port(), guestPort.Port())
@@ -162,9 +145,7 @@ func TestErrorHostBinding(t *testing.T) {
         }
 
         err = c1.Kill()
-        if err != nil {
-            t.Fatalf("Could not destroy container after use..")
-        }
+        assert.Equal(t, nil, err)
     }
 }
 
@@ -194,9 +175,7 @@ func TestErrorMem(t *testing.T) {
                 CPU: 5000,
         }})
 
-        if err != test.err {
-            t.Fatalf("Did not get expected error: %s, but instead %s", test.err, err)
-        }
+        assert.Equal(t, test.err, err)
 
         if c1 == nil  {
             if test.err == err {
@@ -206,39 +185,11 @@ func TestErrorMem(t *testing.T) {
         }
 
         con, err := dockerClient.InspectContainer(c1.ID())
-
-        if err != nil {
-            t.Fatalf("Could not inspect container: %v", err)
-        }
-
+        assert.Equal(t, nil, err)
         assert.Equal(t, test.expected, con.HostConfig.Memory)
 
         err = c1.Kill()
-        if err != nil {
-            t.Fatalf("Could not destroy container after use..")
-        }
-    }
-    _, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
-        Image: "alpine",
-        Resources: &ntpdocker.Resources{
-            MemoryMB: 49,
-            CPU: 5000,
-        }})
-
-    if err != ntpdocker.TooLowMemErr {
-        t.Fatalf("Allowed to create machine with less than 50 MB Memory: %v", err)
-    }
-
-    c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
-        Image: "alpine",
-        Resources: &ntpdocker.Resources{
-            MemoryMB: 50,
-            CPU: 5000,
-    }})
-    defer testCleanup(t, c1)()
-
-    if err != nil {
-        t.Fatalf("Could not create machine with 50 MB Memory: %v", err)
+        assert.Equal(t, nil, err)
     }
 }
 
@@ -270,9 +221,7 @@ func TestErrorMount(t *testing.T) {
             Mounts: []string{test.value},
         })
 
-        if err != test.err {
-            t.Fatalf("Did not get expected error: %s, but instead %s", test.err, err)
-        }
+        assert.Equal(t, test.err, err)
 
         if c1 == nil  {
             if test.err == err {
@@ -282,16 +231,11 @@ func TestErrorMount(t *testing.T) {
         }
 
         con, err := dockerClient.InspectContainer(c1.ID())
-
-        if err != nil {
-            t.Fatalf("Could not inspect container: %v", err)
-        }
+        assert.Equal(t, nil, err)
 
         assert.Equal(t, test.expected, con.HostConfig.Mounts[0].Source+":"+con.HostConfig.Mounts[0].Target)
 
         err = c1.Kill()
-        if err != nil {
-            t.Fatalf("Could not destroy container after use..")
-        }
+        assert.Equal(t, nil, err)
     }
 }
