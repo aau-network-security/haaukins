@@ -3,6 +3,7 @@ package exercise_test
 import (
 	"testing"
 
+    "github.com/stretchr/testify/assert"
 	"github.com/aau-network-security/go-ntp/exercise"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -19,71 +20,43 @@ func TestBasicEnvironment(t *testing.T) {
 	}
 
 	dclient, err := docker.NewClient("unix:///var/run/docker.sock")
-	if err != nil {
-		t.Fatalf("Unable to access docker environment: %s", err)
-	}
+    assert.Nil(t, err, "Unable to access docker environment")
 
 	containers, err := dclient.ListContainers(docker.ListContainersOptions{})
-	if err != nil {
-		t.Fatalf("Unable to list containers: %s", err)
-	}
+    assert.Nil(t, err, "Unable to list containers")
 	preContCount := len(containers)
 
 	networks, err := dclient.ListNetworks()
-	if err != nil {
-		t.Fatalf("Unable to list networks: %s", err)
-	}
+    assert.Nil(t, err, "Unable to list networks")
 	preNetCount := len(networks)
 
 	env, err := exercise.NewEnvironment(conf)
-	if err != nil {
-		t.Fatalf("Unable to create new environment: %s", err)
-	}
+    assert.Nil(t, err, "Unable to create new environment")
 
 	containers, err = dclient.ListContainers(docker.ListContainersOptions{})
-	if err != nil {
-		t.Fatalf("Unable to list containers: %s", err)
-	}
+    assert.Nil(t, err, "Unable to list containers")
 	postStartContCount := len(containers)
 
 	networks, err = dclient.ListNetworks()
-	if err != nil {
-		t.Fatalf("Unable to list networks: %s", err)
-	}
+    assert.Nil(t, err, "Unable to list networks")
 	postStartNetCount := len(networks)
 
 	// dhcp + dns + exercise container = 3
-	if preContCount+3 != postStartContCount {
-		t.Fatalf("Expected three containers to be started, but %d was started", postStartContCount-preContCount)
-	}
-
-	if preNetCount+1 != postStartNetCount {
-		t.Fatalf("Expected one docker network to be started, but %d was started", postStartNetCount-preNetCount)
-	}
+    assert.Equal(t, preContCount+3, postStartContCount, "Expected three containers to be started")
+    assert.Equal(t, preNetCount+1, postStartNetCount, "Expected one docker network to be started")
 
 	err = env.Kill()
-	if err != nil {
-		t.Fatalf("Unable to kill environment: %s", err)
-	}
+    assert.Nil(t, err, "Unable to kill environment")
 
 	containers, err = dclient.ListContainers(docker.ListContainersOptions{})
-	if err != nil {
-		t.Fatalf("Unable to list containers: %s", err)
-	}
+    assert.Nil(t, err, "Unable to list containers")
 	postKillContCount := len(containers)
 
-	if postKillContCount != preContCount {
-		t.Fatalf("Expected no containers to be running, but %d is still active", postKillContCount-preContCount)
-	}
+    assert.Equal(t, postKillContCount, preContCount, "Expected no containers to be running, but some still active")
 
 	networks, err = dclient.ListNetworks()
-	if err != nil {
-		t.Fatalf("Unable to list networks: %s", err)
-	}
+    assert.Nil(t, err, "Unable to list networks")
 	postKillNetCount := len(networks)
 
-	if postKillNetCount != preNetCount {
-		t.Fatalf("Expected no networks to be running, but %d is still active", postKillNetCount-preNetCount)
-	}
-
+    assert.Equal(t, postKillNetCount, preNetCount, "Expected no networks to be running, but some still active")
 }
