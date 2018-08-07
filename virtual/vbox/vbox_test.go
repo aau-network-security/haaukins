@@ -36,15 +36,6 @@ func execute(cmd string, cmds ...string) (string, error) {
     return string(output[:]), nil
 }
 
-
-func testCleanup(t *testing.T) func() {
-    return func() {
-        fmt.Println("Hello world!")
-        assert.Equal(t, nil, nil)
-    }
-}
-
-
 func TestVmBase(t *testing.T) {
     // new vm
     vm, err := vbox.NewVMFromOVA("go-ntp-ova.ova", "go-ntp")
