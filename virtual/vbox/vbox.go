@@ -225,13 +225,13 @@ func (vm *vm) Snapshot(name string) error {
 	return nil
 }
 
-func (vm *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
+func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 	newID := strings.Replace(uuid.New().String(), "-", "", -1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := VBoxCmdContext(ctx, "clonevm", vm.id, "--snapshot", snapshot, "--options", "link", "--name", newID, "--register")
+	_, err := VBoxCmdContext(ctx, "clonevm", v.id, "--snapshot", snapshot, "--options", "link", "--name", newID, "--register")
 	if err != nil {
 		return nil, err
 	}
