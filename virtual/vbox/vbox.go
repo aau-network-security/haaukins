@@ -69,7 +69,7 @@ func (vm *vm) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id)
+	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id, "--type", "headless")
 	if err != nil {
 		return err
 	}
@@ -225,13 +225,13 @@ func (vm *vm) Snapshot(name string) error {
 	return nil
 }
 
-func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
+func (vm *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 	newID := strings.Replace(uuid.New().String(), "-", "", -1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := VBoxCmdContext(ctx, "clonevm", v.id, "--snapshot", snapshot, "--options", "link", "--name", newID, "--register")
+	_, err := VBoxCmdContext(ctx, "clonevm", vm.id, "--snapshot", snapshot, "--options", "link", "--name", newID, "--register")
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
 	n := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 	id := fmt.Sprintf("%s{%s}", n, sum)
 
-	vm, ok = vmExists(id)
+	vm, ok = VmExists(id)
 	if !ok {
 		vm, err = NewVMFromOVA(path, id)
 		if err != nil {
@@ -336,7 +336,7 @@ func checksum(filepath string) (string, error) {
 	return hex.EncodeToString(checksum), nil
 }
 
-func vmExists(name string) (VM, bool) {
+func VmExists(name string) (VM, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
