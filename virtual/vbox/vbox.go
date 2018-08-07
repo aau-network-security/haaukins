@@ -24,6 +24,7 @@ const (
 	vboxModVM   = "modifyvm"
 	vboxStartVM = "startvm"
 	vboxCtrlVM  = "controlvm"
+	vboxUnregisterVM  = "unregistervm"
 )
 
 type VBoxErr struct {
@@ -37,6 +38,7 @@ func (err *VBoxErr) Error() string {
 
 type VM interface {
 	virtual.Instance
+    Restart() error
 	Snapshot(string) error
 	LinkedClone(string, ...VMOpt) (VM, error)
 }
@@ -99,7 +101,14 @@ func (vm *vm) Kill() error {
 		return err
 	}
 
-	// remove vm
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err = VBoxCmdContext(ctx, vboxUnregisterVM, vm.id, "--delete")
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
