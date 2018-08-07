@@ -24,6 +24,7 @@ const (
 	vboxModVM   = "modifyvm"
 	vboxStartVM = "startvm"
 	vboxCtrlVM  = "controlvm"
+	vboxUnregisterVM  = "unregistervm"
 )
 
 type VBoxErr struct {
@@ -37,6 +38,7 @@ func (err *VBoxErr) Error() string {
 
 type VM interface {
 	virtual.Instance
+    Restart() error
 	Snapshot(string) error
 	LinkedClone(string, ...VMOpt) (VM, error)
 }
@@ -69,7 +71,7 @@ func (vm *vm) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id)
+	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id, "--type", "headless")
 	if err != nil {
 		return err
 	}
@@ -99,7 +101,14 @@ func (vm *vm) Kill() error {
 		return err
 	}
 
-	// remove vm
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err = VBoxCmdContext(ctx, vboxUnregisterVM, vm.id, "--delete")
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -299,7 +308,7 @@ func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
 	n := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 	id := fmt.Sprintf("%s{%s}", n, sum)
 
-	vm, ok = vmExists(id)
+	vm, ok = VmExists(id)
 	if !ok {
 		vm, err = NewVMFromOVA(path, id)
 		if err != nil {
@@ -336,7 +345,7 @@ func checksum(filepath string) (string, error) {
 	return hex.EncodeToString(checksum), nil
 }
 
-func vmExists(name string) (VM, bool) {
+func VmExists(name string) (VM, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

@@ -8,6 +8,7 @@ import (
 
 type Instance interface {
 	Start() error
+	Stop() error
 	Kill() error
 }
 
