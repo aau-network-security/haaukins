@@ -117,7 +117,9 @@ func (ctf *ctfd) Start(ctx context.Context) error {
 }
 
 func (ctf *ctfd) Close() {
-	ctf.cont.Kill()
+	if ctf.cont != nil {
+		ctf.cont.Kill()
+	}
 }
 
 func (ctf *ctfd) Flags() []exercise.FlagConfig {

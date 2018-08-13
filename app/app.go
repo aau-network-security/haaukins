@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/aau-network-security/go-ntp/api"
 	"github.com/aau-network-security/go-ntp/event"
 	"os"
@@ -20,12 +21,21 @@ func handleCancel(clean func()) {
 }
 
 func main() {
-	ev, _ := event.New("app/config.yml", "app/exercises.yml")
+	ev, err := event.New("app/config.yml", "app/exercises.yml")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	handleCancel(func() {
 		ev.Close()
 	})
 
-	ev.Start(context.TODO())
-	api := api.Api{ev}
+	err = ev.Start(context.TODO())
+	if err != nil {
+		fmt.Println(err)
+		ev.Close()
+		return
+	}
+	api := api.Api{Event: ev}
 	api.RunServer("localhost", 8080)
 }

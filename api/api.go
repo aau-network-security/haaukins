@@ -10,11 +10,15 @@ import (
 )
 
 type Api struct {
-	event event.Event
+	Event event.Event
 }
 
 func (api Api) handleRegister(w http.ResponseWriter, r *http.Request) {
-	auth := api.event.Register(event.Group{Name: "todo"})
+	auth, err := api.Event.Register(event.Group{Name: "todo"})
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 	json.NewEncoder(w).Encode(auth)
 }
 

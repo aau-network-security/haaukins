@@ -9,6 +9,7 @@ import (
 type Lab interface {
 	Kill()
 	Exercises() *exercise.Environment
+	RdpConnPorts() []uint
 }
 
 type lab struct {
@@ -67,4 +68,8 @@ func (l *lab) Kill() {
 	}
 
 	l.exercises.Kill()
+}
+
+func (l *lab) RdpConnPorts() []uint {
+	return l.rdpConnPorts
 }

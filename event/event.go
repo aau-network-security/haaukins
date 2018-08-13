@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
@@ -9,6 +10,10 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/google/uuid"
 	"strings"
+)
+
+var (
+	RdpConfError = errors.New("Error ")
 )
 
 type Auth struct {
@@ -22,8 +27,8 @@ type Group struct {
 
 type Event interface {
 	Start(context.Context) error
-	Close() error
-	Register(Group) Auth
+	Close()
+	Register(Group) (*Auth, error)
 }
 
 type event struct {
@@ -92,34 +97,65 @@ func (ev *event) initialize() error {
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	ev.ctfd.Start(ctx)
-	ev.guac.Start(ctx)
-	ev.proxy.Start(ctx)
+	err := ev.ctfd.Start(ctx)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while starting CTFD: %s", err))
+	}
+
+	err = ev.guac.Start(ctx)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while starting Guacamole: %s", err))
+	}
+
+	err = ev.proxy.Start(ctx)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while starting reverse proxy: %s", err))
+	}
+
 	return nil
 }
 
-func (ev *event) Close() error {
-	ev.proxy.Close()
-	ev.guac.Close()
-	ev.ctfd.Close()
-	ev.labhub.Close()
-	return nil
+func (ev *event) Close() {
+	if ev.proxy != nil {
+		ev.proxy.Close()
+	}
+	if ev.guac != nil {
+		ev.guac.Close()
+	}
+	if ev.ctfd != nil {
+		ev.ctfd.Close()
+	}
+	if ev.labhub != nil {
+		ev.labhub.Close()
+	}
 }
 
-func (ev *event) Register(group Group) Auth {
+func (ev *event) Register(group Group) (*Auth, error) {
+	lab, err := ev.labhub.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	rdpConnPorts := lab.RdpConnPorts()
+
+	if len(rdpConnPorts) > 1 {
+		fmt.Println("Multiple RDP ports found while only one is supported, configuring first port by default..")
+	} else if len(rdpConnPorts) == 0 {
+		return nil, RdpConfError
+	}
+
 	auth := Auth{
 		Username: rand(),
 		Password: rand()}
 	ev.guac.CreateUser(auth.Username, auth.Password)
-	_, err := ev.labhub.Get()
-	if err != nil {
-		fmt.Println("Error while configuring lab for new group", err)
-	}
-	//lab.
 
-	//ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
-	//	Host: "localhost",
-	//	Port:
-	//})
-	return auth
+	ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
+		Host:     "localhost",
+		Port:     rdpConnPorts[0],
+		Name:     group.Name,
+		GuacUser: auth.Username,
+		Username: &auth.Username,
+		Password: &auth.Password,
+	})
+	return &auth, nil
 }
