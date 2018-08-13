@@ -1,24 +1,43 @@
 package event
 
 import (
+	"context"
+	"fmt"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/google/uuid"
+	"strings"
 )
+
+type Auth struct {
+	Username string
+	Password string
+}
 
 type Group struct {
 	Name string
 }
 
-type Event struct {
-	CTFd   ctfd.CTFd
-	Proxy  revproxy.Proxy
-	Guac   guacamole.Guacamole
-	LabHub lab.Hub
+type Event interface {
+	Start(context.Context) error
+	Close() error
+	Register(Group) Auth
 }
 
-func New(eventPath string, labPath string) (*Event, error) {
+type event struct {
+	ctfd   ctfd.CTFd
+	proxy  revproxy.Proxy
+	guac   guacamole.Guacamole
+	labhub lab.Hub
+}
+
+func rand() string {
+	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
+}
+
+func New(eventPath string, labPath string) (Event, error) {
 	eventConfig, err := loadConfig(eventPath)
 	if err != nil {
 		return nil, err
@@ -51,11 +70,11 @@ func New(eventPath string, labPath string) (*Event, error) {
 		return nil, err
 	}
 
-	ev := &Event{
-		CTFd:   ctf,
-		Guac:   guac,
-		Proxy:  proxy,
-		LabHub: labHub}
+	ev := &event{
+		ctfd:   ctf,
+		guac:   guac,
+		proxy:  proxy,
+		labhub: labHub}
 
 	err = ev.initialize()
 	if err != nil {
@@ -65,27 +84,42 @@ func New(eventPath string, labPath string) (*Event, error) {
 	return ev, nil
 }
 
-func (ev *Event) initialize() error {
-	ev.CTFd.ConnectProxy(ev.Proxy)
-	ev.Guac.ConnectProxy(ev.Proxy)
+func (ev *event) initialize() error {
+	ev.ctfd.ConnectProxy(ev.proxy)
+	ev.guac.ConnectProxy(ev.proxy)
 
 	return nil
 }
 
-func (ev *Event) Start() error {
-	// TODO: Start all components
+func (ev *event) Start(ctx context.Context) error {
+	ev.ctfd.Start(ctx)
+	ev.guac.Start(ctx)
+	ev.proxy.Start(ctx)
 	return nil
 }
 
-func (ev *Event) Close() error {
-	ev.Proxy.Close()
-	ev.Guac.Close()
-	ev.CTFd.Close()
-	ev.LabHub.Close()
+func (ev *event) Close() error {
+	ev.proxy.Close()
+	ev.guac.Close()
+	ev.ctfd.Close()
+	ev.labhub.Close()
 	return nil
 }
 
-func (ev *Event) Register(group Group) error {
-	// TODO: implement
-	return nil
+func (ev *event) Register(group Group) Auth {
+	auth := Auth{
+		Username: rand(),
+		Password: rand()}
+	ev.guac.CreateUser(auth.Username, auth.Password)
+	_, err := ev.labhub.Get()
+	if err != nil {
+		fmt.Println("Error while configuring lab for new group", err)
+	}
+	//lab.
+
+	//ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
+	//	Host: "localhost",
+	//	Port:
+	//})
+	return auth
 }

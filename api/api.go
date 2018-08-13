@@ -4,35 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/aau-network-security/go-ntp/event"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"strings"
 )
 
 type Api struct {
-	Event event.Event
-}
-
-type Auth struct {
-	Username string
-	Password string
-}
-
-func NewAuth() Auth {
-	return Auth{
-		Username: rand(),
-		Password: rand()}
-}
-
-func rand() string {
-	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
+	event event.Event
 }
 
 func (api Api) handleRegister(w http.ResponseWriter, r *http.Request) {
-	auth := NewAuth()
-	api.Event.Guac.CreateUser(auth.Username, auth.Password)
+	auth := api.event.Register(event.Group{Name: "todo"})
 	json.NewEncoder(w).Encode(auth)
 }
 
