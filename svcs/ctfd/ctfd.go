@@ -88,9 +88,6 @@ func (ctf *ctfd) Start(ctx context.Context) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	err = ctf.configureInstance(ctx)
 	if err != nil {
 		return err

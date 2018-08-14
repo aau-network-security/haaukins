@@ -14,6 +14,11 @@ import (
 
 var (
 	RdpConfError = errors.New("Error ")
+
+	ctfdNew   = ctfd.New
+	guacNew   = guacamole.New
+	proxyNew  = revproxy.New
+	labNewHub = lab.NewHub
 )
 
 type Auth struct {
@@ -53,24 +58,25 @@ func New(eventPath string, labPath string) (Event, error) {
 		return nil, err
 	}
 
-	labHub, err := lab.NewHub(5, 10, *labConfig)
+	labHub, err := labNewHub(2, 2, *labConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: this is not implemented with dynamic flags in mind; dynamic flag string can simply not be specified in the initial config
 	eventConfig.CTFd.Flags = labConfig.Flags()
-	ctf, err := ctfd.New(eventConfig.CTFd)
+
+	ctf, err := ctfdNew(eventConfig.CTFd)
 	if err != nil {
 		return nil, err
 	}
 
-	guac, err := guacamole.New(eventConfig.Guac)
+	guac, err := guacNew(eventConfig.Guac)
 	if err != nil {
 		return nil, err
 	}
 
-	proxy, err := revproxy.New(eventConfig.RevProxy)
+	proxy, err := proxyNew(eventConfig.RevProxy)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +145,7 @@ func (ev *event) Register(group Group) (*Auth, error) {
 	rdpConnPorts := lab.RdpConnPorts()
 
 	if len(rdpConnPorts) > 1 {
-		fmt.Println("Multiple RDP ports found while only one is supported, configuring first port by default..")
+		fmt.Println("Multiple RDP ports found while only one is supported, configuring first port by default.")
 	} else if len(rdpConnPorts) == 0 {
 		return nil, RdpConfError
 	}
