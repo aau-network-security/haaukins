@@ -6,7 +6,14 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
-type Environment struct {
+type Environment interface {
+	Add(conf Config, updateDNS bool) error
+	ResetByTag(t string) error
+	Interface() string
+	Kill() error
+}
+
+type environment struct {
 	tags      map[string]*exercise
 	exercises []*exercise
 
@@ -16,8 +23,8 @@ type Environment struct {
 	dnsIP      string
 }
 
-func NewEnvironment(exercises ...Config) (*Environment, error) {
-	ee := &Environment{
+func NewEnvironment(exercises ...Config) (Environment, error) {
+	ee := &environment{
 		tags: make(map[string]*exercise),
 	}
 
@@ -51,7 +58,7 @@ func NewEnvironment(exercises ...Config) (*Environment, error) {
 	return ee, nil
 }
 
-func (ee *Environment) Add(conf Config, updateDNS bool) error {
+func (ee *environment) Add(conf Config, updateDNS bool) error {
 	if len(conf.Tags) == 0 {
 		return MissingTagsErr
 	}
@@ -86,7 +93,7 @@ func (ee *Environment) Add(conf Config, updateDNS bool) error {
 	return nil
 }
 
-func (ee *Environment) ResetByTag(t string) error {
+func (ee *environment) ResetByTag(t string) error {
 	e, ok := ee.tags[t]
 	if !ok {
 		return UnknownTagErr
@@ -99,11 +106,11 @@ func (ee *Environment) ResetByTag(t string) error {
 	return nil
 }
 
-func (ee *Environment) Interface() string {
+func (ee *environment) Interface() string {
 	return ee.network.Interface()
 }
 
-func (ee *Environment) Kill() error {
+func (ee *environment) Kill() error {
 	if err := ee.dnsServer.Stop(); err != nil {
 		return err
 	}
@@ -125,7 +132,7 @@ func (ee *Environment) Kill() error {
 	return nil
 }
 
-func (ee *Environment) updateDNS() error {
+func (ee *environment) updateDNS() error {
 	if ee.dnsServer != nil {
 		if err := ee.dnsServer.Stop(); err != nil {
 			return err

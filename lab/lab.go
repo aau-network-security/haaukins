@@ -4,23 +4,28 @@ import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/rs/zerolog/log"
+)
+
+var (
+	newEnvironment = exercise.NewEnvironment
 )
 
 type Lab interface {
 	Kill()
-	Exercises() *exercise.Environment
+	Exercises() exercise.Environment
 	RdpConnPorts() []uint
 }
 
 type lab struct {
 	lib          vbox.Library
-	exercises    *exercise.Environment
+	exercises    exercise.Environment
 	frontends    []vbox.VM
 	rdpConnPorts []uint
 }
 
 func NewLab(lib vbox.Library, exer ...exercise.Config) (Lab, error) {
-	environ, err := exercise.NewEnvironment(exer...)
+	environ, err := newEnvironment(exer...)
 	if err != nil {
 		return nil, err
 	}
@@ -55,10 +60,12 @@ func (l *lab) addFrontend() (vbox.VM, error) {
 	l.frontends = append(l.frontends, vm)
 	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
 
+	log.Debug().Msgf("Succesfully created frontend on port %d", rdpPort)
+
 	return vm, nil
 }
 
-func (l *lab) Exercises() *exercise.Environment {
+func (l *lab) Exercises() exercise.Environment {
 	return l.exercises
 }
 

@@ -58,7 +58,7 @@ func New(eventPath string, labPath string) (Event, error) {
 		return nil, err
 	}
 
-	labHub, err := labNewHub(2, 2, *labConfig)
+	labHub, err := labNewHub(2, 2, *labConfig, "/scratch/events")
 	if err != nil {
 		return nil, err
 	}

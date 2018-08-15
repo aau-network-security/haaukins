@@ -4,18 +4,21 @@ import (
 	"errors"
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
 var (
 	BufferMaxRatioErr = errors.New("Buffer cannot be larger than maximum")
 	MaximumLabsErr    = errors.New("Maximum amount of labs reached")
+
+	vboxNewLibrary = vbox.NewLibrary
 )
 
 type Hub interface {
 	Get() (Lab, error)
 	Close()
-	//Occupied() int
+	Available() int
 	//Config() []exercise.Config
 }
 
@@ -31,7 +34,7 @@ type hub struct {
 	buffer chan Lab
 }
 
-func NewHub(buffer uint, max uint, config Config) (Hub, error) {
+func NewHub(buffer uint, max uint, config Config, libpath string) (Hub, error) {
 	if buffer > max {
 		return nil, BufferMaxRatioErr
 	}
@@ -43,18 +46,28 @@ func NewHub(buffer uint, max uint, config Config) (Hub, error) {
 		createSema:  NewSemaphore(createLimit),
 		maximumSema: NewSemaphore(int(max)),
 		buffer:      make(chan Lab, buffer),
+		vboxLib:     vboxNewLibrary(libpath),
 	}
 
+	log.Debug().Msgf("Instantiating %d lab(s)", buffer)
+	errs := make(chan error)
 	for i := 0; i < int(buffer); i++ {
-		go h.addLab()
+		go h.addLab(errs)
+	}
+	for i := 0; i < int(buffer); i++ {
+		err := <-errs
+		if err != nil {
+			log.Debug().Msgf("Error while adding lab: %s", err)
+		}
 	}
 
 	return h, nil
 }
 
-func (h *hub) addLab() error {
+func (h *hub) addLab(errs chan error) {
 	if h.maximumSema.Available() == 0 {
-		return MaximumLabsErr
+		errs <- MaximumLabsErr
+		return
 	}
 
 	h.maximumSema.Claim()
@@ -63,17 +76,27 @@ func (h *hub) addLab() error {
 
 	lab, err := NewLab(h.vboxLib, h.exercises...)
 	if err != nil {
-		return err
+		errs <- err
+		return
 	}
 
 	h.buffer <- lab
+	errs <- nil
+}
 
-	return nil
+func (h *hub) Available() int {
+	return len(h.buffer)
 }
 
 func (h *hub) Get() (Lab, error) {
 	select {
 	case lab := <-h.buffer:
+		errs := make(chan error)
+		go h.addLab(errs)
+		err := <-errs
+		if err != nil {
+			log.Debug().Msgf("Error while adding lab: %s", err)
+		}
 		return lab, nil
 	default:
 		return nil, MaximumLabsErr

@@ -81,19 +81,19 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	bindings := make(map[docker.Port][]docker.PortBinding)
 	for guestPort, hostListen := range conf.PortBindings {
-        log.Debug().Msgf("guestPort: %s, hostListen: %s", guestPort, hostListen)
+		log.Debug().Msgf("guestPort: %s, hostListen: %s", guestPort, hostListen)
 
-        hostIP := ""
-        hostPort := hostListen
+		hostIP := ""
+		hostPort := hostListen
 
-        if strings.Contains(guestPort, "/") == false {
-            log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
-            guestPort = guestPort+"/tcp"
-        }
+		if strings.Contains(guestPort, "/") == false {
+			log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
+			guestPort = guestPort + "/tcp"
+		}
 
 		if strings.Contains(hostListen, "/") {
-            return nil, InvalidHostBinding
-        }
+			return nil, InvalidHostBinding
+		}
 
 		if strings.Contains(hostListen, ":") {
 			parts := strings.Split(hostListen, ":")
@@ -101,16 +101,16 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 				return nil, InvalidHostBinding
 			}
 
-            hostIP   = parts[0]
-            hostPort = parts[1]
-        }
+			hostIP = parts[0]
+			hostPort = parts[1]
+		}
 
-        bindings[docker.Port(guestPort)] = []docker.PortBinding{
-            {
-                HostIP:   hostIP,
-                HostPort: hostPort,
-            },
-        }
+		bindings[docker.Port(guestPort)] = []docker.PortBinding{
+			{
+				HostIP:   hostIP,
+				HostPort: hostPort,
+			},
+		}
 	}
 
 	var mounts []docker.HostMount
@@ -188,10 +188,10 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	cont, err := DefaultClient.CreateContainer(createContOpts)
 	if err != nil {
 		if err == docker.ErrNoSuchImage {
-            if len(Registries) < 1 {
-                log.Error().Msg("No registries to pull from, could not get image")
-                return nil, NoRegistriesToPullFrom
-            }
+			if len(Registries) < 1 {
+				log.Error().Msg("No registries to pull from, could not get image")
+				return nil, NoRegistriesToPullFrom
+			}
 
 			parts := strings.Split(conf.Image, ":")
 
@@ -213,9 +213,9 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 				}
 			}
 
-            if err != nil {
-                return nil, err
-            }
+			if err != nil {
+				return nil, err
+			}
 
 			cont, err = DefaultClient.CreateContainer(createContOpts)
 			if err != nil {
@@ -387,6 +387,7 @@ func (n *Network) Stop() error {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 			Container: cont.ID(),
 		}); err != nil {
+			log.Warn().Msgf("Failed to stop container '%s': %s", cont.ID(), err)
 			continue
 		}
 	}

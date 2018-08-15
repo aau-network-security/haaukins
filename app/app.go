@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/aau-network-security/go-ntp/api"
 	"github.com/aau-network-security/go-ntp/event"
+	"github.com/rs/zerolog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,6 +22,8 @@ func handleCancel(clean func()) {
 }
 
 func main() {
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
 	ev, err := event.New("app/config.yml", "app/exercises.yml")
 	if err != nil {
 		fmt.Println(err)
