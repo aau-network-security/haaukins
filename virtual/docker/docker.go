@@ -80,7 +80,10 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	bindings := make(map[docker.Port][]docker.PortBinding)
 	for guestPort, hostListen := range conf.PortBindings {
-		log.Debug().Msgf("guestPort: %s, hostListen: %s", guestPort, hostListen)
+		log.Debug().
+			Str("guestPort", guestPort).
+			Str("hostListen", hostListen).
+			Msgf("Port bindings for new '%s' container", conf.Image)
 
 		hostIP := ""
 		hostPort := hostListen
@@ -201,6 +204,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 				tag = parts[1]
 			}
 
+			log.Debug().Msgf("Attempting to pull image %s/%s", repo, tag)
 			for _, reg := range Registries {
 				err = DefaultClient.PullImage(docker.PullImageOptions{
 					Repository: repo,

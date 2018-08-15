@@ -17,6 +17,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -66,6 +67,10 @@ func New(conf Config) (Guacamole, error) {
 		conf:   conf,
 	}
 
+	log.Debug().Msgf("Initializing guacamole..")
+	guac.initialize()
+	log.Debug().Msgf("Initialization done!")
+
 	return guac, nil
 }
 
@@ -87,7 +92,7 @@ func (guac *guacamole) Close() {
 	}
 }
 
-func (guac *guacamole) Start(ctx context.Context) error {
+func (guac *guacamole) initialize() error {
 	// Guacd
 	guacd, err := docker.NewContainer(docker.ContainerConfig{
 		Image: "guacamole/guacd",
@@ -188,11 +193,26 @@ func (guac *guacamole) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = finalWeb.Start()
-	if err != nil {
-		return err
-	}
+	guac.stop()
 
+	return nil
+}
+
+func (guac *guacamole) Start(ctx context.Context) error {
+	for _, container := range guac.containers {
+		if err := container.Start(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (guac *guacamole) stop() error {
+	for _, container := range guac.containers {
+		if err := container.Stop(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

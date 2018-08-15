@@ -17,6 +17,7 @@ var (
 
 type Hub interface {
 	Get() (Lab, error)
+	Start() error
 	Close()
 	Available() int
 	//Config() []exercise.Config
@@ -91,7 +92,6 @@ func (h *hub) Available() int {
 func (h *hub) Get() (Lab, error) {
 	select {
 	case lab := <-h.buffer:
-		lab.Start()
 		errs := make(chan error)
 		go h.addLab(errs)
 		err := <-errs
@@ -102,6 +102,15 @@ func (h *hub) Get() (Lab, error) {
 	default:
 		return nil, MaximumLabsErr
 	}
+}
+
+func (h *hub) Start() error {
+	for _, v := range h.labs {
+		if err := v.Start(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *hub) Close() {
