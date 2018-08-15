@@ -213,11 +213,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 			}
 
 			if err != nil {
-				log.Debug().Msgf("Failed to pull image from registry, attempting to find a local image")
-				_, err := DefaultClient.InspectImage(conf.Image)
-				if err != nil {
-					return nil, ImageLibErr
-				}
+				return nil, err
 			}
 
 			cont, err = DefaultClient.CreateContainer(createContOpts)
@@ -276,7 +272,10 @@ func (c *container) Close() error {
 		return err
 	}
 
-	log.Debug().Msgf("Closed container '%s'", c.id)
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Closed container")
 	return nil
 }
 
