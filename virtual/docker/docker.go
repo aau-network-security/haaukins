@@ -24,6 +24,7 @@ var (
 	InvalidHostBinding       = errors.New("Hostbing does not have correct format - (ip:)port")
 	InvalidMount             = errors.New("Incorrect mount format - src:dest")
 	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
+	ImageLibErr              = errors.New("Image not in library")
 
 	Registries = []docker.AuthConfiguration{{}}
 )
@@ -212,7 +213,11 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 			}
 
 			if err != nil {
-				return nil, err
+				log.Debug().Msgf("Failed to pull image from registry, attempting to find a local image")
+				_, err := DefaultClient.InspectImage(conf.Image)
+				if err != nil {
+					return nil, ImageLibErr
+				}
 			}
 
 			cont, err = DefaultClient.CreateContainer(createContOpts)
