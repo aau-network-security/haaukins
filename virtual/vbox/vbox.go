@@ -98,6 +98,7 @@ func (vm *vm) Close() error {
 	if err != nil {
 		return err
 	}
+	log.Debug().Msgf("Closed VM '%s'", vm.id)
 
 	// remove vm
 

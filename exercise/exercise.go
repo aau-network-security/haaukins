@@ -146,6 +146,16 @@ func (e *exercise) Stop() error {
 	return nil
 }
 
+func (e *exercise) Close() error {
+	for _, m := range e.machines {
+		if err := m.Stop(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (e *exercise) Reset() error {
 	if err := e.Stop(); err != nil {
 		return err

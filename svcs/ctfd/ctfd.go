@@ -18,6 +18,7 @@ import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -237,14 +238,13 @@ func (ctf *ctfd) configureInstance(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	for _, f := range ctf.conf.Flags {
-		fmt.Println(f)
+		log.Debug().Msgf("%s", f)
 		err := ctf.createFlag(ctx, f.Name, f.Default, f.Points)
 		if err != nil {
-			fmt.Println(err)
+			log.Warn().Msgf("%s", err)
 			return err
 		}
-
-		fmt.Println("Flag created")
+		log.Debug().Msgf("Flag created")
 	}
 
 	return nil

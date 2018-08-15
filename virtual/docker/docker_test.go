@@ -31,7 +31,7 @@ func testCleanup(t *testing.T, c ntpdocker.Container) func() {
 	}
 }
 
-// tests - Create, ID, Start, Stop, Close
+// tests - Create, ID, Start, Close, Close
 func TestContainerBase(t *testing.T) {
 	// testing create
 	c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{

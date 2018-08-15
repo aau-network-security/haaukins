@@ -127,7 +127,6 @@ func (ee *environment) Start() error {
 	}
 
 	return nil
-
 }
 
 func (ee *environment) Close() error {
@@ -135,7 +134,15 @@ func (ee *environment) Close() error {
 		return err
 	}
 
+	if err := ee.dnsServer.Close(); err != nil {
+		return err
+	}
+
 	if err := ee.dhcpServer.Stop(); err != nil {
+		return err
+	}
+
+	if err := ee.dhcpServer.Close(); err != nil {
 		return err
 	}
 
@@ -143,9 +150,12 @@ func (ee *environment) Close() error {
 		if err := e.Stop(); err != nil {
 			return err
 		}
+		if err := e.Close(); err != nil {
+			return err
+		}
 	}
 
-	if err := ee.network.Stop(); err != nil {
+	if err := ee.network.Close(); err != nil {
 		return err
 	}
 

@@ -85,3 +85,7 @@ func (dhcp *Server) Stop() error {
 
 	return nil
 }
+
+func (dhcp *Server) Close() error {
+	return dhcp.cont.Close()
+}

@@ -69,8 +69,6 @@ type container struct {
 	conf    ContainerConfig
 	network *docker.Network
 	linked  []Identifier
-
-	started bool
 }
 
 func NewContainer(conf ContainerConfig) (Container, error) {
@@ -238,9 +236,8 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		Msg("Created new container")
 
 	return &container{
-		id:      cont.ID,
-		conf:    conf,
-		started: false,
+		id:   cont.ID,
+		conf: conf,
 	}, nil
 }
 
@@ -249,10 +246,6 @@ func (c *container) ID() string {
 }
 
 func (c *container) Close() error {
-	if !c.started {
-		return nil
-	}
-
 	if c.network != nil {
 		for _, cont := range append(c.linked, c) {
 			if err := DefaultClient.DisconnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
@@ -278,7 +271,7 @@ func (c *container) Close() error {
 		return err
 	}
 
-	c.started = false
+	log.Debug().Msgf("Closed container '%s'", c.id)
 	return nil
 }
 
@@ -325,7 +318,6 @@ func (c *container) Link(other Identifier, alias string) error {
 		return err
 	}
 
-	c.started = true
 	return nil
 }
 
@@ -382,7 +374,7 @@ func NewNetwork() (*Network, error) {
 	return &Network{net: net, subnet: subnet, ipPool: ipPool}, nil
 }
 
-func (n *Network) Stop() error {
+func (n *Network) Close() error {
 	for _, cont := range n.connected {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 			Container: cont.ID(),

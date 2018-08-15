@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -109,7 +110,7 @@ func (ng *nginx) Start(ctx context.Context) error {
 	}
 	ng.cont = c
 
-	fmt.Println(c)
+	log.Debug().Msgf("%s", c)
 
 	for alias, cont := range ng.aliasCont {
 		if err := c.Link(cont, alias); err != nil {

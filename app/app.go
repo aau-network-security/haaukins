@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/aau-network-security/go-ntp/api"
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,19 +26,22 @@ func main() {
 
 	ev, err := event.New("app/config.yml", "app/exercises.yml")
 	if err != nil {
-		fmt.Println(err)
+		log.Error().Msgf("%s", err)
 		return
 	}
 	handleCancel(func() {
 		ev.Close()
+		log.Info().Msgf("Closed event")
 	})
+	log.Info().Msgf("Created event")
 
 	err = ev.Start(context.TODO())
 	if err != nil {
-		fmt.Println(err)
+		log.Error().Msgf("%s", err)
 		ev.Close()
 		return
 	}
+	log.Info().Msgf("Started event")
 	api := api.Api{Event: ev}
 	api.RunServer("localhost", 8080)
 }

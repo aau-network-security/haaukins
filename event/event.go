@@ -9,6 +9,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"strings"
 )
 
@@ -142,7 +143,7 @@ func (ev *event) Register(group Group) (*Auth, error) {
 	rdpConnPorts := lab.RdpConnPorts()
 
 	if len(rdpConnPorts) > 1 {
-		fmt.Println("Multiple RDP ports found while only one is supported, configuring first port by default.")
+		log.Debug().Msgf("Multiple RDP ports found while only one is supported, configuring first port by default.")
 	} else if len(rdpConnPorts) == 0 {
 		return nil, RdpConfError
 	}

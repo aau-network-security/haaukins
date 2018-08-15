@@ -76,3 +76,7 @@ func (s *Server) Stop() error {
 
 	return nil
 }
+
+func (s *Server) Close() error {
+	return s.cont.Close()
+}
