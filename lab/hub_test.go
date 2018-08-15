@@ -14,13 +14,15 @@ var (
 
 type testEnvironment struct{}
 
+func (testEnvironment) Start() error { return nil }
+
 func (testEnvironment) Add(conf exercise.Config, updateDNS bool) error { return nil }
 
 func (testEnvironment) ResetByTag(t string) error { return nil }
 
 func (testEnvironment) Interface() string { return "" }
 
-func (testEnvironment) Kill() error { return nil }
+func (testEnvironment) Close() error { return nil }
 
 type testLibrary struct{}
 
@@ -28,7 +30,7 @@ func (testLibrary) GetCopy(string, ...vbox.VMOpt) (vbox.VM, error) { return v, n
 
 type testVbox struct{}
 
-func (testVbox) Kill() error { return nil }
+func (testVbox) Close() error { return nil }
 
 func (testVbox) LinkedClone(string, ...vbox.VMOpt) (vbox.VM, error) { return nil, nil }
 
@@ -40,7 +42,9 @@ type testLab struct {
 	started bool
 }
 
-func (lab *testLab) Kill() { lab.started = false }
+func (lab *testLab) Start() error { return nil }
+
+func (lab *testLab) Close() { lab.started = false }
 
 func (lab *testLab) Exercises() exercise.Environment { return nil }
 

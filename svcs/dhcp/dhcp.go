@@ -60,10 +60,6 @@ func New(format func(n int) string) (*Server, error) {
 		return nil, err
 	}
 
-	if err := cont.Start(); err != nil {
-		return nil, err
-	}
-
 	return &Server{
 		cont:     cont,
 		confFile: confFile,
@@ -74,12 +70,16 @@ func (dhcp *Server) Container() docker.Container {
 	return dhcp.cont
 }
 
+func (dhcp *Server) Start() error {
+	return dhcp.cont.Start()
+}
+
 func (dhcp *Server) Stop() error {
 	if err := os.Remove(dhcp.confFile); err != nil {
 		return err
 	}
 
-	if err := dhcp.cont.Kill(); err != nil {
+	if err := dhcp.cont.Close(); err != nil {
 		return err
 	}
 

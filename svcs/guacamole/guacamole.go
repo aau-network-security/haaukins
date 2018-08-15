@@ -83,7 +83,7 @@ func (guac *guacamole) ID() string {
 
 func (guac *guacamole) Close() {
 	for _, c := range guac.containers {
-		c.Kill()
+		c.Close()
 	}
 }
 
@@ -167,7 +167,7 @@ func (guac *guacamole) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = initWeb.Kill()
+	err = initWeb.Close()
 	if err != nil {
 		return err
 	}

@@ -61,7 +61,7 @@ func TestBasicEnvironment(t *testing.T) {
 		t.Fatalf("Expected one docker network to be started, but %d was started", postStartNetCount-preNetCount)
 	}
 
-	err = env.Kill()
+	err = env.Close()
 	if err != nil {
 		t.Fatalf("Unable to kill environment: %s", err)
 	}

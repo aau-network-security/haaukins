@@ -93,7 +93,7 @@ func (vm *vm) Stop() error {
 	return nil
 }
 
-func (vm *vm) Kill() error {
+func (vm *vm) Close() error {
 	_, err := vm.ensureStopped()
 	if err != nil {
 		return err

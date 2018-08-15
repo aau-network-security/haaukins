@@ -12,7 +12,8 @@ var (
 )
 
 type Lab interface {
-	Kill()
+	Start() error
+	Close()
 	Exercises() exercise.Environment
 	RdpConnPorts() []uint
 }
@@ -53,10 +54,6 @@ func (l *lab) addFrontend() (vbox.VM, error) {
 		return nil, err
 	}
 
-	if err := vm.Start(); err != nil {
-		return nil, err
-	}
-
 	l.frontends = append(l.frontends, vm)
 	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
 
@@ -69,12 +66,26 @@ func (l *lab) Exercises() exercise.Environment {
 	return l.exercises
 }
 
-func (l *lab) Kill() {
+func (l *lab) Start() error {
 	for _, frontend := range l.frontends {
-		frontend.Kill()
+		if err := frontend.Start(); err != nil {
+			return err
+		}
 	}
 
-	l.exercises.Kill()
+	if err := l.exercises.Start(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *lab) Close() {
+	for _, frontend := range l.frontends {
+		frontend.Close()
+	}
+
+	l.exercises.Close()
 }
 
 func (l *lab) RdpConnPorts() []uint {

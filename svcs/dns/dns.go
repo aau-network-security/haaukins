@@ -50,10 +50,6 @@ func New(records []string) (*Server, error) {
 		return nil, err
 	}
 
-	if err := cont.Start(); err != nil {
-		return nil, err
-	}
-
 	return &Server{
 		cont:     cont,
 		confFile: confFile,
@@ -65,12 +61,16 @@ func (s *Server) Container() docker.Container {
 	return s.cont
 }
 
+func (s *Server) Start() error {
+	return s.cont.Start()
+}
+
 func (s *Server) Stop() error {
 	if err := os.Remove(s.confFile); err != nil {
 		return err
 	}
 
-	if err := s.cont.Kill(); err != nil {
+	if err := s.cont.Close(); err != nil {
 		return err
 	}
 

@@ -66,7 +66,7 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 
 func (ng *nginx) Close() {
 	if ng.cont != nil {
-		ng.cont.Kill()
+		ng.cont.Close()
 	}
 }
 

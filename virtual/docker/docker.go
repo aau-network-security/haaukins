@@ -44,7 +44,7 @@ type Container interface {
 	Identifier
 	Start() error
 	Stop() error
-	Kill() error
+	Close() error
 	Link(Identifier, string) error
 }
 
@@ -248,7 +248,7 @@ func (c *container) ID() string {
 	return c.id
 }
 
-func (c *container) Kill() error {
+func (c *container) Close() error {
 	if !c.started {
 		return nil
 	}

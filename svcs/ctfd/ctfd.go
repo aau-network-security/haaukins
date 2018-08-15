@@ -96,7 +96,7 @@ func (ctf *ctfd) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = c.Kill()
+	err = c.Close()
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (ctf *ctfd) Start(ctx context.Context) error {
 
 func (ctf *ctfd) Close() {
 	if ctf.cont != nil {
-		ctf.cont.Kill()
+		ctf.cont.Close()
 	}
 }
 

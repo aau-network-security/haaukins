@@ -84,9 +84,11 @@ func (proxy *test_proxy) NumberOfEndpoints() int { return 1 }
 
 type test_lab struct{}
 
-func (lab *test_lab) Exercises() *exercise.Environment { return nil }
+func (lab *test_lab) Start() error { return nil }
 
-func (lab *test_lab) Kill() {}
+func (lab *test_lab) Exercises() exercise.Environment { return nil }
+
+func (lab *test_lab) Close() {}
 
 func (lab *test_lab) RdpConnPorts() []uint { return []uint{1, 2} }
 
@@ -95,6 +97,8 @@ type test_labhub struct{}
 func (hub *test_labhub) Get() (lab.Lab, error) { return &test_lab{}, nil }
 
 func (hub *test_labhub) Close() {}
+
+func (hub *test_labhub) Available() int { return 1 }
 
 func getEvent() Event {
 	ctf = test_ctfd{false}
@@ -122,7 +126,7 @@ func getEvent() Event {
 
 	labFuncOld := labNewHub
 	defer func() { labNewHub = labFuncOld }()
-	labNewHub = func(buffer uint, max uint, config lab.Config) (lab.Hub, error) {
+	labNewHub = func(buffer uint, max uint, config lab.Config, libpath string) (lab.Hub, error) {
 		return &labhub, nil
 	}
 

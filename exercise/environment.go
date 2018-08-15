@@ -10,7 +10,8 @@ type Environment interface {
 	Add(conf Config, updateDNS bool) error
 	ResetByTag(t string) error
 	Interface() string
-	Kill() error
+	Start() error
+	Close() error
 }
 
 type environment struct {
@@ -110,7 +111,26 @@ func (ee *environment) Interface() string {
 	return ee.network.Interface()
 }
 
-func (ee *environment) Kill() error {
+func (ee *environment) Start() error {
+	if err := ee.dnsServer.Start(); err != nil {
+		return err
+	}
+
+	if err := ee.dhcpServer.Start(); err != nil {
+		return err
+	}
+
+	for _, e := range ee.exercises {
+		if err := e.Start(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
+func (ee *environment) Close() error {
 	if err := ee.dnsServer.Stop(); err != nil {
 		return err
 	}

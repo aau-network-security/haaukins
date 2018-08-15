@@ -103,18 +103,15 @@ func (ev *event) initialize() error {
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	err := ev.ctfd.Start(ctx)
-	if err != nil {
+	if err := ev.ctfd.Start(ctx); err != nil {
 		return errors.New(fmt.Sprintf("Error while starting CTFD: %s", err))
 	}
 
-	err = ev.guac.Start(ctx)
-	if err != nil {
+	if err := ev.guac.Start(ctx); err != nil {
 		return errors.New(fmt.Sprintf("Error while starting Guacamole: %s", err))
 	}
 
-	err = ev.proxy.Start(ctx)
-	if err != nil {
+	if err := ev.proxy.Start(ctx); err != nil {
 		return errors.New(fmt.Sprintf("Error while starting reverse proxy: %s", err))
 	}
 

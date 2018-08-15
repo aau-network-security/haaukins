@@ -91,6 +91,7 @@ func (h *hub) Available() int {
 func (h *hub) Get() (Lab, error) {
 	select {
 	case lab := <-h.buffer:
+		lab.Start()
 		errs := make(chan error)
 		go h.addLab(errs)
 		err := <-errs
@@ -105,7 +106,7 @@ func (h *hub) Get() (Lab, error) {
 
 func (h *hub) Close() {
 	for _, v := range h.labs {
-		v.Kill()
+		v.Close()
 	}
 }
 
