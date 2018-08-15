@@ -6,7 +6,7 @@ import (
 
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-)
+	)
 
 var (
 	DuplicateTagErr = errors.New("Tag already exists")
@@ -153,11 +153,10 @@ func (e *exercise) Stop() error {
 
 func (e *exercise) Close() error {
 	for _, m := range e.machines {
-		if err := m.Stop(); err != nil {
+		if err := m.Close(); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 

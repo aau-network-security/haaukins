@@ -115,7 +115,6 @@ func (ee *environment) Interface() string {
 }
 
 func (ee *environment) Start() error {
-	log.Debug().Msgf("Starting environment..")
 	if err := ee.dnsServer.Start(); err != nil {
 		return errors.New(fmt.Sprintf("[DNS] %s", err))
 	}
@@ -130,21 +129,11 @@ func (ee *environment) Start() error {
 		}
 	}
 
-	log.Debug().Msgf("Environment started!")
-
 	return nil
 }
 
 func (ee *environment) Close() error {
-	if err := ee.dnsServer.Stop(); err != nil {
-		return err
-	}
-
 	if err := ee.dnsServer.Close(); err != nil {
-		return err
-	}
-
-	if err := ee.dhcpServer.Stop(); err != nil {
 		return errors.New(fmt.Sprintf("[DNS] %s", err.Error()))
 	}
 
@@ -153,9 +142,6 @@ func (ee *environment) Close() error {
 	}
 
 	for _, e := range ee.exercises {
-		if err := e.Stop(); err != nil {
-			return err
-		}
 		if err := e.Close(); err != nil {
 			return err
 		}

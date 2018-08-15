@@ -252,6 +252,7 @@ func (c *container) Close() error {
 			if err := DefaultClient.DisconnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
 				Container: cont.ID(),
 			}); err != nil {
+				log.Warn().Msgf("Failed to disconnect container %s from network %s", c.id, c.network.ID)
 				continue
 			}
 		}
@@ -383,7 +384,6 @@ func (n *Network) Close() error {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 			Container: cont.ID(),
 		}); err != nil {
-			log.Warn().Msgf("Failed to stop container '%s': %s", cont.ID(), err)
 			continue
 		}
 	}

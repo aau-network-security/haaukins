@@ -42,7 +42,6 @@ func TestBasicEnvironment(t *testing.T) {
 	if err := env.Start(); err != nil {
 		t.Fatalf("Unexpected error while starting environment: %s", err)
 	}
-	defer env.Close()
 
 	containers, err = dclient.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
