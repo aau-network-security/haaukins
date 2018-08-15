@@ -85,7 +85,7 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 		dnsIP: ee.dnsIP,
 	}
 
-	if err := e.Start(); err != nil {
+	if err := e.Create(); err != nil {
 		return err
 	}
 
@@ -129,6 +129,7 @@ func (ee *environment) Start() error {
 			return err
 		}
 	}
+
 	log.Debug().Msgf("Environment started!")
 
 	return nil

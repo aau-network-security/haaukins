@@ -20,7 +20,7 @@ type Lab interface {
 
 type lab struct {
 	lib          vbox.Library
-	exercises    exercise.Environment
+	environment  exercise.Environment
 	frontends    []vbox.VM
 	rdpConnPorts []uint
 }
@@ -32,8 +32,8 @@ func NewLab(lib vbox.Library, exer ...exercise.Config) (Lab, error) {
 	}
 
 	l := &lab{
-		lib:       lib,
-		exercises: environ,
+		lib:         lib,
+		environment: environ,
 	}
 
 	_, err = l.addFrontend()
@@ -47,7 +47,7 @@ func NewLab(lib vbox.Library, exer ...exercise.Config) (Lab, error) {
 func (l *lab) addFrontend() (vbox.VM, error) {
 	rdpPort := virtual.GetAvailablePort()
 	vm, err := l.lib.GetCopy("kali.ova",
-		vbox.SetBridge(l.exercises.Interface()),
+		vbox.SetBridge(l.environment.Interface()),
 		vbox.SetLocalRDP(rdpPort),
 	)
 	if err != nil {
@@ -63,7 +63,7 @@ func (l *lab) addFrontend() (vbox.VM, error) {
 }
 
 func (l *lab) Exercises() exercise.Environment {
-	return l.exercises
+	return l.environment
 }
 
 func (l *lab) Start() error {
@@ -73,7 +73,7 @@ func (l *lab) Start() error {
 		}
 	}
 
-	if err := l.exercises.Start(); err != nil {
+	if err := l.environment.Start(); err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (l *lab) Close() {
 		frontend.Close()
 	}
 
-	l.exercises.Close()
+	l.environment.Close()
 }
 
 func (l *lab) RdpConnPorts() []uint {

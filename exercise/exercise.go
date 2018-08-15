@@ -86,7 +86,7 @@ type exercise struct {
 	dnsRecords []string
 }
 
-func (e *exercise) Start() error {
+func (e *exercise) Create() error {
 	containers, records := e.conf.ContainerOpts()
 
 	var machines []virtual.Instance
@@ -95,10 +95,6 @@ func (e *exercise) Start() error {
 
 		c, err := docker.NewContainer(spec)
 		if err != nil {
-			return err
-		}
-
-		if err := c.Start(); err != nil {
 			return err
 		}
 
@@ -133,6 +129,15 @@ func (e *exercise) Start() error {
 
 	e.machines = machines
 
+	return nil
+}
+
+func (e *exercise) Start() error {
+	for _, m := range e.machines {
+		if err := m.Start(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
