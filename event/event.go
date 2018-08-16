@@ -108,7 +108,7 @@ func (ev *event) initialize() error {
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	if err := ev.ctfd.Start(ctx); err != nil {
+	if err := ev.ctfd.Start(); err != nil {
 		return errors.New(fmt.Sprintf("error while starting CTFD: %s", err))
 	}
 

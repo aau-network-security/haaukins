@@ -28,7 +28,7 @@ var (
 type CTFd interface {
 	docker.Identifier
 	revproxy.Connector
-	Start(context.Context) error
+	Start() error
 	Close()
 	Flags() []exercise.FlagConfig
 }
@@ -57,14 +57,11 @@ func New(conf Config) (CTFd, error) {
 		Jar: jar,
 	}
 
-	return &ctfd{
+	ctf := &ctfd{
 		conf:       conf,
 		httpclient: hc,
-	}, nil
+	}
 
-}
-
-func (ctf *ctfd) Start(ctx context.Context) error {
 	pwd, _ := os.Getwd()
 
 	baseConf := &docker.ContainerConfig{
@@ -81,40 +78,40 @@ func (ctf *ctfd) Start(ctx context.Context) error {
 
 	c, err := docker.NewContainer(initConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = c.Start()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	err = ctf.configureInstance(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = c.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	finalConf := *baseConf
 	c, err = docker.NewContainer(finalConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ctf.cont = c
 
-	err = c.Start()
-	if err != nil {
-		return err
-	}
+	return ctf, nil
 
-	return nil
+}
+
+func (ctf *ctfd) Start() error {
+	return ctf.cont.Start()
 }
 
 func (ctf *ctfd) Close() {
