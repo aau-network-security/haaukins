@@ -307,11 +307,28 @@ func (c *container) Close() error {
 }
 
 func (c *container) Start() error {
-	return DefaultClient.StartContainer(c.id, nil)
+	if err := DefaultClient.StartContainer(c.id, nil); err != nil {
+		return err
+	}
+
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Started container")
+	return nil
 }
 
 func (c *container) Stop() error {
-	return DefaultClient.StopContainer(c.id, 5)
+	if err := DefaultClient.StopContainer(c.id, 5); err != nil {
+		return err
+	}
+
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Stopped container")
+
+	return nil
 }
 
 func (c *container) Link(other Identifier, alias string) error {
