@@ -116,10 +116,6 @@ func (ev *event) Start(ctx context.Context) error {
 		return errors.New(fmt.Sprintf("error while starting reverse proxy: %s", err))
 	}
 
-	if err := ev.labhub.Start(); err != nil {
-		return errors.New(fmt.Sprintf("error while starting labhub: %s", err))
-	}
-
 	return nil
 }
 

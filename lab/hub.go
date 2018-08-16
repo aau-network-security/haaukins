@@ -17,7 +17,6 @@ var (
 
 type Hub interface {
 	Get() (Lab, error)
-	Start() error
 	Close()
 	Available() int
 	//Config() []exercise.Config
@@ -96,15 +95,6 @@ func (h *hub) Get() (Lab, error) {
 	default:
 		return nil, MaximumLabsErr
 	}
-}
-
-func (h *hub) Start() error {
-	for _, v := range h.labs {
-		if err := v.Start(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (h *hub) Close() {
