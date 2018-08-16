@@ -156,20 +156,24 @@ func (ev *event) Register(group Group) (*Auth, error) {
 	auth := Auth{
 		Username: rand(),
 		Password: rand()}
-	ev.guac.CreateUser(auth.Username, auth.Password)
+	if err := ev.guac.CreateUser(auth.Username, auth.Password); err != nil {
+		return nil, err
+	}
 
 	hostIp, err := docker.GetDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
 
-	ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
+	if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
 		Host:     hostIp,
 		Port:     rdpConnPorts[0],
 		Name:     group.Name,
 		GuacUser: auth.Username,
 		Username: &auth.Username,
 		Password: &auth.Password,
-	})
+	}); err != nil {
+		return nil, err
+	}
 	return &auth, nil
 }
