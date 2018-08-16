@@ -195,21 +195,8 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 				return nil, NoRegistriesToPullFrom
 			}
 
-			parts := strings.Split(conf.Image, ":")
-
-			repo := parts[0]
-			tag := "latest"
-
-			if len(parts) > 1 {
-				tag = parts[1]
-			}
-
-			log.Debug().Msgf("Attempting to pull image %s/%s", repo, tag)
 			for _, reg := range Registries {
-				err = DefaultClient.PullImage(docker.PullImageOptions{
-					Repository: repo,
-					Tag:        tag,
-				}, reg)
+				err = pullImage(conf.Image, reg)
 
 				if err == nil {
 					break
@@ -244,6 +231,41 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		id:   cont.ID,
 		conf: conf,
 	}, nil
+}
+
+func pullImage(image string, reg docker.AuthConfiguration) error {
+	parts := strings.Split(image, ":")
+
+	repo := parts[0]
+	tag := "latest"
+
+	if reg.ServerAddress != "" {
+		repo = fmt.Sprintf("%s/%s", reg.ServerAddress, repo)
+	}
+
+	log.Debug().Msgf("Attempting to pull image %s:%s", repo, tag)
+
+	if err := DefaultClient.PullImage(docker.PullImageOptions{
+		Repository: repo,
+		Tag:        tag,
+	}, reg); err != nil {
+		return err
+	}
+
+	if reg.ServerAddress != "" {
+		if err := DefaultClient.TagImage(repo, docker.TagImageOptions{
+			Repo: parts[0],
+			Tag:  "latest",
+		}); err != nil {
+			return err
+		}
+
+		if err := DefaultClient.RemoveImage(repo); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *container) ID() string {
