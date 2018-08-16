@@ -26,6 +26,9 @@ var (
 	NoPortErr         = errors.New("Port is missing")
 	NoNameErr         = errors.New("Name is missing")
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
+
+	AdminUser        = "guacadmin"
+	DefaultAdminPAss = "guacadmin"
 )
 
 type Guacamole interface {
@@ -239,24 +242,22 @@ func (guac *guacamole) configureInstance(port uint) error {
 	temp := &guacamole{
 		client: guac.client,
 		conf: Config{
-			AdminUser: "guacadmin",
-			AdminPass: "guacadmin",
+			AdminUser: AdminUser,
+			AdminPass: DefaultAdminPAss,
 			Host:      "127.0.0.1",
 			Port:      port,
 		}}
 
 	for i := 0; i < 15; i++ {
-		_, err := temp.login("guacadmin", "guacadmin")
+		_, err := temp.login(AdminUser, DefaultAdminPAss)
 		if err == nil {
 			break
 		}
 
 		time.Sleep(time.Second)
 	}
-	newPass := guac.conf.AdminPass
-	guac.conf.AdminPass = "guacadmin"
 
-	if err := temp.changeAdminPass(newPass); err != nil {
+	if err := temp.changeAdminPass(guac.conf.AdminPass); err != nil {
 		return err
 	}
 
@@ -307,6 +308,7 @@ func (guac *guacamole) login(username, password string) (string, error) {
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
+	log.Debug().Msgf("authAction with user %s and pass %s", guac.conf.AdminUser, guac.conf.AdminPass)
 	if guac.token == "" {
 		token, err := guac.login(guac.conf.AdminUser, guac.conf.AdminPass)
 		if err != nil {
