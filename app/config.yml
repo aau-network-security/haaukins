@@ -4,7 +4,7 @@ ctfd:
   admin_email: email
   admin_pass: admin
 guac:
-  admin_user: admin
+  admin_user: guacadmin
   admin_pass: admin
   host: localhost
   port: 80
