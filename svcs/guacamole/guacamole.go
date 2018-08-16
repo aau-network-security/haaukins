@@ -97,7 +97,8 @@ func (guac *guacamole) Close() {
 func (guac *guacamole) initialize() error {
 	// Guacd
 	guacd, err := docker.NewContainer(docker.ContainerConfig{
-		Image: "guacamole/guacd",
+		Image:     "guacamole/guacd",
+		UseBridge: true,
 	})
 	if err != nil {
 		return err

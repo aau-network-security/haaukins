@@ -8,6 +8,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"strings"
@@ -157,8 +158,13 @@ func (ev *event) Register(group Group) (*Auth, error) {
 		Password: rand()}
 	ev.guac.CreateUser(auth.Username, auth.Password)
 
+	hostIp, err := docker.GetDockerHostIP()
+	if err != nil {
+		return nil, err
+	}
+
 	ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
-		Host:     "localhost",
+		Host:     hostIp,
 		Port:     rdpConnPorts[0],
 		Name:     group.Name,
 		GuacUser: auth.Username,

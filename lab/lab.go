@@ -3,6 +3,7 @@ package lab
 import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
 )
@@ -45,10 +46,12 @@ func NewLab(lib vbox.Library, exer ...exercise.Config) (Lab, error) {
 }
 
 func (l *lab) addFrontend() (vbox.VM, error) {
+	hostIp, _ := docker.GetDockerHostIP()
+
 	rdpPort := virtual.GetAvailablePort()
 	vm, err := l.lib.GetCopy("kali.ova",
 		vbox.SetBridge(l.environment.Interface()),
-		vbox.SetLocalRDP(rdpPort),
+		vbox.SetLocalRDP(hostIp, rdpPort),
 	)
 	if err != nil {
 		return nil, err

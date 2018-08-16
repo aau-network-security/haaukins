@@ -140,7 +140,7 @@ func SetBridge(nic string) VMOpt {
 	}
 }
 
-func SetLocalRDP(port uint) VMOpt {
+func SetLocalRDP(ip string, port uint) VMOpt {
 	return func(vm *vm) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -150,7 +150,7 @@ func SetLocalRDP(port uint) VMOpt {
 			return err
 		}
 
-		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdeproperty", "TCP/Address=127.0.0.1")
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdeproperty", fmt.Sprintf("TCP/Address=%s", ip))
 		if err != nil {
 			return err
 		}
