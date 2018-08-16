@@ -150,6 +150,7 @@ func (guac *guacamole) initialize() error {
 	webInitConf.PortBindings = map[string]string{
 		"8080/tcp": fmt.Sprintf("127.0.0.1:%d", webInitPort),
 	}
+	webInitConf.UseBridge = true
 
 	initWeb, err := docker.NewContainer(webInitConf)
 	if err != nil {

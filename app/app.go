@@ -66,7 +66,13 @@ func main() {
 		ev.Close()
 		return
 	}
+
+	hostIp, err := docker.GetDockerHostIP()
+	if err != nil {
+		log.Error().Msgf("Error while getting host IP: %s", err)
+	}
+
 	log.Info().Msgf("Started event")
 	api := api.Api{Event: ev}
-	api.RunServer("localhost", 8080)
+	api.RunServer(hostIp, 3331)
 }

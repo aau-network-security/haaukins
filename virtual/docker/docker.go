@@ -58,6 +58,7 @@ type ContainerConfig struct {
 	Cmd          []string
 	DNS          []string
 	UsedPorts    []string
+	UseBridge    bool
 }
 
 type Resources struct {
@@ -131,7 +132,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	}
 
-	hostIP, err := getDockerHostIP()
+	hostIP, err := GetDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +217,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		}
 	}
 
-	if len(conf.PortBindings) == 0 {
+	if !conf.UseBridge {
 		if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
 			Container: cont.ID,
 		}); err != nil {
@@ -497,7 +498,7 @@ func (n *Network) Connect(c Container, ip ...int) (int, error) {
 	return lastDigit, nil
 }
 
-func getDockerHostIP() (string, error) {
+func GetDockerHostIP() (string, error) {
 	i, err := net.InterfaceByName("docker0")
 	if err != nil {
 		return "", err

@@ -63,11 +63,18 @@ func New(conf Config) (CTFd, error) {
 	}
 
 	pwd, _ := os.Getwd()
+	hostIp, err := docker.GetDockerHostIP()
+	if err != nil {
+		return nil, err
+	}
 
 	baseConf := &docker.ContainerConfig{
 		Image: "aau/ctfd",
 		Mounts: []string{
 			fmt.Sprintf("%s/data:/opt/CTFd/CTFd/data", pwd),
+		},
+		EnvVars: map[string]string{
+			"ADMIN_HOST": hostIp,
 		},
 	}
 
@@ -100,6 +107,7 @@ func New(conf Config) (CTFd, error) {
 	}
 
 	finalConf := *baseConf
+	finalConf.UseBridge = true
 	c, err = docker.NewContainer(finalConf)
 	if err != nil {
 		return nil, err
