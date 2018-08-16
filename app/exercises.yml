@@ -40,7 +40,7 @@ exercise:
     tags:
       - scan
     docker:
-      - image: aau/hidden-web-server
+      - image: aau/hidden-server
         flag:
           - env: FLAG
             default: 8d6bd6bb-c773-4e62-9c4a-620b331703eb
