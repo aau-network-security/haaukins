@@ -216,10 +216,12 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		}
 	}
 
-	if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
-		Container: cont.ID,
-	}); err != nil {
-		return nil, err
+	if len(conf.PortBindings) == 0 {
+		if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
+			Container: cont.ID,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	log.Info().
