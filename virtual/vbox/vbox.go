@@ -47,7 +47,7 @@ type vm struct {
 }
 
 func NewVMFromOVA(path, name string, vmOpts ...VMOpt) (VM, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	_, err := VBoxCmdContext(ctx, "import", path, "--vsys", "0", "--vmname", name)
