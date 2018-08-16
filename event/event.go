@@ -77,7 +77,7 @@ func New(eventPath string, labPath string) (Event, error) {
 		return nil, err
 	}
 
-	proxy, err := proxyNew(eventConfig.RevProxy)
+	proxy, err := proxyNew(eventConfig.RevProxy, ctf, guac)
 	if err != nil {
 		return nil, err
 	}
@@ -88,17 +88,21 @@ func New(eventPath string, labPath string) (Event, error) {
 		proxy:  proxy,
 		labhub: labHub}
 
-	err = ev.initialize()
-	if err != nil {
-		return nil, err
-	}
+	//err = ev.initialize()
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	return ev, nil
 }
 
 func (ev *event) initialize() error {
-	ev.ctfd.ConnectProxy(ev.proxy)
-	ev.guac.ConnectProxy(ev.proxy)
+	if err := ev.ctfd.ConnectProxy(ev.proxy); err != nil {
+		return err
+	}
+	if err := ev.guac.ConnectProxy(ev.proxy); err != nil {
+		return err
+	}
 
 	return nil
 }
