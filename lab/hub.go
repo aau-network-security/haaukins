@@ -31,7 +31,7 @@ type hub struct {
 	createSema  *semaphore
 	maximumSema *semaphore
 
-	labs   map[string]Lab
+	labs   []Lab
 	buffer chan Lab
 }
 
@@ -42,7 +42,7 @@ func NewHub(buffer uint, max uint, config Config, libpath string) (Hub, error) {
 
 	createLimit := 3
 	h := &hub{
-		labs:        make(map[string]Lab),
+		labs:        []Lab{},
 		exercises:   config.Exercises,
 		createSema:  NewSemaphore(createLimit),
 		maximumSema: NewSemaphore(int(max)),
@@ -51,24 +51,16 @@ func NewHub(buffer uint, max uint, config Config, libpath string) (Hub, error) {
 	}
 
 	log.Debug().Msgf("Instantiating %d lab(s)", buffer)
-	errs := make(chan error)
 	for i := 0; i < int(buffer); i++ {
-		go h.addLab(errs)
-	}
-	for i := 0; i < int(buffer); i++ {
-		err := <-errs
-		if err != nil {
-			log.Debug().Msgf("Error while adding lab: %s", err)
-		}
+		go h.addLab()
 	}
 
 	return h, nil
 }
 
-func (h *hub) addLab(errs chan error) {
+func (h *hub) addLab() error {
 	if h.maximumSema.Available() == 0 {
-		errs <- MaximumLabsErr
-		return
+		return MaximumLabsErr
 	}
 
 	h.maximumSema.Claim()
@@ -77,12 +69,18 @@ func (h *hub) addLab(errs chan error) {
 
 	lab, err := NewLab(h.vboxLib, h.exercises...)
 	if err != nil {
-		errs <- err
-		return
+		log.Debug().Msgf("Error while creating new lab: %s", err)
+		return err
+	}
+
+	if err := lab.Start(); err != nil {
+		log.Debug().Msgf("Error while starting lab: %s", err)
+		return err
 	}
 
 	h.buffer <- lab
-	errs <- nil
+
+	return nil
 }
 
 func (h *hub) Available() int {
@@ -92,12 +90,8 @@ func (h *hub) Available() int {
 func (h *hub) Get() (Lab, error) {
 	select {
 	case lab := <-h.buffer:
-		errs := make(chan error)
-		go h.addLab(errs)
-		err := <-errs
-		if err != nil {
-			log.Debug().Msgf("Error while adding lab: %s", err)
-		}
+		go h.addLab()
+		h.labs = append(h.labs, lab)
 		return lab, nil
 	default:
 		return nil, MaximumLabsErr
@@ -115,6 +109,10 @@ func (h *hub) Start() error {
 
 func (h *hub) Close() {
 	for _, v := range h.labs {
+		v.Close()
+	}
+	close(h.buffer)
+	for v := range h.buffer {
 		v.Close()
 	}
 }
