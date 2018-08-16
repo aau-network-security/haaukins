@@ -6,7 +6,7 @@ import (
 
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-	)
+)
 
 var (
 	DuplicateTagErr = errors.New("Tag already exists")
@@ -90,6 +90,7 @@ func (e *exercise) Create() error {
 	containers, records := e.conf.ContainerOpts()
 
 	var machines []virtual.Instance
+	var newIps []int
 	for i, spec := range containers {
 		spec.DNS = []string{e.dnsIP}
 
@@ -114,7 +115,7 @@ func (e *exercise) Create() error {
 				return err
 			}
 
-			e.ips = append(e.ips, lastDigit)
+			newIps = append(newIps, lastDigit)
 		}
 
 		ipaddr := e.net.FormatIP(lastDigit)
@@ -125,6 +126,10 @@ func (e *exercise) Create() error {
 		}
 
 		machines = append(machines, c)
+	}
+
+	if e.ips == nil {
+		e.ips = newIps
 	}
 
 	e.machines = machines
@@ -157,6 +162,7 @@ func (e *exercise) Close() error {
 			return err
 		}
 	}
+	e.machines = nil
 	return nil
 }
 
