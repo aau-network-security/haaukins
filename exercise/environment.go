@@ -129,6 +129,8 @@ func (ee *environment) Start() error {
 		}
 	}
 
+	log.Debug().Msgf("Started environment")
+
 	return nil
 }
 

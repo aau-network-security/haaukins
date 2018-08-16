@@ -76,6 +76,10 @@ func (vm *vm) Start() error {
 
 	vm.running = true
 
+	log.Debug().
+		Str("ID", vm.id).
+		Msg("Started VM")
+
 	return nil
 }
 
@@ -90,6 +94,10 @@ func (vm *vm) Stop() error {
 
 	vm.running = false
 
+	log.Debug().
+		Str("ID", vm.id).
+		Msg("Stopped VM")
+
 	return nil
 }
 
@@ -101,6 +109,9 @@ func (vm *vm) Close() error {
 	log.Debug().Msgf("Closed VM '%s'", vm.id)
 
 	// remove vm
+	log.Debug().
+		Str("ID", vm.id).
+		Msg("Closed VM")
 
 	return nil
 }
