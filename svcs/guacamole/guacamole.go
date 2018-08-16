@@ -68,7 +68,9 @@ func New(conf Config) (Guacamole, error) {
 	}
 
 	log.Debug().Msgf("Initializing guacamole..")
-	guac.initialize()
+	if err := guac.initialize(); err != nil {
+		return nil, err
+	}
 	log.Debug().Msgf("Initialization done!")
 
 	return guac, nil
