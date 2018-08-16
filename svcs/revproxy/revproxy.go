@@ -92,6 +92,7 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		Mounts: []string{
 			fmt.Sprintf("%s:/etc/nginx/conf.d/default.conf", confFile.Name()),
 		},
+		UseBridge: true,
 	}
 
 	c, err := docker.NewContainer(cConf)
