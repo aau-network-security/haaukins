@@ -91,8 +91,8 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 
 	for _, t := range conf.Tags {
 		ee.tags[t] = e
-		ee.exercises = append(ee.exercises, e)
 	}
+	ee.exercises = append(ee.exercises, e)
 
 	return nil
 }
