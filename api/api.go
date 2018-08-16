@@ -20,6 +20,7 @@ func (api Api) handleRegister(w http.ResponseWriter, r *http.Request) {
 		log.Warn().Msgf("%s", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(auth)
 }
 
