@@ -7,6 +7,6 @@ guac:
   admin_user: admin
   admin_pass: admin
   host: localhost
-  port: 10000
+  port: 80
 revproxy:
   host: localhost
