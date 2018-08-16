@@ -62,23 +62,10 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		}
 	}
 
-	return ng, nil
-}
-
-func (ng *nginx) Close() {
-	if ng.cont != nil {
-		ng.cont.Close()
-	}
-}
-
-func (ng *nginx) NumberOfEndpoints() int {
-	return len(ng.endpoints)
-}
-
-func (ng *nginx) Start(ctx context.Context) error {
+	log.Debug().Msgf("Creating temp file..")
 	confFile, err := ioutil.TempFile("", "nginx_conf")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tmplCtx := struct {
@@ -86,9 +73,12 @@ func (ng *nginx) Start(ctx context.Context) error {
 	}{
 		ng.endpoints,
 	}
+
+	log.Debug().Msgf("Executing template..")
 	if err := baseTmpl.Execute(confFile, tmplCtx); err != nil {
-		return err
+		return nil, err
 	}
+	log.Debug().Msgf("Template executed")
 
 	cConf := docker.ContainerConfig{
 		Image: "nginx",
@@ -106,7 +96,7 @@ func (ng *nginx) Start(ctx context.Context) error {
 
 	c, err := docker.NewContainer(cConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ng.cont = c
 
@@ -114,12 +104,25 @@ func (ng *nginx) Start(ctx context.Context) error {
 
 	for alias, cont := range ng.aliasCont {
 		if err := c.Link(cont, alias); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	err = c.Start()
-	if err != nil {
+	return ng, nil
+}
+
+func (ng *nginx) Close() {
+	if ng.cont != nil {
+		ng.cont.Close()
+	}
+}
+
+func (ng *nginx) NumberOfEndpoints() int {
+	return len(ng.endpoints)
+}
+
+func (ng *nginx) Start(ctx context.Context) error {
+	if err := ng.cont.Start(); err != nil {
 		return err
 	}
 
