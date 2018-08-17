@@ -106,9 +106,16 @@ func (vm *vm) Close() error {
 	if err != nil {
 		return err
 	}
-	log.Debug().Msgf("Closed VM '%s'", vm.id)
 
 	// remove vm
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err = VBoxCmdContext(ctx, "unregistervm", vm.id, "--delete")
+	if err != nil {
+		return err
+	}
+
 	log.Debug().
 		Str("ID", vm.id).
 		Msg("Closed VM")
