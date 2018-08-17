@@ -242,14 +242,12 @@ func (ctf *ctfd) configureInstance() error {
 	}
 	defer resp.Body.Close()
 
-	for _, f := range ctf.conf.Flags {
-		log.Debug().Msgf("%s", f)
-		err := ctf.createFlag(f.Name, f.Default, f.Points)
+	for _, flag := range ctf.conf.Flags {
+		err := ctf.createFlag(flag.Name, flag.Default, flag.Points)
 		if err != nil {
-			log.Warn().Msgf("%s", err)
 			return err
 		}
-		log.Debug().Msgf("Flag created")
+		log.Debug().Msgf("Flag created: %+v", flag)
 	}
 
 	return nil

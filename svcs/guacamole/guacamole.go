@@ -17,7 +17,6 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -70,11 +69,9 @@ func New(conf Config) (Guacamole, error) {
 		conf:   conf,
 	}
 
-	log.Debug().Msgf("Initializing guacamole..")
 	if err := guac.initialize(); err != nil {
 		return nil, err
 	}
-	log.Debug().Msgf("Initialization done!")
 
 	return guac, nil
 }
@@ -308,7 +305,6 @@ func (guac *guacamole) login(username, password string) (string, error) {
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
-	log.Debug().Msgf("authAction with user %s and pass %s", guac.conf.AdminUser, guac.conf.AdminPass)
 	if guac.token == "" {
 		token, err := guac.login(guac.conf.AdminUser, guac.conf.AdminPass)
 		if err != nil {

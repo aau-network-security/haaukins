@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -62,7 +61,6 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		}
 	}
 
-	log.Debug().Msgf("Creating temp file..")
 	confFile, err := ioutil.TempFile("", "nginx_conf")
 	if err != nil {
 		return nil, err
@@ -74,11 +72,9 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		ng.endpoints,
 	}
 
-	log.Debug().Msgf("Executing template..")
 	if err := baseTmpl.Execute(confFile, tmplCtx); err != nil {
 		return nil, err
 	}
-	log.Debug().Msgf("Template executed")
 
 	cConf := docker.ContainerConfig{
 		Image: "nginx",
@@ -100,8 +96,6 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		return nil, err
 	}
 	ng.cont = c
-
-	log.Debug().Msgf("%s", c)
 
 	for alias, cont := range ng.aliasCont {
 		if err := c.Link(cont, alias); err != nil {
