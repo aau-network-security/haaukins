@@ -4,6 +4,7 @@ import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"testing"
+	"time"
 )
 
 var (
@@ -29,6 +30,8 @@ type testLibrary struct{}
 func (testLibrary) GetCopy(string, ...vbox.VMOpt) (vbox.VM, error) { return v, nil }
 
 type testVbox struct{}
+
+func (testVbox) Stop() error { return nil }
 
 func (testVbox) Close() error { return nil }
 
@@ -58,12 +61,17 @@ func TestNewHub(t *testing.T) {
 		return lib
 	}
 
-	config, _ := LoadConfig("test_resources/test_exercises.yml")
+	config, err := LoadConfig("test_resources/test_exercises.yml")
+	if err != nil {
+		t.Fatalf("Unexpected error while loading config: %s", err)
+	}
 	bufferSize := 1
 	hInterface, err := NewHub(uint(bufferSize), 2, *config, "/tmp")
 	if err != nil {
-		t.Fatalf("Unexpected error: %s", err)
+		t.Fatalf("Unexpected error while creating new lab hub: %s", err)
 	}
+
+	time.Sleep(1 * time.Millisecond)
 
 	h := hInterface.(*hub)
 	if h.Available() != bufferSize {
@@ -79,18 +87,28 @@ func TestHub_Get(t *testing.T) {
 		return lib
 	}
 
-	config, _ := LoadConfig("test_resources/test_exercises.yml")
-	hInterface, _ := NewHub(1, 2, *config, "/tmp")
+	config, err := LoadConfig("test_resources/test_exercises.yml")
+	if err != nil {
+		t.Fatalf("Unexpected error while loading config: %s", err)
+	}
+	hInterface, err := NewHub(1, 2, *config, "/tmp")
+	if err != nil {
+		t.Fatalf("Unexpected error while creating new lab hub: %s", err)
+	}
 	h := hInterface.(*hub)
+
+	time.Sleep(1 * time.Millisecond)
 
 	if h.Available() != 1 {
 		t.Fatalf("Unexpected number of buffered labs (%d), expected %d", hInterface.Available(), 1)
 	}
 
-	_, err := h.Get()
+	_, err = h.Get()
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
+
+	time.Sleep(1 * time.Millisecond)
 
 	if h.Available() != 1 {
 		t.Fatalf("Unexpected number of buffered labs (%d), expected %d", hInterface.Available(), 1)
@@ -124,9 +142,10 @@ func TestHub_Close(t *testing.T) {
 	hInterface, _ := NewHub(1, 2, *config, "/tmp")
 	h := hInterface.(*hub)
 
-	h.labs = make(map[string]Lab)
-	h.labs["a"] = &testLab{true}
-	h.labs["b"] = &testLab{true}
+	h.labs = []Lab{
+		&testLab{true},
+		&testLab{true},
+	}
 
 	h.Close()
 

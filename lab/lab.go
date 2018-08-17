@@ -60,7 +60,7 @@ func (l *lab) addFrontend() (vbox.VM, error) {
 	l.frontends = append(l.frontends, vm)
 	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
 
-	log.Debug().Msgf("Succesfully created frontend on port %d", rdpPort)
+	log.Debug().Msgf("Created lab frontend on port %d", rdpPort)
 
 	return vm, nil
 }
