@@ -40,7 +40,6 @@ type Guacamole interface {
 }
 
 type Config struct {
-	AdminUser string `yaml:"admin_user"`
 	AdminPass string `yaml:"admin_pass"`
 	Host      string `yaml:"host"`
 	Port      uint   `yaml:"port"`
@@ -239,7 +238,6 @@ func (guac *guacamole) configureInstance(port uint) error {
 	temp := &guacamole{
 		client: guac.client,
 		conf: Config{
-			AdminUser: AdminUser,
 			AdminPass: DefaultAdminPAss,
 			Host:      "127.0.0.1",
 			Port:      port,
@@ -306,7 +304,7 @@ func (guac *guacamole) login(username, password string) (string, error) {
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
 	if guac.token == "" {
-		token, err := guac.login(guac.conf.AdminUser, guac.conf.AdminPass)
+		token, err := guac.login(AdminUser, guac.conf.AdminPass)
 		if err != nil {
 			return err
 		}

@@ -3,8 +3,7 @@ ctfd:
   admin_user: admin
   admin_email: cyber@es.aau.dk
   admin_pass: Zg5txAyg2WNmUt6vz7ep
-guac:
-  admin_user: guacadmin
+guacamole:
   admin_pass: admin
   host: localhost
   port: 80
@@ -22,10 +21,12 @@ lab:
     - image: aau/sql-client
       memoryMB: 50
       flag:
-      - env: INTERNAL_FLAG
+      - name: Web server login
+        env: INTERNAL_FLAG
         default: c5b0238c-f504-4ade-8075-3afb71e88cf6
         points: 5
-      - env: DB_FLAG
+      - name: SQL injection
+        env: DB_FLAG
         default: 334637ad-2c51-45dd-89d9-9b7c7155b366
         points: 15
     - image: aau/sql-server
@@ -34,7 +35,8 @@ lab:
       - name: netsec-forum.dk
         record: A
       flag:
-      - env: FLAG
+      - name: Network sniffing
+        env: FLAG
         default: 613ee1e1-ab15-4c0e-b324-3f2a6eee25f2
         points: 5
   - name: Cross-Site Scripting
@@ -49,7 +51,8 @@ lab:
       - name: dogshare.com
         record: A
       flag:
-      - env: FLAG
+      - name: Cross-site scripting
+        env: FLAG
         default: 8bf23f64-9150-45a4-8901-a157896c73a4
         points: 15
   - name: Network Scanning
@@ -58,7 +61,8 @@ lab:
     docker:
     - image: aau/hidden-server
       flag:
-      - env: FLAG
+      - name: Network scanning
+        env: FLAG
         default: 8d6bd6bb-c773-4e62-9c4a-620b331703eb
         points: 5
   - name: Heartbleed Exploit
@@ -69,7 +73,8 @@ lab:
     - image: aau/heartbleed
       memoryMB: 100
       flag:
-      - env: FLAG
+      - name: Heartbleed
+        env: FLAG
         default: d346b8aa-469f-42e3-a8ed-4e0d004c9938
         points: 8
       dns:
@@ -87,6 +92,7 @@ lab:
     - image: aau/mitm-client
       memoryMB: 75
       flag:
-      - env: FLAG
+      - name: Man in the middle
+        env: FLAG
         default: 2bd60c1f-530a-4287-af42-1b869b78e288
         points: 15
