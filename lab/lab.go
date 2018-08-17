@@ -49,7 +49,7 @@ func (l *lab) addFrontend() (vbox.VM, error) {
 	hostIp, _ := docker.GetDockerHostIP()
 
 	rdpPort := virtual.GetAvailablePort()
-	vm, err := l.lib.GetCopy("kali.ova",
+	vm, err := l.lib.GetCopy("aau-kali.ova",
 		vbox.SetBridge(l.environment.Interface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
 	)

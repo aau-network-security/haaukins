@@ -60,7 +60,7 @@ func New(eventPath string, labPath string) (Event, error) {
 		return nil, err
 	}
 
-	labHub, err := labNewHub(1, 2, *labConfig, "/scratch/events")
+	labHub, err := labNewHub(1, 2, *labConfig, "/scratch/git/training-platform/exercises")
 	if err != nil {
 		return nil, err
 	}
