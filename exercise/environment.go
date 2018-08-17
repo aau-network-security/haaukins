@@ -1,12 +1,9 @@
 package exercise
 
 import (
-	"errors"
-	"fmt"
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/rs/zerolog/log"
 )
 
 type Environment interface {
@@ -116,11 +113,11 @@ func (ee *environment) Interface() string {
 
 func (ee *environment) Start() error {
 	if err := ee.dnsServer.Start(); err != nil {
-		return errors.New(fmt.Sprintf("[DNS] %s", err))
+		return err
 	}
 
 	if err := ee.dhcpServer.Start(); err != nil {
-		return errors.New(fmt.Sprintf("[DHCP] %s", err))
+		return err
 	}
 
 	for _, e := range ee.exercises {
@@ -129,18 +126,16 @@ func (ee *environment) Start() error {
 		}
 	}
 
-	log.Debug().Msgf("Started environment")
-
 	return nil
 }
 
 func (ee *environment) Close() error {
 	if err := ee.dnsServer.Close(); err != nil {
-		return errors.New(fmt.Sprintf("[DNS] %s", err.Error()))
+		return err
 	}
 
 	if err := ee.dhcpServer.Close(); err != nil {
-		return errors.New(fmt.Sprintf("[DHCP] %s", err.Error()))
+		return err
 	}
 
 	for _, e := range ee.exercises {
@@ -157,7 +152,6 @@ func (ee *environment) Close() error {
 }
 
 func (ee *environment) updateDNS() error {
-	log.Debug().Msgf("Updating DNS records..")
 	if ee.dnsServer != nil {
 		if err := ee.dnsServer.Stop(); err != nil {
 			return err
@@ -181,6 +175,5 @@ func (ee *environment) updateDNS() error {
 	ee.dnsServer = serv
 	ee.dnsIP = ee.network.FormatIP(dns.PreferedIP)
 
-	log.Debug().Msgf("DNS records updated!")
 	return nil
 }
