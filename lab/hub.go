@@ -34,8 +34,8 @@ type hub struct {
 	buffer chan Lab
 }
 
-func NewHub(buffer uint, max uint, config Config, libpath string) (Hub, error) {
-	if buffer > max {
+func NewHub(config Config, libpath string) (Hub, error) {
+	if config.Capacity.Buffer > config.Capacity.Max {
 		return nil, BufferMaxRatioErr
 	}
 
@@ -44,13 +44,13 @@ func NewHub(buffer uint, max uint, config Config, libpath string) (Hub, error) {
 		labs:        []Lab{},
 		exercises:   config.Exercises,
 		createSema:  NewSemaphore(createLimit),
-		maximumSema: NewSemaphore(int(max)),
-		buffer:      make(chan Lab, buffer),
+		maximumSema: NewSemaphore(config.Capacity.Max),
+		buffer:      make(chan Lab, config.Capacity.Buffer),
 		vboxLib:     vboxNewLibrary(libpath),
 	}
 
-	log.Debug().Msgf("Instantiating %d lab(s)", buffer)
-	for i := 0; i < int(buffer); i++ {
+	log.Debug().Msgf("Instantiating %d lab(s)", config.Capacity.Buffer)
+	for i := 0; i < config.Capacity.Buffer; i++ {
 		go h.addLab()
 	}
 

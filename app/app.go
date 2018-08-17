@@ -49,7 +49,7 @@ func main() {
 		docker.Registries = append(docker.Registries, *authConfig)
 	}
 
-	ev, err := event.New("app/config.yml", "app/exercises.yml")
+	ev, err := event.New("app/config.yml")
 	if err != nil {
 		log.Error().Msgf("%s", err)
 		return

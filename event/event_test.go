@@ -107,7 +107,7 @@ func getEvent() Event {
 		return &proxy, nil
 	}
 
-	labNewHub = func(buffer uint, max uint, config lab.Config, libpath string) (lab.Hub, error) {
+	labNewHub = func(config lab.Config, libpath string) (lab.Hub, error) {
 		labhub = testLabhub{true}
 		return &labhub, nil
 	}
@@ -116,7 +116,7 @@ func getEvent() Event {
 		return "127.0.0.1", nil
 	}
 
-	ev, _ := New("test_resources/test_event.yml", "test_resources/test_exercises.yml")
+	ev, _ := New("test_resources/test_event.yml")
 	return ev
 }
 

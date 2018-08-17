@@ -50,36 +50,31 @@ func rand() string {
 	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
 }
 
-func New(eventPath string, labPath string) (Event, error) {
-	eventConfig, err := loadConfig(eventPath)
+func New(confPath string) (Event, error) {
+	conf, err := loadConfig(confPath)
 	if err != nil {
 		return nil, err
 	}
 
-	labConfig, err := lab.LoadConfig(labPath)
-	if err != nil {
-		return nil, err
-	}
-
-	labHub, err := labNewHub(1, 2, *labConfig, "/scratch/git/training-platform/exercises")
+	labHub, err := labNewHub(conf.Lab, "/scratch/git/training-platform/exercises")
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: this is not implemented with dynamic flags in mind; dynamic flag string can simply not be specified in the initial config
-	eventConfig.ctfd.Flags = labConfig.Flags()
+	conf.CTFd.Flags = conf.Lab.Flags()
 
-	ctf, err := ctfdNew(eventConfig.ctfd)
+	ctf, err := ctfdNew(conf.CTFd)
 	if err != nil {
 		return nil, err
 	}
 
-	guac, err := guacNew(eventConfig.guac)
+	guac, err := guacNew(conf.Guac)
 	if err != nil {
 		return nil, err
 	}
 
-	proxy, err := proxyNew(eventConfig.revproxy, ctf, guac)
+	proxy, err := proxyNew(conf.Proxy, ctf, guac)
 	if err != nil {
 		return nil, err
 	}

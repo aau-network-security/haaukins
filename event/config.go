@@ -1,6 +1,7 @@
 package event
 
 import (
+	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
@@ -9,9 +10,10 @@ import (
 )
 
 type Config struct {
-	ctfd     ctfd.Config      `yaml:"ctfd"`
-	guac     guacamole.Config `yaml:"guacamole"`
-	revproxy revproxy.Config  `yaml:"revproxy"`
+	CTFd  ctfd.Config      `yaml:"ctfd"`
+	Guac  guacamole.Config `yaml:"guacamole"`
+	Proxy revproxy.Config  `yaml:"revproxy"`
+	Lab   lab.Config       `yaml:"lab"`
 }
 
 func loadConfig(path string) (*Config, error) {

@@ -7,7 +7,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type Capacity struct {
+	Buffer int `yaml:"buffer"`
+	Max    int `yaml:"max"`
+}
+
 type Config struct {
+	Capacity  Capacity          `yaml:"capacity"`
 	Exercises []exercise.Config `yaml:"exercise"`
 }
 
