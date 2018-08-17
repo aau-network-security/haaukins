@@ -58,7 +58,7 @@ func TestNewHub(t *testing.T) {
 		return lib
 	}
 
-	config, _ := LoadConfig("test_resources/test_lab.yml")
+	config, _ := LoadConfig("test_resources/test_exercises.yml")
 	bufferSize := 1
 	hInterface, err := NewHub(uint(bufferSize), 2, *config, "/tmp")
 	if err != nil {
@@ -79,7 +79,7 @@ func TestHub_Get(t *testing.T) {
 		return lib
 	}
 
-	config, _ := LoadConfig("test_resources/test_lab.yml")
+	config, _ := LoadConfig("test_resources/test_exercises.yml")
 	hInterface, _ := NewHub(1, 2, *config, "/tmp")
 	h := hInterface.(*hub)
 
@@ -120,7 +120,7 @@ func TestHub_Close(t *testing.T) {
 		return lib
 	}
 
-	config, _ := LoadConfig("test_resources/test_lab.yml")
+	config, _ := LoadConfig("test_resources/test_exercises.yml")
 	hInterface, _ := NewHub(1, 2, *config, "/tmp")
 	h := hInterface.(*hub)
 

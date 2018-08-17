@@ -1,8 +1,8 @@
 ctfd:
-  name: Test CTFd
+  name: Demo
   admin_user: admin
-  admin_email: email
-  admin_pass: admin
+  admin_email: cyber@es.aau.dk
+  admin_pass: Zg5txAyg2WNmUt6vz7ep
 guac:
   admin_user: guacadmin
   admin_pass: admin

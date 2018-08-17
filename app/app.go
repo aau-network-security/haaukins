@@ -70,6 +70,7 @@ func main() {
 	hostIp, err := docker.GetDockerHostIP()
 	if err != nil {
 		log.Error().Msgf("Error while getting host IP: %s", err)
+		return
 	}
 
 	log.Info().Msgf("Started event")

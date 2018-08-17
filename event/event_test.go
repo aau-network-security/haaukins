@@ -12,75 +12,64 @@ import (
 )
 
 var (
-	ctf    = test_ctfd{false}
-	guac   = test_guac{false, 0, 0}
-	proxy  = test_proxy{false}
-	labhub = test_labhub{}
+	ctf    = testCtfd{}
+	guac   = testGuac{}
+	proxy  = testProxy{}
+	labhub = testLabhub{true}
 )
 
 // boilerplate interface implementations
-type test_ctfd struct {
+type testCtfd struct {
 	started bool
+	flags   []exercise.FlagConfig
 }
 
-func (ctf *test_ctfd) ID() string { return "1" }
+func (ctf *testCtfd) Start() error { ctf.started = true; return nil }
 
-func (ctf *test_ctfd) ConnectProxy(revproxy.Proxy) error { return nil }
+func (ctf *testCtfd) ID() string { return "1" }
 
-func (ctf *test_ctfd) Start(context.Context) error {
-	ctf.started = true
-	return nil
-}
+func (ctf *testCtfd) ConnectProxy(revproxy.Proxy) error { return nil }
 
-func (ctf *test_ctfd) Close() { ctf.started = false }
+func (ctf *testCtfd) Close() { ctf.started = false }
 
-func (ctf *test_ctfd) Flags() []exercise.FlagConfig {
-	return []exercise.FlagConfig{}
-}
+func (ctf *testCtfd) Flags() []exercise.FlagConfig { return ctf.flags }
 
-type test_guac struct {
+type testGuac struct {
 	started        bool
 	users          int
 	rdpConnections int
 }
 
-func (guac *test_guac) ID() string { return "1" }
+func (guac *testGuac) ID() string { return "1" }
 
-func (guac *test_guac) ConnectProxy(revproxy.Proxy) error { return nil }
+func (guac *testGuac) ConnectProxy(revproxy.Proxy) error { return nil }
 
-func (guac *test_guac) Start(context.Context) error {
-	guac.started = true
-	return nil
-}
+func (guac *testGuac) Start(context.Context) error { guac.started = true; return nil }
 
-func (guac *test_guac) CreateUser(username, password string) error {
-	guac.users++
-	return nil
-}
+func (guac *testGuac) CreateUser(username, password string) error { guac.users++; return nil }
 
-func (guac *test_guac) CreateRDPConn(opts guacamole.CreateRDPConnOpts) error {
+func (guac *testGuac) CreateRDPConn(opts guacamole.CreateRDPConnOpts) error {
 	guac.rdpConnections++
 	return nil
 }
 
-func (guac *test_guac) Close() {
-	guac.started = false
+func (guac *testGuac) Close() { guac.started = false }
+
+type testProxy struct {
+	started    bool
+	nEndpoints int
 }
 
-type test_proxy struct {
-	started bool
-}
-
-func (proxy *test_proxy) Start(context.Context) error {
+func (proxy *testProxy) Start(context.Context) error {
 	proxy.started = true
 	return nil
 }
 
-func (proxy *test_proxy) Add(docker.Identifier, string) error { return nil }
+func (proxy *testProxy) Add(docker.Identifier, string) error { return nil }
 
-func (proxy *test_proxy) Close() { proxy.started = false }
+func (proxy *testProxy) Close() { proxy.started = false }
 
-func (proxy *test_proxy) NumberOfEndpoints() int { return 1 }
+func (proxy *testProxy) NumberOfEndpoints() int { return proxy.nEndpoints }
 
 type test_lab struct{}
 
@@ -92,53 +81,50 @@ func (lab *test_lab) Close() {}
 
 func (lab *test_lab) RdpConnPorts() []uint { return []uint{1, 2} }
 
-type test_labhub struct{}
+type testLabhub struct {
+	started bool
+}
 
-func (hub *test_labhub) Get() (lab.Lab, error) { return &test_lab{}, nil }
+func (hub *testLabhub) Get() (lab.Lab, error) { return &test_lab{}, nil }
 
-func (hub *test_labhub) Close() {}
+func (hub *testLabhub) Close() { hub.started = false }
 
-func (hub *test_labhub) Available() int { return 1 }
+func (hub *testLabhub) Available() int { return 1 }
 
 func getEvent() Event {
-	ctf = test_ctfd{false}
-	guac = test_guac{false, 0, 0}
-	proxy = test_proxy{false}
-	labhub = test_labhub{}
-
-	ctfdFuncOld := ctfdNew
-	defer func() { ctfdNew = ctfdFuncOld }()
 	ctfdNew = func(conf ctfd.Config) (ctfd.CTFd, error) {
+		ctf = testCtfd{false, conf.Flags}
 		return &ctf, nil
 	}
 
-	guacFuncOld := guacNew
-	defer func() { guacNew = guacFuncOld }()
 	guacNew = func(conf guacamole.Config) (guacamole.Guacamole, error) {
+		guac = testGuac{false, 0, 0}
 		return &guac, nil
 	}
 
-	proxyFuncOld := proxyNew
-	defer func() { proxyNew = proxyFuncOld }()
 	proxyNew = func(conf revproxy.Config, connectors ...revproxy.Connector) (revproxy.Proxy, error) {
+		proxy = testProxy{false, len(connectors)}
 		return &proxy, nil
 	}
 
-	labFuncOld := labNewHub
-	defer func() { labNewHub = labFuncOld }()
 	labNewHub = func(buffer uint, max uint, config lab.Config, libpath string) (lab.Hub, error) {
+		labhub = testLabhub{true}
 		return &labhub, nil
 	}
 
-	ev, _ := New("test_resources/test_event.yml", "test_resources/test_lab.yml")
+	getDockerHostIp = func() (string, error) {
+		return "127.0.0.1", nil
+	}
+
+	ev, _ := New("test_resources/test_event.yml", "test_resources/test_exercises.yml")
 	return ev
 }
 
 func TestNew(t *testing.T) {
-	expected := 2
-
-	evInterface, _ := New("test_resources/test_event.yml", "test_resources/test_lab.yml")
+	evInterface := getEvent()
 	ev := evInterface.(*event)
+
+	expected := 2
 	nEndpoints := ev.proxy.NumberOfEndpoints()
 	if nEndpoints != expected {
 		t.Fatalf("Unexpected number of endpoints (expected %d): %d", expected, nEndpoints)
@@ -180,13 +166,22 @@ func TestEvent_StartAndClose(t *testing.T) {
 	if proxy.started {
 		t.Fatalf("Expected Proxy to be stopped, but hasn't")
 	}
+	if labhub.started {
+		t.Fatalf("Expected LabHub to be stopped, but hasn't")
+	}
 }
 
 func TestEvent_Register(t *testing.T) {
 	ev := getEvent()
 	ev.Start(context.TODO())
-	ev.Register(Group{"newgroup1"})
-	ev.Register(Group{"newgroup2"})
+	_, err := ev.Register(Group{"newgroup1"})
+	if err != nil {
+		t.Fatalf("Unexpected error while registering: %s", err)
+	}
+	_, err = ev.Register(Group{"newgroup2"})
+	if err != nil {
+		t.Fatalf("Unexpected error while registering: %s", err)
+	}
 
 	expectedUsers := 2
 	if guac.users != expectedUsers {

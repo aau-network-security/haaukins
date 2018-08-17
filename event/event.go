@@ -17,10 +17,11 @@ import (
 var (
 	RdpConfError = errors.New("Error ")
 
-	ctfdNew   = ctfd.New
-	guacNew   = guacamole.New
-	proxyNew  = revproxy.New
-	labNewHub = lab.NewHub
+	ctfdNew         = ctfd.New
+	guacNew         = guacamole.New
+	proxyNew        = revproxy.New
+	labNewHub       = lab.NewHub
+	getDockerHostIp = docker.GetDockerHostIP
 )
 
 type Auth struct {
@@ -66,19 +67,19 @@ func New(eventPath string, labPath string) (Event, error) {
 	}
 
 	// TODO: this is not implemented with dynamic flags in mind; dynamic flag string can simply not be specified in the initial config
-	eventConfig.CTFd.Flags = labConfig.Flags()
+	eventConfig.ctfd.Flags = labConfig.Flags()
 
-	ctf, err := ctfdNew(eventConfig.CTFd)
+	ctf, err := ctfdNew(eventConfig.ctfd)
 	if err != nil {
 		return nil, err
 	}
 
-	guac, err := guacNew(eventConfig.Guac)
+	guac, err := guacNew(eventConfig.guac)
 	if err != nil {
 		return nil, err
 	}
 
-	proxy, err := proxyNew(eventConfig.RevProxy, ctf, guac)
+	proxy, err := proxyNew(eventConfig.revproxy, ctf, guac)
 	if err != nil {
 		return nil, err
 	}
@@ -89,23 +90,7 @@ func New(eventPath string, labPath string) (Event, error) {
 		proxy:  proxy,
 		labhub: labHub}
 
-	//err = ev.initialize()
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	return ev, nil
-}
-
-func (ev *event) initialize() error {
-	if err := ev.ctfd.ConnectProxy(ev.proxy); err != nil {
-		return err
-	}
-	if err := ev.guac.ConnectProxy(ev.proxy); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (ev *event) Start(ctx context.Context) error {
@@ -160,7 +145,7 @@ func (ev *event) Register(group Group) (*Auth, error) {
 		return nil, err
 	}
 
-	hostIp, err := docker.GetDockerHostIP()
+	hostIp, err := getDockerHostIp()
 	if err != nil {
 		return nil, err
 	}

@@ -9,9 +9,9 @@ import (
 )
 
 type Config struct {
-	CTFd     ctfd.Config      "yaml:ctfd"
-	Guac     guacamole.Config "yaml:guacamole"
-	RevProxy revproxy.Config  "yaml:revproxy"
+	ctfd     ctfd.Config      `yaml:"ctfd"`
+	guac     guacamole.Config `yaml:"guacamole"`
+	revproxy revproxy.Config  `yaml:"revproxy"`
 }
 
 func loadConfig(path string) (*Config, error) {

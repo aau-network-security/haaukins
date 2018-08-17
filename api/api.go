@@ -18,10 +18,10 @@ func (api Api) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn().Msgf("Error while handling registration: %s", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	} else {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(auth)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(auth)
 }
 
 func (api Api) RunServer(host string, port int) {

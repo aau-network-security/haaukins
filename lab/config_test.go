@@ -5,7 +5,7 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	conf, _ := LoadConfig("test_resources/test_lab.yml")
+	conf, _ := LoadConfig("test_resources/test_exercises.yml")
 	if len(conf.Exercises) != 2 {
 		t.Fatalf("Unexpected number of exercises (expected 2): %d", len(conf.Exercises))
 	}
