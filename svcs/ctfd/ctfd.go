@@ -15,33 +15,33 @@ import (
 	"strings"
 	"time"
 
+	"errors"
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/rs/zerolog/log"
 )
 
 var (
 	NONCEREGEXP = regexp.MustCompile(`csrf_nonce[ ]*=[ ]*"(.+)"`)
+
+	ServerUnavailableErr = errors.New("Server is unavailable")
 )
 
 type CTFd interface {
 	docker.Identifier
 	revproxy.Connector
-	Start(context.Context) error
+	Start() error
 	Close()
-}
-
-type Flag struct {
-	Name  string
-	Flag  string
-	Value uint
+	Flags() []exercise.FlagConfig
 }
 
 type Config struct {
-	Name       string
-	AdminUser  string
-	AdminEmail string
-	AdminPass  string
-	Flags      []Flag
+	Name       string `yaml:"name"`
+	AdminUser  string `yaml:"admin_user"`
+	AdminEmail string `yaml:"admin_email"`
+	AdminPass  string `yaml:"admin_pass"`
+	Flags      []exercise.FlagConfig
 }
 
 type ctfd struct {
@@ -60,21 +60,26 @@ func New(conf Config) (CTFd, error) {
 		Jar: jar,
 	}
 
-	return &ctfd{
+	ctf := &ctfd{
 		conf:       conf,
 		httpclient: hc,
-	}, nil
+	}
 
-}
-
-func (ctf *ctfd) Start(ctx context.Context) error {
 	pwd, _ := os.Getwd()
+	hostIp, err := docker.GetDockerHostIP()
+	if err != nil {
+		return nil, err
+	}
 
 	baseConf := &docker.ContainerConfig{
 		Image: "aau/ctfd",
 		Mounts: []string{
 			fmt.Sprintf("%s/data:/opt/CTFd/CTFd/data", pwd),
 		},
+		EnvVars: map[string]string{
+			"ADMIN_HOST": hostIp,
+		},
+		UseBridge: true,
 	}
 
 	initConf := *baseConf
@@ -84,44 +89,47 @@ func (ctf *ctfd) Start(ctx context.Context) error {
 
 	c, err := docker.NewContainer(initConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = c.Start()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	err = ctf.configureInstance(ctx)
+	err = ctf.configureInstance()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = c.Kill()
+	err = c.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	finalConf := *baseConf
 	c, err = docker.NewContainer(finalConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ctf.cont = c
 
-	err = c.Start()
-	if err != nil {
-		return err
-	}
+	return ctf, nil
 
-	return nil
+}
+
+func (ctf *ctfd) Start() error {
+	return ctf.cont.Start()
 }
 
 func (ctf *ctfd) Close() {
-	ctf.cont.Kill()
+	if ctf.cont != nil {
+		ctf.cont.Close()
+	}
+}
+
+func (ctf *ctfd) Flags() []exercise.FlagConfig {
+	return ctf.conf.Flags
 }
 
 func (ctf *ctfd) ID() string {
@@ -156,7 +164,7 @@ func (ctf *ctfd) getNonce(path string) (string, error) {
 	return string(matches[0][1]), nil
 }
 
-func (ctf *ctfd) createFlag(ctx context.Context, name, flag string, points uint) error {
+func (ctf *ctfd) createFlag(name, flag string, points uint) error {
 	endpoint := "http://localhost:8000" + "/admin/chal/new"
 
 	nonce, err := ctf.getNonce(endpoint)
@@ -202,10 +210,10 @@ func (ctf *ctfd) createFlag(ctx context.Context, name, flag string, points uint)
 	return nil
 }
 
-func (ctf *ctfd) configureInstance(ctx context.Context) error {
+func (ctf *ctfd) configureInstance() error {
 	endpoint := "http://localhost:8000/setup"
 
-	if err := waitForServer(ctx, endpoint); err != nil {
+	if err := waitForServer(endpoint); err != nil {
 		return err
 	}
 
@@ -234,21 +242,21 @@ func (ctf *ctfd) configureInstance(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 
-	for _, f := range ctf.conf.Flags {
-		fmt.Println(f)
-		err := ctf.createFlag(ctx, f.Name, f.Flag, f.Value)
+	for _, flag := range ctf.conf.Flags {
+		err := ctf.createFlag(flag.Name, flag.Default, flag.Points)
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
-
-		fmt.Println("Flag created")
+		log.Debug().Msgf("Flag created: %+v", flag)
 	}
 
 	return nil
 }
 
-func waitForServer(ctx context.Context, path string) error {
+func waitForServer(path string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	errc := make(chan error, 1)
 	poll := func() error {
 		resp, err := http.Get(path)
@@ -268,7 +276,7 @@ func waitForServer(ctx context.Context, path string) error {
 		for {
 			select {
 			case <-ctx.Done():
-				errc <- ctx.Err()
+				errc <- ServerUnavailableErr
 				return
 			default:
 				err := poll()

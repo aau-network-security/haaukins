@@ -44,7 +44,7 @@ type Container interface {
 	Identifier
 	Start() error
 	Stop() error
-	Kill() error
+	Close() error
 	Link(Identifier, string) error
 }
 
@@ -57,6 +57,7 @@ type ContainerConfig struct {
 	Cmd          []string
 	DNS          []string
 	UsedPorts    []string
+	UseBridge    bool
 }
 
 type Resources struct {
@@ -79,19 +80,22 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	bindings := make(map[docker.Port][]docker.PortBinding)
 	for guestPort, hostListen := range conf.PortBindings {
-        log.Debug().Msgf("guestPort: %s, hostListen: %s", guestPort, hostListen)
+		log.Debug().
+			Str("guestPort", guestPort).
+			Str("hostListen", hostListen).
+			Msgf("Port bindings for new '%s' container", conf.Image)
 
-        hostIP := ""
-        hostPort := hostListen
+		hostIP := ""
+		hostPort := hostListen
 
-        if strings.Contains(guestPort, "/") == false {
-            log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
-            guestPort = guestPort+"/tcp"
-        }
+		if strings.Contains(guestPort, "/") == false {
+			log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
+			guestPort = guestPort + "/tcp"
+		}
 
 		if strings.Contains(hostListen, "/") {
-            return nil, InvalidHostBinding
-        }
+			return nil, InvalidHostBinding
+		}
 
 		if strings.Contains(hostListen, ":") {
 			parts := strings.Split(hostListen, ":")
@@ -99,16 +103,16 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 				return nil, InvalidHostBinding
 			}
 
-            hostIP   = parts[0]
-            hostPort = parts[1]
-        }
+			hostIP = parts[0]
+			hostPort = parts[1]
+		}
 
-        bindings[docker.Port(guestPort)] = []docker.PortBinding{
-            {
-                HostIP:   hostIP,
-                HostPort: hostPort,
-            },
-        }
+		bindings[docker.Port(guestPort)] = []docker.PortBinding{
+			{
+				HostIP:   hostIP,
+				HostPort: hostPort,
+			},
+		}
 	}
 
 	var mounts []docker.HostMount
@@ -127,7 +131,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	}
 
-	hostIP, err := getDockerHostIP()
+	hostIP, err := GetDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
@@ -186,34 +190,22 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	cont, err := DefaultClient.CreateContainer(createContOpts)
 	if err != nil {
 		if err == docker.ErrNoSuchImage {
-            if len(Registries) < 1 {
-                log.Error().Msg("No registries to pull from, could not get image")
-                return nil, NoRegistriesToPullFrom
-            }
-
-			parts := strings.Split(conf.Image, ":")
-
-			repo := parts[0]
-			tag := "latest"
-
-			if len(parts) > 1 {
-				tag = parts[1]
+			if len(Registries) < 1 {
+				log.Error().Msg("No registries to pull from, could not get image")
+				return nil, NoRegistriesToPullFrom
 			}
 
 			for _, reg := range Registries {
-				err = DefaultClient.PullImage(docker.PullImageOptions{
-					Repository: repo,
-					Tag:        tag,
-				}, reg)
+				err = pullImage(conf.Image, reg)
 
 				if err == nil {
 					break
 				}
 			}
 
-            if err != nil {
-                return nil, err
-            }
+			if err != nil {
+				return nil, err
+			}
 
 			cont, err = DefaultClient.CreateContainer(createContOpts)
 			if err != nil {
@@ -224,10 +216,12 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		}
 	}
 
-	if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
-		Container: cont.ID,
-	}); err != nil {
-		return nil, err
+	if !conf.UseBridge {
+		if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
+			Container: cont.ID,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	log.Info().
@@ -241,16 +235,52 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}, nil
 }
 
+func pullImage(image string, reg docker.AuthConfiguration) error {
+	parts := strings.Split(image, ":")
+
+	repo := parts[0]
+	tag := "latest"
+
+	if reg.ServerAddress != "" {
+		repo = fmt.Sprintf("%s/%s", reg.ServerAddress, repo)
+	}
+
+	log.Debug().Msgf("Attempting to pull image %s:%s", repo, tag)
+
+	if err := DefaultClient.PullImage(docker.PullImageOptions{
+		Repository: repo,
+		Tag:        tag,
+	}, reg); err != nil {
+		return err
+	}
+
+	if reg.ServerAddress != "" {
+		if err := DefaultClient.TagImage(repo, docker.TagImageOptions{
+			Repo: parts[0],
+			Tag:  "latest",
+		}); err != nil {
+			return err
+		}
+
+		if err := DefaultClient.RemoveImage(repo); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *container) ID() string {
 	return c.id
 }
 
-func (c *container) Kill() error {
+func (c *container) Close() error {
 	if c.network != nil {
 		for _, cont := range append(c.linked, c) {
 			if err := DefaultClient.DisconnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
 				Container: cont.ID(),
 			}); err != nil {
+				log.Warn().Msgf("Failed to disconnect container %s from network %s", c.id, c.network.ID)
 				continue
 			}
 		}
@@ -271,15 +301,36 @@ func (c *container) Kill() error {
 		return err
 	}
 
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Closed container")
 	return nil
 }
 
 func (c *container) Start() error {
-	return DefaultClient.StartContainer(c.id, nil)
+	if err := DefaultClient.StartContainer(c.id, nil); err != nil {
+		return err
+	}
+
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Started container")
+	return nil
 }
 
 func (c *container) Stop() error {
-	return DefaultClient.StopContainer(c.id, 5)
+	if err := DefaultClient.StopContainer(c.id, 5); err != nil {
+		return err
+	}
+
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Stopped container")
+
+	return nil
 }
 
 func (c *container) Link(other Identifier, alias string) error {
@@ -373,7 +424,7 @@ func NewNetwork() (*Network, error) {
 	return &Network{net: net, subnet: subnet, ipPool: ipPool}, nil
 }
 
-func (n *Network) Stop() error {
+func (n *Network) Close() error {
 	for _, cont := range n.connected {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 			Container: cont.ID(),
@@ -446,7 +497,7 @@ func (n *Network) Connect(c Container, ip ...int) (int, error) {
 	return lastDigit, nil
 }
 
-func getDockerHostIP() (string, error) {
+func GetDockerHostIP() (string, error) {
 	i, err := net.InterfaceByName("docker0")
 	if err != nil {
 		return "", err

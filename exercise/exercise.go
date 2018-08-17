@@ -27,6 +27,7 @@ func (rc RecordConfig) Format(ip string) string {
 }
 
 type FlagConfig struct {
+	Name    string `yaml:"name"`
 	EnvVar  string `yaml:"env"`
 	Default string `yaml:"default"`
 	Points  uint   `yaml:"points"`
@@ -45,6 +46,14 @@ type Config struct {
 	Tags        []string       `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
 	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
+}
+
+func (conf Config) Flags() []FlagConfig {
+	var res []FlagConfig
+	for _, dockerConf := range conf.DockerConfs {
+		res = append(res, dockerConf.Flags...)
+	}
+	return res
 }
 
 func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
@@ -77,19 +86,16 @@ type exercise struct {
 	dnsRecords []string
 }
 
-func (e *exercise) Start() error {
+func (e *exercise) Create() error {
 	containers, records := e.conf.ContainerOpts()
 
 	var machines []virtual.Instance
+	var newIps []int
 	for i, spec := range containers {
 		spec.DNS = []string{e.dnsIP}
 
 		c, err := docker.NewContainer(spec)
 		if err != nil {
-			return err
-		}
-
-		if err := c.Start(); err != nil {
 			return err
 		}
 
@@ -109,7 +115,7 @@ func (e *exercise) Start() error {
 				return err
 			}
 
-			e.ips = append(e.ips, lastDigit)
+			newIps = append(newIps, lastDigit)
 		}
 
 		ipaddr := e.net.FormatIP(lastDigit)
@@ -122,18 +128,41 @@ func (e *exercise) Start() error {
 		machines = append(machines, c)
 	}
 
+	if e.ips == nil {
+		e.ips = newIps
+	}
+
 	e.machines = machines
 
 	return nil
 }
 
+func (e *exercise) Start() error {
+	for _, m := range e.machines {
+		if err := m.Start(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *exercise) Stop() error {
 	for _, m := range e.machines {
-		if err := m.Kill(); err != nil {
+		if err := m.Close(); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (e *exercise) Close() error {
+	for _, m := range e.machines {
+		if err := m.Close(); err != nil {
+			return err
+		}
+	}
+	e.machines = nil
 	return nil
 }
 

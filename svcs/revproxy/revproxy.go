@@ -26,10 +26,15 @@ server {
 	AlreadyRunningErr = errors.New("Cannot add container when running")
 )
 
+type Config struct {
+	Host string "yaml:host"
+}
+
 type Proxy interface {
 	Start(context.Context) error
 	Add(docker.Identifier, string) error
 	Close()
+	NumberOfEndpoints() int
 }
 
 type Connector interface {
@@ -44,9 +49,9 @@ type nginx struct {
 	aliasCont map[string]docker.Identifier
 }
 
-func New(host string, connectors ...Connector) (Proxy, error) {
+func New(conf Config, connectors ...Connector) (Proxy, error) {
 	ng := &nginx{
-		host:      host,
+		host:      conf.Host,
 		aliasCont: make(map[string]docker.Identifier),
 	}
 
@@ -56,17 +61,9 @@ func New(host string, connectors ...Connector) (Proxy, error) {
 		}
 	}
 
-	return ng, nil
-}
-
-func (ng *nginx) Close() {
-	ng.cont.Kill()
-}
-
-func (ng *nginx) Start(ctx context.Context) error {
 	confFile, err := ioutil.TempFile("", "nginx_conf")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tmplCtx := struct {
@@ -74,8 +71,9 @@ func (ng *nginx) Start(ctx context.Context) error {
 	}{
 		ng.endpoints,
 	}
+
 	if err := baseTmpl.Execute(confFile, tmplCtx); err != nil {
-		return err
+		return nil, err
 	}
 
 	cConf := docker.ContainerConfig{
@@ -90,24 +88,36 @@ func (ng *nginx) Start(ctx context.Context) error {
 		Mounts: []string{
 			fmt.Sprintf("%s:/etc/nginx/conf.d/default.conf", confFile.Name()),
 		},
+		UseBridge: true,
 	}
 
 	c, err := docker.NewContainer(cConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ng.cont = c
 
-	fmt.Println(c)
-
 	for alias, cont := range ng.aliasCont {
 		if err := c.Link(cont, alias); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	err = c.Start()
-	if err != nil {
+	return ng, nil
+}
+
+func (ng *nginx) Close() {
+	if ng.cont != nil {
+		ng.cont.Close()
+	}
+}
+
+func (ng *nginx) NumberOfEndpoints() int {
+	return len(ng.endpoints)
+}
+
+func (ng *nginx) Start(ctx context.Context) error {
+	if err := ng.cont.Start(); err != nil {
 		return err
 	}
 

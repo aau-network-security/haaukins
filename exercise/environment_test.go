@@ -39,6 +39,9 @@ func TestBasicEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create new environment: %s", err)
 	}
+	if err := env.Start(); err != nil {
+		t.Fatalf("Unexpected error while starting environment: %s", err)
+	}
 
 	containers, err = dclient.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
@@ -61,7 +64,7 @@ func TestBasicEnvironment(t *testing.T) {
 		t.Fatalf("Expected one docker network to be started, but %d was started", postStartNetCount-preNetCount)
 	}
 
-	err = env.Kill()
+	err = env.Close()
 	if err != nil {
 		t.Fatalf("Unable to kill environment: %s", err)
 	}

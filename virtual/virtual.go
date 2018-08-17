@@ -8,7 +8,8 @@ import (
 
 type Instance interface {
 	Start() error
-	Kill() error
+	Stop() error
+	Close() error
 }
 
 type ResourceResizer interface {

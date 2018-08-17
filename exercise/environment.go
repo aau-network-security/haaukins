@@ -6,7 +6,15 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
-type Environment struct {
+type Environment interface {
+	Add(conf Config, updateDNS bool) error
+	ResetByTag(t string) error
+	Interface() string
+	Start() error
+	Close() error
+}
+
+type environment struct {
 	tags      map[string]*exercise
 	exercises []*exercise
 
@@ -16,8 +24,8 @@ type Environment struct {
 	dnsIP      string
 }
 
-func NewEnvironment(exercises ...Config) (*Environment, error) {
-	ee := &Environment{
+func NewEnvironment(exercises ...Config) (Environment, error) {
+	ee := &environment{
 		tags: make(map[string]*exercise),
 	}
 
@@ -51,7 +59,7 @@ func NewEnvironment(exercises ...Config) (*Environment, error) {
 	return ee, nil
 }
 
-func (ee *Environment) Add(conf Config, updateDNS bool) error {
+func (ee *environment) Add(conf Config, updateDNS bool) error {
 	if len(conf.Tags) == 0 {
 		return MissingTagsErr
 	}
@@ -74,19 +82,19 @@ func (ee *Environment) Add(conf Config, updateDNS bool) error {
 		dnsIP: ee.dnsIP,
 	}
 
-	if err := e.Start(); err != nil {
+	if err := e.Create(); err != nil {
 		return err
 	}
 
 	for _, t := range conf.Tags {
 		ee.tags[t] = e
-		ee.exercises = append(ee.exercises, e)
 	}
+	ee.exercises = append(ee.exercises, e)
 
 	return nil
 }
 
-func (ee *Environment) ResetByTag(t string) error {
+func (ee *environment) ResetByTag(t string) error {
 	e, ok := ee.tags[t]
 	if !ok {
 		return UnknownTagErr
@@ -99,33 +107,51 @@ func (ee *Environment) ResetByTag(t string) error {
 	return nil
 }
 
-func (ee *Environment) Interface() string {
+func (ee *environment) Interface() string {
 	return ee.network.Interface()
 }
 
-func (ee *Environment) Kill() error {
-	if err := ee.dnsServer.Stop(); err != nil {
+func (ee *environment) Start() error {
+	if err := ee.dnsServer.Start(); err != nil {
 		return err
 	}
 
-	if err := ee.dhcpServer.Stop(); err != nil {
+	if err := ee.dhcpServer.Start(); err != nil {
 		return err
 	}
 
 	for _, e := range ee.exercises {
-		if err := e.Stop(); err != nil {
+		if err := e.Start(); err != nil {
 			return err
 		}
 	}
 
-	if err := ee.network.Stop(); err != nil {
+	return nil
+}
+
+func (ee *environment) Close() error {
+	if err := ee.dnsServer.Close(); err != nil {
+		return err
+	}
+
+	if err := ee.dhcpServer.Close(); err != nil {
+		return err
+	}
+
+	for _, e := range ee.exercises {
+		if err := e.Close(); err != nil {
+			return err
+		}
+	}
+
+	if err := ee.network.Close(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (ee *Environment) updateDNS() error {
+func (ee *environment) updateDNS() error {
 	if ee.dnsServer != nil {
 		if err := ee.dnsServer.Stop(); err != nil {
 			return err

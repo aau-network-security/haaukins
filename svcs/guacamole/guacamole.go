@@ -25,6 +25,9 @@ var (
 	NoPortErr         = errors.New("Port is missing")
 	NoNameErr         = errors.New("Name is missing")
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
+
+	AdminUser        = "guacadmin"
+	DefaultAdminPAss = "guacadmin"
 )
 
 type Guacamole interface {
@@ -37,10 +40,9 @@ type Guacamole interface {
 }
 
 type Config struct {
-	AdminUser string
-	AdminPass string
-	Host      string
-	Port      uint
+	AdminPass string `yaml:"admin_pass"`
+	Host      string `yaml:"host"`
+	Port      uint   `yaml:"port"`
 }
 
 func New(conf Config) (Guacamole, error) {
@@ -66,6 +68,10 @@ func New(conf Config) (Guacamole, error) {
 		conf:   conf,
 	}
 
+	if err := guac.initialize(); err != nil {
+		return nil, err
+	}
+
 	return guac, nil
 }
 
@@ -83,14 +89,15 @@ func (guac *guacamole) ID() string {
 
 func (guac *guacamole) Close() {
 	for _, c := range guac.containers {
-		c.Kill()
+		c.Close()
 	}
 }
 
-func (guac *guacamole) Start(ctx context.Context) error {
+func (guac *guacamole) initialize() error {
 	// Guacd
 	guacd, err := docker.NewContainer(docker.ContainerConfig{
-		Image: "guacamole/guacd",
+		Image:     "guacamole/guacd",
+		UseBridge: true,
 	})
 	if err != nil {
 		return err
@@ -143,6 +150,7 @@ func (guac *guacamole) Start(ctx context.Context) error {
 	webInitConf.PortBindings = map[string]string{
 		"8080/tcp": fmt.Sprintf("127.0.0.1:%d", webInitPort),
 	}
+	webInitConf.UseBridge = true
 
 	initWeb, err := docker.NewContainer(webInitConf)
 	if err != nil {
@@ -167,7 +175,7 @@ func (guac *guacamole) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = initWeb.Kill()
+	err = initWeb.Close()
 	if err != nil {
 		return err
 	}
@@ -188,11 +196,26 @@ func (guac *guacamole) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = finalWeb.Start()
-	if err != nil {
-		return err
-	}
+	guac.stop()
 
+	return nil
+}
+
+func (guac *guacamole) Start(ctx context.Context) error {
+	for _, container := range guac.containers {
+		if err := container.Start(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (guac *guacamole) stop() error {
+	for _, container := range guac.containers {
+		if err := container.Stop(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -201,9 +224,9 @@ func (guac *guacamole) ConnectProxy(p revproxy.Proxy) error {
         proxy_pass http://{{.Host}}:8080/guacamole/;
         proxy_buffering off;
         proxy_http_version 1.1;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$http_connection;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
         # proxy_cookie_path /guacamole/ /;
         access_log off;
     }`
@@ -215,24 +238,21 @@ func (guac *guacamole) configureInstance(port uint) error {
 	temp := &guacamole{
 		client: guac.client,
 		conf: Config{
-			AdminUser: "guacadmin",
-			AdminPass: "guacadmin",
+			AdminPass: DefaultAdminPAss,
 			Host:      "127.0.0.1",
 			Port:      port,
 		}}
 
 	for i := 0; i < 15; i++ {
-		_, err := temp.login("guacadmin", "guacadmin")
+		_, err := temp.login(AdminUser, DefaultAdminPAss)
 		if err == nil {
 			break
 		}
 
 		time.Sleep(time.Second)
 	}
-	newPass := guac.conf.AdminPass
-	guac.conf.AdminPass = "guacadmin"
 
-	if err := temp.changeAdminPass(newPass); err != nil {
+	if err := temp.changeAdminPass(guac.conf.AdminPass); err != nil {
 		return err
 	}
 
@@ -284,7 +304,7 @@ func (guac *guacamole) login(username, password string) (string, error) {
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
 	if guac.token == "" {
-		token, err := guac.login(guac.conf.AdminUser, guac.conf.AdminPass)
+		token, err := guac.login(AdminUser, guac.conf.AdminPass)
 		if err != nil {
 			return err
 		}

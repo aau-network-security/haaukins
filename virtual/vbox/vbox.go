@@ -47,7 +47,7 @@ type vm struct {
 }
 
 func NewVMFromOVA(path, name string, vmOpts ...VMOpt) (VM, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	_, err := VBoxCmdContext(ctx, "import", path, "--vsys", "0", "--vmname", name)
@@ -69,12 +69,16 @@ func (vm *vm) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id)
+	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id, "--type", "headless")
 	if err != nil {
 		return err
 	}
 
 	vm.running = true
+
+	log.Debug().
+		Str("ID", vm.id).
+		Msg("Started VM")
 
 	return nil
 }
@@ -90,16 +94,31 @@ func (vm *vm) Stop() error {
 
 	vm.running = false
 
+	log.Debug().
+		Str("ID", vm.id).
+		Msg("Stopped VM")
+
 	return nil
 }
 
-func (vm *vm) Kill() error {
+func (vm *vm) Close() error {
 	_, err := vm.ensureStopped()
 	if err != nil {
 		return err
 	}
 
 	// remove vm
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err = VBoxCmdContext(ctx, "unregistervm", vm.id, "--delete")
+	if err != nil {
+		return err
+	}
+
+	log.Debug().
+		Str("ID", vm.id).
+		Msg("Closed VM")
 
 	return nil
 }
@@ -128,7 +147,7 @@ func SetBridge(nic string) VMOpt {
 	}
 }
 
-func SetLocalRDP(port uint) VMOpt {
+func SetLocalRDP(ip string, port uint) VMOpt {
 	return func(vm *vm) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -138,7 +157,7 @@ func SetLocalRDP(port uint) VMOpt {
 			return err
 		}
 
-		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdeproperty", "TCP/Address=127.0.0.1")
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdeproperty", fmt.Sprintf("TCP/Address=%s", ip))
 		if err != nil {
 			return err
 		}

@@ -1,0 +1,37 @@
+capacity:
+  buffer: 1
+  max: 2
+frontend:
+  directory: /scratch/git/training-platform/exercises
+  ova_files:
+  - aau-kali.ova
+exercise:
+- name: Exercise 1
+  tags:
+  - tag_1
+  docker:
+  - image: image_1
+    memoryMB: 100
+    flag:
+    - name: First flag
+      env: FLAG_1
+      default: flag_default_1
+      points: 10
+    - name: Second flag
+      env: FLAG_2
+      default: flag_default_2
+      points: 15
+- name: Exercise 2
+  tags:
+  - tag_2
+  docker:
+  - image: image_2
+    memoryMB: 50
+    dns:
+    - name: example.org
+      record: A
+    flag:
+    - name: Third flag
+      env: FLAG_3
+      default: flag_default_3
+      points: 5

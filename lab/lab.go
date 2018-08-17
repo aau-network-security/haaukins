@@ -1,172 +1,98 @@
 package lab
 
 import (
-	"errors"
-	"sync"
-
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/rs/zerolog/log"
 )
 
 var (
-	BufferMaxRatioErr = errors.New("Buffer cannot be larger than maximum")
-	MaximumLabsErr    = errors.New("Maximum amount of labs reached")
+	newEnvironment = exercise.NewEnvironment
 )
 
 type Lab interface {
-	Kill()
-	Exercises() *exercise.Environment
+	Start() error
+	Close()
+	Exercises() exercise.Environment
+	RdpConnPorts() []uint
 }
 
 type lab struct {
 	lib          vbox.Library
-	exercises    *exercise.Environment
+	environment  exercise.Environment
 	frontends    []vbox.VM
 	rdpConnPorts []uint
 }
 
-func NewLab(lib vbox.Library, exer ...exercise.Config) (Lab, error) {
-	environ, err := exercise.NewEnvironment(exer...)
+func NewLab(lib vbox.Library, config Config) (Lab, error) {
+	environ, err := newEnvironment(config.Exercises...)
 	if err != nil {
 		return nil, err
 	}
 
 	l := &lab{
-		lib:       lib,
-		exercises: environ,
+		lib:         lib,
+		environment: environ,
 	}
 
-	_, err = l.addFrontend()
-	if err != nil {
-		return nil, err
+	for _, f := range config.Frontend.OvaFiles {
+		_, err = l.addFrontend(f)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return l, nil
 }
 
-func (l *lab) addFrontend() (vbox.VM, error) {
+func (l *lab) addFrontend(ovaFile string) (vbox.VM, error) {
+	hostIp, _ := docker.GetDockerHostIP()
+
 	rdpPort := virtual.GetAvailablePort()
-	vm, err := l.lib.GetCopy("kali.ova",
-		vbox.SetBridge(l.exercises.Interface()),
-		vbox.SetLocalRDP(rdpPort),
+	vm, err := l.lib.GetCopy(ovaFile,
+		vbox.SetBridge(l.environment.Interface()),
+		vbox.SetLocalRDP(hostIp, rdpPort),
 	)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := vm.Start(); err != nil {
 		return nil, err
 	}
 
 	l.frontends = append(l.frontends, vm)
 	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
 
+	log.Debug().Msgf("Created lab frontend on port %d", rdpPort)
+
 	return vm, nil
 }
 
-func (l *lab) Exercises() *exercise.Environment {
-	return l.exercises
+func (l *lab) Exercises() exercise.Environment {
+	return l.environment
 }
 
-func (l *lab) Kill() {
+func (l *lab) Start() error {
 	for _, frontend := range l.frontends {
-		frontend.Kill()
+		if err := frontend.Start(); err != nil {
+			return err
+		}
 	}
 
-	l.exercises.Kill()
-}
-
-type Hub interface {
-	Get() (Lab, error)
-}
-
-type hub struct {
-	vboxLib   vbox.Library
-	exercises []exercise.Config
-
-	m           sync.Mutex
-	createSema  *semaphore
-	maximumSema *semaphore
-
-	labs   map[string]Lab
-	buffer chan Lab
-}
-
-func NewHub(buffer uint, max uint, exer ...exercise.Config) (Hub, error) {
-	if buffer > max {
-		return nil, BufferMaxRatioErr
-	}
-
-	createLimit := 3
-	h := &hub{
-		labs:        make(map[string]Lab),
-		exercises:   exer,
-		createSema:  NewSemaphore(createLimit),
-		maximumSema: NewSemaphore(int(max)),
-		buffer:      make(chan Lab, buffer),
-	}
-
-	for i := 0; i < int(buffer); i++ {
-		go h.addLab()
-	}
-
-	return h, nil
-}
-
-func (h *hub) addLab() error {
-	if h.maximumSema.Available() == 0 {
-		return MaximumLabsErr
-	}
-
-	h.maximumSema.Claim()
-	h.createSema.Claim()
-	defer h.createSema.Release()
-
-	lab, err := NewLab(h.vboxLib, h.exercises...)
-	if err != nil {
+	if err := l.environment.Start(); err != nil {
 		return err
 	}
-
-	h.buffer <- lab
 
 	return nil
 }
 
-func (h *hub) Get() (Lab, error) {
-	select {
-	case lab := <-h.buffer:
-		return lab, nil
-	default:
-		return nil, MaximumLabsErr
-	}
-}
-
-type rsrc struct{}
-
-type semaphore struct {
-	r chan rsrc
-}
-
-func NewSemaphore(n int) *semaphore {
-	c := make(chan rsrc, n)
-	for i := 0; i < n; i++ {
-		c <- rsrc{}
+func (l *lab) Close() {
+	for _, frontend := range l.frontends {
+		frontend.Close()
 	}
 
-	return &semaphore{
-		r: c,
-	}
+	l.environment.Close()
 }
 
-func (s *semaphore) Claim() rsrc {
-	return <-s.r
-}
-
-func (s *semaphore) Available() int {
-	return len(s.r)
-}
-
-func (s *semaphore) Release() {
-	s.r <- rsrc{}
+func (l *lab) RdpConnPorts() []uint {
+	return l.rdpConnPorts
 }
