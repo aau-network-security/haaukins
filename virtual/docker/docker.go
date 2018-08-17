@@ -24,7 +24,6 @@ var (
 	InvalidHostBinding       = errors.New("Hostbing does not have correct format - (ip:)port")
 	InvalidMount             = errors.New("Incorrect mount format - src:dest")
 	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
-	ImageLibErr              = errors.New("Image not in library")
 
 	Registries = []docker.AuthConfiguration{{}}
 )

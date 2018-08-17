@@ -34,6 +34,7 @@ func handleCancel(clean func()) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
+		log.Info().Msgf("Received SIGINT or SIGTERM: shutting down gracefully")
 		clean()
 		os.Exit(1)
 	}()
