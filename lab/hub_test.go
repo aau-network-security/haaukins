@@ -66,7 +66,7 @@ func TestNewHub(t *testing.T) {
 		t.Fatalf("Unexpected error while loading config: %s", err)
 	}
 	bufferSize := 1
-	hInterface, err := NewHub(*config, "/tmp")
+	hInterface, err := NewHub(*config)
 	if err != nil {
 		t.Fatalf("Unexpected error while creating new lab hub: %s", err)
 	}
@@ -91,7 +91,7 @@ func TestHub_Get(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error while loading config: %s", err)
 	}
-	hInterface, err := NewHub(*config, "/tmp")
+	hInterface, err := NewHub(*config)
 	if err != nil {
 		t.Fatalf("Unexpected error while creating new lab hub: %s", err)
 	}
@@ -139,7 +139,7 @@ func TestHub_Close(t *testing.T) {
 	}
 
 	config, _ := LoadConfig("test_resources/test_exercises.yml")
-	hInterface, _ := NewHub(*config, "/tmp")
+	hInterface, _ := NewHub(*config)
 	h := hInterface.(*hub)
 
 	h.labs = []Lab{

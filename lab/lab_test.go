@@ -11,21 +11,23 @@ import (
 func TestLab(t *testing.T) {
 	lib := vbox.NewLibrary("/scratch/events")
 
-	exeConf := []exercise.Config{{
-		Name: "SQL",
-		Tags: []string{"sql"},
-		DockerConfs: []exercise.DockerConfig{
-			{
-				Image: "aau/sql-server",
-				Records: []exercise.RecordConfig{
-					{
-						Name: "netsec-forum.dk",
-						Type: "A",
+	exeConf := lab.Config{
+		Exercises: []exercise.Config{{
+			Name: "SQL",
+			Tags: []string{"sql"},
+			DockerConfs: []exercise.DockerConfig{
+				{
+					Image: "aau/sql-server",
+					Records: []exercise.RecordConfig{
+						{
+							Name: "netsec-forum.dk",
+							Type: "A",
+						},
 					},
 				},
 			},
-		},
-	}}
+		}},
+	}
 
-	fmt.Println(lab.NewLab(lib, exeConf...))
+	fmt.Println(lab.NewLab(lib, exeConf))
 }

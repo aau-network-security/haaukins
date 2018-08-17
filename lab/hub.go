@@ -2,7 +2,6 @@ package lab
 
 import (
 	"errors"
-	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
 	"sync"
@@ -23,8 +22,8 @@ type Hub interface {
 }
 
 type hub struct {
-	vboxLib   vbox.Library
-	exercises []exercise.Config
+	vboxLib vbox.Library
+	conf    Config
 
 	m           sync.Mutex
 	createSema  *semaphore
@@ -34,7 +33,7 @@ type hub struct {
 	buffer chan Lab
 }
 
-func NewHub(config Config, libpath string) (Hub, error) {
+func NewHub(config Config) (Hub, error) {
 	if config.Capacity.Buffer > config.Capacity.Max {
 		return nil, BufferMaxRatioErr
 	}
@@ -42,11 +41,11 @@ func NewHub(config Config, libpath string) (Hub, error) {
 	createLimit := 3
 	h := &hub{
 		labs:        []Lab{},
-		exercises:   config.Exercises,
+		conf:        config,
 		createSema:  NewSemaphore(createLimit),
 		maximumSema: NewSemaphore(config.Capacity.Max),
 		buffer:      make(chan Lab, config.Capacity.Buffer),
-		vboxLib:     vboxNewLibrary(libpath),
+		vboxLib:     vboxNewLibrary(config.Frontend.Directory),
 	}
 
 	log.Debug().Msgf("Instantiating %d lab(s)", config.Capacity.Buffer)
@@ -66,7 +65,7 @@ func (h *hub) addLab() error {
 	h.createSema.Claim()
 	defer h.createSema.Release()
 
-	lab, err := NewLab(h.vboxLib, h.exercises...)
+	lab, err := NewLab(h.vboxLib, h.conf)
 	if err != nil {
 		log.Debug().Msgf("Error while creating new lab: %s", err)
 		return err

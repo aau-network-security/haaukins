@@ -7,13 +7,19 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type Capacity struct {
+type capacity struct {
 	Buffer int `yaml:"buffer"`
 	Max    int `yaml:"max"`
 }
 
+type frontend struct {
+	Directory string   `yaml:"directory"`
+	OvaFiles  []string `yaml:"ova_files"`
+}
+
 type Config struct {
-	Capacity  Capacity          `yaml:"capacity"`
+	Capacity  capacity          `yaml:"capacity"`
+	Frontend  frontend          `yaml:"frontend"`
 	Exercises []exercise.Config `yaml:"exercise"`
 }
 

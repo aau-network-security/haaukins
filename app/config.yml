@@ -13,6 +13,10 @@ lab:
   capacity:
     buffer: 1
     max: 2
+  frontend:
+    directory: /scratch/git/training-platform/exercises
+    ova_files:
+    - aau-kali.ova
   exercise:
   - name: SQL Injection
     tags:
