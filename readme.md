@@ -13,9 +13,7 @@ go run app/app.go
 ```
 
 ### Customizing an event
-As of now, there are two configuration files (located in `app`):
-- `config.yml` for the configuration of CTFd, Guacamole and nginx
-- `exercises.yml` for the configuration of the exercises, including the docker configuration, the flag
+The full configuration of an event is specified in `app/config.yml`
 
 ### Registry authentication
 We run a private Docker repository where most of the images needed for the exercises reside.
