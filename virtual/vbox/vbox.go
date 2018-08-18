@@ -138,13 +138,22 @@ func (vm *vm) Restart() error {
 type VMOpt func(*vm) error
 
 func SetBridge(nic string) VMOpt {
-	return func(vm *vm) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+    return func(vm *vm) error {
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
 
-		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
-		return err
-	}
+        _, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
+        if err != nil {
+            return err
+        }
+
+        _, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nicpromisc1", "allow-all")
+        if err != nil {
+            return err
+        }
+
+        return nil
+    }
 }
 
 func SetLocalRDP(ip string, port uint) VMOpt {
