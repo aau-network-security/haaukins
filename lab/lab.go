@@ -48,12 +48,10 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 }
 
 func (l *lab) addFrontend(ovaFile string) (vbox.VM, error) {
-	hostIp, _ := docker.GetDockerHostIP()
-
 	rdpPort := virtual.GetAvailablePort()
 	vm, err := l.lib.GetCopy(ovaFile,
 		vbox.SetBridge(l.environment.Interface()),
-		vbox.SetLocalRDP(hostIp, rdpPort),
+		vbox.SetLocalRDP("0.0.0.0", rdpPort),
 	)
 	if err != nil {
 		return nil, err
