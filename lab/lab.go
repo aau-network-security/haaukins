@@ -71,14 +71,14 @@ func (l *lab) Exercises() exercise.Environment {
 }
 
 func (l *lab) Start() error {
+	if err := l.environment.Start(); err != nil {
+		return err
+	}
+
 	for _, frontend := range l.frontends {
 		if err := frontend.Start(); err != nil {
 			return err
 		}
-	}
-
-	if err := l.environment.Start(); err != nil {
-		return err
 	}
 
 	return nil
