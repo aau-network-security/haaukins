@@ -33,9 +33,15 @@ type FlagConfig struct {
 	Points  uint   `yaml:"points"`
 }
 
+type EnvVarConfig struct {
+	EnvVar  string `yaml:"env"`
+	Value string `yaml:"value"`
+}
+
 type DockerConfig struct {
 	Image    string         `yaml:"image"`
 	Flags    []FlagConfig   `yaml:"flag"`
+	Envs     []EnvVarConfig `yaml:"env"`
 	Records  []RecordConfig `yaml:"dns"`
 	MemoryMB uint           `yaml:"memoryMB"`
 	CPU      float64        `yaml:"cpu"`
@@ -61,10 +67,14 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	var contRecords [][]RecordConfig
 
 	for _, conf := range ec.DockerConfs {
-        // flags
         envVars := make(map[string]string)
+
         for _, flag := range conf.Flags {
             envVars[flag.EnvVar] = flag.Default
+        }
+
+        for _, env := range conf.Envs {
+            envVars[env.EnvVar] = env.Value
         }
 
         // docker config

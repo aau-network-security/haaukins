@@ -49,6 +49,13 @@ lab:
     docker:
     - image: aau/xss-client
       memoryMB: 512
+      env:
+      - env: TARGET_URL
+        value: https://dogshare.com
+      - env: USERNAME
+        value: whatever
+      - env: PASSWORD
+        value: pas122nes
     - image: aau/xss-server
       memoryMB: 85
       dns:
@@ -95,6 +102,9 @@ lab:
         record: A
     - image: aau/mitm-client
       memoryMB: 75
+      env:
+      - env: TARGET_URL
+        value: https://secureshare.com
       flag:
       - name: Man in the middle
         env: FLAG
