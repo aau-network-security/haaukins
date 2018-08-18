@@ -383,14 +383,12 @@ func NewNetwork() (*Network, error) {
 		sub := randomPrivateSubnet24()
 
 		subnet := fmt.Sprintf("%s.0/24", sub)
-		gateway := fmt.Sprintf("%s.1", sub)
 		return docker.CreateNetworkOptions{
 			Name:   uuid.New().String(),
 			Driver: "macvlan",
 			IPAM: &docker.IPAMOptions{
 				Config: []docker.IPAMConfig{{
 					Subnet: subnet,
-					Gateway: gateway,
 				}},
 			},
 		}
