@@ -61,12 +61,20 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	var contRecords [][]RecordConfig
 
 	for _, conf := range ec.DockerConfs {
+        // flags
+        envVars := make(map[string]string)
+        for _, flag := range conf.Flags {
+            envVars[flag.EnvVar] = flag.Default
+        }
+
+        // docker config
 		spec := docker.ContainerConfig{
 			Image: conf.Image,
 			Resources: &docker.Resources{
 				MemoryMB: conf.MemoryMB,
 				CPU:      conf.CPU,
 			},
+            EnvVars: envVars,
 		}
 
 		contSpecs = append(contSpecs, spec)
