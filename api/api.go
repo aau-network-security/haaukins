@@ -86,5 +86,14 @@ func logging(next http.Handler) http.Handler {
 			Str("path", r.RequestURI).
 			Str("response", fmt.Sprintf("%q", rec.Body)).
 			Msg("HTTP Request")
+
+		for k, v := range rec.HeaderMap {
+			w.Header()[k] = v
+		}
+
+		w.WriteHeader(rec.Code)
+
+		b := rec.Body.Bytes()
+		w.Write(b)
 	})
 }
