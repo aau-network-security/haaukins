@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"errors"
+
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -247,7 +248,11 @@ func (ctf *ctfd) configureInstance() error {
 		if err != nil {
 			return err
 		}
-		log.Debug().Msgf("Flag created: %+v", flag)
+		log.Debug().
+			Str("name", flag.Name).
+			Str("flag", flag.Default).
+			Uint("points", flag.Points).
+			Msg("Flag created")
 	}
 
 	return nil

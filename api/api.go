@@ -71,6 +71,6 @@ func writeReply(w http.ResponseWriter, i interface{}, status int) {
 			Msg("Error writing json response")
 	}
 
-	w.Write(b)
 	w.WriteHeader(status)
+	w.Write(b)
 }
