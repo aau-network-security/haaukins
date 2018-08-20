@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/gorilla/mux"
@@ -47,6 +48,8 @@ func (api Api) handleRegister(w http.ResponseWriter, r *http.Request) {
 func (api Api) RunServer(host string, port int) {
 	router := mux.NewRouter()
 	router.HandleFunc("/register", api.handleRegister).Methods("POST")
+	router.Use(logging)
+
 	log.Fatal().Msgf("%s", http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), router))
 }
 
@@ -73,4 +76,15 @@ func writeReply(w http.ResponseWriter, i interface{}, status int) {
 
 	w.WriteHeader(status)
 	w.Write(b)
+}
+
+func logging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec := httptest.NewRecorder()
+		next.ServeHTTP(rec, r)
+		log.Debug().
+			Str("path", r.RequestURI).
+			Str("response", fmt.Sprintf("%q", rec.Body)).
+			Msg("HTTP Request")
+	})
 }
