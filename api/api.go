@@ -66,16 +66,16 @@ func writeReply(w http.ResponseWriter, i interface{}, status int) {
 
 	b, err := json.Marshal(i)
 	if err != nil {
-		w.Write([]byte(`{ "error":"Internal Server Error"}`))
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{ "error":"Internal Server Error"}`))
 
 		log.Warn().
 			Str("error", err.Error()).
 			Msg("Error writing json response")
 	}
 
-	w.Write(b)
 	w.WriteHeader(status)
+	w.Write(b)
 }
 
 func logging(next http.Handler) http.Handler {
