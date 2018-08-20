@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
@@ -11,7 +13,6 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"strings"
 )
 
 var (
@@ -125,17 +126,21 @@ func (ev *event) Register(group Group) (*Auth, error) {
 		return nil, err
 	}
 
-	rdpConnPorts := lab.RdpConnPorts()
+	rdpPorts := lab.RdpConnPorts()
+	if n := len(rdpPorts); n == 0 {
+		log.
+			Debug().
+			Int("amount", n).
+			Msg("Too few RDP connections")
 
-	if len(rdpConnPorts) > 1 {
-		log.Debug().Msgf("Multiple RDP ports found while only one is supported, configuring first port by default.")
-	} else if len(rdpConnPorts) == 0 {
 		return nil, RdpConfError
 	}
 
 	auth := Auth{
-		Username: rand(),
-		Password: rand()}
+		Username: group.Name,
+		Password: rand(),
+	}
+
 	if err := ev.guac.CreateUser(auth.Username, auth.Password); err != nil {
 		return nil, err
 	}
@@ -145,15 +150,22 @@ func (ev *event) Register(group Group) (*Auth, error) {
 		return nil, err
 	}
 
-	if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
-		Host:     hostIp,
-		Port:     rdpConnPorts[0],
-		Name:     group.Name,
-		GuacUser: auth.Username,
-		Username: &auth.Username,
-		Password: &auth.Password,
-	}); err != nil {
-		return nil, err
+	for i, port := range rdpPorts {
+		name := fmt.Sprintf("%s-client%d", group.Name, i)
+
+		log.Debug().Str("group", group.Name).Uint("port", port).Msg("Creating RDP Connection for group")
+		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
+			Host:     hostIp,
+			Port:     port,
+			Name:     name,
+			GuacUser: auth.Username,
+			Username: &auth.Username,
+			Password: &auth.Password,
+		}); err != nil {
+			return nil, err
+		}
+
 	}
+
 	return &auth, nil
 }

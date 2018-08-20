@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/aau-network-security/go-ntp/api"
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -9,10 +14,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func loadCredentials(path string) (*dockerclient.AuthConfiguration, error) {
@@ -42,6 +43,7 @@ func handleCancel(clean func()) {
 
 func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	authConfig, err := loadCredentials("auth.json")
 	if err != nil {
