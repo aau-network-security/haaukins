@@ -336,9 +336,8 @@ func (c *container) Stop() error {
 func (c *container) Link(other Identifier, alias string) error {
 	if c.network == nil {
 		createNetworkOpts := docker.CreateNetworkOptions{
-			Name:     uuid.New().String(),
-			Driver:   "bridge",
-			Internal: true,
+			Name:   uuid.New().String(),
+			Driver: "bridge",
 		}
 
 		net, err := DefaultClient.CreateNetwork(createNetworkOpts)
