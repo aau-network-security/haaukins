@@ -28,6 +28,7 @@ var (
 	NoImageErr               = errors.New("Unable to find image")
 	EmptyDigestErr           = errors.New("Empty digest")
 	DigestFormatErr          = errors.New("Unexpected digest format")
+	NoDigestDockerHubErr     = errors.New("Unable to get digest from docker hub")
 
 	Registries = []docker.AuthConfiguration{{}}
 )
@@ -221,6 +222,10 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 }
 
 func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, error) {
+	if reg.ServerAddress == "" {
+		return "", NoDigestDockerHubErr
+	}
+
 	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", reg.ServerAddress, repo, tag)
 
 	req, err := http.NewRequest("HEAD", url, nil)
@@ -294,15 +299,17 @@ func ensureImage(img string) (string, error) {
 		}
 
 		srvDigest, err := digestRemoteImg(repo, tag, reg)
-		if err == nil {
-			if srvDigest != digest {
-				if err := pullImage(repo, tag, reg); err != nil {
-					return "", err
-				}
-			}
-
-			return repoName, nil
+		if err != nil {
+			continue
 		}
+
+		if srvDigest != digest {
+			if err := pullImage(repo, tag, reg); err != nil {
+				return "", err
+			}
+		}
+
+		return repoName, nil
 	}
 
 	return "", NoImageErr
