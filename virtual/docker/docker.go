@@ -251,7 +251,7 @@ func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, er
 }
 
 func pullImage(repo, tag string, reg docker.AuthConfiguration) error {
-	fullRepoName := registeredImgName(fmt.Sprintf("%s/%s", repo, tag), reg)
+	fullRepoName := registeredImgName(fmt.Sprintf("%s:%s", repo, tag), reg)
 
 	log.Debug().
 		Str("repo", fullRepoName).
