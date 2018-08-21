@@ -30,7 +30,9 @@ var (
 	DigestFormatErr          = errors.New("Unexpected digest format")
 	NoDigestDockerHubErr     = errors.New("Unable to get digest from docker hub")
 
-	Registries = []docker.AuthConfiguration{{}}
+	Registries = map[string]docker.AuthConfiguration{
+		"": {},
+	}
 )
 
 func init() {
@@ -181,8 +183,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		ports[docker.Port(p)] = struct{}{}
 	}
 
-	conf.Image, err = ensureImage(conf.Image)
-	if err != nil {
+	if err := ensureImage(conf.Image); err != nil {
 		return nil, err
 	}
 
@@ -221,12 +222,8 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}, nil
 }
 
-func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, error) {
-	if reg.ServerAddress == "" {
-		return "", NoDigestDockerHubErr
-	}
-
-	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", reg.ServerAddress, repo, tag)
+func digestRemoteImg(img Image, reg docker.AuthConfiguration) (string, error) {
+	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", reg.ServerAddress, img.Repo, img.Tag)
 
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
@@ -248,24 +245,21 @@ func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, er
 	log.
 		Debug().
 		Str("digest", hash[0:12]).
-		Str("image", repo).
-		Str("tag", tag).
+		Str("image", img.String()).
 		Msg("Retrieved digest")
 
 	return hash, nil
 }
 
-func pullImage(repo, tag string, reg docker.AuthConfiguration) error {
-	fullRepoName := registeredImgName(fmt.Sprintf("%s:%s", repo, tag), reg)
+func pullImage(img Image, reg docker.AuthConfiguration) error {
 
 	log.Debug().
-		Str("repo", fullRepoName).
-		Str("tag", tag).
+		Str("image", img.String()).
 		Msg("Attempting to pull image")
 
 	if err := DefaultClient.PullImage(docker.PullImageOptions{
-		Repository: fullRepoName,
-		Tag:        tag,
+		Repository: img.Repo,
+		Tag:        img.Tag,
 	}, reg); err != nil {
 		return err
 	}
@@ -273,56 +267,96 @@ func pullImage(repo, tag string, reg docker.AuthConfiguration) error {
 	return nil
 }
 
-func ensureImage(img string) (string, error) {
+func ensureImage(imgStr string) error {
+	img := parseImage(imgStr)
+
+	dImg, err := DefaultClient.InspectImage(img.String())
+	if img.IsPublic() {
+		if err != nil {
+			if err == docker.ErrNoSuchImage {
+				if err := pullImage(img, docker.AuthConfiguration{}); err != nil {
+					return err
+				}
+
+				return nil
+			}
+
+			return err
+		}
+
+		return nil
+	}
+
+	reg, ok := Registries[img.Registry]
+	if !ok {
+		return fmt.Errorf("No credentials for registry: %s", img.Registry)
+	}
+
+	if dImg != nil {
+
+		rDigest, err := digestRemoteImg(img, reg)
+		if err != nil {
+			return err
+		}
+
+		lDigest := dImg.RepoDigests[0]
+		if strings.Contains(lDigest, "@") {
+			lDigest = strings.Split(lDigest, "@")[1]
+		}
+
+		if lDigest == rDigest {
+			return nil
+		}
+	}
+
+	if err := pullImage(img, reg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type Image struct {
+	Registry string
+	Repo     string
+	Tag      string
+}
+
+func (i Image) String() string {
+	if i.Registry == "" {
+		return i.Repo + ":" + i.Tag
+	}
+
+	return i.Registry + "/" + i.Repo + ":" + i.Tag
+}
+
+func (i Image) IsPublic() bool {
+	return i.Registry == ""
+}
+
+func parseImage(img string) Image {
 	tag := "latest"
 	repo := img
+	registry := ""
 
 	parts := strings.Split(img, ":")
 	if len(parts) == 2 {
 		repo, tag = parts[0], parts[1]
 	}
 
-	for _, reg := range Registries {
-		repoName := registeredImgName(img, reg)
+	// format: reg/owner/repo
+	if strings.Count(repo, "/") > 1 {
+		parts = strings.Split(repo, "/")
 
-		localImg, err := DefaultClient.InspectImage(repoName)
-		if err != nil && err != docker.ErrNoSuchImage {
-			return "", err
-		}
-
-		var digest string
-		if localImg != nil && len(localImg.RepoDigests) > 0 {
-			digest = localImg.RepoDigests[0]
-			if strings.Contains(digest, "@") {
-				digest = strings.Split(digest, "@")[1]
-			}
-		}
-
-		srvDigest, err := digestRemoteImg(repo, tag, reg)
-		if err != nil {
-			continue
-		}
-
-		if srvDigest != digest {
-			if err := pullImage(repo, tag, reg); err != nil {
-				return "", err
-			}
-		}
-
-		return repoName, nil
+		registry = parts[0]
+		repo = strings.Join(parts[1:len(parts)-1], "/")
 	}
 
-	return "", NoImageErr
-}
-
-func registeredImgName(img string, reg docker.AuthConfiguration) string {
-	srvAddr := reg.ServerAddress
-
-	if srvAddr == "" {
-		return img
+	return Image{
+		Registry: registry,
+		Repo:     repo,
+		Tag:      tag,
 	}
-
-	return fmt.Sprintf("%s/%s", srvAddr, img)
 }
 
 func (c *container) ID() string {
