@@ -294,9 +294,11 @@ func ensureImage(img string) (string, error) {
 		}
 
 		srvDigest, err := digestRemoteImg(repo, tag, reg)
-		if err == nil && srvDigest != digest {
-			if err := pullImage(repo, tag, reg); err != nil {
-				return "", err
+		if err == nil {
+			if srvDigest != digest {
+				if err := pullImage(repo, tag, reg); err != nil {
+					return "", err
+				}
 			}
 
 			return repoName, nil
