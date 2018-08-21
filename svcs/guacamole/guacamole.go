@@ -118,7 +118,7 @@ func (guac *guacamole) initialize() error {
 	}
 
 	db, err := docker.NewContainer(docker.ContainerConfig{
-		Image:   "aau/guacamole-mysql",
+		Image:   "registry.sec-aau.dk/aau/guacamole-mysql",
 		EnvVars: dbEnv,
 	})
 	if err != nil {
@@ -141,7 +141,7 @@ func (guac *guacamole) initialize() error {
 	}
 
 	webBaseConf := &docker.ContainerConfig{
-		Image:   "aau/guacamole",
+		Image:   "registry.sec-aau.dk/aau/guacamole",
 		EnvVars: webEnv,
 	}
 
