@@ -151,7 +151,8 @@ func (ev *event) Register(group Group) (*Auth, error) {
 	}
 
 	for i, port := range rdpPorts {
-		name := fmt.Sprintf("%s-client%d", group.Name, i)
+		num := i + 1
+		name := fmt.Sprintf("%s-client%d", group.Name, num)
 
 		log.Debug().Str("group", group.Name).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,6 +25,8 @@ var (
 	InvalidHostBinding       = errors.New("Hostbing does not have correct format - (ip:)port")
 	InvalidMount             = errors.New("Incorrect mount format - src:dest")
 	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
+	EmptyDigestErr           = errors.New("Empty digest")
+	DigestFormatErr          = errors.New("Unexpected digest format")
 
 	Registries = []docker.AuthConfiguration{{}}
 )
@@ -187,33 +190,13 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		HostConfig: &hostConf,
 	}
 
+	if err := ensureImage(conf.Image); err != nil {
+		return nil, err
+	}
+
 	cont, err := DefaultClient.CreateContainer(createContOpts)
 	if err != nil {
-		if err == docker.ErrNoSuchImage {
-			if len(Registries) < 1 {
-				log.Error().Msg("No registries to pull from, could not get image")
-				return nil, NoRegistriesToPullFrom
-			}
-
-			for _, reg := range Registries {
-				err = pullImage(conf.Image, reg)
-
-				if err == nil {
-					break
-				}
-			}
-
-			if err != nil {
-				return nil, err
-			}
-
-			cont, err = DefaultClient.CreateContainer(createContOpts)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	if !conf.UseBridge {
@@ -235,35 +218,95 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}, nil
 }
 
-func pullImage(image string, reg docker.AuthConfiguration) error {
-	parts := strings.Split(image, ":")
+func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, error) {
+	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", reg.ServerAddress, repo, tag)
 
-	repo := parts[0]
-	tag := "latest"
+	req, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+	req.SetBasicAuth(reg.Username, reg.Password)
 
-	if reg.ServerAddress != "" {
-		repo = fmt.Sprintf("%s/%s", reg.ServerAddress, repo)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
 	}
 
-	log.Debug().Msgf("Attempting to pull image %s:%s", repo, tag)
+	hash := resp.Header.Get("Docker-Content-Digest")
+	if hash == "" {
+		return "", EmptyDigestErr
+	}
+
+	log.
+		Debug().
+		Str("digest", hash).
+		Str("image", repo).
+		Str("tag", tag).
+		Msg("Retrieved digest")
+
+	return hash, nil
+}
+
+func pullImage(repo, tag string, reg docker.AuthConfiguration) error {
+	regAddr := reg.ServerAddress
+	isPrivateRepo := regAddr != ""
+
+	fullRepoName := repo
+	if isPrivateRepo && strings.HasPrefix(repo, regAddr) == false {
+		fullRepoName = fmt.Sprintf("%s/%s", regAddr, repo)
+	}
+
+	log.Debug().
+		Str("repo", fullRepoName).
+		Str("tag", tag).
+		Msg("Attempting to pull image")
 
 	if err := DefaultClient.PullImage(docker.PullImageOptions{
-		Repository: repo,
+		Repository: fullRepoName,
 		Tag:        tag,
 	}, reg); err != nil {
 		return err
 	}
 
-	if reg.ServerAddress != "" {
+	if isPrivateRepo {
 		if err := DefaultClient.TagImage(repo, docker.TagImageOptions{
-			Repo: parts[0],
+			Repo: repo,
 			Tag:  "latest",
 		}); err != nil {
 			return err
 		}
 
-		if err := DefaultClient.RemoveImage(repo); err != nil {
+		if err := DefaultClient.RemoveImage(fullRepoName); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureImage(img string) error {
+	tag := "latest"
+	repo := img
+
+	parts := strings.Split(img, ":")
+	if len(parts) == 2 {
+		repo, tag = parts[0], parts[1]
+	}
+
+	var id string
+	localImg, err := DefaultClient.InspectImage(img)
+	if err == nil {
+		id = localImg.ID
+	}
+
+	for _, reg := range Registries {
+		srvID, err := digestRemoteImg(repo, tag, reg)
+		if err == nil && srvID != id {
+			if err := pullImage(repo, tag, reg); err != nil {
+				return err
+			}
+			break
 		}
 	}
 
