@@ -242,7 +242,7 @@ func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, er
 
 	log.
 		Debug().
-		Str("digest", hash[0:8]).
+		Str("digest", hash[0:12]).
 		Str("image", repo).
 		Str("tag", tag).
 		Msg("Retrieved digest")
@@ -251,13 +251,7 @@ func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, er
 }
 
 func pullImage(repo, tag string, reg docker.AuthConfiguration) error {
-	regAddr := reg.ServerAddress
-	isPrivateRepo := regAddr != ""
-
-	fullRepoName := repo
-	if isPrivateRepo && strings.HasPrefix(repo, regAddr) == false {
-		fullRepoName = fmt.Sprintf("%s/%s", regAddr, repo)
-	}
+	fullRepoName := registeredImgName(fmt.Sprintf("%s/%s", repo, tag), reg)
 
 	log.Debug().
 		Str("repo", fullRepoName).
@@ -286,9 +280,13 @@ func ensureImage(img string) (string, error) {
 	for _, reg := range Registries {
 		repoName := registeredImgName(img, reg)
 
-		var digest string
 		localImg, err := DefaultClient.InspectImage(repoName)
-		if err == nil && len(localImg.RepoDigests) > 0 {
+		if err != nil && err != docker.ErrNoSuchImage {
+			return "", err
+		}
+
+		var digest string
+		if localImg != nil && len(localImg.RepoDigests) > 0 {
 			digest = localImg.RepoDigests[0]
 			if strings.Contains(digest, "@") {
 				digest = strings.Split(digest, "@")[1]
