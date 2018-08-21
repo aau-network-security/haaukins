@@ -334,6 +334,14 @@ func (i Image) IsPublic() bool {
 	return i.Registry == ""
 }
 
+func (i Image) NameWithReg() string {
+	if i.Registry == "" {
+		return i.Repo
+	}
+
+	return i.Registry + "/" + i.Repo
+}
+
 func parseImage(img string) Image {
 	tag := "latest"
 	repo := img
