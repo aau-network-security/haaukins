@@ -271,19 +271,6 @@ func pullImage(repo, tag string, reg docker.AuthConfiguration) error {
 		return err
 	}
 
-	if isPrivateRepo {
-		if err := DefaultClient.TagImage(fullRepoName, docker.TagImageOptions{
-			Repo: repo,
-			Tag:  "latest",
-		}); err != nil {
-			return err
-		}
-
-		if err := DefaultClient.RemoveImage(fullRepoName); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
