@@ -49,7 +49,7 @@ func main() {
 	if err != nil {
 		log.Info().Msgf("No registry credentials file found: %s", err)
 	} else {
-		docker.Registries = append(docker.Registries, *authConfig)
+		docker.Registries[authConfig.ServerAddress] = *authConfig
 	}
 
 	ev, err := event.New("app/config.yml")

@@ -22,7 +22,7 @@ lab:
     tags:
     - sql
     docker:
-    - image: aau/sql-client
+    - image: registry.sec-aau.dk/aau/sql-client
       memoryMB: 50
       flag:
       - name: Web server login
@@ -33,7 +33,7 @@ lab:
         env: DB_FLAG
         default: 334637ad-2c51-45dd-89d9-9b7c7155b366
         points: 15
-    - image: aau/sql-server
+    - image: registry.sec-aau.dk/aau/sql-server
       memoryMB: 85
       dns:
       - name: netsec-forum.dk
@@ -47,7 +47,7 @@ lab:
     tags:
     - xss
     docker:
-    - image: aau/xss-client
+    - image: registry.sec-aau.dk/aau/xss-client
       memoryMB: 512
       env:
       - env: TARGET_URL
@@ -56,7 +56,7 @@ lab:
         value: whatever
       - env: PASSWORD
         value: pas122nes
-    - image: aau/xss-server
+    - image: registry.sec-aau.dk/aau/xss-server
       memoryMB: 85
       dns:
       - name: dogshare.com
@@ -70,7 +70,7 @@ lab:
     tags:
     - scan
     docker:
-    - image: aau/hidden-server
+    - image: registry.sec-aau.dk/aau/hidden-server
       flag:
       - name: Network scanning
         env: FLAG
@@ -81,7 +81,7 @@ lab:
     - heart
     - hb
     docker:
-    - image: aau/heartbleed
+    - image: registry.sec-aau.dk/aau/heartbleed
       memoryMB: 100
       flag:
       - name: Heartbleed
@@ -95,12 +95,12 @@ lab:
     tags:
     - mitm
     docker:
-    - image: aau/mitm-server
+    - image: registry.sec-aau.dk/aau/mitm-server
       memoryMB: 100
       dns:
       - name: secureshare.com
         record: A
-    - image: aau/mitm-client
+    - image: registry.sec-aau.dk/aau/mitm-client
       memoryMB: 75
       env:
       - env: TARGET_URL
