@@ -44,6 +44,9 @@ func NewEnvironment(exercises ...Config) (Environment, error) {
 		return nil, err
 	}
 
+    // we need to set the DNS server BEFORE we add our exercises
+    ee.dnsIP = ee.network.FormatIP(dns.PreferedIP)
+
 	for _, e := range exercises {
 		if err := ee.Add(e, false); err != nil {
 			return nil, err
