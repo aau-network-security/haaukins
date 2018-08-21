@@ -349,7 +349,7 @@ func parseImage(img string) Image {
 		parts = strings.Split(repo, "/")
 
 		registry = parts[0]
-		repo = strings.Join(parts[1:len(parts)-1], "/")
+		repo = strings.Join(parts[1:len(parts)], "/")
 	}
 
 	return Image{
