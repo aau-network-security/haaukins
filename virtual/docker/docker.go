@@ -242,7 +242,7 @@ func digestRemoteImg(repo, tag string, reg docker.AuthConfiguration) (string, er
 
 	log.
 		Debug().
-		Str("digest", hash).
+		Str("digest", hash[0:8]).
 		Str("image", repo).
 		Str("tag", tag).
 		Msg("Retrieved digest")
@@ -290,6 +290,9 @@ func ensureImage(img string) (string, error) {
 		localImg, err := DefaultClient.InspectImage(repoName)
 		if err == nil && len(localImg.RepoDigests) > 0 {
 			digest = localImg.RepoDigests[0]
+			if strings.Contains(digest, "@") {
+				digest = strings.Split(digest, "@")[1]
+			}
 		}
 
 		srvDigest, err := digestRemoteImg(repo, tag, reg)
