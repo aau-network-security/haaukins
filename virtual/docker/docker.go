@@ -258,7 +258,7 @@ func pullImage(img Image, reg docker.AuthConfiguration) error {
 		Msg("Attempting to pull image")
 
 	if err := DefaultClient.PullImage(docker.PullImageOptions{
-		Repository: img.Repo,
+		Repository: img.NameWithReg(),
 		Tag:        img.Tag,
 	}, reg); err != nil {
 		return err
