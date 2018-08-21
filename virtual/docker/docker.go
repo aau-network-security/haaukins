@@ -25,6 +25,7 @@ var (
 	InvalidHostBinding       = errors.New("Hostbing does not have correct format - (ip:)port")
 	InvalidMount             = errors.New("Incorrect mount format - src:dest")
 	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
+	NoImageErr               = errors.New("Unable to find image")
 	EmptyDigestErr           = errors.New("Empty digest")
 	DigestFormatErr          = errors.New("Unexpected digest format")
 
@@ -179,6 +180,11 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		ports[docker.Port(p)] = struct{}{}
 	}
 
+	conf.Image, err = ensureImage(conf.Image)
+	if err != nil {
+		return nil, err
+	}
+
 	createContOpts := docker.CreateContainerOptions{
 		Name: uuid.New().String(),
 		Config: &docker.Config{
@@ -188,10 +194,6 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 			ExposedPorts: ports,
 		},
 		HostConfig: &hostConf,
-	}
-
-	if err := ensureImage(conf.Image); err != nil {
-		return nil, err
 	}
 
 	cont, err := DefaultClient.CreateContainer(createContOpts)
@@ -285,7 +287,7 @@ func pullImage(repo, tag string, reg docker.AuthConfiguration) error {
 	return nil
 }
 
-func ensureImage(img string) error {
+func ensureImage(img string) (string, error) {
 	tag := "latest"
 	repo := img
 
@@ -294,23 +296,37 @@ func ensureImage(img string) error {
 		repo, tag = parts[0], parts[1]
 	}
 
-	var id string
-	localImg, err := DefaultClient.InspectImage(img)
-	if err == nil {
-		id = localImg.ID
-	}
-
 	for _, reg := range Registries {
-		srvID, err := digestRemoteImg(repo, tag, reg)
-		if err == nil && srvID != id {
+		srvAddr := reg.ServerAddress
+		repoName := registeredImgName(img, reg)
+
+		var digest string
+		localImg, err := DefaultClient.InspectImage(repoName)
+		if err == nil && len(localImg.RepoDigests) > 0 {
+			digest = localImg.RepoDigests[0]
+		}
+
+		srvDigest, err := digestRemoteImg(repo, tag, reg)
+		if err == nil && srvDigest != digest {
 			if err := pullImage(repo, tag, reg); err != nil {
-				return err
+				return "", err
 			}
-			break
+
+			return repoName, nil
 		}
 	}
 
-	return nil
+	return "", NoImageErr
+}
+
+func registeredImgName(img string, reg docker.AuthConfiguration) string {
+	srvAddr := reg.ServerAddress
+
+	if srvAddr == "" {
+		return img
+	}
+
+	return fmt.Sprintf("%s/%s", srvAddr, img)
 }
 
 func (c *container) ID() string {
