@@ -297,7 +297,6 @@ func ensureImage(img string) (string, error) {
 	}
 
 	for _, reg := range Registries {
-		srvAddr := reg.ServerAddress
 		repoName := registeredImgName(img, reg)
 
 		var digest string
