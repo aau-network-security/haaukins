@@ -157,7 +157,7 @@ func (ee *environment) Close() error {
 
 func (ee *environment) updateDNS() error {
 	if ee.dnsServer != nil {
-		if err := ee.dnsServer.Stop(); err != nil {
+		if err := ee.dnsServer.Close(); err != nil {
 			return err
 		}
 	}
