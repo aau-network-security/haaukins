@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"time"
+	"os"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
@@ -33,7 +34,7 @@ type Config struct {
 type Proxy interface {
 	Start(context.Context) error
 	Add(docker.Identifier, string) error
-	Close()
+	Close() error
 	NumberOfEndpoints() int
 }
 
@@ -43,6 +44,7 @@ type Connector interface {
 
 type nginx struct {
 	cont      docker.Container
+	confFile  string
 	host      string
 	running   bool
 	endpoints []string
@@ -61,10 +63,13 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		}
 	}
 
-	confFile, err := ioutil.TempFile("", "nginx_conf")
+	f, err := ioutil.TempFile("", "nginx_conf")
 	if err != nil {
 		return nil, err
 	}
+
+    confFile := f.Name()
+    ng.confFile = confFile
 
 	tmplCtx := struct {
 		Endpoints []string
@@ -72,7 +77,7 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		ng.endpoints,
 	}
 
-	if err := baseTmpl.Execute(confFile, tmplCtx); err != nil {
+	if err := baseTmpl.Execute(f, tmplCtx); err != nil {
 		return nil, err
 	}
 
@@ -86,7 +91,7 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 			"80/tcp":  "0.0.0.0:80",
 		},
 		Mounts: []string{
-			fmt.Sprintf("%s:/etc/nginx/conf.d/default.conf", confFile.Name()),
+			fmt.Sprintf("%s:/etc/nginx/conf.d/default.conf", confFile),
 		},
 		UseBridge: true,
 	}
@@ -104,12 +109,6 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 	}
 
 	return ng, nil
-}
-
-func (ng *nginx) Close() {
-	if ng.cont != nil {
-		ng.cont.Close()
-	}
 }
 
 func (ng *nginx) NumberOfEndpoints() int {
@@ -164,4 +163,21 @@ func randAlias(length int) string {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+
+func (ng *nginx) Close() error {
+	if err := os.Remove(ng.confFile); err != nil {
+		return err
+	}
+
+	if err := ng.cont.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ng *nginx) Stop() error {
+	return ng.cont.Close()
 }
