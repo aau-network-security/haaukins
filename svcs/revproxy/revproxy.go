@@ -33,14 +33,13 @@ type Config struct {
 
 type Proxy interface {
 	Start(context.Context) error
-	Add(docker.Identifier, string) error
 	Close() error
 	Stop() error
 	NumberOfEndpoints() int
 }
 
 type Connector interface {
-	ConnectProxy(Proxy) error
+	ConnectProxy() (docker.Identifier, string)
 }
 
 type nginx struct {
@@ -59,7 +58,8 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 	}
 
 	for _, c := range connectors {
-		if err := c.ConnectProxy(ng); err != nil {
+        contId, conf := c.ConnectProxy()
+		if err := ng.add(contId, conf); err != nil {
 			return nil, err
 		}
 	}
@@ -126,7 +126,7 @@ func (ng *nginx) Start(ctx context.Context) error {
 	return nil
 }
 
-func (ng *nginx) Add(c docker.Identifier, conf string) error {
+func (ng *nginx) add(c docker.Identifier, conf string) error {
 	if ng.running {
 		return AlreadyRunningErr
 	}

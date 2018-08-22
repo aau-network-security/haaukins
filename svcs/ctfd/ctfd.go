@@ -155,12 +155,11 @@ func (ctf *ctfd) ID() string {
 	return ctf.cont.ID()
 }
 
-func (ctf *ctfd) ConnectProxy(p revproxy.Proxy) error {
+func (ctf *ctfd) ConnectProxy() (docker.Identifier, string) {
 	conf := `location / {
         proxy_pass http://{{.Host}}:8000/;
     }`
-
-	return p.Add(ctf, conf)
+    return ctf, conf
 }
 
 func (ctf *ctfd) getNonce(path string) (string, error) {
