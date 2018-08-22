@@ -20,15 +20,15 @@ import (
 )
 
 var (
-	DefaultClient, dockerErr = docker.NewClient("unix:///var/run/docker.sock")
-	TooLowMemErr             = errors.New("Memory needs to be atleast 50mb")
-	InvalidHostBinding       = errors.New("Hostbing does not have correct format - (ip:)port")
-	InvalidMount             = errors.New("Incorrect mount format - src:dest")
-	NoRegistriesToPullFrom   = errors.New("No registries to pull from")
-	NoImageErr               = errors.New("Unable to find image")
-	EmptyDigestErr           = errors.New("Empty digest")
-	DigestFormatErr          = errors.New("Unexpected digest format")
-	NoDigestDockerHubErr     = errors.New("Unable to get digest from docker hub")
+	DefaultClient, dockerErr  = docker.NewClient("unix:///var/run/docker.sock")
+	TooLowMemErr              = errors.New("Memory needs to be atleast 50mb")
+	InvalidHostBindingErr     = errors.New("Hostbing does not have correct format - (ip:)port")
+	InvalidMountErr           = errors.New("Incorrect mount format - src:dest")
+	NoRegistriesToPullFromErr = errors.New("No registries to pull from")
+	NoImageErr                = errors.New("Unable to find image")
+	EmptyDigestErr            = errors.New("Empty digest")
+	DigestFormatErr           = errors.New("Unexpected digest format")
+	NoDigestDockerHubErr      = errors.New("Unable to get digest from docker hub")
 
 	Registries = map[string]docker.AuthConfiguration{
 		"": {},
@@ -101,13 +101,13 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 		}
 
 		if strings.Contains(hostListen, "/") {
-			return nil, InvalidHostBinding
+			return nil, InvalidHostBindingErr
 		}
 
 		if strings.Contains(hostListen, ":") {
 			parts := strings.Split(hostListen, ":")
 			if len(parts) != 2 {
-				return nil, InvalidHostBinding
+				return nil, InvalidHostBindingErr
 			}
 
 			hostIP = parts[0]
@@ -126,7 +126,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	for _, mount := range conf.Mounts {
 		parts := strings.Split(mount, ":")
 		if len(parts) != 2 {
-			return nil, InvalidMount
+			return nil, InvalidMountErr
 		}
 		src, dest := parts[0], parts[1]
 
