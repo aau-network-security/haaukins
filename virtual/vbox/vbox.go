@@ -320,7 +320,7 @@ func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
 		return vm.LinkedClone("origin", vmOpts...)
 	}
 
-	sum, err := checksum(path)
+	sum, err := checksumOfFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +348,7 @@ func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
 	return vm.LinkedClone("origin", vmOpts...)
 }
 
-func checksum(filepath string) (string, error) {
+func checksumOfFile(filepath string) (string, error) {
 	hash := crc32.NewIEEE()
 
 	file, err := os.Open(filepath)
