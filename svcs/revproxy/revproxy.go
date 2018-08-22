@@ -35,6 +35,7 @@ type Proxy interface {
 	Start(context.Context) error
 	Add(docker.Identifier, string) error
 	Close() error
+	Stop() error
 	NumberOfEndpoints() int
 }
 
@@ -179,5 +180,5 @@ func (ng *nginx) Close() error {
 }
 
 func (ng *nginx) Stop() error {
-	return ng.cont.Close()
+	return ng.cont.Stop()
 }
