@@ -25,6 +25,7 @@ var (
 	NoPortErr         = errors.New("Port is missing")
 	NoNameErr         = errors.New("Name is missing")
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
+	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
 
 	AdminUser        = "guacadmin"
 	DefaultAdminPAss = "guacadmin"
@@ -69,7 +70,7 @@ func New(conf Config) (Guacamole, error) {
 	}
 
 	if err := guac.create(); err != nil {
-		return nil, err
+		return err
 	}
 
 	return guac, nil
@@ -303,6 +304,16 @@ func (guac *guacamole) login(username, password string) (string, error) {
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
+	if guac.token == "" {
+		token, err := guac.login(AdminUser, guac.conf.AdminPass)
+		if err != nil {
+			return err
+		}
+
+		guac.token = token
+
+	}
+
 	perform := func() ([]byte, int, error) {
 		resp, err := a(guac.token)
 		if err != nil {
@@ -329,7 +340,7 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		}
 
 		if err := json.Unmarshal(content, &msg); err != nil {
-			return fmt.Errorf("Unexpected response from Guacamole: %s", string(content))
+			return UnexpectedRespErr
 		}
 
 		switch msg.Message {
