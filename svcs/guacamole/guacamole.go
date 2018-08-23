@@ -70,7 +70,7 @@ func New(conf Config) (Guacamole, error) {
 	}
 
 	if err := guac.create(); err != nil {
-		return err
+		return nil, err
 	}
 
 	return guac, nil
