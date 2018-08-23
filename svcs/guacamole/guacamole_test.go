@@ -1,23 +1,43 @@
 package guacamole_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/docker/guacamole"
+	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 )
 
 func TestGuacamole(t *testing.T) {
-	g, _ := guacamole.New(
+	// docker.Registries["registry.sec-aau.dk"] = dockerclient.AuthConfiguration{
+	// 	Username:      "travis",
+	// 	Password:      "T5CBgSJfMfJfUAyreMBHz96DhFE89ADK",
+	// 	ServerAddress: "registry.sec-aau.dk",
+	// }
+
+	g, err := guacamole.New(
 		guacamole.Config{
-			AdminUser: "guacadmin",
-			AdminPass: "guacadmin2",
+			AdminPass: "guacadmin",
 		})
 
-	g.Start(nil)
-	defer g.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-	time.Sleep(29 * time.Second)
+	i := 1
+	for {
+
+		username := fmt.Sprintf("tkp%d", i)
+		fmt.Println(username)
+		fmt.Println(g.CreateUser(username, "tkp"))
+
+		g.Logout()
+
+		i += 1
+
+		time.Sleep(10 * time.Second)
+	}
 
 	// fmt.Println(g.CreateRDPConn(guacamole.CreateRDPConnOpts{
 	// 	Name:     "thomas-conn5",

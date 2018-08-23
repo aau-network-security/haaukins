@@ -25,6 +25,7 @@ var (
 	NoPortErr         = errors.New("Port is missing")
 	NoNameErr         = errors.New("Name is missing")
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
+	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
 
 	AdminUser        = "guacadmin"
 	DefaultAdminPAss = "guacadmin"
@@ -68,10 +69,6 @@ func New(conf Config) (Guacamole, error) {
 		conf:   conf,
 	}
 
-	if err := guac.initialize(); err != nil {
-		return nil, err
-	}
-
 	return guac, nil
 }
 
@@ -93,7 +90,7 @@ func (guac *guacamole) Close() {
 	}
 }
 
-func (guac *guacamole) initialize() error {
+func (guac *guacamole) create() error {
 	// Guacd
 	guacd, err := docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd",
@@ -202,6 +199,10 @@ func (guac *guacamole) initialize() error {
 }
 
 func (guac *guacamole) Start(ctx context.Context) error {
+	if err := guac.create(); err != nil {
+		return err
+	}
+
 	for _, container := range guac.containers {
 		if err := container.Start(); err != nil {
 			return err
@@ -303,32 +304,52 @@ func (guac *guacamole) login(username, password string) (string, error) {
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
-	if guac.token == "" {
-		token, err := guac.login(AdminUser, guac.conf.AdminPass)
+	perform := func() ([]byte, int, error) {
+		resp, err := a(guac.token)
 		if err != nil {
-			return err
+			return nil, 0, err
+		}
+		defer resp.Body.Close()
+
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, 0, err
 		}
 
-		guac.token = token
+		return content, resp.StatusCode, nil
 	}
 
-	resp, err := a(guac.token)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	content, err := ioutil.ReadAll(resp.Body)
+	content, status, err := perform()
 	if err != nil {
 		return err
 	}
 
-	var msg struct {
-		Message string `json:"message"`
-	}
+	if status != http.StatusOK {
+		var msg struct {
+			Message string `json:"message"`
+		}
 
-	if err := json.Unmarshal(content, msg); err == nil {
-		return fmt.Errorf(msg.Message)
+		if err := json.Unmarshal(content, &msg); err != nil {
+			return UnexpectedRespErr
+		}
+
+		switch msg.Message {
+		case "Permission Denied.":
+			token, err := guac.login(AdminUser, guac.conf.AdminPass)
+			if err != nil {
+				return err
+			}
+
+			guac.token = token
+			content, status, err = perform()
+			if err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("Unknown Guacamole Error: %s", msg.Message)
+		}
+
 	}
 
 	if i != nil {
@@ -395,6 +416,24 @@ func (guac *guacamole) CreateUser(username, password string) error {
 			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
+
+		return guac.client.Do(req)
+	}
+
+	if err := guac.authAction(action, nil); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (guac *guacamole) logout() error {
+	action := func(t string) (*http.Response, error) {
+		endpoint := guac.baseUrl() + "/guacamole/api/tokens/" + t
+		req, err := http.NewRequest("DELETE", endpoint, nil)
+		if err != nil {
+			return nil, err
+		}
 
 		return guac.client.Do(req)
 	}
