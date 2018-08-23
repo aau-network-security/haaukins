@@ -64,7 +64,7 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		}
 	}
 
-	f, err := ioutil.TempFile("", "nginx_conf")
+	f, err := ioutil.TempFile("", "nginx-conf")
 	if err != nil {
 		return nil, err
 	}
