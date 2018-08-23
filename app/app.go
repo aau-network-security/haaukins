@@ -45,7 +45,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	authConfig, err := loadCredentials("auth.json")
+	authConfig, err := loadCredentials("app/auth.yml")
 	if err != nil {
 		log.Info().Msgf("No registry credentials file found: %s", err)
 	} else {
