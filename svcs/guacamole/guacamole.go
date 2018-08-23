@@ -69,6 +69,10 @@ func New(conf Config) (Guacamole, error) {
 		conf:   conf,
 	}
 
+	if err := guac.create(); err != nil {
+		return nil, err
+	}
+
 	return guac, nil
 }
 
@@ -199,9 +203,6 @@ func (guac *guacamole) create() error {
 }
 
 func (guac *guacamole) Start(ctx context.Context) error {
-	if err := guac.create(); err != nil {
-		return err
-	}
 
 	for _, container := range guac.containers {
 		if err := container.Start(); err != nil {
@@ -231,7 +232,7 @@ func (guac *guacamole) ConnectProxy() (docker.Identifier, string) {
         # proxy_cookie_path /guacamole/ /;
         access_log off;
     }`
-    return guac, conf
+	return guac, conf
 }
 
 func (guac *guacamole) configureInstance(port uint) error {
