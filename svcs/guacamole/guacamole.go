@@ -25,7 +25,6 @@ var (
 	NoPortErr         = errors.New("Port is missing")
 	NoNameErr         = errors.New("Name is missing")
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
-	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
 
 	AdminUser        = "guacadmin"
 	DefaultAdminPAss = "guacadmin"
@@ -330,7 +329,7 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		}
 
 		if err := json.Unmarshal(content, &msg); err != nil {
-			return UnexpectedRespErr
+			return fmt.Errorf("Unexpected response from Guacamole: %s", string(content))
 		}
 
 		switch msg.Message {
