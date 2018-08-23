@@ -304,8 +304,8 @@ func (guac *guacamole) login(username, password string) (string, error) {
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
-	perform := func(token string) ([]byte, int, error) {
-		resp, err := a(token)
+	perform := func() ([]byte, int, error) {
+		resp, err := a(guac.token)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -319,7 +319,7 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		return content, resp.StatusCode, nil
 	}
 
-	content, status, err := perform(guac.token)
+	content, status, err := perform()
 	if err != nil {
 		return err
 	}
@@ -341,7 +341,8 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 			}
 
 			guac.token = token
-			content, status, err = perform(guac.token)
+
+			content, status, err = perform()
 			if err != nil {
 				return err
 			}
@@ -420,7 +421,12 @@ func (guac *guacamole) CreateUser(username, password string) error {
 		return guac.client.Do(req)
 	}
 
-	if err := guac.authAction(action, nil); err != nil {
+	var output struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := guac.authAction(action, &output); err != nil {
 		return err
 	}
 
