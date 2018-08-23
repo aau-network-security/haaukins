@@ -324,7 +324,8 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		return err
 	}
 
-	if status >= http.StatusOK && status < 300 {
+	// out of 2XX range
+	if status < http.StatusOK && status > 300 {
 		var msg struct {
 			Message string `json:"message"`
 		}
