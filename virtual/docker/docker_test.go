@@ -191,14 +191,14 @@ func TestErrorHostBinding(t *testing.T) {
 			hostIP:      "0.0.0.0",
 			hostPort:    "80",
 			guestPort:   "8080/tcp",
-			err:         ntpdocker.InvalidHostBinding,
+			err:         ntpdocker.InvalidHostBindingErr,
 		}, {
 			name:        "invalid protocol in host binding",
 			portBinding: map[string]string{"8080": "0.0.0.0:80/tcp"},
 			hostIP:      "",
 			hostPort:    "80",
 			guestPort:   "8080/tcp",
-			err:         ntpdocker.InvalidHostBinding,
+			err:         ntpdocker.InvalidHostBindingErr,
 		},
 	}
 
@@ -299,12 +299,12 @@ func TestErrorMount(t *testing.T) {
 			name:     "no mount point",
 			value:    "/myextratmp",
 			expected: "/myextratmp",
-			err:      ntpdocker.InvalidMount,
+			err:      ntpdocker.InvalidMountErr,
 		}, {
 			name:     "too many mount points",
 			value:    "/tmp:/myextratmp:/canihaveanotheroneplease",
 			expected: "/myextratmp",
-			err:      ntpdocker.InvalidMount,
+			err:      ntpdocker.InvalidMountErr,
 		},
 	}
 

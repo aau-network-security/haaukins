@@ -220,7 +220,7 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ConnectProxy(p revproxy.Proxy) error {
+func (guac *guacamole) ConnectProxy() (docker.Identifier, string) {
 	conf := `location /guacamole/ {
         proxy_pass http://{{.Host}}:8080/guacamole/;
         proxy_buffering off;
@@ -231,8 +231,7 @@ func (guac *guacamole) ConnectProxy(p revproxy.Proxy) error {
         # proxy_cookie_path /guacamole/ /;
         access_log off;
     }`
-
-	return p.Add(guac, conf)
+    return guac, conf
 }
 
 func (guac *guacamole) configureInstance(port uint) error {

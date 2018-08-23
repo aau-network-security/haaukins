@@ -16,7 +16,10 @@ import (
 )
 
 var (
-	RdpConfError = errors.New("Error ")
+	RdpConfErr      = errors.New("error too few rdp connections")
+	StartingCtfdErr = errors.New("error while starting ctfd")
+	StartingGuacErr = errors.New("error while starting guac")
+	StartingRevErr  = errors.New("error while starting reverse proxy")
 
 	ctfdNew         = ctfd.New
 	guacNew         = guacamole.New
@@ -91,15 +94,30 @@ func New(confPath string) (Event, error) {
 
 func (ev *event) Start(ctx context.Context) error {
 	if err := ev.ctfd.Start(); err != nil {
-		return errors.New(fmt.Sprintf("error while starting CTFD: %s", err))
+		log.
+			Error().
+			Err(err).
+			Msg("error starting ctfd")
+
+		return StartingCtfdErr
 	}
 
 	if err := ev.guac.Start(ctx); err != nil {
-		return errors.New(fmt.Sprintf("error while starting Guacamole: %s", err))
+		log.
+			Error().
+			Err(err).
+			Msg("error starting guac")
+
+		return StartingGuacErr
 	}
 
 	if err := ev.proxy.Start(ctx); err != nil {
-		return errors.New(fmt.Sprintf("error while starting reverse proxy: %s", err))
+		log.
+			Error().
+			Err(err).
+			Msg("error starting reverse proxy")
+
+		return StartingRevErr
 	}
 
 	return nil
@@ -133,7 +151,7 @@ func (ev *event) Register(group Group) (*Auth, error) {
 			Int("amount", n).
 			Msg("Too few RDP connections")
 
-		return nil, RdpConfError
+		return nil, RdpConfErr
 	}
 
 	auth := Auth{

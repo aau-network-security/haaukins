@@ -33,7 +33,8 @@ type CTFd interface {
 	docker.Identifier
 	revproxy.Connector
 	Start() error
-	Close()
+	Close() error
+	Stop() error
 	Flags() []exercise.FlagConfig
 }
 
@@ -48,6 +49,7 @@ type Config struct {
 type ctfd struct {
 	conf       Config
 	cont       docker.Container
+    confDir   string
 	httpclient *http.Client
 }
 
@@ -66,16 +68,22 @@ func New(conf Config) (CTFd, error) {
 		httpclient: hc,
 	}
 
-	pwd, _ := os.Getwd()
 	hostIp, err := docker.GetDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
 
+	confDir, err := ioutil.TempDir("", "ctfd")
+	if err != nil {
+		return nil, err
+	}
+
+    ctf.confDir = confDir
+
 	baseConf := &docker.ContainerConfig{
 		Image: "registry.sec-aau.dk/aau/ctfd",
 		Mounts: []string{
-			fmt.Sprintf("%s/data:/opt/CTFd/CTFd/data", pwd),
+			fmt.Sprintf("%s/:/opt/CTFd/CTFd/data", confDir),
 		},
 		EnvVars: map[string]string{
 			"ADMIN_HOST": hostIp,
@@ -123,10 +131,20 @@ func (ctf *ctfd) Start() error {
 	return ctf.cont.Start()
 }
 
-func (ctf *ctfd) Close() {
-	if ctf.cont != nil {
-		ctf.cont.Close()
+func (ctf *ctfd) Close() error {
+	if err := os.RemoveAll(ctf.confDir); err != nil {
+		return err
 	}
+
+	if err := ctf.cont.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ctf *ctfd) Stop() error {
+	return ctf.cont.Stop()
 }
 
 func (ctf *ctfd) Flags() []exercise.FlagConfig {
@@ -137,12 +155,11 @@ func (ctf *ctfd) ID() string {
 	return ctf.cont.ID()
 }
 
-func (ctf *ctfd) ConnectProxy(p revproxy.Proxy) error {
+func (ctf *ctfd) ConnectProxy() (docker.Identifier, string) {
 	conf := `location / {
         proxy_pass http://{{.Host}}:8000/;
     }`
-
-	return p.Add(ctf, conf)
+    return ctf, conf
 }
 
 func (ctf *ctfd) getNonce(path string) (string, error) {

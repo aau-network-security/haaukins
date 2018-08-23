@@ -65,7 +65,7 @@ func (s *Server) Start() error {
 	return s.cont.Start()
 }
 
-func (s *Server) Stop() error {
+func (s *Server) Close() error {
 	if err := os.Remove(s.confFile); err != nil {
 		return err
 	}
@@ -77,6 +77,6 @@ func (s *Server) Stop() error {
 	return nil
 }
 
-func (s *Server) Close() error {
+func (s *Server) Stop() error {
 	return s.cont.Close()
 }

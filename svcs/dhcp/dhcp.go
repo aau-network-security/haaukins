@@ -74,7 +74,7 @@ func (dhcp *Server) Start() error {
 	return dhcp.cont.Start()
 }
 
-func (dhcp *Server) Stop() error {
+func (dhcp *Server) Close() error {
 	if err := os.Remove(dhcp.confFile); err != nil {
 		return err
 	}
@@ -86,6 +86,6 @@ func (dhcp *Server) Stop() error {
 	return nil
 }
 
-func (dhcp *Server) Close() error {
-	return dhcp.cont.Close()
+func (dhcp *Server) Stop() error {
+	return dhcp.cont.Stop()
 }

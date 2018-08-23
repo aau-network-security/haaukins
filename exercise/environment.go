@@ -44,6 +44,10 @@ func NewEnvironment(exercises ...Config) (Environment, error) {
 		return nil, err
 	}
 
+    // we need to set the DNS server BEFORE we add our exercises
+    // else ee.dnsIP wil be "", and the resulting resolv.conf "nameserver "
+    ee.dnsIP = ee.network.FormatIP(dns.PreferedIP)
+
 	for _, e := range exercises {
 		if err := ee.Add(e, false); err != nil {
 			return nil, err
@@ -153,7 +157,7 @@ func (ee *environment) Close() error {
 
 func (ee *environment) updateDNS() error {
 	if ee.dnsServer != nil {
-		if err := ee.dnsServer.Stop(); err != nil {
+		if err := ee.dnsServer.Close(); err != nil {
 			return err
 		}
 	}

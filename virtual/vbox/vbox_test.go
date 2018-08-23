@@ -74,7 +74,7 @@ func TestVmBase(t *testing.T) {
     assert.NotContains(t, cmd, "\"go-ntp\"") 
 
     // kill vm
-    err = vm.Kill()
+    err = vm.Close()
     assert.Equal(t, err, nil)
 
     // check if it exists
