@@ -27,7 +27,7 @@ var (
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
 	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
 
-	AdminUser        = "guacadmin"
+	DefaultAdminUser = "guacadmin"
 	DefaultAdminPAss = "guacadmin"
 )
 
@@ -245,7 +245,7 @@ func (guac *guacamole) configureInstance(port uint) error {
 		}}
 
 	for i := 0; i < 15; i++ {
-		_, err := temp.login(AdminUser, DefaultAdminPAss)
+		_, err := temp.login(DefaultAdminUser, DefaultAdminPAss)
 		if err == nil {
 			break
 		}
@@ -304,8 +304,8 @@ func (guac *guacamole) login(username, password string) (string, error) {
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
-	perform := func() ([]byte, int, error) {
-		resp, err := a(guac.token)
+	perform := func(token string) ([]byte, int, error) {
+		resp, err := a(token)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -319,7 +319,7 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		return content, resp.StatusCode, nil
 	}
 
-	content, status, err := perform()
+	content, status, err := perform(guac.token)
 	if err != nil {
 		return err
 	}
@@ -335,13 +335,13 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 
 		switch msg.Message {
 		case "Permission Denied.":
-			token, err := guac.login(AdminUser, guac.conf.AdminPass)
+			token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
 			if err != nil {
 				return err
 			}
 
 			guac.token = token
-			content, status, err = perform()
+			content, status, err = perform(guac.token)
 			if err != nil {
 				return err
 			}
