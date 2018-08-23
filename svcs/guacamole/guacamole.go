@@ -304,16 +304,6 @@ func (guac *guacamole) login(username, password string) (string, error) {
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
-	if guac.token == "" {
-		token, err := guac.login(AdminUser, guac.conf.AdminPass)
-		if err != nil {
-			return err
-		}
-
-		guac.token = token
-
-	}
-
 	perform := func() ([]byte, int, error) {
 		resp, err := a(guac.token)
 		if err != nil {
@@ -355,6 +345,8 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 			if err != nil {
 				return err
 			}
+
+			return nil
 
 		default:
 			return fmt.Errorf("Unknown Guacamole Error: %s", msg.Message)
