@@ -324,7 +324,7 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		return err
 	}
 
-	if status != http.StatusOK {
+	if status >= http.StatusOK && status < 300 {
 		var msg struct {
 			Message string `json:"message"`
 		}
@@ -345,8 +345,6 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 			if err != nil {
 				return err
 			}
-
-			return nil
 
 		default:
 			return fmt.Errorf("Unknown Guacamole Error: %s", msg.Message)
