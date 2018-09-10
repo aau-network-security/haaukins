@@ -174,15 +174,12 @@ func (ev *event) Register(group Group) (*Auth, error) {
 
 		log.Debug().Str("group", group.Name).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
-			Host:            hostIp,
-			Port:            port,
-			Name:            name,
-			GuacUser:        auth.Username,
-			Username:        &auth.Username,
-			Password:        &auth.Password,
-			EnableDrive:     true,
-			DrivePath:       fmt.Sprintf("/tmp/%s", name),
-			CreateDrivePath: true,
+			Host:     hostIp,
+			Port:     port,
+			Name:     name,
+			GuacUser: auth.Username,
+			Username: &auth.Username,
+			Password: &auth.Password,
 		}); err != nil {
 			return nil, err
 		}
