@@ -196,6 +196,24 @@ func SetLocalRDP(ip string, port uint) VMOpt {
 	}
 }
 
+func SetNAT(hasNat bool) VMOpt {
+	return func(vm *vm) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		nicVal := "none"
+		if hasNat {
+			nicVal = "nat"
+		}
+
+		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic2", nicVal)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
 func (vm *vm) SetRAM(mb uint) error {
 	start, err := vm.ensureStopped()
 	if err != nil {

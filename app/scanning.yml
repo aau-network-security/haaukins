@@ -13,10 +13,11 @@ lab:
   capacity:
     buffer: 15
     max: 25
-  frontend:
+  frontends:
     directory: /scratch/git/kali-packer/kali-source/dist
-    ova_files:
-    - aau-kali-amd64.ova
+    details:
+    - has_nat: true
+      ova_file: aau-kali-amd64.ova
   exercise:
   - name: Windows
     tags:

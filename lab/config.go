@@ -12,14 +12,19 @@ type capacity struct {
 	Max    int `yaml:"max"`
 }
 
-type frontend struct {
+type detail struct {
+	HasNat  bool   `yaml:"has_nat"`
+	OvaFile string `yaml:"ova_file"`
+}
+
+type frontends struct {
 	Directory string   `yaml:"directory"`
-	OvaFiles  []string `yaml:"ova_files"`
+	Details   []detail `yaml:"details"`
 }
 
 type Config struct {
 	Capacity  capacity          `yaml:"capacity"`
-	Frontend  frontend          `yaml:"frontend"`
+	Frontends frontends         `yaml:"frontends"`
 	Exercises []exercise.Config `yaml:"exercise"`
 }
 
