@@ -38,6 +38,7 @@ func (err *VBoxErr) Error() string {
 
 type VM interface {
 	virtual.Instance
+	virtual.ResourceResizer
 	Restart() error
 	Snapshot(string) error
 	LinkedClone(string, ...VMOpt) (VM, error)

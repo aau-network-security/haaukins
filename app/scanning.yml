@@ -15,9 +15,10 @@ lab:
     max: 25
   frontends:
     directory: /scratch/git/kali-packer/kali-source/dist
-    details:
+    configs:
     - has_nat: true
       ova_file: aau-kali-amd64.ova
+      ram: 4096
   exercise:
   - name: Windows
     tags:
