@@ -163,7 +163,10 @@ func (e *exercise) Create() error {
 
 	lib := vbox.NewLibrary(e.conf.VBoxConfig.Directory)
 	for _, ovaFiles := range e.conf.VBoxConfig.OvaFiles {
-		vm, err := lib.GetCopy(ovaFiles)
+		vm, err := lib.GetCopy(
+			ovaFiles,
+			vbox.SetBridge(e.net.Interface()),
+		)
 		if err != nil {
 			return err
 		}

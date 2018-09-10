@@ -14,9 +14,9 @@ lab:
     buffer: 1
     max: 30
   frontend:
-    directory: /scratch/git/kali-packer/kali-source/dist
+    directory: /scratch/git/training-platform/exercises
     ova_files:
-    - aau-kali-amd64.ova
+    - aau-kali.ova
     exercise:
     - name: Windows
       tags:
@@ -25,5 +25,5 @@ lab:
         directory: /scratch/events/hackerspace/pentesting
         ova_files:
         - windows-xp.ova
-        - metasploitable.ova
-        - sickos.ova
+#        - metasploitable.ova
+#        - sickos.ova
