@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 )
 
 var (
@@ -42,11 +43,16 @@ type DockerConfig struct {
 	CPU      float64        `yaml:"cpu"`
 }
 
+type VBoxConfig struct {
+	Directory string   `yaml:"directory"`
+	OvaFiles  []string `yaml:"ova_files"`
+}
+
 type Config struct {
 	Name        string         `yaml:"name"`
 	Tags        []string       `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
-	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
+	VBoxConfig  VBoxConfig     `yaml:"vbox"`
 }
 
 func (conf Config) Flags() []FlagConfig {
@@ -153,6 +159,15 @@ func (e *exercise) Create() error {
 		}
 
 		machines = append(machines, c)
+	}
+
+	lib := vbox.NewLibrary(e.conf.VBoxConfig.Directory)
+	for _, ovaFiles := range e.conf.VBoxConfig.OvaFiles {
+		vm, err := lib.GetCopy(ovaFiles)
+		if err != nil {
+			return err
+		}
+		machines = append(machines, vm)
 	}
 
 	if e.ips == nil {

@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"flag"
 	"github.com/aau-network-security/go-ntp/api"
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -52,7 +53,11 @@ func main() {
 		docker.Registries[authConfig.ServerAddress] = *authConfig
 	}
 
-	ev, err := event.New("app/config.yml")
+	var confPath = flag.String("config", "app/config.yml", "Relative path of the configuration YAML file")
+	flag.Parse()
+	log.Info().Msgf("%s", *confPath)
+
+	ev, err := event.New(*confPath)
 	if err != nil {
 		log.Error().Msgf("%s", err)
 		return
