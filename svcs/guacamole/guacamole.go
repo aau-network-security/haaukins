@@ -499,6 +499,7 @@ type createRDPConnConf struct {
 	CreateDrivePath          *bool   `json:"create-drive-path"`
 	Username                 *string `json:"username,omitempty"`
 	Password                 *string `json:"password,omitempty"`
+	DrivePath                *string `json:"drive-path"`
 }
 
 type CreateRDPConnOpts struct {
@@ -512,6 +513,9 @@ type CreateRDPConnOpts struct {
 	ResolutionHeight uint
 	MaxConn          uint
 	ColorDepth       uint
+	EnableDrive      bool
+	DrivePath        string
+	CreateDrivePath  bool
 }
 
 func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
@@ -544,14 +548,21 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 		opts.ColorDepth = 16
 	}
 
+	if opts.DrivePath == "" {
+		opts.DrivePath = "/tmp"
+	}
+
 	conf := createRDPConnConf{
-		Hostname:   &opts.Host,
-		Width:      &opts.ResolutionWidth,
-		Height:     &opts.ResolutionHeight,
-		Port:       &opts.Port,
-		ColorDepth: &opts.ColorDepth,
-		Username:   opts.Username,
-		Password:   opts.Password,
+		Hostname:        &opts.Host,
+		Width:           &opts.ResolutionWidth,
+		Height:          &opts.ResolutionHeight,
+		Port:            &opts.Port,
+		ColorDepth:      &opts.ColorDepth,
+		Username:        opts.Username,
+		Password:        opts.Password,
+		EnableDrive:     &opts.EnableDrive,
+		DrivePath:       &opts.DrivePath,
+		CreateDrivePath: &opts.CreateDrivePath,
 	}
 
 	data := struct {
