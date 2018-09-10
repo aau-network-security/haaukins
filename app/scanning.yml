@@ -11,19 +11,19 @@ revproxy:
   host: localhost
 lab:
   capacity:
-    buffer: 1
-    max: 30
+    buffer: 15
+    max: 25
   frontend:
-    directory: /scratch/git/training-platform/exercises
+    directory: /scratch/git/kali-packer/kali-source/dist
     ova_files:
-    - aau-kali.ova
-    exercise:
-    - name: Windows
-      tags:
-      - scanning
-      vbox:
-        directory: /scratch/events/hackerspace/pentesting
-        ova_files:
-        - windows-xp.ova
-#        - metasploitable.ova
-#        - sickos.ova
+    - aau-kali-amd64.ova
+  exercise:
+  - name: Windows
+    tags:
+    - scanning
+    vbox:
+      directory: /scratch/events/hackerspace/pentesting
+      ova_files:
+      - windows-xp.ova
+      - metasploitable.ova
+      - sickos.ova
