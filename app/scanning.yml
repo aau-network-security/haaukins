@@ -16,7 +16,7 @@ lab:
   frontends:
     directory: /scratch/git/kali-packer/kali-source/dist
     configs:
-    - has_nat: true
+    - has_nat: false
       ova_file: aau-kali-amd64.ova
       ram: 4096
   exercise:
