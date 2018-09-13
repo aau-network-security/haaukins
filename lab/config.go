@@ -7,23 +7,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type capacity struct {
-	Buffer int `yaml:"buffer"`
-	Max    int `yaml:"max"`
-}
-
-type frontend struct {
-	Directory string   `yaml:"directory"`
-	OvaFiles  []string `yaml:"ova_files"`
-}
-
-type Config struct {
-	Capacity  capacity          `yaml:"capacity"`
-	Frontend  frontend          `yaml:"frontend"`
+type LabConfig struct {
+	Frontends []string          `yaml:"frontends"`
 	Exercises []exercise.Config `yaml:"exercise"`
 }
 
-func (conf Config) Flags() []exercise.FlagConfig {
+func (conf LabConfig) Flags() []exercise.FlagConfig {
 	var res []exercise.FlagConfig
 	for _, exercise := range conf.Exercises {
 		res = append(res, exercise.Flags()...)
@@ -31,8 +20,8 @@ func (conf Config) Flags() []exercise.FlagConfig {
 	return res
 }
 
-func LoadConfig(path string) (*Config, error) {
-	var config *Config
+func LoadConfig(path string) (*LabConfig, error) {
+	var config *LabConfig
 
 	rawData, err := ioutil.ReadFile(path)
 	if err != nil {

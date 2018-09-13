@@ -11,6 +11,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
@@ -22,6 +23,7 @@ var (
 	StartingRevErr  = errors.New("error while starting reverse proxy")
 	EmptyNameErr    = errors.New("event requires a name")
 	EmptyTagErr     = errors.New("event requires a tag")
+	NoFrontendErr   = errors.New("lab requires atleast one frontend")
 
 	getDockerHostIp = docker.GetDockerHostIP
 )
@@ -53,16 +55,16 @@ func rand() string {
 	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
 }
 
-func NewFromFile(path string, opts ...EventOpt) (Event, error) {
-	conf, err := loadConfig(path)
-	if err != nil {
-		return nil, err
-	}
+// func NewFromFile(path string, opts ...EventOpt) (Event, error) {
+// 	conf, err := loadConfig(path)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return New(*conf, opts...)
-}
+// 	return New(*conf, opts...)
+// }
 
-func New(conf Config, opts ...EventOpt) (Event, error) {
+func New(conf Config) (Event, error) {
 	if conf.Name == "" {
 		return nil, EmptyNameErr
 	}
@@ -71,80 +73,61 @@ func New(conf Config, opts ...EventOpt) (Event, error) {
 		return nil, EmptyTagErr
 	}
 
-	conf.CTFd.Name = conf.Name
-
-	ev := &event{}
-
-	for _, opt := range opts {
-		opt(ev)
+	if len(conf.LabConfig.Frontends) == 0 {
+		return nil, NoFrontendErr
 	}
 
-	cb := &callbackServer{event: ev}
+	if conf.VBoxLibrary == nil {
+		conf.VBoxLibrary = vbox.NewLibrary(".")
+	}
+
+	for _, f := range conf.LabConfig.Frontends {
+		if ok := conf.VBoxLibrary.IsAvailable(f); !ok {
+			return nil, fmt.Errorf("Unknown frontend: %s", f)
+		}
+	}
+
+	cb := &callbackServer{}
 	if err := cb.Run(); err != nil {
 		return nil, err
 	}
-	ev.cbSrv = cb
 
-	if ev.labhub == nil {
-		labHub, err := lab.NewHub(conf.Lab)
-		if err != nil {
-			return nil, err
-		}
-
-		ev.labhub = labHub
-	}
-
-	if ev.ctfd == nil {
-		// TODO: this is not implemented with dynamic flags in mind; dynamic flag string can simply not be specified in the initial config
-		conf.CTFd.Flags = ev.labhub.Flags()
-		conf.CTFd.CallbackHost = ev.cbSrv.host
-		conf.CTFd.CallbackPort = ev.cbSrv.port
-
-		ctf, err := ctfd.New(conf.CTFd)
-		if err != nil {
-			return nil, err
-		}
-
-		ev.ctfd = ctf
-	}
-
-	if ev.guac == nil {
-		guac, err := guacamole.New(conf.Guac)
-		if err != nil {
-			return nil, err
-		}
-
-		ev.guac = guac
-	}
-
-	proxy, err := revproxy.New(conf.Proxy, ev.ctfd, ev.guac)
+	hub, err := lab.NewHub(conf.LabConfig, conf.VBoxLibrary, conf.Capacity, conf.Buffer)
 	if err != nil {
 		return nil, err
 	}
 
-	ev.proxy = proxy
+	ctfdConf := ctfd.Config{
+		Name:         conf.Name,
+		CallbackHost: cb.host,
+		CallbackPort: cb.port,
+		Flags:        hub.Flags(),
+	}
+
+	ctf, err := ctfd.New(ctfdConf)
+	if err != nil {
+		return nil, err
+	}
+
+	guac, err := guacamole.New(guacamole.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	proxy, err := revproxy.New(revproxy.Config{Host: "localhost"}, ctf, guac)
+	if err != nil {
+		return nil, err
+	}
+
+	ev := &event{
+		cbSrv: cb,
+		ctfd:  ctf,
+		guac:  guac,
+		proxy: proxy,
+	}
+	cb.event = ev
 
 	return ev, nil
-}
-
-type EventOpt func(*event)
-
-func WithCTFd(ctf ctfd.CTFd) EventOpt {
-	return func(e *event) {
-		e.ctfd = ctf
-	}
-}
-
-func WithGuacamole(guac guacamole.Guacamole) EventOpt {
-	return func(e *event) {
-		e.guac = guac
-	}
-}
-
-func WithLabHub(hub lab.Hub) EventOpt {
-	return func(e *event) {
-		e.labhub = hub
-	}
 }
 
 func (ev *event) Start(ctx context.Context) error {

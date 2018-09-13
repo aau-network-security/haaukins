@@ -4,19 +4,27 @@ import (
 	"io/ioutil"
 
 	"github.com/aau-network-security/go-ntp/lab"
-	"github.com/aau-network-security/go-ntp/svcs/ctfd"
-	"github.com/aau-network-security/go-ntp/svcs/guacamole"
-	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"gopkg.in/yaml.v2"
 )
 
+// type Config struct {
+// 	Name string        `yaml:"name"`
+// 	Tag  string        `yaml:"tag"`
+// 	Lab  lab.LabConfig `yaml:"lab"`
+
+// 	// CTFd  ctfd.Config      `yaml:"ctfd"`
+// 	// Guac  guacamole.Config `yaml:"guacamole"`
+// 	// Proxy revproxy.Config  `yaml:"revproxy"`
+// }
+
 type Config struct {
-	Name  string           `yaml:"name"`
-	Tag   string           `yaml:"tag"`
-	CTFd  ctfd.Config      `yaml:"ctfd"`
-	Guac  guacamole.Config `yaml:"guacamole"`
-	Proxy revproxy.Config  `yaml:"revproxy"`
-	Lab   lab.Config       `yaml:"lab"`
+	Name        string `json:"name"`
+	Tag         string `json:"tag"`
+	Buffer      int    `json:"buffer"`
+	Capacity    int    `json:"capacity"`
+	LabConfig   lab.LabConfig
+	VBoxLibrary vbox.Library
 }
 
 func loadConfig(path string) (*Config, error) {

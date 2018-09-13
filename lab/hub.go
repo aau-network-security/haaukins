@@ -26,7 +26,7 @@ type Hub interface {
 
 type hub struct {
 	vboxLib vbox.Library
-	conf    Config
+	conf    LabConfig
 
 	m           sync.Mutex
 	createSema  *semaphore
@@ -36,23 +36,23 @@ type hub struct {
 	buffer chan Lab
 }
 
-func NewHub(config Config) (Hub, error) {
-	if config.Capacity.Buffer > config.Capacity.Max {
+func NewHub(conf LabConfig, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
+	if buf > cap {
 		return nil, BufferMaxRatioErr
 	}
 
 	createLimit := 3
 	h := &hub{
 		labs:        []Lab{},
-		conf:        config,
+		conf:        conf,
 		createSema:  NewSemaphore(createLimit),
-		maximumSema: NewSemaphore(config.Capacity.Max),
-		buffer:      make(chan Lab, config.Capacity.Buffer),
-		vboxLib:     vboxNewLibrary(config.Frontend.Directory),
+		maximumSema: NewSemaphore(cap),
+		buffer:      make(chan Lab, buf),
+		vboxLib:     vboxLib,
 	}
 
-	log.Debug().Msgf("Instantiating %d lab(s)", config.Capacity.Buffer)
-	for i := 0; i < config.Capacity.Buffer; i++ {
+	log.Debug().Msgf("Instantiating %d lab(s)", buf)
+	for i := 0; i < buf; i++ {
 		go h.addLab()
 	}
 

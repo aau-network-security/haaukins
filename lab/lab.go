@@ -26,7 +26,7 @@ type lab struct {
 	rdpConnPorts []uint
 }
 
-func NewLab(lib vbox.Library, config Config) (Lab, error) {
+func NewLab(lib vbox.Library, config LabConfig) (Lab, error) {
 	environ, err := newEnvironment(config.Exercises...)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 		environment: environ,
 	}
 
-	for _, f := range config.Frontend.OvaFiles {
+	for _, f := range config.Frontends {
 		_, err = l.addFrontend(f)
 		if err != nil {
 			return nil, err
@@ -50,9 +50,9 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 func (l *lab) addFrontend(ovaFile string) (vbox.VM, error) {
 	hostIp, err := docker.GetDockerHostIP()
 
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
 	rdpPort := virtual.GetAvailablePort()
 	vm, err := l.lib.GetCopy(ovaFile,

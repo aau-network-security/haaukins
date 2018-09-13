@@ -20,11 +20,11 @@ import (
 )
 
 const (
-	vboxBin     = "VBoxManage"
-	vboxModVM   = "modifyvm"
-	vboxStartVM = "startvm"
-	vboxCtrlVM  = "controlvm"
-	vboxUnregisterVM  = "unregistervm"
+	vboxBin          = "VBoxManage"
+	vboxModVM        = "modifyvm"
+	vboxStartVM      = "startvm"
+	vboxCtrlVM       = "controlvm"
+	vboxUnregisterVM = "unregistervm"
 )
 
 type VBoxErr struct {
@@ -38,7 +38,7 @@ func (err *VBoxErr) Error() string {
 
 type VM interface {
 	virtual.Instance
-    Restart() error
+	Restart() error
 	Snapshot(string) error
 	LinkedClone(string, ...VMOpt) (VM, error)
 }
@@ -139,22 +139,22 @@ func (vm *vm) Restart() error {
 type VMOpt func(*vm) error
 
 func SetBridge(nic string) VMOpt {
-    return func(vm *vm) error {
-        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-        defer cancel()
+	return func(vm *vm) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-        _, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
-        if err != nil {
-            return err
-        }
+		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
+		if err != nil {
+			return err
+		}
 
-        _, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nicpromisc1", "allow-all")
-        if err != nil {
-            return err
-        }
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nicpromisc1", "allow-all")
+		if err != nil {
+			return err
+		}
 
-        return nil
-    }
+		return nil
+	}
 }
 
 func SetLocalRDP(ip string, port uint) VMOpt {
@@ -277,6 +277,7 @@ func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 
 type Library interface {
 	GetCopy(string, ...VMOpt) (VM, error)
+	IsAvailable(string) bool
 }
 
 type vBoxLibrary struct {
@@ -294,8 +295,20 @@ func NewLibrary(pwd string) Library {
 	}
 }
 
-func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
-	path = filepath.Join(lib.pwd, path)
+func (lib *vBoxLibrary) getPathFromFile(file string) string {
+	if !strings.HasPrefix(file, lib.pwd) {
+		file = filepath.Join(lib.pwd, file)
+	}
+
+	if !strings.HasSuffix(file, ".ova") {
+		file += ".ova"
+	}
+
+	return file
+}
+
+func (lib *vBoxLibrary) GetCopy(file string, vmOpts ...VMOpt) (VM, error) {
+	path := lib.getPathFromFile(file)
 
 	lib.m.Lock()
 
@@ -346,6 +359,15 @@ func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
 	lib.m.Unlock()
 
 	return vm.LinkedClone("origin", vmOpts...)
+}
+
+func (lib *vBoxLibrary) IsAvailable(file string) bool {
+	path := lib.getPathFromFile(file)
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+
+	return false
 }
 
 func checksumOfFile(filepath string) (string, error) {
