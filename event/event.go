@@ -54,7 +54,7 @@ func rand() string {
 	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
 }
 
-func New(confPath string) (Event, error) {
+func NewFromPath(confPath string) (Event, error) {
 	conf, err := loadConfig(confPath)
 	if err != nil {
 		return nil, err

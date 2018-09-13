@@ -11,8 +11,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Api struct {
+type service struct {
 	Event event.Event
+}
+
+type Service interface {
+	CreateEvent() error
 }
 
 type RegisterRequest struct {
