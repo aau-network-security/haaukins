@@ -20,6 +20,7 @@ import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -39,17 +40,19 @@ type CTFd interface {
 }
 
 type Config struct {
-	Name       string `yaml:"name"`
-	AdminUser  string `yaml:"admin_user"`
-	AdminEmail string `yaml:"admin_email"`
-	AdminPass  string `yaml:"admin_pass"`
-	Flags      []exercise.FlagConfig
+	Name         string `yaml:"name"`
+	AdminUser    string `yaml:"admin_user"`
+	AdminEmail   string `yaml:"admin_email"`
+	AdminPass    string `yaml:"admin_pass"`
+	CallbackHost string
+	CallbackPort uint
+	Flags        []exercise.FlagConfig
 }
 
 type ctfd struct {
 	conf       Config
 	cont       docker.Container
-    confDir   string
+	confDir    string
 	httpclient *http.Client
 }
 
@@ -63,14 +66,30 @@ func New(conf Config) (CTFd, error) {
 		Jar: jar,
 	}
 
+	if conf.Name == "" {
+		conf.Name = "Demo"
+	}
+
+	if conf.AdminUser == "" {
+		conf.AdminUser = "admin"
+	}
+
+	if conf.AdminEmail == "" {
+		conf.AdminEmail = "admin@admin.com"
+	}
+
+	if conf.AdminPass == "" {
+		pass := uuid.New().String()
+		log.Info().
+			Str("password", pass).
+			Msg("setting new default password for ctfd")
+
+		conf.AdminPass = pass
+	}
+
 	ctf := &ctfd{
 		conf:       conf,
 		httpclient: hc,
-	}
-
-	hostIp, err := docker.GetDockerHostIP()
-	if err != nil {
-		return nil, err
 	}
 
 	confDir, err := ioutil.TempDir("", "ctfd")
@@ -78,7 +97,7 @@ func New(conf Config) (CTFd, error) {
 		return nil, err
 	}
 
-    ctf.confDir = confDir
+	ctf.confDir = confDir
 
 	baseConf := &docker.ContainerConfig{
 		Image: "registry.sec-aau.dk/aau/ctfd",
@@ -86,7 +105,8 @@ func New(conf Config) (CTFd, error) {
 			fmt.Sprintf("%s/:/opt/CTFd/CTFd/data", confDir),
 		},
 		EnvVars: map[string]string{
-			"ADMIN_HOST": hostIp,
+			"ADMIN_HOST": conf.CallbackHost,
+			"ADMIN_PORT": fmt.Sprintf("%d", conf.CallbackPort),
 		},
 		UseBridge: true,
 	}
@@ -159,7 +179,7 @@ func (ctf *ctfd) ConnectProxy() (docker.Identifier, string) {
 	conf := `location / {
         proxy_pass http://{{.Host}}:8000/;
     }`
-    return ctf, conf
+	return ctf, conf
 }
 
 func (ctf *ctfd) getNonce(path string) (string, error) {

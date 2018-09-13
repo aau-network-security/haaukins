@@ -2,9 +2,11 @@ package lab
 
 import (
 	"errors"
+	"sync"
+
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 var (
@@ -18,6 +20,7 @@ type Hub interface {
 	Get() (Lab, error)
 	Close()
 	Available() int
+	Flags() []exercise.FlagConfig
 	//Config() []exercise.Config
 }
 
@@ -104,6 +107,10 @@ func (h *hub) Close() {
 	for v := range h.buffer {
 		v.Close()
 	}
+}
+
+func (h *hub) Flags() []exercise.FlagConfig {
+	return h.conf.Flags()
 }
 
 type rsrc struct{}

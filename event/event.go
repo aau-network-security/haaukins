@@ -20,11 +20,9 @@ var (
 	StartingCtfdErr = errors.New("error while starting ctfd")
 	StartingGuacErr = errors.New("error while starting guac")
 	StartingRevErr  = errors.New("error while starting reverse proxy")
+	EmptyNameErr    = errors.New("event requires a name")
+	EmptyTagErr     = errors.New("event requires a tag")
 
-	ctfdNew         = ctfd.New
-	guacNew         = guacamole.New
-	proxyNew        = revproxy.New
-	labNewHub       = lab.NewHub
 	getDockerHostIp = docker.GetDockerHostIP
 )
 
@@ -47,6 +45,7 @@ type event struct {
 	ctfd   ctfd.CTFd
 	proxy  revproxy.Proxy
 	guac   guacamole.Guacamole
+	cbSrv  *callbackServer
 	labhub lab.Hub
 }
 
@@ -54,42 +53,98 @@ func rand() string {
 	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
 }
 
-func NewFromPath(confPath string) (Event, error) {
-	conf, err := loadConfig(confPath)
+func NewFromFile(path string, opts ...EventOpt) (Event, error) {
+	conf, err := loadConfig(path)
 	if err != nil {
 		return nil, err
 	}
 
-	labHub, err := labNewHub(conf.Lab)
+	return New(*conf, opts...)
+}
+
+func New(conf Config, opts ...EventOpt) (Event, error) {
+	if conf.Name == "" {
+		return nil, EmptyNameErr
+	}
+
+	if conf.Tag == "" {
+		return nil, EmptyTagErr
+	}
+
+	conf.CTFd.Name = conf.Name
+
+	ev := &event{}
+
+	for _, opt := range opts {
+		opt(ev)
+	}
+
+	cb := &callbackServer{event: ev}
+	if err := cb.Run(); err != nil {
+		return nil, err
+	}
+	ev.cbSrv = cb
+
+	if ev.labhub == nil {
+		labHub, err := lab.NewHub(conf.Lab)
+		if err != nil {
+			return nil, err
+		}
+
+		ev.labhub = labHub
+	}
+
+	if ev.ctfd == nil {
+		// TODO: this is not implemented with dynamic flags in mind; dynamic flag string can simply not be specified in the initial config
+		conf.CTFd.Flags = ev.labhub.Flags()
+		conf.CTFd.CallbackHost = ev.cbSrv.host
+		conf.CTFd.CallbackPort = ev.cbSrv.port
+
+		ctf, err := ctfd.New(conf.CTFd)
+		if err != nil {
+			return nil, err
+		}
+
+		ev.ctfd = ctf
+	}
+
+	if ev.guac == nil {
+		guac, err := guacamole.New(conf.Guac)
+		if err != nil {
+			return nil, err
+		}
+
+		ev.guac = guac
+	}
+
+	proxy, err := revproxy.New(conf.Proxy, ev.ctfd, ev.guac)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: this is not implemented with dynamic flags in mind; dynamic flag string can simply not be specified in the initial config
-	conf.CTFd.Flags = conf.Lab.Flags()
-
-	ctf, err := ctfdNew(conf.CTFd)
-	if err != nil {
-		return nil, err
-	}
-
-	guac, err := guacNew(conf.Guac)
-	if err != nil {
-		return nil, err
-	}
-
-	proxy, err := proxyNew(conf.Proxy, ctf, guac)
-	if err != nil {
-		return nil, err
-	}
-
-	ev := &event{
-		ctfd:   ctf,
-		guac:   guac,
-		proxy:  proxy,
-		labhub: labHub}
+	ev.proxy = proxy
 
 	return ev, nil
+}
+
+type EventOpt func(*event)
+
+func WithCTFd(ctf ctfd.CTFd) EventOpt {
+	return func(e *event) {
+		e.ctfd = ctf
+	}
+}
+
+func WithGuacamole(guac guacamole.Guacamole) EventOpt {
+	return func(e *event) {
+		e.guac = guac
+	}
+}
+
+func WithLabHub(hub lab.Hub) EventOpt {
+	return func(e *event) {
+		e.labhub = hub
+	}
 }
 
 func (ev *event) Start(ctx context.Context) error {
@@ -135,6 +190,10 @@ func (ev *event) Close() {
 	}
 	if ev.labhub != nil {
 		ev.labhub.Close()
+	}
+
+	if ev.cbSrv != nil {
+		ev.cbSrv.Close()
 	}
 }
 

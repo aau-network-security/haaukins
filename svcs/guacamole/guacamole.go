@@ -37,6 +37,7 @@ type Guacamole interface {
 	Start(context.Context) error
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
+	GetAdminPass() string
 	Close()
 }
 
@@ -61,7 +62,11 @@ func New(conf Config) (Guacamole, error) {
 	}
 
 	if conf.Port == 0 {
-		conf.Port = 8080
+		conf.Port = 80
+	}
+
+	if conf.AdminPass == "" {
+		conf.AdminPass = uuid.New().String()
 	}
 
 	guac := &guacamole{
@@ -92,6 +97,10 @@ func (guac *guacamole) Close() {
 	for _, c := range guac.containers {
 		c.Close()
 	}
+}
+
+func (guac *guacamole) GetAdminPass() string {
+	return guac.conf.AdminPass
 }
 
 func (guac *guacamole) create() error {

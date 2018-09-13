@@ -1,15 +1,18 @@
 package event
 
 import (
+	"io/ioutil"
+
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 )
 
 type Config struct {
+	Name  string           `yaml:"name"`
+	Tag   string           `yaml:"tag"`
 	CTFd  ctfd.Config      `yaml:"ctfd"`
 	Guac  guacamole.Config `yaml:"guacamole"`
 	Proxy revproxy.Config  `yaml:"revproxy"`
