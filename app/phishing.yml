@@ -1,0 +1,45 @@
+ctfd:
+  name: Phishing
+  admin_user: admin
+  admin_email: cyber@es.aau.dk
+  admin_pass: Zg5txAyg2WNmUt6vz7ep
+guacamole:
+  admin_pass: admin
+  host: localhost
+  port: 80
+revproxy:
+  host: localhost
+lab:
+  capacity:
+    buffer: 1
+    max: 10
+  frontend:
+    directory: /scratch/git/kali-packer/kali-source/dist
+    configs:
+    - has_nat: false
+      ova_file: aau-kali-amd64.ova
+      ram: 4096
+  exercise:
+  - name: Phishing
+    tags:
+    - phishing
+    docker:
+    - image: aau/phishing-client
+      memoryMB: 50
+      flag:
+      - name: Phishing (link)
+        env: FLAG_HAS_LINK
+        default: 5422cc67-5211-4514-be25-4e0dc8f3945b
+        points: 10
+      - name: Phishing (spoofed email)
+        env: FLAG_SPOOFED_EMAIL
+        default: b18b9bd1-1ff9-4b8e-9d5f-e74f00a4197b
+        points: 15
+      - name: Phishing (spoofed domain)
+        default: 782e1e58-201b-4b85-b4d3-152b23a03a1d
+        points: 20
+    - image: aau/phishing-server
+      memoryMB: 50
+      flag:
+      - name: Phishing (login)
+        env: FLAG_AFTER_LOGIN
