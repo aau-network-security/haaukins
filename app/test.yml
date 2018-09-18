@@ -10,7 +10,7 @@ guacamole:
 revproxy:
   host: localhost
 lab:
-  ova_library: /scratch/git/kali-packer/kali-source/dist
+  ova_library: /scratch/ova
   capacity:
     buffer: 10
     max: 100
