@@ -27,7 +27,7 @@ type lab struct {
 }
 
 func NewLab(lib vbox.Library, config Config) (Lab, error) {
-	environ, err := newEnvironment(config.Exercises...)
+	environ, err := newEnvironment(lib, config.Exercises...)
 	if err != nil {
 		return nil, err
 	}
