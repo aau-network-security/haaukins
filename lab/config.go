@@ -13,20 +13,15 @@ type capacity struct {
 }
 
 type frontendConfig struct {
-	HasNat  bool   `yaml:"has_nat"`
-	OvaFile string `yaml:"ova_file"`
-	RAM     uint   `yaml:"ram"`
-}
-
-type frontends struct {
-	Directory string           `yaml:"directory"`
-	Configs   []frontendConfig `yaml:"configs"`
+	Image    string `yaml:"image"`
+	MemoryMB uint   `yaml:"memoryMB"`
 }
 
 type Config struct {
-	Capacity  capacity          `yaml:"capacity"`
-	Frontends frontends         `yaml:"frontends"`
-	Exercises []exercise.Config `yaml:"exercise"`
+	OvaLibrary string            `yaml:"ova_library"`
+	Capacity   capacity          `yaml:"capacity"`
+	Frontends  []frontendConfig  `yaml:"frontends"`
+	Exercises  []exercise.Config `yaml:"exercise"`
 }
 
 func (conf Config) Flags() []exercise.FlagConfig {

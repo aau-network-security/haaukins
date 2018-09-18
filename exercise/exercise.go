@@ -44,15 +44,16 @@ type DockerConfig struct {
 }
 
 type VBoxConfig struct {
-	Directory string   `yaml:"directory"`
-	OvaFiles  []string `yaml:"ova_files"`
+	Image    string       `yaml:"image"`
+	MemoryMB uint         `yaml:"memoryMB"`
+	Flags    []FlagConfig `yaml:"flag"`
 }
 
 type Config struct {
 	Name        string         `yaml:"name"`
 	Tags        []string       `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
-	VBoxConfig  VBoxConfig     `yaml:"vbox"`
+	VBoxConfig  []VBoxConfig   `yaml:"vbox"`
 }
 
 func (conf Config) Flags() []FlagConfig {
@@ -114,6 +115,7 @@ type exercise struct {
 	dnsIP      string
 	dnsRecords []RecordConfig
 	dockerHost DockerHost
+	lib        vbox.Library
 }
 
 func (e *exercise) Create() error {
@@ -161,10 +163,9 @@ func (e *exercise) Create() error {
 		machines = append(machines, c)
 	}
 
-	lib := vbox.NewLibrary(e.conf.VBoxConfig.Directory)
-	for _, ovaFiles := range e.conf.VBoxConfig.OvaFiles {
-		vm, err := lib.GetCopy(
-			ovaFiles,
+	for _, spec := range e.conf.VBoxConfig {
+		vm, err := e.lib.GetCopy(
+			spec.Image,
 			vbox.SetBridge(e.net.Interface()),
 		)
 		if err != nil {
