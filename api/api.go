@@ -3,11 +3,16 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -19,25 +24,37 @@ type service struct {
 	events          map[string]event.Event
 	exerciseLib     *exercise.Library
 	frontendLibrary vbox.Library
+
+	mux *mux.Router
 }
 
 type Service interface {
 	CreateEvent(CreateEventRequest) error
 	StopEvent(StopEventRequest) error
+	Close()
 }
 
 func NewService() (Service, error) {
-	elib, err := exercise.NewLibrary("./exercises.yml")
+	elib, err := exercise.NewLibrary("exercises.yml")
 	if err != nil {
 		return nil, err
 	}
 
-	vlib := vbox.NewLibrary("./vbox")
+	dir, _ := os.Getwd()
+	vlib := vbox.NewLibrary(filepath.Join(dir, "vbox"))
+
+	m := mux.NewRouter()
+	go func() {
+		if err := http.ListenAndServe(":8080", m); err != nil {
+			fmt.Println("Serving error", err)
+		}
+	}()
 
 	return &service{
 		exerciseLib:     elib,
 		events:          map[string]event.Event{},
 		frontendLibrary: vlib,
+		mux:             m,
 	}, nil
 }
 
@@ -90,6 +107,17 @@ func (svc *service) CreateEvent(req CreateEventRequest) error {
 
 	go ev.Start(context.TODO())
 
+	// director := func(req *http.Request) {
+	// 	req.Header.Add("X-Forwarded-Host", req.Host)
+	// 	req.Header.Add("X-Origin-Host", origin.Host)
+	// 	req.URL.Scheme = "http"
+	// 	req.URL.Host = origin.Host
+	// 	fmt.Println(req.URL.Path)
+	// }
+
+	subdomain := req.Tag + ".localhost"
+	eventRoute := svc.mux.Host(subdomain).Subrouter()
+	ev.Connect(eventRoute)
 	svc.events[req.Tag] = ev
 
 	return nil
@@ -105,6 +133,15 @@ func (svc *service) StopEvent(req StopEventRequest) error {
 		return UnknownEventErr
 	}
 
+	delete(svc.events, req.Tag)
+
 	ev.Close()
 	return nil
+}
+
+func (svc *service) Close() {
+	for t, ev := range svc.events {
+		ev.Close()
+		delete(svc.events, t)
+	}
 }

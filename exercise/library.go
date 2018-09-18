@@ -11,7 +11,7 @@ type Library struct {
 }
 
 type RawLibrary struct {
-	Exercises []Config `yaml:"exercise"`
+	Exercises []Config `yaml:"exercises"`
 }
 
 func NewLibrary(path string) (*Library, error) {
@@ -26,9 +26,9 @@ func NewLibrary(path string) (*Library, error) {
 	}
 
 	exercises := map[string]*Config{}
-	for _, e := range raw.Exercises {
+	for i, e := range raw.Exercises {
 		for _, t := range e.Tags {
-			exercises[t] = &e
+			exercises[t] = &raw.Exercises[i]
 		}
 	}
 
@@ -38,7 +38,7 @@ func NewLibrary(path string) (*Library, error) {
 }
 
 func (lib *Library) GetByTags(tag string, otherTags ...string) ([]Config, error) {
-	var configs []Config
+	configs := make([]Config, len(otherTags)+1)
 
 	for i, t := range append([]string{tag}, otherTags...) {
 		e, ok := lib.exercises[t]

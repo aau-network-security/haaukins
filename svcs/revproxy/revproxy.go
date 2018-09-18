@@ -8,9 +8,10 @@ import (
 	"html/template"
 	"io/ioutil"
 	"math/rand"
-	"time"
 	"os"
+	"time"
 
+	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
@@ -36,6 +37,7 @@ type Proxy interface {
 	Close() error
 	Stop() error
 	NumberOfEndpoints() int
+	Addrs() (string, string)
 }
 
 type Connector interface {
@@ -43,22 +45,26 @@ type Connector interface {
 }
 
 type nginx struct {
-	cont      docker.Container
-	confFile  string
-	host      string
-	running   bool
-	endpoints []string
-	aliasCont map[string]docker.Identifier
+	cont         docker.Container
+	confFile     string
+	host         string
+	running      bool
+	endpoints    []string
+	aliasCont    map[string]docker.Identifier
+	insecureAddr string
+	secureAddr   string
 }
 
 func New(conf Config, connectors ...Connector) (Proxy, error) {
 	ng := &nginx{
-		host:      conf.Host,
-		aliasCont: make(map[string]docker.Identifier),
+		host:         conf.Host,
+		aliasCont:    make(map[string]docker.Identifier),
+		insecureAddr: fmt.Sprintf("127.0.0.1:%d", virtual.GetAvailablePort()),
+		secureAddr:   fmt.Sprintf("127.0.0.1:%d", virtual.GetAvailablePort()),
 	}
 
 	for _, c := range connectors {
-        contId, conf := c.ConnectProxy()
+		contId, conf := c.ConnectProxy()
 		if err := ng.add(contId, conf); err != nil {
 			return nil, err
 		}
@@ -69,8 +75,8 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 		return nil, err
 	}
 
-    confFile := f.Name()
-    ng.confFile = confFile
+	confFile := f.Name()
+	ng.confFile = confFile
 
 	tmplCtx := struct {
 		Endpoints []string
@@ -88,8 +94,8 @@ func New(conf Config, connectors ...Connector) (Proxy, error) {
 			"HOST": ng.host,
 		},
 		PortBindings: map[string]string{
-			"443/tcp": "0.0.0.0:443",
-			"80/tcp":  "0.0.0.0:80",
+			"443/tcp": ng.secureAddr,
+			"80/tcp":  ng.insecureAddr,
 		},
 		Mounts: []string{
 			fmt.Sprintf("%s:/etc/nginx/conf.d/default.conf", confFile),
@@ -166,7 +172,6 @@ func randAlias(length int) string {
 	return string(b)
 }
 
-
 func (ng *nginx) Close() error {
 	if err := os.Remove(ng.confFile); err != nil {
 		return err
@@ -181,4 +186,8 @@ func (ng *nginx) Close() error {
 
 func (ng *nginx) Stop() error {
 	return ng.cont.Stop()
+}
+
+func (ng *nginx) Addrs() (string, string) {
+	return ng.insecureAddr, ng.secureAddr
 }

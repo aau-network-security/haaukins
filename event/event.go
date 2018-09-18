@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
-	"github.com/aau-network-security/go-ntp/svcs/revproxy"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 )
 
@@ -41,11 +42,11 @@ type Event interface {
 	Start(context.Context) error
 	Close()
 	Register(Group) (*Auth, error)
+	Connect(*mux.Router)
 }
 
 type event struct {
 	ctfd   ctfd.CTFd
-	proxy  revproxy.Proxy
 	guac   guacamole.Guacamole
 	cbSrv  *callbackServer
 	labhub lab.Hub
@@ -54,15 +55,6 @@ type event struct {
 func rand() string {
 	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
 }
-
-// func NewFromFile(path string, opts ...EventOpt) (Event, error) {
-// 	conf, err := loadConfig(path)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return New(*conf, opts...)
-// }
 
 func New(conf Config) (Event, error) {
 	if conf.Name == "" {
@@ -114,16 +106,11 @@ func New(conf Config) (Event, error) {
 		return nil, err
 	}
 
-	proxy, err := revproxy.New(revproxy.Config{Host: "localhost"}, ctf, guac)
-	if err != nil {
-		return nil, err
-	}
-
 	ev := &event{
-		cbSrv: cb,
-		ctfd:  ctf,
-		guac:  guac,
-		proxy: proxy,
+		labhub: hub,
+		cbSrv:  cb,
+		ctfd:   ctf,
+		guac:   guac,
 	}
 	cb.event = ev
 
@@ -149,22 +136,10 @@ func (ev *event) Start(ctx context.Context) error {
 		return StartingGuacErr
 	}
 
-	if err := ev.proxy.Start(ctx); err != nil {
-		log.
-			Error().
-			Err(err).
-			Msg("error starting reverse proxy")
-
-		return StartingRevErr
-	}
-
 	return nil
 }
 
 func (ev *event) Close() {
-	if ev.proxy != nil {
-		ev.proxy.Close()
-	}
 	if ev.guac != nil {
 		ev.guac.Close()
 	}
@@ -229,4 +204,16 @@ func (ev *event) Register(group Group) (*Auth, error) {
 	}
 
 	return &auth, nil
+}
+
+func (ev *event) Connect(r *mux.Router) {
+	r.HandleFunc("/guacamole/{rest:.*}", handler(ev.guac.ProxyHandler()))
+	r.HandleFunc("/{rest:.*}", handler(ev.ctfd.ProxyHandler()))
+}
+
+func handler(h http.Handler) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = mux.Vars(r)["rest"]
+		h.ServeHTTP(w, r)
+	}
 }

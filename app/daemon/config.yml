@@ -1,0 +1,6 @@
+host: localhost
+docker:
+  repositories:
+    - username: travis
+      password: T5CBgSJfMfJfUAyreMBHz96DhFE89ADK
+      serveraddress: registry.sec-aau.dk

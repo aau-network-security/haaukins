@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/gorilla/mux"
 )
 
@@ -12,18 +13,35 @@ const (
 )
 
 type server struct {
-	svc Service
+	svc  Service
+	conf Config
+	mux  *mux.Router
 }
 
-func NewServer() (*server, error) {
+type Config struct {
+	Host   string `yaml:"host"`
+	Docker struct {
+		Repositories dockerclient.AuthConfiguration `yaml:"repositories"`
+	} `yaml:"docker"`
+}
+
+func NewServer(conf Config) (*server, error) {
 	svc, err := NewService()
 	if err != nil {
 		return nil, err
 	}
 
-	return &server{
-		svc: svc,
-	}, nil
+	s := &server{
+		svc:  svc,
+		conf: conf,
+		mux:  mux.NewRouter(),
+	}
+
+	api := s.mux.Host(conf.Host).Subrouter()
+	api.HandleFunc("/events", s.handleCreateEvent()).Methods("POST")
+	api.HandleFunc("/events", s.handleStopEvent()).Methods("DELETE")
+
+	return s, nil
 }
 
 func (s *server) handleCreateEvent() http.HandlerFunc {
@@ -65,11 +83,11 @@ func (s *server) handleStopEvent() http.HandlerFunc {
 }
 
 func (s *server) Routes() http.Handler {
-	m := mux.NewRouter()
-	m.HandleFunc("/events", s.handleCreateEvent()).Methods("POST")
-	m.HandleFunc("/events", s.handleStopEvent()).Methods("DELETE")
+	return s.mux
+}
 
-	return m
+func (s *server) Close() {
+	s.svc.Close()
 }
 
 type Reply struct {

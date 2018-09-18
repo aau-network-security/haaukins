@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"regexp"
@@ -18,7 +19,8 @@ import (
 	"errors"
 
 	"github.com/aau-network-security/go-ntp/exercise"
-	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/aau-network-security/go-ntp/svcs"
+	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -32,7 +34,7 @@ var (
 
 type CTFd interface {
 	docker.Identifier
-	revproxy.Connector
+	svcs.ProxyConnector
 	Start() error
 	Close() error
 	Stop() error
@@ -53,6 +55,7 @@ type ctfd struct {
 	conf       Config
 	cont       docker.Container
 	confDir    string
+	port       uint
 	httpclient *http.Client
 }
 
@@ -90,6 +93,7 @@ func New(conf Config) (CTFd, error) {
 	ctf := &ctfd{
 		conf:       conf,
 		httpclient: hc,
+		port:       virtual.GetAvailablePort(),
 	}
 
 	confDir, err := ioutil.TempDir("", "ctfd")
@@ -99,7 +103,7 @@ func New(conf Config) (CTFd, error) {
 
 	ctf.confDir = confDir
 
-	baseConf := &docker.ContainerConfig{
+	dconf := docker.ContainerConfig{
 		Image: "registry.sec-aau.dk/aau/ctfd",
 		Mounts: []string{
 			fmt.Sprintf("%s/:/opt/CTFd/CTFd/data", confDir),
@@ -108,15 +112,13 @@ func New(conf Config) (CTFd, error) {
 			"ADMIN_HOST": conf.CallbackHost,
 			"ADMIN_PORT": fmt.Sprintf("%d", conf.CallbackPort),
 		},
+		PortBindings: map[string]string{
+			"8000/tcp": fmt.Sprintf("127.0.0.1:%d", ctf.port),
+		},
 		UseBridge: true,
 	}
 
-	initConf := *baseConf
-	initConf.PortBindings = map[string]string{
-		"8000/tcp": "127.0.0.1:8000",
-	}
-
-	c, err := docker.NewContainer(initConf)
+	c, err := docker.NewContainer(dconf)
 	if err != nil {
 		return nil, err
 	}
@@ -131,16 +133,11 @@ func New(conf Config) (CTFd, error) {
 		return nil, err
 	}
 
-	err = c.Close()
+	err = c.Stop()
 	if err != nil {
 		return nil, err
 	}
 
-	finalConf := *baseConf
-	c, err = docker.NewContainer(finalConf)
-	if err != nil {
-		return nil, err
-	}
 	ctf.cont = c
 
 	return ctf, nil
@@ -175,11 +172,13 @@ func (ctf *ctfd) ID() string {
 	return ctf.cont.ID()
 }
 
-func (ctf *ctfd) ConnectProxy() (docker.Identifier, string) {
-	conf := `location / {
-        proxy_pass http://{{.Host}}:8000/;
-    }`
-	return ctf, conf
+func (ctf *ctfd) ProxyHandler() http.Handler {
+	origin, _ := url.Parse(ctf.baseUrl())
+	return httputil.NewSingleHostReverseProxy(origin)
+}
+
+func (ctf *ctfd) baseUrl() string {
+	return fmt.Sprintf("http://127.0.0.1:%d", ctf.port)
 }
 
 func (ctf *ctfd) getNonce(path string) (string, error) {
@@ -203,7 +202,7 @@ func (ctf *ctfd) getNonce(path string) (string, error) {
 }
 
 func (ctf *ctfd) createFlag(name, flag string, points uint) error {
-	endpoint := "http://localhost:8000" + "/admin/chal/new"
+	endpoint := ctf.baseUrl() + "/admin/chal/new"
 
 	nonce, err := ctf.getNonce(endpoint)
 	if err != nil {
@@ -249,7 +248,7 @@ func (ctf *ctfd) createFlag(name, flag string, points uint) error {
 }
 
 func (ctf *ctfd) configureInstance() error {
-	endpoint := "http://localhost:8000/setup"
+	endpoint := ctf.baseUrl() + "/setup"
 
 	if err := waitForServer(endpoint); err != nil {
 		return err
@@ -308,7 +307,7 @@ func waitForServer(path string) error {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			return fmt.Errorf("Unxpected status code: %d", resp.StatusCode)
+			return fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
 		}
 
 		return nil

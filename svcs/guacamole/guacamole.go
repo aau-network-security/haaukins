@@ -9,14 +9,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -28,12 +30,12 @@ var (
 	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
 
 	DefaultAdminUser = "guacadmin"
-	DefaultAdminPAss = "guacadmin"
+	DefaultAdminPass = "guacadmin"
 )
 
 type Guacamole interface {
 	docker.Identifier
-	revproxy.Connector
+	svcs.ProxyConnector
 	Start(context.Context) error
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
@@ -43,8 +45,6 @@ type Guacamole interface {
 
 type Config struct {
 	AdminPass string `yaml:"admin_pass"`
-	Host      string `yaml:"host"`
-	Port      uint   `yaml:"port"`
 }
 
 func New(conf Config) (Guacamole, error) {
@@ -57,16 +57,13 @@ func New(conf Config) (Guacamole, error) {
 		Jar: jar,
 	}
 
-	if conf.Host == "" {
-		conf.Host = "localhost"
-	}
-
-	if conf.Port == 0 {
-		conf.Port = 80
-	}
-
 	if conf.AdminPass == "" {
-		conf.AdminPass = uuid.New().String()
+		pass := uuid.New().String()
+		log.Info().
+			Str("password", pass).
+			Msg("setting new default password for guacamole")
+
+		conf.AdminPass = pass
 	}
 
 	guac := &guacamole{
@@ -86,6 +83,7 @@ type guacamole struct {
 	token      string
 	client     *http.Client
 	web        docker.Container
+	webPort    uint
 	containers []docker.Container
 }
 
@@ -150,61 +148,41 @@ func (guac *guacamole) create() error {
 		"MYSQL_HOSTNAME": "db",
 	}
 
-	webBaseConf := &docker.ContainerConfig{
+	guac.webPort = virtual.GetAvailablePort()
+	webConf := docker.ContainerConfig{
 		Image:   "registry.sec-aau.dk/aau/guacamole",
 		EnvVars: webEnv,
+		PortBindings: map[string]string{
+			"8080/tcp": fmt.Sprintf("127.0.0.1:%d", guac.webPort),
+		},
+		UseBridge: true,
 	}
 
-	webInitConf := *webBaseConf
-	webInitPort := virtual.GetAvailablePort()
-	webInitConf.PortBindings = map[string]string{
-		"8080/tcp": fmt.Sprintf("127.0.0.1:%d", webInitPort),
-	}
-	webInitConf.UseBridge = true
-
-	initWeb, err := docker.NewContainer(webInitConf)
+	web, err := docker.NewContainer(webConf)
 	if err != nil {
 		return err
 	}
 
-	if err = initWeb.Link(db, "db"); err != nil {
+	if err = web.Link(db, "db"); err != nil {
 		return err
 	}
 
-	if err = initWeb.Link(guacd, "guacd"); err != nil {
+	if err = web.Link(guacd, "guacd"); err != nil {
 		return err
 	}
 
-	err = initWeb.Start()
+	err = web.Start()
 	if err != nil {
 		return err
 	}
 
-	err = guac.configureInstance(webInitPort)
+	err = guac.configureInstance()
 	if err != nil {
 		return err
 	}
 
-	err = initWeb.Close()
-	if err != nil {
-		return err
-	}
-
-	webFinalConf := *webBaseConf
-	finalWeb, err := docker.NewContainer(webFinalConf)
-	if err != nil {
-		return err
-	}
-	guac.containers = append(guac.containers, finalWeb)
-	guac.web = finalWeb
-
-	if err = finalWeb.Link(db, "db"); err != nil {
-		return err
-	}
-
-	if err = finalWeb.Link(guacd, "guacd"); err != nil {
-		return err
-	}
+	guac.containers = append(guac.containers, web)
+	guac.web = web
 
 	guac.stop()
 
@@ -230,31 +208,20 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ConnectProxy() (docker.Identifier, string) {
-	conf := `location /guacamole/ {
-        proxy_pass http://{{.Host}}:8080/guacamole/;
-        proxy_buffering off;
-        proxy_http_version 1.1;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $http_connection;
-        # proxy_cookie_path /guacamole/ /;
-        access_log off;
-    }`
-	return guac, conf
+func (guac *guacamole) ProxyHandler() http.Handler {
+	origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
+	return httputil.NewSingleHostReverseProxy(origin)
 }
 
-func (guac *guacamole) configureInstance(port uint) error {
+func (guac *guacamole) configureInstance() error {
 	temp := &guacamole{
-		client: guac.client,
-		conf: Config{
-			AdminPass: DefaultAdminPAss,
-			Host:      "127.0.0.1",
-			Port:      port,
-		}}
+		client:  guac.client,
+		conf:    Config{AdminPass: DefaultAdminPass},
+		webPort: guac.webPort,
+	}
 
 	for i := 0; i < 15; i++ {
-		_, err := temp.login(DefaultAdminUser, DefaultAdminPAss)
+		_, err := temp.login(DefaultAdminUser, DefaultAdminPass)
 		if err == nil {
 			break
 		}
@@ -270,7 +237,7 @@ func (guac *guacamole) configureInstance(port uint) error {
 }
 
 func (guac *guacamole) baseUrl() string {
-	return fmt.Sprintf("http://%s:%d", guac.conf.Host, guac.conf.Port)
+	return fmt.Sprintf("http://127.0.0.1:%d", guac.webPort)
 }
 
 func (guac *guacamole) login(username, password string) (string, error) {
