@@ -83,7 +83,7 @@ lab:
     tags:
     - windows
     vbox:
-    - ova: windows-xp.ova
+    - ova: vulnerability_exploitation/windows-xp.ova
       memoryMB: 512
       flag:
       - name: Vulnerability exploitation

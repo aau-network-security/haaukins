@@ -61,6 +61,9 @@ func (conf Config) Flags() []FlagConfig {
 	for _, dockerConf := range conf.DockerConfs {
 		res = append(res, dockerConf.Flags...)
 	}
+	for _, vboxConf := range conf.VBoxConfig {
+		res = append(res, vboxConf.Flags...)
+	}
 	return res
 }
 
