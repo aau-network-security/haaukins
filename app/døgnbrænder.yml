@@ -78,7 +78,7 @@ lab:
       - name: Broken session
         env: flag
         default: 642ff156-f94b-4fab-afb0-46449714e911
-        points: 10
+        points: 8
   - name: Vulnerability exploitation
     tags:
     - windows
