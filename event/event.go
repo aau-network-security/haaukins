@@ -207,7 +207,7 @@ func (ev *event) Register(group Group) (*Auth, error) {
 }
 
 func (ev *event) Connect(r *mux.Router) {
-	r.HandleFunc("/guacamole/{rest:.*}", handler(ev.guac.ProxyHandler()))
+	r.HandleFunc("/guacamole{rest:.*}", handler(ev.guac.ProxyHandler()))
 	r.HandleFunc("/{rest:.*}", handler(ev.ctfd.ProxyHandler()))
 }
 

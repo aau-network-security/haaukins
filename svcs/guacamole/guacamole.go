@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httputil"
@@ -210,7 +212,23 @@ func (guac *guacamole) stop() error {
 
 func (guac *guacamole) ProxyHandler() http.Handler {
 	origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
-	return httputil.NewSingleHostReverseProxy(origin)
+	host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
+
+	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
+		req.Header.Add("X-Forwarded-Host", req.Host)
+		req.URL.Scheme = "http"
+		req.URL.Host = origin.Host
+		req.URL.Path = "/guacamole" + req.URL.Path
+	}}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if IsWebSocket(r) {
+			websocketProxy(host).ServeHTTP(w, r)
+			return
+		}
+
+		proxy.ServeHTTP(w, r)
+	})
 }
 
 func (guac *guacamole) configureInstance() error {
@@ -608,4 +626,56 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	}
 
 	return nil
+}
+
+func websocketProxy(target string) http.Handler {
+	origin := fmt.Sprintf("http://%s", target)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = "/guacamole" + r.URL.Path
+		r.Header.Set("Origin", origin)
+		r.Header.Add("X-Forwarded-Host", r.Host)
+		r.Host = target
+
+		d, err := net.Dial("tcp", target)
+		if err != nil {
+			log.Printf("Error dialing websocket backend %s: %v", target, err)
+			return
+		}
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		nc, _, err := hj.Hijack()
+		if err != nil {
+			log.Printf("Hijack error: %v", err)
+			return
+		}
+		defer nc.Close()
+		defer d.Close()
+
+		err = r.Write(d)
+		if err != nil {
+			log.Printf("Error copying request to target: %v", err)
+			return
+		}
+
+		errc := make(chan error, 2)
+		cp := func(dst io.Writer, src io.Reader) {
+			_, err := io.Copy(dst, src)
+			errc <- err
+		}
+		go cp(d, nc)
+		go cp(nc, d)
+
+		<-errc
+	})
+}
+
+func IsWebSocket(req *http.Request) bool {
+	if upgrade := req.Header.Get("Upgrade"); upgrade != "" {
+		return upgrade == "websocket" || upgrade == "Websocket"
+	}
+
+	return false
 }
