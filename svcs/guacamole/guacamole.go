@@ -104,7 +104,6 @@ func (guac *guacamole) GetAdminPass() string {
 }
 
 func (guac *guacamole) create() error {
-	// Guacd
 	guacd, err := docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd",
 		UseBridge: true,
@@ -119,14 +118,12 @@ func (guac *guacamole) create() error {
 		return err
 	}
 
-	// Database
 	dbEnv := map[string]string{
 		"MYSQL_ROOT_PASSWORD": uuid.New().String(),
 		"MYSQL_DATABASE":      "guacamole_db",
 		"MYSQL_USER":          "guacamole_user",
 		"MYSQL_PASSWORD":      uuid.New().String(),
 	}
-
 	db, err := docker.NewContainer(docker.ContainerConfig{
 		Image:   "registry.sec-aau.dk/aau/guacamole-mysql",
 		EnvVars: dbEnv,
@@ -141,7 +138,6 @@ func (guac *guacamole) create() error {
 		return err
 	}
 
-	// Web Init
 	webEnv := map[string]string{
 		"MYSQL_DATABASE": "guacamole_db",
 		"MYSQL_USER":     "guacamole_user",

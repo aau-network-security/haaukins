@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+service Daemon {
+  rpc Login (LoginRequest) returns (LoginResponse) {}
+  rpc CreateUser (CreateUserRequest) returns (LoginResponse) {}
+  rpc CreateSignupKey(CreateSignupKeyRequest) returns (CreateSignupKeyResponse) {}
+
+  rpc CreateEvent (CreateEventRequest) returns (stream EventStatus) {}
+  rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  string error = 2;
+}
+
+message CreateUserRequest {
+  string key = 1;
+  string username = 2;
+  string password = 3;
+}
+
+message CreateSignupKeyRequest {}
+message CreateSignupKeyResponse {
+  string key = 1;
+  string error = 2;
+}
+
+message CreateEventRequest {
+  string name = 1;
+  string tag = 2;
+  repeated string frontends = 3;
+  repeated string exercises = 4;
+  int32 buffer = 5;
+  int32 capacity = 6;
+}
+
+message StopEventRequest {
+  string tag = 1;
+}
+
+message EventStatus {
+  string entity = 1;
+  string status = 2;
+}
+

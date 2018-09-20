@@ -1,15 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
-	"net/http"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/aau-network-security/go-ntp/api"
+	"github.com/aau-network-security/go-ntp/daemon"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	dockerclient "github.com/fsouza/go-dockerclient"
+	"google.golang.org/grpc/reflection"
+
+	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v2"
@@ -51,17 +55,27 @@ func main() {
 		docker.Registries[authConfig.ServerAddress] = *authConfig
 	}
 
-	srv, err := api.NewServer(api.Config{
-		Host: "localhost",
-	})
+	c, err := daemon.NewConfigFromFile("config.yml")
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+	fmt.Println(c)
+
+	lis, err := net.Listen("tcp", ":5454")
+	if err != nil {
+		log.Info().Msg("failed to listen")
+	}
+
+	d, err := daemon.New(c)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
 
-	handleCancel(func() {
-		srv.Close()
-		log.Info().Msgf("Closed server")
-	})
-
-	http.ListenAndServe(":5454", srv.Routes())
+	s := d.GetServer()
+	pb.RegisterDaemonServer(s, d)
+	// Register reflection service on gRPC server.
+	reflection.Register(s)
+	if err := s.Serve(lis); err != nil {
+		log.Fatal().Err(err)
+	}
 }
