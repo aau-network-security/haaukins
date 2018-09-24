@@ -5,17 +5,27 @@ import (
 	"sync"
 
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/aau-network-security/go-ntp/virtual/docker"
+	dockerclient "github.com/fsouza/go-dockerclient"
 )
 
 type Config struct {
 	Path string `yaml:"-"`
 	m    sync.Mutex
 
-	Host             string      `yaml:"host"`
-	SecretSigningKey string      `yaml:"signing-key"`
-	OvaDir           string      `yaml:"ova-directory"`
-	Users            []User      `yaml:"users"`
-	SignupKeys       []SignupKey `yaml:"signup-keys"`
+	Host               string                           `yaml:"host"`
+	SecretSigningKey   string                           `yaml:"signing-key"`
+	OvaDir             string                           `yaml:"ova-directory"`
+	Users              []User                           `yaml:"users,omitempty"`
+	SignupKeys         []SignupKey                      `yaml:"signup-keys,omitempty"`
+	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repos,omitempty"`
+	TLS                struct {
+		Management struct {
+			CertFile string `yaml:"cert-file"`
+			KeyFile  string `yaml:"key-file"`
+		} `yaml:"management"`
+	} `yaml:"tls,omitempty"`
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
@@ -28,6 +38,10 @@ func NewConfigFromFile(path string) (*Config, error) {
 	err = yaml.Unmarshal(f, &c)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, repo := range c.DockerRepositories {
+		docker.Registries[repo.ServerAddress] = repo
 	}
 
 	c.Path = path

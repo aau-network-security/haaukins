@@ -27,7 +27,7 @@ func (t Token) GetRequestMetadata(context.Context, ...string) (map[string]string
 }
 
 func (t Token) RequireTransportSecurity() bool {
-	return false
+	return true
 }
 
 type Client struct {
@@ -54,7 +54,7 @@ func NewClient() (*Client, error) {
 		}
 	}
 
-	conn, err := grpc.Dial("localhost:5454",
+	conn, err := grpc.Dial("cli.sec-aau.dk:5454",
 		grpc.WithInsecure(),
 		grpc.WithPerRPCCredentials(Token(c.Token)),
 	)
@@ -65,7 +65,6 @@ func NewClient() (*Client, error) {
 	c.rpcClient = pb.NewDaemonClient(conn)
 
 	return c, nil
-
 }
 
 func (c *Client) LoadToken() error {
@@ -88,15 +87,12 @@ func (c *Client) CmdLogin() *cobra.Command {
 		Short: "Login user",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Password: ")
-			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+
+			username := args[0]
+			password, err := ReadPassword()
 			if err != nil {
 				log.Fatal("Unable to read password")
 			}
-			fmt.Printf("\n")
-
-			username := args[0]
-			password := string(bytePassword)
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -151,12 +147,10 @@ func (c *Client) CmdCreateUser() *cobra.Command {
 			var username string
 			fmt.Scanln(&username)
 
-			fmt.Printf("Password: ")
-			bytePass1, err := terminal.ReadPassword(int(syscall.Stdin))
+			password, err := ReadPassword()
 			if err != nil {
 				log.Fatal("Unable to read password")
 			}
-			fmt.Printf("\n")
 
 			fmt.Printf("Password (again): ")
 			bytePass2, err := terminal.ReadPassword(int(syscall.Stdin))
@@ -165,9 +159,8 @@ func (c *Client) CmdCreateUser() *cobra.Command {
 			}
 			fmt.Printf("\n")
 
-			pass1, pass2 := string(bytePass1), string(bytePass2)
-
-			if pass1 != pass2 {
+			pass2 := string(bytePass2)
+			if password != pass2 {
 				PrintError("Passwords do not match, so cancelling signup :-(")
 			}
 			key := args[0]
@@ -177,7 +170,7 @@ func (c *Client) CmdCreateUser() *cobra.Command {
 			r, err := c.rpcClient.CreateUser(ctx, &pb.CreateUserRequest{
 				Key:      key,
 				Username: username,
-				Password: pass1,
+				Password: password,
 			})
 			if err != nil {
 				PrintError(err.Error())
@@ -309,6 +302,17 @@ func (c *Client) Close() {
 
 func PrintError(s string) {
 	fmt.Printf("[!] %s\n", s)
+}
+
+func ReadPassword() (string, error) {
+	fmt.Printf("Password: ")
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	fmt.Printf("\n")
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytePassword), nil
 }
 
 func main() {
