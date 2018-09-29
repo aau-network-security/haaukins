@@ -1,0 +1,12 @@
+host: sec02.lab.es.aau.dk
+signing-key: SuperSecretKey
+ova-directory: vbox
+tls:
+  management:
+    cert-file: /path/to/certfile.crt
+    key-file: /path/to/keyfile.key
+docker-repositories:
+  - username: UserGoesHere
+    password: PassGoesHere
+    serveraddress: registry.where-it-is.com
+  
