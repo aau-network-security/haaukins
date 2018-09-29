@@ -67,6 +67,11 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err)
 	}
+	handleCancel(func() {
+		d.Close()
+		log.Info().Msgf("Closed daemon")
+	})
+	log.Info().Msgf("Started daemon")
 
 	s := d.GetServer()
 	pb.RegisterDaemonServer(s, d)
@@ -75,4 +80,5 @@ func main() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatal().Err(err)
 	}
+
 }
