@@ -18,6 +18,8 @@ import (
 	metadata "google.golang.org/grpc/metadata"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -29,10 +31,20 @@ var (
 type daemon struct {
 	conf            *Config
 	uh              *UserHub
-	events          map[string]event.Event
+	events          map[string]eventInfo
 	exerciseLib     *exercise.Library
 	frontendLibrary vbox.Library
 	mux             *mux.Router
+}
+
+type eventInfo struct {
+    Name string
+    Tag string
+    Buffer int32
+    Capacity int32
+    Frontends []string
+    Exercises []string
+    Event event.Event
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -68,7 +80,7 @@ func New(conf *Config) (*daemon, error) {
 		conf:            conf,
 		exerciseLib:     elib,
 		uh:              NewUserHub(conf),
-		events:          map[string]event.Event{},
+		events:          map[string]eventInfo{},
 		frontendLibrary: vlib,
 		mux:             m,
 	}
@@ -150,6 +162,24 @@ func (d *daemon) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	return &pb.LoginResponse{Token: token}, nil
 }
 
+func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
+    log.Debug().Msg("Listing events..")
+
+    var events []*pb.ListEventsResponse_Events
+    for _, event := range d.events {
+        events = append(events, &pb.ListEventsResponse_Events{
+            Name: event.Name,
+            Tag: event.Tag,
+            Frontends: event.Frontends,
+            Exercises: event.Exercises,
+            Buffer: event.Buffer,
+            Capacity: event.Capacity,
+        })
+    }
+
+    return &pb.ListEventsResponse{Events: events}, nil
+}
+
 func (d *daemon) CreateSignupKey(ctx context.Context, req *pb.CreateSignupKeyRequest) (*pb.CreateSignupKeyResponse, error) {
 	k, err := d.uh.CreateSignupKey()
 	if err != nil {
@@ -174,6 +204,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	if len(req.Exercises) > 0 {
 		exer, err = d.exerciseLib.GetByTags(req.Exercises[0], req.Exercises[1:]...)
 		if err != nil {
+            log.Error().Err(err).Msg("Could not get exercises by tags")
 			return err
 		}
 	}
@@ -198,6 +229,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		VBoxLibrary: d.frontendLibrary,
 	})
 	if err != nil {
+        log.Error().Err(err).Msg("Error creating event")
 		return err
 	}
 
@@ -207,7 +239,15 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	eventRoute := d.mux.Host(subdomain).Subrouter()
 	ev.Connect(eventRoute)
 
-	d.events[req.Tag] = ev
+	d.events[req.Tag] = eventInfo {
+        Name: req.Name,
+        Tag: req.Tag,
+		Buffer:   req.Buffer,
+		Capacity: req.Capacity,
+        Frontends: req.Frontends,
+        Exercises: req.Exercises,
+        Event: ev,
+    }
 
 	return nil
 }
@@ -224,13 +264,13 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 
 	delete(d.events, req.Tag)
 
-	ev.Close()
+	ev.Event.Close()
 	return nil
 }
 
 func (d *daemon) Close() {
 	for t, ev := range d.events {
-		ev.Close()
+		ev.Event.Close()
 		delete(d.events, t)
 	}
 }

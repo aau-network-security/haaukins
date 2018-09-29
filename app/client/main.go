@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"syscall"
+    "strings"
 	"time"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -270,6 +271,32 @@ func (c *Client) CmdEventStop() *cobra.Command {
 	}
 }
 
+func (c *Client) CmdEventList() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List events",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			r, err := c.rpcClient.ListEvents(ctx, &pb.ListEventsRequest{})
+			if err != nil {
+				PrintError(err.Error())
+				return
+			}
+
+            for _, event := range r.Events {
+                fmt.Println(event.Name)
+                fmt.Printf("- Tag: %s\n", event.Tag)
+                fmt.Printf("- Buffer: %d\n", event.Buffer)
+                fmt.Printf("- Capacity: %d\n", event.Capacity)
+                fmt.Printf("- Frontends: \n-- %s\n", strings.Join(event.Frontends, "\n-- "))
+                fmt.Printf("- Exercises: \n-- %s\n", strings.Join(event.Exercises, "\n-- "))
+
+            }
+		},
+	}
+}
+
 func (c *Client) CmdUser() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "user",
@@ -292,6 +319,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 	cmd.AddCommand(c.CmdEventCreate())
 	cmd.AddCommand(c.CmdEventStop())
+	cmd.AddCommand(c.CmdEventList())
 
 	return cmd
 }
