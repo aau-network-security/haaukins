@@ -178,6 +178,9 @@ func (uh *UserHub) AuthenticateUserByToken(t string) error {
 
 		return []byte(uh.conf.SecretSigningKey), nil
 	})
+	if err != nil {
+		return err
+	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		username, ok := claims[USERNAME_KEY].(string)
