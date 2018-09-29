@@ -27,7 +27,7 @@ func (t Token) GetRequestMetadata(context.Context, ...string) (map[string]string
 }
 
 func (t Token) RequireTransportSecurity() bool {
-	return true
+	return false
 }
 
 type Client struct {
@@ -194,7 +194,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [name] [tag]",
 		Short: "Create event",
-		Args:  cobra.MinimumNArgs(3),
+		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
