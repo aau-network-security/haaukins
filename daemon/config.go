@@ -19,7 +19,7 @@ type Config struct {
 	OvaDir             string                           `yaml:"ova-directory"`
 	Users              []User                           `yaml:"users,omitempty"`
 	SignupKeys         []SignupKey                      `yaml:"signup-keys,omitempty"`
-	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repos,omitempty"`
+	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
 	TLS                struct {
 		Management struct {
 			CertFile string `yaml:"cert-file"`
