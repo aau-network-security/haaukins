@@ -53,7 +53,9 @@ func main() {
 
 	c, err := daemon.NewConfigFromFile("config.yml")
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Fatal().
+			Err(err).
+			Msg("unable to get config")
 	}
 
 	lis, err := listenerFromConf(c, mngtPort)
