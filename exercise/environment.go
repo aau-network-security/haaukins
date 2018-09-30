@@ -11,7 +11,9 @@ type Environment interface {
 	ResetByTag(t string) error
 	Interface() string
 	Start() error
+	Stop() error
 	Close() error
+	Restart() error
 }
 
 type environment struct {
@@ -98,19 +100,6 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 	return nil
 }
 
-func (ee *environment) ResetByTag(t string) error {
-	e, ok := ee.tags[t]
-	if !ok {
-		return UnknownTagErr
-	}
-
-	if err := e.Reset(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (ee *environment) Interface() string {
 	return ee.network.Interface()
 }
@@ -133,6 +122,35 @@ func (ee *environment) Start() error {
 	return nil
 }
 
+func (ee *environment) Stop() error {
+	if err := ee.dnsServer.Stop(); err != nil {
+		return err
+	}
+
+	if err := ee.dhcpServer.Stop(); err != nil {
+		return err
+	}
+
+	for _, e := range ee.exercises {
+		if err := e.Stop(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ee *environment) Restart() error {
+	if err := ee.Stop(); err != nil {
+		return err
+	}
+	if err := ee.Start(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (ee *environment) Close() error {
 	if err := ee.dnsServer.Close(); err != nil {
 		return err
@@ -149,6 +167,19 @@ func (ee *environment) Close() error {
 	}
 
 	if err := ee.network.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ee *environment) ResetByTag(t string) error {
+	e, ok := ee.tags[t]
+	if !ok {
+		return UnknownTagErr
+	}
+
+	if err := e.Reset(); err != nil {
 		return err
 	}
 

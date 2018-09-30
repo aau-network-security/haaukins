@@ -18,6 +18,8 @@ var (
 
 type Lab interface {
 	Start() error
+	Stop() error
+	Restart() error
 	Close()
 	Exercises() exercise.Environment
 	RdpConnPorts() []uint
@@ -89,6 +91,34 @@ func (l *lab) Start() error {
 
 	for _, frontend := range l.frontends {
 		if err := frontend.Start(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (l *lab) Stop() error {
+	if err := l.environment.Stop(); err != nil {
+		return err
+	}
+
+	for _, frontend := range l.frontends {
+		if err := frontend.Stop(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (l *lab) Restart() error {
+	if err := l.environment.Restart(); err != nil {
+		return err
+	}
+
+	for _, frontend := range l.frontends {
+		if err := frontend.Restart(); err != nil {
 			return err
 		}
 	}

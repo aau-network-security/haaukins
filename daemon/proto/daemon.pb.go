@@ -6,12 +6,9 @@ package daemon
 import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
-
-import (
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -331,6 +328,327 @@ func (m *CreateEventRequest) GetCapacity() int32 {
 	return 0
 }
 
+type ListEventsRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListEventsRequest) Reset()         { *m = ListEventsRequest{} }
+func (m *ListEventsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListEventsRequest) ProtoMessage()    {}
+func (*ListEventsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{6}
+}
+
+func (m *ListEventsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventsRequest.Unmarshal(m, b)
+}
+func (m *ListEventsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventsRequest.Marshal(b, m, deterministic)
+}
+func (m *ListEventsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventsRequest.Merge(m, src)
+}
+func (m *ListEventsRequest) XXX_Size() int {
+	return xxx_messageInfo_ListEventsRequest.Size(m)
+}
+func (m *ListEventsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListEventsRequest proto.InternalMessageInfo
+
+type ListEventsResponse struct {
+	Events               []*ListEventsResponse_Events `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
+	XXX_unrecognized     []byte                       `json:"-"`
+	XXX_sizecache        int32                        `json:"-"`
+}
+
+func (m *ListEventsResponse) Reset()         { *m = ListEventsResponse{} }
+func (m *ListEventsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListEventsResponse) ProtoMessage()    {}
+func (*ListEventsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{7}
+}
+
+func (m *ListEventsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventsResponse.Unmarshal(m, b)
+}
+func (m *ListEventsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventsResponse.Marshal(b, m, deterministic)
+}
+func (m *ListEventsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventsResponse.Merge(m, src)
+}
+func (m *ListEventsResponse) XXX_Size() int {
+	return xxx_messageInfo_ListEventsResponse.Size(m)
+}
+func (m *ListEventsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListEventsResponse proto.InternalMessageInfo
+
+func (m *ListEventsResponse) GetEvents() []*ListEventsResponse_Events {
+	if m != nil {
+		return m.Events
+	}
+	return nil
+}
+
+type ListEventsResponse_Events struct {
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Tag                  string   `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	Frontends            []string `protobuf:"bytes,3,rep,name=frontends,proto3" json:"frontends,omitempty"`
+	Exercises            []string `protobuf:"bytes,4,rep,name=exercises,proto3" json:"exercises,omitempty"`
+	Buffer               int32    `protobuf:"varint,5,opt,name=buffer,proto3" json:"buffer,omitempty"`
+	Capacity             int32    `protobuf:"varint,6,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListEventsResponse_Events) Reset()         { *m = ListEventsResponse_Events{} }
+func (m *ListEventsResponse_Events) String() string { return proto.CompactTextString(m) }
+func (*ListEventsResponse_Events) ProtoMessage()    {}
+func (*ListEventsResponse_Events) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{7, 0}
+}
+
+func (m *ListEventsResponse_Events) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventsResponse_Events.Unmarshal(m, b)
+}
+func (m *ListEventsResponse_Events) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventsResponse_Events.Marshal(b, m, deterministic)
+}
+func (m *ListEventsResponse_Events) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventsResponse_Events.Merge(m, src)
+}
+func (m *ListEventsResponse_Events) XXX_Size() int {
+	return xxx_messageInfo_ListEventsResponse_Events.Size(m)
+}
+func (m *ListEventsResponse_Events) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventsResponse_Events.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListEventsResponse_Events proto.InternalMessageInfo
+
+func (m *ListEventsResponse_Events) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *ListEventsResponse_Events) GetTag() string {
+	if m != nil {
+		return m.Tag
+	}
+	return ""
+}
+
+func (m *ListEventsResponse_Events) GetFrontends() []string {
+	if m != nil {
+		return m.Frontends
+	}
+	return nil
+}
+
+func (m *ListEventsResponse_Events) GetExercises() []string {
+	if m != nil {
+		return m.Exercises
+	}
+	return nil
+}
+
+func (m *ListEventsResponse_Events) GetBuffer() int32 {
+	if m != nil {
+		return m.Buffer
+	}
+	return 0
+}
+
+func (m *ListEventsResponse_Events) GetCapacity() int32 {
+	if m != nil {
+		return m.Capacity
+	}
+	return 0
+}
+
+type ListEventGroupsRequest struct {
+	Tag                  string   `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListEventGroupsRequest) Reset()         { *m = ListEventGroupsRequest{} }
+func (m *ListEventGroupsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListEventGroupsRequest) ProtoMessage()    {}
+func (*ListEventGroupsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{8}
+}
+
+func (m *ListEventGroupsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventGroupsRequest.Unmarshal(m, b)
+}
+func (m *ListEventGroupsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventGroupsRequest.Marshal(b, m, deterministic)
+}
+func (m *ListEventGroupsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventGroupsRequest.Merge(m, src)
+}
+func (m *ListEventGroupsRequest) XXX_Size() int {
+	return xxx_messageInfo_ListEventGroupsRequest.Size(m)
+}
+func (m *ListEventGroupsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventGroupsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListEventGroupsRequest proto.InternalMessageInfo
+
+func (m *ListEventGroupsRequest) GetTag() string {
+	if m != nil {
+		return m.Tag
+	}
+	return ""
+}
+
+type ListEventGroupsResponse struct {
+	Groups               []*ListEventGroupsResponse_Groups `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
+	XXX_unrecognized     []byte                            `json:"-"`
+	XXX_sizecache        int32                             `json:"-"`
+}
+
+func (m *ListEventGroupsResponse) Reset()         { *m = ListEventGroupsResponse{} }
+func (m *ListEventGroupsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListEventGroupsResponse) ProtoMessage()    {}
+func (*ListEventGroupsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{9}
+}
+
+func (m *ListEventGroupsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventGroupsResponse.Unmarshal(m, b)
+}
+func (m *ListEventGroupsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventGroupsResponse.Marshal(b, m, deterministic)
+}
+func (m *ListEventGroupsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventGroupsResponse.Merge(m, src)
+}
+func (m *ListEventGroupsResponse) XXX_Size() int {
+	return xxx_messageInfo_ListEventGroupsResponse.Size(m)
+}
+func (m *ListEventGroupsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventGroupsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListEventGroupsResponse proto.InternalMessageInfo
+
+func (m *ListEventGroupsResponse) GetGroups() []*ListEventGroupsResponse_Groups {
+	if m != nil {
+		return m.Groups
+	}
+	return nil
+}
+
+type ListEventGroupsResponse_Groups struct {
+	Name                 string   `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	LabTag               string   `protobuf:"bytes,2,opt,name=LabTag,proto3" json:"LabTag,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListEventGroupsResponse_Groups) Reset()         { *m = ListEventGroupsResponse_Groups{} }
+func (m *ListEventGroupsResponse_Groups) String() string { return proto.CompactTextString(m) }
+func (*ListEventGroupsResponse_Groups) ProtoMessage()    {}
+func (*ListEventGroupsResponse_Groups) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{9, 0}
+}
+
+func (m *ListEventGroupsResponse_Groups) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventGroupsResponse_Groups.Unmarshal(m, b)
+}
+func (m *ListEventGroupsResponse_Groups) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventGroupsResponse_Groups.Marshal(b, m, deterministic)
+}
+func (m *ListEventGroupsResponse_Groups) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventGroupsResponse_Groups.Merge(m, src)
+}
+func (m *ListEventGroupsResponse_Groups) XXX_Size() int {
+	return xxx_messageInfo_ListEventGroupsResponse_Groups.Size(m)
+}
+func (m *ListEventGroupsResponse_Groups) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventGroupsResponse_Groups.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListEventGroupsResponse_Groups proto.InternalMessageInfo
+
+func (m *ListEventGroupsResponse_Groups) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *ListEventGroupsResponse_Groups) GetLabTag() string {
+	if m != nil {
+		return m.LabTag
+	}
+	return ""
+}
+
+type RestartGroupLabRequest struct {
+	EventTag             string   `protobuf:"bytes,1,opt,name=eventTag,proto3" json:"eventTag,omitempty"`
+	LabTag               string   `protobuf:"bytes,2,opt,name=labTag,proto3" json:"labTag,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RestartGroupLabRequest) Reset()         { *m = RestartGroupLabRequest{} }
+func (m *RestartGroupLabRequest) String() string { return proto.CompactTextString(m) }
+func (*RestartGroupLabRequest) ProtoMessage()    {}
+func (*RestartGroupLabRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{10}
+}
+
+func (m *RestartGroupLabRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RestartGroupLabRequest.Unmarshal(m, b)
+}
+func (m *RestartGroupLabRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RestartGroupLabRequest.Marshal(b, m, deterministic)
+}
+func (m *RestartGroupLabRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RestartGroupLabRequest.Merge(m, src)
+}
+func (m *RestartGroupLabRequest) XXX_Size() int {
+	return xxx_messageInfo_RestartGroupLabRequest.Size(m)
+}
+func (m *RestartGroupLabRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RestartGroupLabRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RestartGroupLabRequest proto.InternalMessageInfo
+
+func (m *RestartGroupLabRequest) GetEventTag() string {
+	if m != nil {
+		return m.EventTag
+	}
+	return ""
+}
+
+func (m *RestartGroupLabRequest) GetLabTag() string {
+	if m != nil {
+		return m.LabTag
+	}
+	return ""
+}
+
 type StopEventRequest struct {
 	Tag                  string   `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -342,7 +660,7 @@ func (m *StopEventRequest) Reset()         { *m = StopEventRequest{} }
 func (m *StopEventRequest) String() string { return proto.CompactTextString(m) }
 func (*StopEventRequest) ProtoMessage()    {}
 func (*StopEventRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{6}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{11}
 }
 
 func (m *StopEventRequest) XXX_Unmarshal(b []byte) error {
@@ -382,7 +700,7 @@ func (m *EventStatus) Reset()         { *m = EventStatus{} }
 func (m *EventStatus) String() string { return proto.CompactTextString(m) }
 func (*EventStatus) ProtoMessage()    {}
 func (*EventStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{7}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{12}
 }
 
 func (m *EventStatus) XXX_Unmarshal(b []byte) error {
@@ -424,8 +742,58 @@ func init() {
 	proto.RegisterType((*CreateSignupKeyRequest)(nil), "CreateSignupKeyRequest")
 	proto.RegisterType((*CreateSignupKeyResponse)(nil), "CreateSignupKeyResponse")
 	proto.RegisterType((*CreateEventRequest)(nil), "CreateEventRequest")
+	proto.RegisterType((*ListEventsRequest)(nil), "ListEventsRequest")
+	proto.RegisterType((*ListEventsResponse)(nil), "ListEventsResponse")
+	proto.RegisterType((*ListEventsResponse_Events)(nil), "ListEventsResponse.Events")
+	proto.RegisterType((*ListEventGroupsRequest)(nil), "ListEventGroupsRequest")
+	proto.RegisterType((*ListEventGroupsResponse)(nil), "ListEventGroupsResponse")
+	proto.RegisterType((*ListEventGroupsResponse_Groups)(nil), "ListEventGroupsResponse.Groups")
+	proto.RegisterType((*RestartGroupLabRequest)(nil), "RestartGroupLabRequest")
 	proto.RegisterType((*StopEventRequest)(nil), "StopEventRequest")
 	proto.RegisterType((*EventStatus)(nil), "EventStatus")
+}
+
+func init() { proto.RegisterFile("daemon.proto", fileDescriptor_3ec90cbc4aa12fc6) }
+
+var fileDescriptor_3ec90cbc4aa12fc6 = []byte{
+	// 592 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0xcf, 0x6e, 0xd3, 0x4e,
+	0x10, 0x8e, 0xeb, 0xc6, 0xfa, 0x65, 0xda, 0xfe, 0xda, 0x4c, 0x50, 0x62, 0x59, 0x48, 0x44, 0x2b,
+	0x0e, 0x11, 0x87, 0x55, 0x15, 0x2a, 0xf5, 0x00, 0x1c, 0x10, 0x50, 0x0e, 0x44, 0x1c, 0x92, 0x72,
+	0xe4, 0xe0, 0x24, 0x93, 0x28, 0x2a, 0xb5, 0xcd, 0xee, 0x1a, 0xc8, 0x1b, 0xf0, 0x14, 0x3c, 0x00,
+	0xef, 0xc3, 0x43, 0xf0, 0x16, 0x68, 0xff, 0xc4, 0x71, 0x62, 0x87, 0x33, 0xb7, 0xfd, 0x66, 0x66,
+	0xc7, 0xdf, 0x7e, 0x9a, 0x6f, 0x0c, 0xa7, 0xf3, 0x98, 0xee, 0xd3, 0x84, 0x67, 0x22, 0x55, 0x29,
+	0xbb, 0x81, 0xd3, 0x51, 0xba, 0x5c, 0x25, 0x63, 0xfa, 0x9c, 0x93, 0x54, 0x18, 0xc1, 0x7f, 0xb9,
+	0x24, 0x91, 0xc4, 0xf7, 0x14, 0x7a, 0x7d, 0x6f, 0xd0, 0x1a, 0x17, 0x58, 0xe7, 0xb2, 0x58, 0xca,
+	0xaf, 0xa9, 0x98, 0x87, 0x47, 0x36, 0xb7, 0xc1, 0xec, 0x19, 0x9c, 0xb9, 0x3e, 0x32, 0x4b, 0x13,
+	0x49, 0xf8, 0x00, 0x9a, 0x2a, 0xbd, 0xa3, 0xc4, 0x75, 0xb1, 0x40, 0x47, 0x49, 0x88, 0x54, 0xb8,
+	0xfb, 0x16, 0xb0, 0x8f, 0xd0, 0x7e, 0x25, 0x28, 0x56, 0xf4, 0x41, 0x92, 0xd8, 0x30, 0xb9, 0x00,
+	0xff, 0x8e, 0xd6, 0xee, 0xba, 0x3e, 0xee, 0x70, 0x3b, 0xfa, 0x0b, 0x37, 0x7f, 0x8f, 0x5b, 0x08,
+	0x5d, 0xdb, 0x7e, 0xb2, 0x5a, 0x26, 0x79, 0xf6, 0x8e, 0xd6, 0xee, 0x1b, 0xec, 0x25, 0xf4, 0x2a,
+	0x19, 0xc7, 0xbf, 0xfa, 0xf9, 0x7a, 0xee, 0x3f, 0x3d, 0x40, 0xdb, 0xe3, 0xcd, 0x17, 0x4a, 0xd4,
+	0x86, 0x3d, 0xc2, 0x71, 0x49, 0x43, 0x73, 0xd6, 0x2d, 0x55, 0xbc, 0x74, 0xd7, 0xf5, 0x11, 0x1f,
+	0x42, 0x6b, 0x21, 0xd2, 0x44, 0x51, 0x32, 0x97, 0xa1, 0xdf, 0xf7, 0x07, 0xad, 0xf1, 0x36, 0xa0,
+	0xb3, 0xf4, 0x8d, 0xc4, 0x6c, 0x25, 0x49, 0x86, 0xc7, 0x36, 0x5b, 0x04, 0xb0, 0x0b, 0xc1, 0x34,
+	0x5f, 0x2c, 0x48, 0x84, 0xcd, 0xbe, 0x37, 0x68, 0x8e, 0x1d, 0xd2, 0x4a, 0xcc, 0xe2, 0x2c, 0x9e,
+	0xad, 0xd4, 0x3a, 0x0c, 0x4c, 0xa6, 0xc0, 0xac, 0x03, 0xed, 0xd1, 0x4a, 0x2a, 0xc3, 0x54, 0x6e,
+	0x44, 0xf8, 0xed, 0x01, 0x96, 0xa3, 0x4e, 0x80, 0x21, 0x04, 0x64, 0x22, 0xa1, 0xd7, 0xf7, 0x07,
+	0x27, 0xc3, 0x88, 0x57, 0x8b, 0xb8, 0x83, 0xae, 0x32, 0xfa, 0xe1, 0x41, 0x60, 0x43, 0xff, 0xa8,
+	0x00, 0x4f, 0xa0, 0x5b, 0xbc, 0xe2, 0xad, 0x48, 0xf3, 0x4c, 0x96, 0xc6, 0x4d, 0x73, 0xf3, 0x0a,
+	0x6e, 0xec, 0xbb, 0x07, 0xbd, 0x4a, 0xb1, 0x13, 0xe7, 0x1a, 0x82, 0xa5, 0x89, 0x38, 0x71, 0x1e,
+	0xf1, 0x03, 0x95, 0xdc, 0x41, 0x57, 0x1e, 0x5d, 0x41, 0x60, 0x23, 0x5a, 0xa0, 0xf7, 0x25, 0x81,
+	0xf4, 0x59, 0x3f, 0x69, 0x14, 0x4f, 0x6f, 0x0b, 0x8d, 0x1c, 0x62, 0x23, 0xe8, 0x8e, 0x49, 0xaa,
+	0x58, 0xd8, 0xee, 0xa3, 0x78, 0x5a, 0xf2, 0xab, 0xd1, 0xfe, 0xb6, 0xe0, 0x5e, 0x60, 0xdd, 0xed,
+	0xd3, 0x4e, 0x37, 0x8b, 0xd8, 0x63, 0xb8, 0x98, 0xa8, 0x34, 0xdb, 0x99, 0xd7, 0xea, 0xf3, 0x5f,
+	0xc0, 0x89, 0xa9, 0x98, 0xa8, 0x58, 0xe5, 0x46, 0x6d, 0x4a, 0x94, 0xd6, 0xd4, 0xd6, 0x38, 0xa4,
+	0xe3, 0xd2, 0x54, 0x6c, 0x3e, 0x62, 0xd1, 0xf0, 0x97, 0x0f, 0xc1, 0x6b, 0xb3, 0x69, 0x70, 0x00,
+	0x4d, 0xb3, 0x1b, 0xf0, 0x8c, 0x97, 0x77, 0x4d, 0xf4, 0x3f, 0xdf, 0x59, 0x19, 0xac, 0x81, 0x43,
+	0x80, 0xed, 0x22, 0x40, 0xe4, 0x95, 0xad, 0x50, 0x73, 0xe7, 0x06, 0xce, 0xf7, 0x3c, 0x8c, 0x3d,
+	0x5e, 0xef, 0xf7, 0x28, 0xe4, 0x07, 0xec, 0xce, 0x1a, 0x78, 0x05, 0x27, 0x25, 0x1f, 0x63, 0x87,
+	0x57, 0x5d, 0x1d, 0x9d, 0xf2, 0x92, 0x24, 0xac, 0x71, 0xe9, 0xe1, 0x25, 0xb4, 0x0a, 0x2d, 0xb1,
+	0xcd, 0xf7, 0x75, 0xad, 0xb9, 0x71, 0x0d, 0xb0, 0x35, 0x12, 0x22, 0xaf, 0x18, 0x32, 0xea, 0xd4,
+	0x38, 0xcd, 0x3e, 0x74, 0x6f, 0xc8, 0xb0, 0xc7, 0xeb, 0xa7, 0x39, 0x0a, 0x0f, 0xcd, 0x23, 0x6b,
+	0xe0, 0x73, 0x38, 0xdf, 0x1b, 0x26, 0xec, 0xf1, 0xfa, 0xf1, 0xaa, 0xd2, 0x9f, 0x06, 0xe6, 0xbf,
+	0xf1, 0xf4, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x7d, 0xc1, 0x2d, 0xbc, 0x47, 0x06, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -445,6 +813,9 @@ type DaemonClient interface {
 	CreateSignupKey(ctx context.Context, in *CreateSignupKeyRequest, opts ...grpc.CallOption) (*CreateSignupKeyResponse, error)
 	CreateEvent(ctx context.Context, in *CreateEventRequest, opts ...grpc.CallOption) (Daemon_CreateEventClient, error)
 	StopEvent(ctx context.Context, in *StopEventRequest, opts ...grpc.CallOption) (Daemon_StopEventClient, error)
+	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*ListEventsResponse, error)
+	ListEventGroups(ctx context.Context, in *ListEventGroupsRequest, opts ...grpc.CallOption) (*ListEventGroupsResponse, error)
+	RestartGroupLab(ctx context.Context, in *RestartGroupLabRequest, opts ...grpc.CallOption) (Daemon_RestartGroupLabClient, error)
 }
 
 type daemonClient struct {
@@ -546,6 +917,56 @@ func (x *daemonStopEventClient) Recv() (*EventStatus, error) {
 	return m, nil
 }
 
+func (c *daemonClient) ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*ListEventsResponse, error) {
+	out := new(ListEventsResponse)
+	err := c.cc.Invoke(ctx, "/Daemon/ListEvents", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonClient) ListEventGroups(ctx context.Context, in *ListEventGroupsRequest, opts ...grpc.CallOption) (*ListEventGroupsResponse, error) {
+	out := new(ListEventGroupsResponse)
+	err := c.cc.Invoke(ctx, "/Daemon/ListEventGroups", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonClient) RestartGroupLab(ctx context.Context, in *RestartGroupLabRequest, opts ...grpc.CallOption) (Daemon_RestartGroupLabClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Daemon_serviceDesc.Streams[2], "/Daemon/RestartGroupLab", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &daemonRestartGroupLabClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Daemon_RestartGroupLabClient interface {
+	Recv() (*EventStatus, error)
+	grpc.ClientStream
+}
+
+type daemonRestartGroupLabClient struct {
+	grpc.ClientStream
+}
+
+func (x *daemonRestartGroupLabClient) Recv() (*EventStatus, error) {
+	m := new(EventStatus)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DaemonServer is the server API for Daemon service.
 type DaemonServer interface {
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
@@ -553,6 +974,9 @@ type DaemonServer interface {
 	CreateSignupKey(context.Context, *CreateSignupKeyRequest) (*CreateSignupKeyResponse, error)
 	CreateEvent(*CreateEventRequest, Daemon_CreateEventServer) error
 	StopEvent(*StopEventRequest, Daemon_StopEventServer) error
+	ListEvents(context.Context, *ListEventsRequest) (*ListEventsResponse, error)
+	ListEventGroups(context.Context, *ListEventGroupsRequest) (*ListEventGroupsResponse, error)
+	RestartGroupLab(*RestartGroupLabRequest, Daemon_RestartGroupLabServer) error
 }
 
 func RegisterDaemonServer(s *grpc.Server, srv DaemonServer) {
@@ -655,6 +1079,63 @@ func (x *daemonStopEventServer) Send(m *EventStatus) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Daemon_ListEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).ListEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Daemon/ListEvents",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).ListEvents(ctx, req.(*ListEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Daemon_ListEventGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEventGroupsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).ListEventGroups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Daemon/ListEventGroups",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).ListEventGroups(ctx, req.(*ListEventGroupsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Daemon_RestartGroupLab_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RestartGroupLabRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServer).RestartGroupLab(m, &daemonRestartGroupLabServer{stream})
+}
+
+type Daemon_RestartGroupLabServer interface {
+	Send(*EventStatus) error
+	grpc.ServerStream
+}
+
+type daemonRestartGroupLabServer struct {
+	grpc.ServerStream
+}
+
+func (x *daemonRestartGroupLabServer) Send(m *EventStatus) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _Daemon_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "Daemon",
 	HandlerType: (*DaemonServer)(nil),
@@ -671,6 +1152,14 @@ var _Daemon_serviceDesc = grpc.ServiceDesc{
 			MethodName: "CreateSignupKey",
 			Handler:    _Daemon_CreateSignupKey_Handler,
 		},
+		{
+			MethodName: "ListEvents",
+			Handler:    _Daemon_ListEvents_Handler,
+		},
+		{
+			MethodName: "ListEventGroups",
+			Handler:    _Daemon_ListEventGroups_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -683,38 +1172,11 @@ var _Daemon_serviceDesc = grpc.ServiceDesc{
 			Handler:       _Daemon_StopEvent_Handler,
 			ServerStreams: true,
 		},
+		{
+			StreamName:    "RestartGroupLab",
+			Handler:       _Daemon_RestartGroupLab_Handler,
+			ServerStreams: true,
+		},
 	},
 	Metadata: "daemon.proto",
-}
-
-func init() { proto.RegisterFile("daemon.proto", fileDescriptor_3ec90cbc4aa12fc6) }
-
-var fileDescriptor_3ec90cbc4aa12fc6 = []byte{
-	// 412 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x53, 0xc1, 0x8e, 0xd3, 0x30,
-	0x10, 0x6d, 0xda, 0x6d, 0x44, 0x66, 0xbb, 0xb0, 0x3b, 0xa0, 0x5d, 0x2b, 0xe2, 0x50, 0x59, 0x1c,
-	0x72, 0xb2, 0x56, 0x0b, 0x37, 0xc4, 0x01, 0x01, 0x7b, 0x81, 0x53, 0x2a, 0x8e, 0x1c, 0xbc, 0xed,
-	0xb4, 0x8a, 0x56, 0x6b, 0x07, 0xdb, 0x01, 0xfa, 0x23, 0x7c, 0x04, 0x5f, 0x89, 0xec, 0xb8, 0xd9,
-	0xb4, 0x29, 0xdc, 0xfc, 0xe6, 0x79, 0x9e, 0x5f, 0x66, 0x5e, 0x60, 0xb6, 0x92, 0xf4, 0xa0, 0x95,
-	0xa8, 0x8d, 0x76, 0x9a, 0xdf, 0xc2, 0xec, 0x8b, 0xde, 0x54, 0xaa, 0xa4, 0xef, 0x0d, 0x59, 0x87,
-	0x39, 0x3c, 0x69, 0x2c, 0x19, 0x25, 0x1f, 0x88, 0x25, 0xf3, 0xa4, 0xc8, 0xca, 0x0e, 0x7b, 0xae,
-	0x96, 0xd6, 0xfe, 0xd4, 0x66, 0xc5, 0xc6, 0x2d, 0xb7, 0xc3, 0xfc, 0x2d, 0x9c, 0x45, 0x1d, 0x5b,
-	0x6b, 0x65, 0x09, 0x5f, 0xc0, 0xd4, 0xe9, 0x7b, 0x52, 0x51, 0xa5, 0x05, 0xbe, 0x4a, 0xc6, 0x68,
-	0x13, 0xfb, 0x5b, 0xc0, 0xbf, 0xc1, 0xc5, 0x07, 0x43, 0xd2, 0xd1, 0x57, 0x4b, 0x66, 0xe7, 0xe4,
-	0x1c, 0x26, 0xf7, 0xb4, 0x8d, 0xed, 0xfe, 0xb8, 0xe7, 0x6d, 0xfc, 0x1f, 0x6f, 0x93, 0x03, 0x6f,
-	0x0c, 0x2e, 0x5b, 0xf9, 0x45, 0xb5, 0x51, 0x4d, 0xfd, 0x99, 0xb6, 0xf1, 0x0d, 0xfe, 0x1e, 0xae,
-	0x06, 0x4c, 0xf4, 0x3f, 0x7c, 0xfe, 0xb8, 0xf7, 0x3f, 0x09, 0x60, 0xab, 0xf1, 0xe9, 0x07, 0x29,
-	0xb7, 0x73, 0x8f, 0x70, 0xd2, 0x9b, 0x61, 0x38, 0x7b, 0x49, 0x27, 0x37, 0xb1, 0xdd, 0x1f, 0xf1,
-	0x25, 0x64, 0x6b, 0xa3, 0x95, 0x23, 0xb5, 0xb2, 0x6c, 0x32, 0x9f, 0x14, 0x59, 0xf9, 0x58, 0xf0,
-	0x2c, 0xfd, 0x22, 0xb3, 0xac, 0x2c, 0x59, 0x76, 0xd2, 0xb2, 0x5d, 0x01, 0x2f, 0x21, 0xbd, 0x6b,
-	0xd6, 0x6b, 0x32, 0x6c, 0x3a, 0x4f, 0x8a, 0x69, 0x19, 0x91, 0x9f, 0xc4, 0x52, 0xd6, 0x72, 0x59,
-	0xb9, 0x2d, 0x4b, 0x03, 0xd3, 0x61, 0xfe, 0x0a, 0xce, 0x17, 0x4e, 0xd7, 0x7b, 0x4e, 0xa3, 0xab,
-	0xa4, 0x73, 0xc5, 0xdf, 0xc1, 0x69, 0xb8, 0xb1, 0x70, 0xd2, 0x35, 0xe1, 0x21, 0x52, 0xce, 0xcb,
-	0xb5, 0x77, 0x22, 0xf2, 0x75, 0x1b, 0x6e, 0xc4, 0x2f, 0x8a, 0xe8, 0xe6, 0xf7, 0x18, 0xd2, 0x8f,
-	0x21, 0x63, 0x58, 0xc0, 0x34, 0xa4, 0x02, 0xcf, 0x44, 0x3f, 0x65, 0xf9, 0x53, 0xb1, 0x17, 0x16,
-	0x3e, 0xc2, 0x1b, 0x80, 0xc7, 0x08, 0x20, 0x8a, 0x41, 0x1e, 0x8e, 0xf4, 0xdc, 0xc2, 0xb3, 0x83,
-	0xed, 0xe1, 0x95, 0x38, 0xbe, 0xe9, 0x9c, 0x89, 0x7f, 0x2c, 0x9a, 0x8f, 0xf0, 0x0d, 0x9c, 0xf6,
-	0x36, 0x88, 0xcf, 0xc5, 0x70, 0x9f, 0xf9, 0x4c, 0xf4, 0x46, 0xc2, 0x47, 0xd7, 0x09, 0x5e, 0x43,
-	0xd6, 0xcd, 0x12, 0x2f, 0xc4, 0xe1, 0x5c, 0x87, 0x1d, 0x77, 0x69, 0xf8, 0xe5, 0x5e, 0xff, 0x0d,
-	0x00, 0x00, 0xff, 0xff, 0xd0, 0x10, 0xae, 0x0a, 0x82, 0x03, 0x00, 0x00,
 }

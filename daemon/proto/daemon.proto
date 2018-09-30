@@ -9,6 +9,7 @@ service Daemon {
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
   rpc ListEventGroups (ListEventGroupsRequest) returns (ListEventGroupsResponse) {}
+  rpc RestartGroupLab (RestartGroupLabRequest) returns (stream EventStatus) {}
 }
 
 message LoginRequest {
@@ -65,6 +66,11 @@ message ListEventGroupsResponse {
     string LabTag = 2;
   }
   repeated Groups groups = 1;
+}
+
+message RestartGroupLabRequest {
+  string eventTag = 1;
+  string labTag = 2;
 }
 
 message StopEventRequest {

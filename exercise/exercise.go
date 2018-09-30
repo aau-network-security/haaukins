@@ -166,7 +166,7 @@ func (e *exercise) Start() error {
 
 func (e *exercise) Stop() error {
 	for _, m := range e.machines {
-		if err := m.Close(); err != nil {
+		if err := m.Stop(); err != nil {
 			return err
 		}
 	}

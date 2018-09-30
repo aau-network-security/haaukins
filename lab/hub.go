@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	BufferMaxRatioErr = errors.New("Buffer cannot be larger than maximum")
-	MaximumLabsErr    = errors.New("Maximum amount of labs reached")
+	BufferMaxRatioErr  = errors.New("Buffer cannot be larger than maximum")
+	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
+	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
 
 	vboxNewLibrary = vbox.NewLibrary
 )
@@ -21,6 +22,8 @@ type Hub interface {
 	Close()
 	Available() int
 	Flags() []exercise.FlagConfig
+	GetLabs() []Lab
+	GetLabByTag(tag string) (Lab, error)
 	//Config() []exercise.Config
 }
 
@@ -111,6 +114,19 @@ func (h *hub) Close() {
 
 func (h *hub) Flags() []exercise.FlagConfig {
 	return h.conf.Flags()
+}
+
+func (h *hub) GetLabs() []Lab {
+	return h.labs
+}
+
+func (h *hub) GetLabByTag(tag string) (Lab, error) {
+	for _, lab := range h.labs {
+		if tag == lab.GetTag() {
+			return lab, nil
+		}
+	}
+	return nil, CouldNotFindLabErr
 }
 
 type rsrc struct{}

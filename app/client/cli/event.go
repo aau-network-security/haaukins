@@ -149,6 +149,43 @@ func (c *Client) CmdEventGroups() *cobra.Command {
 	}
 }
 
+func (c *Client) CmdEventGroupRestart() *cobra.Command {
+	return &cobra.Command{
+		Use:   "restart [event tag] [group lab tag]",
+		Short: "Restart lab for a group",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			eventTag := args[0]
+			labTag := args[1]
+
+			stream, err := c.rpcClient.RestartGroupLab(ctx, &pb.RestartGroupLabRequest{
+				EventTag: eventTag,
+				LabTag:   labTag,
+			})
+			if err != nil {
+				PrintError(err.Error())
+				return
+			}
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					PrintError(err.Error())
+					return
+				}
+			}
+
+		},
+	}
+}
+
 func (c *Client) CmdEvent() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "event",
@@ -160,6 +197,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 	cmd.AddCommand(c.CmdEventStop())
 	cmd.AddCommand(c.CmdEventList())
 	cmd.AddCommand(c.CmdEventGroups())
+	cmd.AddCommand(c.CmdEventGroupRestart())
 
 	return cmd
 }

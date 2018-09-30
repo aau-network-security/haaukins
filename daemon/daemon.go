@@ -228,6 +228,25 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	return nil
 }
 
+func (d *daemon) RestartGroupLab(req *pb.RestartGroupLabRequest, resp pb.Daemon_RestartGroupLabServer) error {
+	ev, ok := d.events[req.EventTag]
+	if !ok {
+		return UnknownEventErr
+	}
+
+	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
+
+	if err != nil {
+		return err
+	}
+
+	if err := lab.Restart(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	log.Debug().Msg("Listing events..")
 
