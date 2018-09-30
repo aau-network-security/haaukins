@@ -34,8 +34,8 @@ type FlagConfig struct {
 }
 
 type EnvVarConfig struct {
-	EnvVar  string `yaml:"env"`
-	Value string `yaml:"value"`
+	EnvVar string `yaml:"env"`
+	Value  string `yaml:"value"`
 }
 
 type DockerConfig struct {
@@ -67,24 +67,24 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	var contRecords [][]RecordConfig
 
 	for _, conf := range ec.DockerConfs {
-        envVars := make(map[string]string)
+		envVars := make(map[string]string)
 
-        for _, flag := range conf.Flags {
-            envVars[flag.EnvVar] = flag.Default
-        }
+		for _, flag := range conf.Flags {
+			envVars[flag.EnvVar] = flag.Default
+		}
 
-        for _, env := range conf.Envs {
-            envVars[env.EnvVar] = env.Value
-        }
+		for _, env := range conf.Envs {
+			envVars[env.EnvVar] = env.Value
+		}
 
-        // docker config
+		// docker config
 		spec := docker.ContainerConfig{
 			Image: conf.Image,
 			Resources: &docker.Resources{
 				MemoryMB: conf.MemoryMB,
 				CPU:      conf.CPU,
 			},
-            EnvVars: envVars,
+			EnvVars: envVars,
 		}
 
 		contSpecs = append(contSpecs, spec)
