@@ -32,7 +32,7 @@ func (c *Client) CmdLogin() *cobra.Command {
 			})
 
 			if err != nil {
-				PrintError(r.Error)
+				fmt.Println(err)
 				return
 			}
 
