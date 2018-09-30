@@ -43,9 +43,11 @@ type Event interface {
 	Close()
 	Register(Group) (*Auth, error)
 	Connect(*mux.Router)
+	GetConfig() Config
 }
 
 type event struct {
+	conf   Config
 	ctfd   ctfd.CTFd
 	guac   guacamole.Guacamole
 	cbSrv  *callbackServer
@@ -107,6 +109,7 @@ func New(conf Config) (Event, error) {
 	}
 
 	ev := &event{
+		conf:   conf,
 		labhub: hub,
 		cbSrv:  cb,
 		ctfd:   ctf,
@@ -115,6 +118,10 @@ func New(conf Config) (Event, error) {
 	cb.event = ev
 
 	return ev, nil
+}
+
+func (ev *event) GetConfig() Config {
+	return ev.conf
 }
 
 func (ev *event) Start(ctx context.Context) error {

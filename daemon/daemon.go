@@ -31,20 +31,10 @@ var (
 type daemon struct {
 	conf            *Config
 	uh              *UserHub
-	events          map[string]eventInfo
+	events          map[string]event.Event
 	exerciseLib     *exercise.Library
 	frontendLibrary vbox.Library
 	mux             *mux.Router
-}
-
-type eventInfo struct {
-	Name      string
-	Tag       string
-	Buffer    int32
-	Capacity  int32
-	Frontends []string
-	Exercises []string
-	Event     event.Event
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -78,9 +68,9 @@ func New(conf *Config) (*daemon, error) {
 
 	d := &daemon{
 		conf:            conf,
-		exerciseLib:     elib,
 		uh:              NewUserHub(conf),
-		events:          map[string]eventInfo{},
+		events:          make(map[string]event.Event),
+		exerciseLib:     elib,
 		frontendLibrary: vlib,
 		mux:             m,
 	}
@@ -166,14 +156,23 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	log.Debug().Msg("Listing events..")
 
 	var events []*pb.ListEventsResponse_Events
+	var eventConf event.Config
+	var tempExer []string
+
 	for _, event := range d.events {
+		eventConf = event.GetConfig()
+
+		for _, exercise := range eventConf.LabConfig.Exercises {
+			tempExer = append(tempExer, exercise.Name)
+		}
+
 		events = append(events, &pb.ListEventsResponse_Events{
-			Name:      event.Name,
-			Tag:       event.Tag,
-			Frontends: event.Frontends,
-			Exercises: event.Exercises,
-			Buffer:    event.Buffer,
-			Capacity:  event.Capacity,
+			Name:      eventConf.Name,
+			Tag:       eventConf.Tag,
+			Buffer:    int32(eventConf.Buffer),
+			Capacity:  int32(eventConf.Capacity),
+			Frontends: eventConf.LabConfig.Frontends,
+			Exercises: tempExer,
 		})
 	}
 
@@ -239,15 +238,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	eventRoute := d.mux.Host(subdomain).Subrouter()
 	ev.Connect(eventRoute)
 
-	d.events[req.Tag] = eventInfo{
-		Name:      req.Name,
-		Tag:       req.Tag,
-		Buffer:    req.Buffer,
-		Capacity:  req.Capacity,
-		Frontends: req.Frontends,
-		Exercises: req.Exercises,
-		Event:     ev,
-	}
+	d.events[req.Tag] = ev
 
 	return nil
 }
@@ -264,13 +255,13 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 
 	delete(d.events, req.Tag)
 
-	ev.Event.Close()
+	ev.Close()
 	return nil
 }
 
 func (d *daemon) Close() {
 	for t, ev := range d.events {
-		ev.Event.Close()
+		ev.Close()
 		delete(d.events, t)
 	}
 }
