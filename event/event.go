@@ -36,6 +36,7 @@ type Auth struct {
 
 type Group struct {
 	Name string
+	Lab  lab.Lab
 }
 
 type Event interface {
@@ -44,6 +45,8 @@ type Event interface {
 	Register(Group) (*Auth, error)
 	Connect(*mux.Router)
 	GetConfig() Config
+	GetHub() lab.Hub
+	GetGroups() []Group
 }
 
 type event struct {
@@ -52,6 +55,7 @@ type event struct {
 	guac   guacamole.Guacamole
 	cbSrv  *callbackServer
 	labhub lab.Hub
+	groups []Group
 }
 
 func rand() string {
@@ -118,10 +122,6 @@ func New(conf Config) (Event, error) {
 	cb.event = ev
 
 	return ev, nil
-}
-
-func (ev *event) GetConfig() Config {
-	return ev.conf
 }
 
 func (ev *event) Start(ctx context.Context) error {
@@ -207,8 +207,10 @@ func (ev *event) Register(group Group) (*Auth, error) {
 		}); err != nil {
 			return nil, err
 		}
-
 	}
+
+	group.Lab = lab
+	ev.groups = append(ev.groups, group)
 
 	return &auth, nil
 }
@@ -223,4 +225,16 @@ func handler(h http.Handler) func(http.ResponseWriter, *http.Request) {
 		r.URL.Path = mux.Vars(r)["rest"]
 		h.ServeHTTP(w, r)
 	}
+}
+
+func (ev *event) GetConfig() Config {
+	return ev.conf
+}
+
+func (ev *event) GetHub() lab.Hub {
+	return ev.labhub
+}
+
+func (ev *event) GetGroups() []Group {
+	return ev.groups
 }

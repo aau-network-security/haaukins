@@ -152,33 +152,6 @@ func (d *daemon) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	return &pb.LoginResponse{Token: token}, nil
 }
 
-func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	log.Debug().Msg("Listing events..")
-
-	var events []*pb.ListEventsResponse_Events
-	var eventConf event.Config
-	var tempExer []string
-
-	for _, event := range d.events {
-		eventConf = event.GetConfig()
-
-		for _, exercise := range eventConf.LabConfig.Exercises {
-			tempExer = append(tempExer, exercise.Name)
-		}
-
-		events = append(events, &pb.ListEventsResponse_Events{
-			Name:      eventConf.Name,
-			Tag:       eventConf.Tag,
-			Buffer:    int32(eventConf.Buffer),
-			Capacity:  int32(eventConf.Capacity),
-			Frontends: eventConf.LabConfig.Frontends,
-			Exercises: tempExer,
-		})
-	}
-
-	return &pb.ListEventsResponse{Events: events}, nil
-}
-
 func (d *daemon) CreateSignupKey(ctx context.Context, req *pb.CreateSignupKeyRequest) (*pb.CreateSignupKeyResponse, error) {
 	k, err := d.uh.CreateSignupKey()
 	if err != nil {
@@ -243,10 +216,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	return nil
 }
 
-type StopEventRequest struct {
-	Tag string `json:"tag"`
-}
-
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
 	ev, ok := d.events[req.Tag]
 	if !ok {
@@ -257,6 +226,55 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 
 	ev.Close()
 	return nil
+}
+
+func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
+	log.Debug().Msg("Listing events..")
+
+	var events []*pb.ListEventsResponse_Events
+	var eventConf event.Config
+	var tempExer []string
+
+	for _, event := range d.events {
+		eventConf = event.GetConfig()
+
+		for _, exercise := range eventConf.LabConfig.Exercises {
+			tempExer = append(tempExer, exercise.Name)
+		}
+
+		events = append(events, &pb.ListEventsResponse_Events{
+			Name:      eventConf.Name,
+			Tag:       eventConf.Tag,
+			Buffer:    int32(eventConf.Buffer),
+			Capacity:  int32(eventConf.Capacity),
+			Frontends: eventConf.LabConfig.Frontends,
+			Exercises: tempExer,
+		})
+	}
+
+	return &pb.ListEventsResponse{Events: events}, nil
+}
+
+func (d *daemon) ListEventGroups(ctx context.Context, req *pb.ListEventGroupsRequest) (*pb.ListEventGroupsResponse, error) {
+	log.Debug().Msg("Listing event groups..")
+
+	var eventGroups []*pb.ListEventGroupsResponse_Groups
+
+	ev, ok := d.events[req.Tag]
+	if !ok {
+		return nil, UnknownEventErr
+	}
+
+	groups := ev.GetGroups()
+
+	for _, group := range groups {
+		eventGroups = append(eventGroups, &pb.ListEventGroupsResponse_Groups{
+			Name:   group.Name,
+			LabTag: group.Lab.GetTag(),
+		})
+	}
+
+	return &pb.ListEventGroupsResponse{Groups: eventGroups}, nil
 }
 
 func (d *daemon) Close() {

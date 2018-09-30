@@ -1,10 +1,14 @@
 package lab
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
 )
 
@@ -17,9 +21,11 @@ type Lab interface {
 	Close()
 	Exercises() exercise.Environment
 	RdpConnPorts() []uint
+	GetTag() string
 }
 
 type lab struct {
+	tag          string
 	lib          vbox.Library
 	environment  exercise.Environment
 	frontends    []vbox.VM
@@ -33,6 +39,7 @@ func NewLab(lib vbox.Library, config LabConfig) (Lab, error) {
 	}
 
 	l := &lab{
+		tag:         generateTag(),
 		lib:         lib,
 		environment: environ,
 	}
@@ -99,4 +106,14 @@ func (l *lab) Close() {
 
 func (l *lab) RdpConnPorts() []uint {
 	return l.rdpConnPorts
+}
+
+func (l *lab) GetTag() string {
+	return l.tag
+}
+
+func generateTag() string {
+	// seed for our GetRandomName
+	rand.Seed(time.Now().UnixNano())
+	return namesgenerator.GetRandomName(0)
 }

@@ -116,8 +116,35 @@ func (c *Client) CmdEventList() *cobra.Command {
 				fmt.Printf("- Capacity: %d\n", event.Capacity)
 				fmt.Printf("- Frontends: \n-- %s\n", strings.Join(event.Frontends, "\n-- "))
 				fmt.Printf("- Exercises: \n-- %s\n", strings.Join(event.Exercises, "\n-- "))
-
 			}
+		},
+	}
+}
+
+func (c *Client) CmdEventGroups() *cobra.Command {
+	return &cobra.Command{
+		Use:   "groups [tag]",
+		Short: "Get groups for a event",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			tag := args[0]
+			r, err := c.rpcClient.ListEventGroups(ctx, &pb.ListEventGroupsRequest{
+				Tag: tag,
+			})
+
+			if err != nil {
+				PrintError(err.Error())
+				return
+			}
+
+			for _, group := range r.Groups {
+				fmt.Printf("%s\n", group.Name)
+				fmt.Printf("- %s\n", group.LabTag)
+			}
+
 		},
 	}
 }
@@ -132,6 +159,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 	cmd.AddCommand(c.CmdEventCreate())
 	cmd.AddCommand(c.CmdEventStop())
 	cmd.AddCommand(c.CmdEventList())
+	cmd.AddCommand(c.CmdEventGroups())
 
 	return cmd
 }
