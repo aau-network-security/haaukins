@@ -78,5 +78,5 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) Stop() error {
-	return s.cont.Close()
+	return s.cont.Stop()
 }
