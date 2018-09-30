@@ -2,10 +2,10 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 	"time"
-    "fmt"
-    "os"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
@@ -30,6 +30,7 @@ func (c *Client) CmdLogin() *cobra.Command {
 				Username: username,
 				Password: password,
 			})
+
 			if err != nil {
 				PrintError(r.Error)
 				return
@@ -56,7 +57,7 @@ func Execute() {
 	}
 	defer c.Close()
 
-    var rootCmd = &cobra.Command{Use: "ntp"}
+	var rootCmd = &cobra.Command{Use: "ntp"}
 	rootCmd.AddCommand(c.CmdLogin())
 	rootCmd.AddCommand(c.CmdUser())
 	rootCmd.AddCommand(c.CmdEvent())

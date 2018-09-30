@@ -90,4 +90,3 @@ func (c *Client) CmdCreateUser() *cobra.Command {
 		},
 	}
 }
-
