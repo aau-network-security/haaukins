@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"crypto/md5"
 	"errors"
 	"fmt"
@@ -232,6 +233,11 @@ func digestRemoteImg(img Image, reg docker.AuthConfiguration) (string, error) {
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
 	req.SetBasicAuth(reg.Username, reg.Password)
 
+	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
+	defer cancel()
+
+	req = req.WithContext(ctx)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
@@ -271,46 +277,59 @@ func ensureImage(imgStr string) error {
 	img := parseImage(imgStr)
 
 	dImg, err := DefaultClient.InspectImage(img.String())
+	foundLocal := dImg != nil && err != docker.ErrNoSuchImage
+
 	if img.IsPublic() {
+		if !foundLocal {
+			return pullImage(img, docker.AuthConfiguration{})
+		}
+
 		if err != nil {
-			if err == docker.ErrNoSuchImage {
-				if err := pullImage(img, docker.AuthConfiguration{}); err != nil {
-					return err
-				}
-
-				return nil
-			}
-
 			return err
 		}
 
 		return nil
 	}
 
-	reg, ok := Registries[img.Registry]
-	if !ok {
-		return fmt.Errorf("No credentials for registry: %s", img.Registry)
-	}
-
-	if dImg != nil {
-
-		rDigest, err := digestRemoteImg(img, reg)
+	creds, hasCreds := Registries[img.Registry]
+	var rdig string
+	for i := 0; i < 3 && hasCreds && rdig == ""; i++ {
+		rdig, err = digestRemoteImg(img, creds)
 		if err != nil {
-			return err
-		}
-
-		lDigest := dImg.RepoDigests[0]
-		if strings.Contains(lDigest, "@") {
-			lDigest = strings.Split(lDigest, "@")[1]
-		}
-
-		if lDigest == rDigest {
-			return nil
+			continue
 		}
 	}
 
-	if err := pullImage(img, reg); err != nil {
-		return err
+	var newVersion bool
+	if rdig != "" && foundLocal {
+		ldig := dImg.RepoDigests[0]
+		if strings.Contains(ldig, "@") {
+			ldig = strings.Split(ldig, "@")[1]
+		}
+
+		if rdig == ldig {
+			newVersion = true
+		}
+	}
+
+	if newVersion {
+		// newVersion is only set if a local image exists AND a new digest has been observed
+		if err := pullImage(img, creds); err != nil {
+			log.Warn().
+				Err(err).
+				Str("image", img.String()).
+				Msg("Attempted to update version but failed")
+		}
+
+		return nil
+	}
+
+	if !foundLocal {
+		if !hasCreds {
+			return fmt.Errorf("No credentials for registry: %s", img.Registry)
+		}
+
+		return pullImage(img, creds)
 	}
 
 	return nil
