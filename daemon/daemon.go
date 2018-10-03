@@ -27,8 +27,6 @@ var (
 	UnknownEventErr     = errors.New("unable to find event by that tag")
 	MissingTokenErr     = errors.New("no security token provided")
 	InvalidArgumentsErr = errors.New("invalid arguments provided")
-
-	newEvent = event.New
 )
 
 type daemon struct {
@@ -38,6 +36,17 @@ type daemon struct {
 	exerciseLib     *exercise.Library
 	frontendLibrary vbox.Library
 	mux             *mux.Router
+	eh              EventHost
+}
+
+type EventHost interface {
+	CreateEvent(event.Config) (event.Event, error)
+}
+
+type eventHost struct{}
+
+func (eh *eventHost) CreateEvent(conf event.Config) (event.Event, error) {
+	return event.New(conf)
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -76,6 +85,7 @@ func New(conf *Config) (*daemon, error) {
 		exerciseLib:     elib,
 		frontendLibrary: vlib,
 		mux:             m,
+		eh:              &eventHost{},
 	}
 
 	return d, nil
@@ -199,7 +209,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		req.Capacity = 10
 	}
 
-	ev, err := newEvent(event.Config{
+	ev, err := d.eh.CreateEvent(event.Config{
 		Name:     req.Name,
 		Tag:      req.Tag,
 		Buffer:   int(req.Buffer),

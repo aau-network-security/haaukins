@@ -244,17 +244,23 @@ func (ev *testEvent) Start(context.Context) error {
 
 func (ev *testEvent) Connect(*mux.Router) {}
 
+type testEventHost struct {
+	ev event.Event
+	EventHost
+}
+
+func (eh *testEventHost) CreateEvent(event.Config) (event.Event, error) {
+	return eh.ev, nil
+}
+
 func TestCreateEvent(t *testing.T) {
 	ev := &testEvent{started: false}
-	newEvent = func(conf event.Config) (event.Event, error) {
-		return ev, nil
-	}
+
 	d := daemon{
-		conf: &Config{
-			Host: "localhost",
-		},
+		conf:   &Config{Host: "localhost"},
 		mux:    mux.NewRouter(),
 		events: make(map[string]event.Event),
+		eh:     &testEventHost{ev: ev},
 	}
 	req := pb.CreateEventRequest{
 		Name:      "Event 1",
