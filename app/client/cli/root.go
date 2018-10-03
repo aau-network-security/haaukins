@@ -3,51 +3,99 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
+	"io/ioutil"
 	"os"
-	"time"
+	"os/user"
+	"path/filepath"
+	"syscall"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
+	"google.golang.org/grpc"
+	"log"
 )
 
-func (c *Client) CmdLogin() *cobra.Command {
-	return &cobra.Command{
-		Use:   "login [username]",
-		Short: "Login user",
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+type Token string
 
-			username := args[0]
-			password, err := ReadPassword()
-			if err != nil {
-				log.Fatal("Unable to read password")
-			}
+func (t Token) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
+	return map[string]string{
+		"token": string(t),
+	}, nil
+}
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			r, err := c.rpcClient.Login(ctx, &pb.LoginRequest{
-				Username: username,
-				Password: password,
-			})
+func (t Token) RequireTransportSecurity() bool {
+	return false
+}
 
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
+type Client struct {
+	TokenFile string
+	Token     string
+	conn      *grpc.ClientConn
+	rpcClient pb.DaemonClient
+}
 
-			if r.Error != "" {
-				PrintError(r.Error)
-				return
-			}
-
-			c.Token = r.Token
-
-			if err := c.SaveToken(); err != nil {
-				PrintError(err.Error())
-			}
-		},
+func NewClient() (*Client, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to find home directory")
 	}
+
+	tokenFile := filepath.Join(usr.HomeDir, ".ntp_token")
+	c := &Client{
+		TokenFile: tokenFile,
+	}
+
+	if _, err := os.Stat(tokenFile); err == nil {
+		if err := c.LoadToken(); err != nil {
+			return nil, err
+		}
+	}
+
+	conn, err := grpc.Dial("cli.sec-aau.dk:5454",
+		grpc.WithInsecure(),
+		grpc.WithPerRPCCredentials(Token(c.Token)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	c.conn = conn
+	c.rpcClient = pb.NewDaemonClient(conn)
+
+	return c, nil
+}
+
+func (c *Client) LoadToken() error {
+	raw, err := ioutil.ReadFile(c.TokenFile)
+	if err != nil {
+		return err
+	}
+
+	c.Token = string(raw)
+	return nil
+}
+
+func (c *Client) SaveToken() error {
+	return ioutil.WriteFile(c.TokenFile, []byte(c.Token), 0644)
+}
+
+func (c *Client) Close() {
+	c.conn.Close()
+}
+
+func PrintError(s string) {
+	fmt.Printf("[!] %s\n", s)
+}
+
+func ReadPassword() (string, error) {
+	fmt.Printf("Password: ")
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	fmt.Printf("\n")
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytePassword), nil
 }
 
 func Execute() {
@@ -58,9 +106,9 @@ func Execute() {
 	defer c.Close()
 
 	var rootCmd = &cobra.Command{Use: "ntp"}
-	rootCmd.AddCommand(c.CmdLogin())
-	rootCmd.AddCommand(c.CmdUser())
-	rootCmd.AddCommand(c.CmdEvent())
+	rootCmd.AddCommand(
+		c.CmdUser(),
+		c.CmdEvent())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
