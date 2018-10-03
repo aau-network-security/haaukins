@@ -11,21 +11,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func (c *Client) CmdEvent() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "event",
+		Short: "Actions to perform on events",
+		Args:  cobra.MinimumNArgs(1),
+	}
+
+	cmd.AddCommand(
+		c.CmdEventCreate(),
+		c.CmdEventStop(),
+		c.CmdEventList(),
+		c.CmdEventGroups(),
+		c.CmdEventGroupRestart())
+
+	return cmd
+}
+
 func (c *Client) CmdEventCreate() *cobra.Command {
-	var buffer int
-	var capacity int
-	var frontends []string
-	var exercises []string
+	var (
+		name      string
+		buffer    int
+		capacity  int
+		frontends []string
+		exercises []string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "create [name] [tag]",
+		Use:   "create [tag]",
 		Short: "Create event",
-		Args:  cobra.MinimumNArgs(2),
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			name, tag := args[0], args[1]
+			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
 				Name:      name,
 				Tag:       tag,
@@ -54,10 +74,12 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringSliceP("name", "n", "", "the event name")
 	cmd.Flags().IntVarP(&buffer, "buffer", "b", 2, "amount of lab hubs to buffer")
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "capacity of total amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
+	cmd.MarkFlagRequired("name")
 
 	return cmd
 }
@@ -184,20 +206,4 @@ func (c *Client) CmdEventGroupRestart() *cobra.Command {
 
 		},
 	}
-}
-
-func (c *Client) CmdEvent() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "event",
-		Short: "Actions to perform on events",
-		Args:  cobra.MinimumNArgs(1),
-	}
-
-	cmd.AddCommand(c.CmdEventCreate())
-	cmd.AddCommand(c.CmdEventStop())
-	cmd.AddCommand(c.CmdEventList())
-	cmd.AddCommand(c.CmdEventGroups())
-	cmd.AddCommand(c.CmdEventGroupRestart())
-
-	return cmd
 }
