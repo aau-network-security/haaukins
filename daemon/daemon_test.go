@@ -15,6 +15,8 @@ import (
 
 var lis *bufconn.Listener
 
+const bufSize = 1024 * 1024
+
 type testUserHub struct {
 	signupKey string
 	err       error
@@ -45,7 +47,7 @@ func (t testUserHub) TokenForUser(username, password string) (string, error) {
 }
 
 func init() {
-	lis = bufconn.Listen(1024 * 1024)
+	lis = bufconn.Listen(bufSize)
 	d := &daemon{
 		uh: testUserHub{
 			signupKey: "keyval",

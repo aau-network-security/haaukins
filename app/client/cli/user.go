@@ -101,11 +101,13 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 
 func (c *Client) CmdLoginUser() *cobra.Command {
 	return &cobra.Command{
-		Use:   "login [username]",
+		Use:   "login",
 		Short: "Login user",
-		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			username := args[0]
+			var username string
+			fmt.Print("Username: ")
+			fmt.Scanln(&username)
+
 			password, err := ReadPassword()
 			if err != nil {
 				log.Fatal("Unable to read password")

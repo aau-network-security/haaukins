@@ -11,7 +11,6 @@ import (
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
-	_ "github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 	"log"
