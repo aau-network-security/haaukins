@@ -16,19 +16,44 @@ import (
 var lis *bufconn.Listener
 
 type testUserHub struct {
-	keyValue string
-	err      error
+	signupKey string
+	err       error
+
+	username string
+	password string
+	token    string
+
 	UserHub
 }
 
 func (t testUserHub) CreateSignupKey() (SignupKey, error) {
-	return SignupKey(t.keyValue), t.err
+	return SignupKey(t.signupKey), t.err
+}
+
+func (t testUserHub) AddUser(k SignupKey, username, password string) error {
+	if k == SignupKey(t.signupKey) && username == t.username && password == t.password {
+		return nil
+	}
+	return fmt.Errorf("failure")
+}
+
+func (t testUserHub) TokenForUser(username, password string) (string, error) {
+	if username == t.username && password == t.password {
+		return t.token, nil
+	}
+	return "", fmt.Errorf("failure")
 }
 
 func init() {
 	lis = bufconn.Listen(1024 * 1024)
 	d := &daemon{
-		uh: testUserHub{},
+		uh: testUserHub{
+			signupKey: "keyval",
+			err:       nil,
+			username:  "user",
+			password:  "pass",
+			token:     "token",
+		},
 	}
 	s := d.GetServer()
 
@@ -67,7 +92,7 @@ func TestInviteUser(t *testing.T) {
 		keyValue string
 		err      error
 	}{
-		{"Valid SignupKey", "1", nil},
+		{"OK", "1", nil},
 		{"Error in retrieving SignupKey", "", fmt.Errorf("failure")},
 	}
 
@@ -76,8 +101,8 @@ func TestInviteUser(t *testing.T) {
 			ctx := context.Background()
 			d := &daemon{
 				uh: testUserHub{
-					keyValue: c.keyValue,
-					err:      c.err,
+					signupKey: c.keyValue,
+					err:       c.err,
 				},
 			}
 			req := &pb.InviteUserRequest{}
@@ -93,6 +118,109 @@ func TestInviteUser(t *testing.T) {
 
 			if resp.Error != expectedErrMsg {
 				t.Fatalf("Expected error: '%s', but got '%s'", expectedErrMsg, resp.Error)
+			}
+		})
+	}
+}
+
+func TestSignupUser(t *testing.T) {
+	cases := []struct {
+		name     string
+		req      pb.SignupUserRequest
+		expected pb.LoginUserResponse
+	}{
+		{
+			"OK",
+			pb.SignupUserRequest{
+				Key:      "keyval",
+				Username: "user",
+				Password: "pass",
+			},
+			pb.LoginUserResponse{
+				Token: "token",
+				Error: "",
+			},
+		},
+		{
+			"Invalid signup key",
+			pb.SignupUserRequest{
+				Key:      "invalid-key",
+				Username: "user",
+				Password: "pass",
+			},
+			pb.LoginUserResponse{
+				Token: "",
+				Error: "failure",
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := context.Background()
+			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
+			if err != nil {
+				t.Fatalf("Failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			resp, _ := client.SignupUser(ctx, &c.req)
+			if resp.Error != c.expected.Error {
+				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
+			}
+			if resp.Token != c.expected.Token {
+				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
+			}
+		})
+	}
+}
+
+func TestLoginUser(t *testing.T) {
+	cases := []struct {
+		name     string
+		req      pb.LoginUserRequest
+		expected pb.LoginUserResponse
+	}{
+		{
+			"OK",
+			pb.LoginUserRequest{
+				Username: "user",
+				Password: "pass",
+			},
+			pb.LoginUserResponse{
+				Token: "token",
+				Error: "",
+			},
+		},
+		{
+			"Invalid credentials",
+			pb.LoginUserRequest{
+				Username: "user",
+				Password: "invalid-password",
+			},
+			pb.LoginUserResponse{
+				Token: "",
+				Error: "failure",
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := context.Background()
+			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
+			if err != nil {
+				t.Fatalf("Failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+
+			resp, _ := client.LoginUser(ctx, &c.req)
+			if resp.Error != c.expected.Error {
+				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
+			}
+			if resp.Token != c.expected.Token {
+				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
 			}
 		})
 	}

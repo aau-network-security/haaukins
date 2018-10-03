@@ -1,8 +1,8 @@
 syntax = "proto3";
 
 service Daemon {
-  rpc Login (LoginRequest) returns (LoginResponse) {}
-  rpc CreateUser (CreateUserRequest) returns (LoginResponse) {}
+  rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {}
+  rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {}
   rpc InviteUser (InviteUserRequest) returns (InviteUserResponse) {}
 
   rpc CreateEvent (CreateEventRequest) returns (stream EventStatus) {}
@@ -12,17 +12,17 @@ service Daemon {
   rpc RestartGroupLab (RestartGroupLabRequest) returns (stream EventStatus) {}
 }
 
-message LoginRequest {
+message LoginUserRequest {
   string username = 1;
   string password = 2;
 }
 
-message LoginResponse {
+message LoginUserResponse {
   string token = 1;
   string error = 2;
 }
 
-message CreateUserRequest {
+message SignupUserRequest {
   string key = 1;
   string username = 2;
   string password = 3;

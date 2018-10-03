@@ -20,7 +20,7 @@ func (c *Client) CmdUser() *cobra.Command {
 	}
 
 	cmd.AddCommand(c.CmdInviteUser())
-	cmd.AddCommand(c.CmdCreateUser())
+	cmd.AddCommand(c.CmdSignupUser())
 
 	return cmd
 }
@@ -43,7 +43,7 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 	}
 }
 
-func (c *Client) CmdCreateUser() *cobra.Command {
+func (c *Client) CmdSignupUser() *cobra.Command {
 	return &cobra.Command{
 		Use:   "signup [key]",
 		Short: "Signup as user",
@@ -73,7 +73,7 @@ func (c *Client) CmdCreateUser() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			r, err := c.rpcClient.CreateUser(ctx, &pb.CreateUserRequest{
+			r, err := c.rpcClient.SignupUser(ctx, &pb.SignupUserRequest{
 				Key:      key,
 				Username: username,
 				Password: password,

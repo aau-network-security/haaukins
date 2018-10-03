@@ -93,7 +93,7 @@ func (d *daemon) authorize(ctx context.Context) error {
 }
 
 func (d *daemon) GetServer() *grpc.Server {
-	nonAuth := []string{"Login", "CreateUser"}
+	nonAuth := []string{"LoginUser", "SignupUser"}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		for _, endpoint := range nonAuth {
@@ -129,27 +129,27 @@ func (d *daemon) GetServer() *grpc.Server {
 	)
 }
 
-func (d *daemon) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.LoginUserResponse, error) {
 	token, err := d.uh.TokenForUser(req.Username, req.Password)
 	if err != nil {
-		return &pb.LoginResponse{Error: err.Error()}, nil
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
-	return &pb.LoginResponse{Token: token}, nil
+	return &pb.LoginUserResponse{Token: token}, nil
 }
 
-func (d *daemon) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.LoginResponse, error) {
+func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb.LoginUserResponse, error) {
 	k := SignupKey(req.Key)
 	if err := d.uh.AddUser(k, req.Username, req.Password); err != nil {
-		return &pb.LoginResponse{Error: err.Error()}, nil
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
 	token, err := d.uh.TokenForUser(req.Username, req.Password)
 	if err != nil {
-		return &pb.LoginResponse{Error: err.Error()}, nil
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
-	return &pb.LoginResponse{Token: token}, nil
+	return &pb.LoginUserResponse{Token: token}, nil
 }
 
 func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
