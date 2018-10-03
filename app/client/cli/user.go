@@ -19,8 +19,10 @@ func (c *Client) CmdUser() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 	}
 
-	cmd.AddCommand(c.CmdInviteUser())
-	cmd.AddCommand(c.CmdSignupUser())
+	cmd.AddCommand(
+		c.CmdInviteUser(),
+		c.CmdSignupUser(),
+		c.CmdLoginUser())
 
 	return cmd
 }
@@ -45,12 +47,18 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 
 func (c *Client) CmdSignupUser() *cobra.Command {
 	return &cobra.Command{
-		Use:   "signup [key]",
+		Use:   "signup",
 		Short: "Signup as user",
-		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
+			var (
+				username  string
+				signupKey string
+			)
+
+			fmt.Print("Signup key: ")
+			fmt.Scanln(&signupKey)
+
 			fmt.Print("Username: ")
-			var username string
 			fmt.Scanln(&username)
 
 			password, err := ReadPassword()
@@ -68,13 +76,13 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 			pass2 := string(bytePass2)
 			if password != pass2 {
 				PrintError("Passwords do not match, so cancelling signup :-(")
+				return
 			}
-			key := args[0]
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			r, err := c.rpcClient.SignupUser(ctx, &pb.SignupUserRequest{
-				Key:      key,
+				Key:      signupKey,
 				Username: username,
 				Password: password,
 			})
@@ -84,6 +92,44 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 			}
 
 			c.Token = r.Token
+			if err := c.SaveToken(); err != nil {
+				PrintError(err.Error())
+			}
+		},
+	}
+}
+
+func (c *Client) CmdLoginUser() *cobra.Command {
+	return &cobra.Command{
+		Use:   "login [username]",
+		Short: "Login user",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			username := args[0]
+			password, err := ReadPassword()
+			if err != nil {
+				log.Fatal("Unable to read password")
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			r, err := c.rpcClient.LoginUser(ctx, &pb.LoginUserRequest{
+				Username: username,
+				Password: password,
+			})
+
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if r.Error != "" {
+				PrintError(r.Error)
+				return
+			}
+
+			c.Token = r.Token
+
 			if err := c.SaveToken(); err != nil {
 				PrintError(err.Error())
 			}
