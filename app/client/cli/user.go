@@ -19,20 +19,20 @@ func (c *Client) CmdUser() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 	}
 
-	cmd.AddCommand(c.CmdCreateSignupKey())
+	cmd.AddCommand(c.CmdInviteUser())
 	cmd.AddCommand(c.CmdCreateUser())
 
 	return cmd
 }
 
-func (c *Client) CmdCreateSignupKey() *cobra.Command {
+func (c *Client) CmdInviteUser() *cobra.Command {
 	return &cobra.Command{
 		Use:   "invite",
 		Short: "Create key for inviting other users",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			r, err := c.rpcClient.CreateSignupKey(ctx, &pb.CreateSignupKeyRequest{})
+			r, err := c.rpcClient.InviteUser(ctx, &pb.InviteUserRequest{})
 			if err != nil {
 				PrintError(err.Error())
 				return
