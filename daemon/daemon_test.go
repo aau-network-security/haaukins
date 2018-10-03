@@ -233,18 +233,21 @@ type createEventServer struct {
 }
 
 type testEvent struct {
+	started bool
 	event.Event
 }
 
-func (t testEvent) Start(context.Context) error {
+func (ev *testEvent) Start(context.Context) error {
+	ev.started = true
 	return nil
 }
 
-func (t testEvent) Connect(*mux.Router) {}
+func (ev *testEvent) Connect(*mux.Router) {}
 
 func TestCreateEvent(t *testing.T) {
+	ev := &testEvent{started: false}
 	newEvent = func(conf event.Config) (event.Event, error) {
-		return testEvent{}, nil
+		return ev, nil
 	}
 	d := daemon{
 		conf: &Config{
@@ -267,5 +270,9 @@ func TestCreateEvent(t *testing.T) {
 	expectedEvents := 1
 	if len(d.events) != expectedEvents {
 		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
+	}
+	time.Sleep(1 * time.Millisecond) // wait for goroutine to finish
+	if !ev.started {
+		t.Fatalf("Expected event to be started, but it is not")
 	}
 }
