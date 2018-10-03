@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/aau-network-security/go-ntp/event"
+	"github.com/gorilla/mux"
 	"log"
 	"net"
 	"time"
@@ -225,5 +227,60 @@ func TestLoginUser(t *testing.T) {
 				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
 			}
 		})
+	}
+}
+
+type createEventServer struct {
+	pb.Daemon_CreateEventServer
+}
+
+type testEvent struct {
+	started bool
+	event.Event
+}
+
+func (ev *testEvent) Start(context.Context) error {
+	ev.started = true
+	return nil
+}
+
+func (ev *testEvent) Connect(*mux.Router) {}
+
+type testEventHost struct {
+	ev event.Event
+	EventHost
+}
+
+func (eh *testEventHost) CreateEvent(event.Config) (event.Event, error) {
+	return eh.ev, nil
+}
+
+func TestCreateEvent(t *testing.T) {
+	ev := &testEvent{started: false}
+
+	d := daemon{
+		conf:   &Config{Host: "localhost"},
+		mux:    mux.NewRouter(),
+		events: make(map[string]event.Event),
+		eh:     &testEventHost{ev: ev},
+	}
+	req := pb.CreateEventRequest{
+		Name:      "Event 1",
+		Tag:       "ev1",
+		Frontends: []string{"frontend1"},
+	}
+
+	resp := createEventServer{}
+	err := d.CreateEvent(&req, &resp)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	expectedEvents := 1
+	if len(d.events) != expectedEvents {
+		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
+	}
+	time.Sleep(1 * time.Millisecond) // wait for goroutine to finish
+	if !ev.started {
+		t.Fatalf("Expected event to be started, but it is not")
 	}
 }

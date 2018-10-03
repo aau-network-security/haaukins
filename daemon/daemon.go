@@ -23,9 +23,10 @@ import (
 )
 
 var (
-	DuplicateEventErr = errors.New("event with that tag already exists")
-	UnknownEventErr   = errors.New("unable to find event by that tag")
-	MissingTokenErr   = errors.New("No security token provided")
+	DuplicateEventErr   = errors.New("event with that tag already exists")
+	UnknownEventErr     = errors.New("unable to find event by that tag")
+	MissingTokenErr     = errors.New("no security token provided")
+	InvalidArgumentsErr = errors.New("invalid arguments provided")
 )
 
 type daemon struct {
@@ -35,6 +36,17 @@ type daemon struct {
 	exerciseLib     *exercise.Library
 	frontendLibrary vbox.Library
 	mux             *mux.Router
+	eh              EventHost
+}
+
+type EventHost interface {
+	CreateEvent(event.Config) (event.Event, error)
+}
+
+type eventHost struct{}
+
+func (eh *eventHost) CreateEvent(conf event.Config) (event.Event, error) {
+	return event.New(conf)
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -73,6 +85,7 @@ func New(conf *Config) (*daemon, error) {
 		exerciseLib:     elib,
 		frontendLibrary: vlib,
 		mux:             m,
+		eh:              &eventHost{},
 	}
 
 	return d, nil
@@ -166,13 +179,20 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+	var (
+		exer []exercise.Config
+		err  error
+	)
+
+	if req.Name == "" || req.Tag == "" {
+		return InvalidArgumentsErr
+	}
+
 	_, ok := d.events[req.Tag]
 	if ok {
 		return DuplicateEventErr
 	}
 
-	var exer []exercise.Config
-	var err error
 	if len(req.Exercises) > 0 {
 		exer, err = d.exerciseLib.GetByTags(req.Exercises[0], req.Exercises[1:]...)
 		if err != nil {
@@ -189,7 +209,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		req.Capacity = 10
 	}
 
-	ev, err := event.New(event.Config{
+	ev, err := d.eh.CreateEvent(event.Config{
 		Name:     req.Name,
 		Tag:      req.Tag,
 		Buffer:   int(req.Buffer),
@@ -207,8 +227,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 	go ev.Start(context.TODO())
 
-	subdomain := fmt.Sprintf("%s.%s", req.Tag, d.conf.Host)
-	eventRoute := d.mux.Host(subdomain).Subrouter()
+	host := fmt.Sprintf("%s.%s", req.Tag, d.conf.Host)
+	eventRoute := d.mux.Host(host).Subrouter()
 	ev.Connect(eventRoute)
 
 	d.events[req.Tag] = ev

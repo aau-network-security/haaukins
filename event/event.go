@@ -24,7 +24,7 @@ var (
 	StartingRevErr  = errors.New("error while starting reverse proxy")
 	EmptyNameErr    = errors.New("event requires a name")
 	EmptyTagErr     = errors.New("event requires a tag")
-	NoFrontendErr   = errors.New("lab requires atleast one frontend")
+	NoFrontendErr   = errors.New("lab requires at least one frontend")
 
 	getDockerHostIp = docker.GetDockerHostIP
 )
