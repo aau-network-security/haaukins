@@ -3,7 +3,7 @@ syntax = "proto3";
 service Daemon {
   rpc Login (LoginRequest) returns (LoginResponse) {}
   rpc CreateUser (CreateUserRequest) returns (LoginResponse) {}
-  rpc CreateSignupKey(CreateSignupKeyRequest) returns (CreateSignupKeyResponse) {}
+  rpc InviteUser (InviteUserRequest) returns (InviteUserResponse) {}
 
   rpc CreateEvent (CreateEventRequest) returns (stream EventStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
@@ -28,8 +28,8 @@ message CreateUserRequest {
   string password = 3;
 }
 
-message CreateSignupKeyRequest {}
-message CreateSignupKeyResponse {
+message InviteUserRequest {}
+message InviteUserResponse {
   string key = 1;
   string error = 2;
 }

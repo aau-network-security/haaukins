@@ -55,13 +55,21 @@ func NewSignupKey() SignupKey {
 	return SignupKey(uuid.New().String())
 }
 
-type UserHub struct {
+type userhub struct {
 	conf       *Config
 	users      map[string]*User
 	signupKeys map[SignupKey]struct{}
 }
 
-func NewUserHub(conf *Config) *UserHub {
+type UserHub interface {
+	CreateSignupKey() (SignupKey, error)
+	AddUser(k SignupKey, username, password string) error
+	DeleteUser(username string) error
+	TokenForUser(username, password string) (string, error)
+	AuthenticateUserByToken(t string) error
+}
+
+func NewUserHub(conf *Config) UserHub {
 	users := map[string]*User{}
 	for i, _ := range conf.Users {
 		u := conf.Users[i]
@@ -74,7 +82,7 @@ func NewUserHub(conf *Config) *UserHub {
 		signupKeys[k] = struct{}{}
 	}
 
-	uh := &UserHub{
+	uh := &userhub{
 		conf:       conf,
 		users:      users,
 		signupKeys: signupKeys,
@@ -92,7 +100,7 @@ func NewUserHub(conf *Config) *UserHub {
 	return uh
 }
 
-func (uh *UserHub) CreateSignupKey() (SignupKey, error) {
+func (uh *userhub) CreateSignupKey() (SignupKey, error) {
 	k := NewSignupKey()
 	if err := uh.conf.AddSignupKey(k); err != nil {
 		return "", err
@@ -102,7 +110,7 @@ func (uh *UserHub) CreateSignupKey() (SignupKey, error) {
 	return k, nil
 }
 
-func (uh *UserHub) AddUser(k SignupKey, username, password string) error {
+func (uh *userhub) AddUser(k SignupKey, username, password string) error {
 	if _, ok := uh.signupKeys[k]; !ok {
 		return UnknownSignupKey
 	}
@@ -130,7 +138,7 @@ func (uh *UserHub) AddUser(k SignupKey, username, password string) error {
 	return nil
 }
 
-func (uh *UserHub) DeleteUser(username string) error {
+func (uh *userhub) DeleteUser(username string) error {
 	username = strings.ToLower(username)
 
 	if _, ok := uh.users[username]; !ok {
@@ -145,7 +153,7 @@ func (uh *UserHub) DeleteUser(username string) error {
 	return nil
 }
 
-func (uh *UserHub) TokenForUser(username, password string) (string, error) {
+func (uh *userhub) TokenForUser(username, password string) (string, error) {
 	username = strings.ToLower(username)
 
 	u, ok := uh.users[username]
@@ -170,7 +178,7 @@ func (uh *UserHub) TokenForUser(username, password string) (string, error) {
 	return tokenString, nil
 }
 
-func (uh *UserHub) AuthenticateUserByToken(t string) error {
+func (uh *userhub) AuthenticateUserByToken(t string) error {
 	token, err := jwt.Parse(t, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
