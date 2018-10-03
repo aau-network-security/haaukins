@@ -30,7 +30,7 @@ var (
 
 type daemon struct {
 	conf            *Config
-	uh              *UserHub
+	uh              UserHub
 	events          map[string]event.Event
 	exerciseLib     *exercise.Library
 	frontendLibrary vbox.Library
@@ -152,15 +152,15 @@ func (d *daemon) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	return &pb.LoginResponse{Token: token}, nil
 }
 
-func (d *daemon) CreateSignupKey(ctx context.Context, req *pb.CreateSignupKeyRequest) (*pb.CreateSignupKeyResponse, error) {
+func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
 	k, err := d.uh.CreateSignupKey()
 	if err != nil {
-		return &pb.CreateSignupKeyResponse{
+		return &pb.InviteUserResponse{
 			Error: err.Error(),
 		}, nil
 	}
 
-	return &pb.CreateSignupKeyResponse{
+	return &pb.InviteUserResponse{
 		Key: string(k),
 	}, nil
 }
