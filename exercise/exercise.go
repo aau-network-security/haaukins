@@ -18,8 +18,9 @@ type Flag struct {
 }
 
 type RecordConfig struct {
-	Type string `yaml:"record"`
-	Name string `yaml:"name"`
+	Type  string `yaml:"type"`
+	Name  string `yaml:"name"`
+	RData string `yaml:"rdata"`
 }
 
 func (rc RecordConfig) Format(ip string) string {
@@ -34,8 +35,8 @@ type FlagConfig struct {
 }
 
 type EnvVarConfig struct {
-	EnvVar  string `yaml:"env"`
-	Value string `yaml:"value"`
+	EnvVar string `yaml:"env"`
+	Value  string `yaml:"value"`
 }
 
 type DockerConfig struct {
@@ -67,24 +68,24 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	var contRecords [][]RecordConfig
 
 	for _, conf := range ec.DockerConfs {
-        envVars := make(map[string]string)
+		envVars := make(map[string]string)
 
-        for _, flag := range conf.Flags {
-            envVars[flag.EnvVar] = flag.Default
-        }
+		for _, flag := range conf.Flags {
+			envVars[flag.EnvVar] = flag.Default
+		}
 
-        for _, env := range conf.Envs {
-            envVars[env.EnvVar] = env.Value
-        }
+		for _, env := range conf.Envs {
+			envVars[env.EnvVar] = env.Value
+		}
 
-        // docker config
+		// docker config
 		spec := docker.ContainerConfig{
 			Image: conf.Image,
 			Resources: &docker.Resources{
 				MemoryMB: conf.MemoryMB,
 				CPU:      conf.CPU,
 			},
-            EnvVars: envVars,
+			EnvVars: envVars,
 		}
 
 		contSpecs = append(contSpecs, spec)
@@ -94,14 +95,25 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	return contSpecs, contRecords
 }
 
+type DockerHost interface {
+	CreateContainer(conf docker.ContainerConfig) (docker.Container, error)
+}
+
+type dockerHost struct{}
+
+func (dockerHost) CreateContainer(conf docker.ContainerConfig) (docker.Container, error) {
+	return docker.NewContainer(conf)
+}
+
 type exercise struct {
 	conf       *Config
-	net        *docker.Network
+	net        docker.Network
 	flags      []Flag
 	machines   []virtual.Instance
 	ips        []int
 	dnsIP      string
-	dnsRecords []string
+	dnsRecords []RecordConfig
+	dockerHost DockerHost
 }
 
 func (e *exercise) Create() error {
@@ -112,7 +124,7 @@ func (e *exercise) Create() error {
 	for i, spec := range containers {
 		spec.DNS = []string{e.dnsIP}
 
-		c, err := docker.NewContainer(spec)
+		c, err := e.dockerHost.CreateContainer(spec)
 		if err != nil {
 			return err
 		}
@@ -140,7 +152,10 @@ func (e *exercise) Create() error {
 		// Example: 172.16.5.216
 
 		for _, record := range records[i] {
-			e.dnsRecords = append(e.dnsRecords, record.Format(ipaddr))
+			if record.RData == "" {
+				record.RData = ipaddr
+			}
+			e.dnsRecords = append(e.dnsRecords, record)
 		}
 
 		machines = append(machines, c)

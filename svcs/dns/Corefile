@@ -1,0 +1,6 @@
+. {
+    file zonefile
+    prometheus     # enable metrics
+    errors         # show errors
+    log            # enable query logs
+}

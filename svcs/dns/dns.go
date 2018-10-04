@@ -17,16 +17,35 @@ type Server struct {
 	confFile string
 }
 
-func New(records []string) (*Server, error) {
-	f, err := ioutil.TempFile("", "unbound-conf")
+type RR struct {
+	Name  string
+	Type  string
+	RData string
+}
+
+func (rr *RR) Format() string {
+	if rr.Type == "MX" {
+		return fmt.Sprintf("%s IN MX 10 %s", rr.Name, rr.RData)
+	}
+	return fmt.Sprintf("%s IN %s %s", rr.Name, rr.Type, rr.RData)
+}
+
+func New(records []RR) (*Server, error) {
+	f, err := ioutil.TempFile("", "zonefile")
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 	confFile := f.Name()
 
+	zonePrefix, err := ioutil.ReadFile("zonefile-prefix")
+	if err != nil {
+		return nil, err
+	}
+	f.Write(zonePrefix)
+
 	for _, r := range records {
-		line := fmt.Sprintf(`local-data: "%s"`, r)
+		line := fmt.Sprintf(`%s`, r.Format())
 		_, err = f.Write([]byte(line + "\n"))
 		if err != nil {
 			return nil, err
@@ -36,15 +55,17 @@ func New(records []string) (*Server, error) {
 	f.Sync()
 
 	cont, err := docker.NewContainer(docker.ContainerConfig{
-		Image: "tpanum/unbound",
+		Image: "coredns/coredns",
 		Mounts: []string{
-			fmt.Sprintf("%s:/opt/unbound/etc/unbound/a-records.conf", confFile),
+			"Corefile:Corefile",
+			fmt.Sprintf("%s:zonefile", confFile),
 		},
 		UsedPorts: []string{"53/tcp"},
 		Resources: &docker.Resources{
 			MemoryMB: 50,
 			CPU:      0.3,
 		},
+		Cmd: []string{"--conf", "Corefile"},
 	})
 	if err != nil {
 		return nil, err
