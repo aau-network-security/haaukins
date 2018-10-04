@@ -144,7 +144,9 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}
 
 	hostConf := docker.HostConfig{
-		ExtraHosts: []string{fmt.Sprintf("host:%s", hostIP)},
+		ExtraHosts:       []string{fmt.Sprintf("host:%s", hostIP)},
+		MemorySwap:       0,
+		MemorySwappiness: 0,
 	}
 
 	if conf.Resources != nil {
