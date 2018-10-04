@@ -81,9 +81,10 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 	}
 
 	e := &exercise{
-		conf:  &conf,
-		net:   ee.network,
-		dnsIP: ee.dnsIP,
+		conf:       &conf,
+		net:        ee.network,
+		dnsIP:      ee.dnsIP,
+		dockerHost: dockerHost{},
 	}
 
 	if err := e.Create(); err != nil {
