@@ -166,7 +166,7 @@ func (ee *environment) updateDNS() error {
 	var rrSet []dns.RR
 	for _, e := range ee.exercises {
 		for _, record := range e.dnsRecords {
-			rrSet = append(rrSet, dns.RR{record.Type, record.Name, record.RData})
+			rrSet = append(rrSet, dns.RR{record.Name, record.Type, record.RData})
 		}
 	}
 

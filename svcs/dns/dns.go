@@ -9,7 +9,24 @@ import (
 )
 
 const (
-	PreferedIP = 3
+	PreferedIP      = 3
+	coreFileContent = `. {
+    file zonefile
+    prometheus     # enable metrics
+    errors         # show errors
+    log            # enable query logs
+}
+`
+	zonePrefixContent = `$ORIGIN .
+@   3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. (
+                2017042745 ; serial
+                7200       ; refresh (2 hours)
+                3600       ; retry (1 hour)
+                1209600    ; expire (2 weeks)
+                3600       ; minimum (1 hour)
+                )
+
+`
 )
 
 type Server struct {
@@ -36,31 +53,40 @@ func New(records []RR) (*Server, error) {
 		return nil, err
 	}
 	defer f.Close()
-	confFile := f.Name()
 
-	zonePrefix, err := ioutil.ReadFile("zonefile-prefix")
+	c, err := ioutil.TempFile("", "Corefile")
 	if err != nil {
 		return nil, err
 	}
-	f.Write(zonePrefix)
+	defer c.Close()
+
+	confFile := f.Name()
+
+	f.Write([]byte(zonePrefixContent))
 
 	for _, r := range records {
-		line := fmt.Sprintf(`%s`, r.Format())
-		_, err = f.Write([]byte(line + "\n"))
+		_, err = f.Write([]byte(r.Format() + "\n"))
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	coreFile := c.Name()
+
+	c.Write([]byte(coreFileContent))
 
 	f.Sync()
 
 	cont, err := docker.NewContainer(docker.ContainerConfig{
 		Image: "coredns/coredns",
 		Mounts: []string{
-			"Corefile:Corefile",
-			fmt.Sprintf("%s:zonefile", confFile),
+			fmt.Sprintf("%s:/Corefile", coreFile),
+			fmt.Sprintf("%s:/zonefile", confFile),
 		},
-		UsedPorts: []string{"53/tcp"},
+		UsedPorts: []string{
+			"53/tcp",
+			"53/udp",
+		},
 		Resources: &docker.Resources{
 			MemoryMB: 50,
 			CPU:      0.3,

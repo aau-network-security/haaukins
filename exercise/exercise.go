@@ -18,8 +18,8 @@ type Flag struct {
 }
 
 type RecordConfig struct {
-	Type  string `yaml:"type"`
 	Name  string `yaml:"name"`
+	Type  string `yaml:"type"`
 	RData string `yaml:"rdata"`
 }
 
