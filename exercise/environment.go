@@ -18,7 +18,7 @@ type environment struct {
 	tags      map[string]*exercise
 	exercises []*exercise
 
-	network    *docker.Network
+	network    docker.Network
 	dnsServer  *dns.Server
 	dhcpServer *dhcp.Server
 	dnsIP      string
@@ -44,9 +44,9 @@ func NewEnvironment(exercises ...Config) (Environment, error) {
 		return nil, err
 	}
 
-    // we need to set the DNS server BEFORE we add our exercises
-    // else ee.dnsIP wil be "", and the resulting resolv.conf "nameserver "
-    ee.dnsIP = ee.network.FormatIP(dns.PreferedIP)
+	// we need to set the DNS server BEFORE we add our exercises
+	// else ee.dnsIP wil be "", and the resulting resolv.conf "nameserver "
+	ee.dnsIP = ee.network.FormatIP(dns.PreferedIP)
 
 	for _, e := range exercises {
 		if err := ee.Add(e, false); err != nil {
@@ -81,9 +81,10 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 	}
 
 	e := &exercise{
-		conf:  &conf,
-		net:   ee.network,
-		dnsIP: ee.dnsIP,
+		conf:       &conf,
+		net:        ee.network,
+		dnsIP:      ee.dnsIP,
+		dockerHost: dockerHost{},
 	}
 
 	if err := e.Create(); err != nil {
@@ -162,12 +163,14 @@ func (ee *environment) updateDNS() error {
 		}
 	}
 
-	var records []string
+	var rrSet []dns.RR
 	for _, e := range ee.exercises {
-		records = append(records, e.dnsRecords...)
+		for _, record := range e.dnsRecords {
+			rrSet = append(rrSet, dns.RR{record.Name, record.Type, record.RData})
+		}
 	}
 
-	serv, err := dns.New(records)
+	serv, err := dns.New(rrSet)
 	if err != nil {
 		return err
 	}
