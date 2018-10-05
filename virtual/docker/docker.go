@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"crypto/md5"
 	"errors"
 	"fmt"
@@ -144,7 +145,9 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}
 
 	hostConf := docker.HostConfig{
-		ExtraHosts: []string{fmt.Sprintf("host:%s", hostIP)},
+		ExtraHosts:       []string{fmt.Sprintf("host:%s", hostIP)},
+		MemorySwap:       0,
+		MemorySwappiness: 0,
 	}
 
 	if conf.Resources != nil {
@@ -232,6 +235,11 @@ func digestRemoteImg(img Image, reg docker.AuthConfiguration) (string, error) {
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
 	req.SetBasicAuth(reg.Username, reg.Password)
 
+	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
+	defer cancel()
+
+	req = req.WithContext(ctx)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
@@ -271,46 +279,59 @@ func ensureImage(imgStr string) error {
 	img := parseImage(imgStr)
 
 	dImg, err := DefaultClient.InspectImage(img.String())
+	foundLocal := dImg != nil && err != docker.ErrNoSuchImage
+
 	if img.IsPublic() {
+		if !foundLocal {
+			return pullImage(img, docker.AuthConfiguration{})
+		}
+
 		if err != nil {
-			if err == docker.ErrNoSuchImage {
-				if err := pullImage(img, docker.AuthConfiguration{}); err != nil {
-					return err
-				}
-
-				return nil
-			}
-
 			return err
 		}
 
 		return nil
 	}
 
-	reg, ok := Registries[img.Registry]
-	if !ok {
-		return fmt.Errorf("No credentials for registry: %s", img.Registry)
-	}
-
-	if dImg != nil {
-
-		rDigest, err := digestRemoteImg(img, reg)
+	creds, hasCreds := Registries[img.Registry]
+	var rdig string
+	for i := 0; i < 3 && hasCreds && rdig == ""; i++ {
+		rdig, err = digestRemoteImg(img, creds)
 		if err != nil {
-			return err
-		}
-
-		lDigest := dImg.RepoDigests[0]
-		if strings.Contains(lDigest, "@") {
-			lDigest = strings.Split(lDigest, "@")[1]
-		}
-
-		if lDigest == rDigest {
-			return nil
+			continue
 		}
 	}
 
-	if err := pullImage(img, reg); err != nil {
-		return err
+	var newVersion bool
+	if rdig != "" && foundLocal {
+		ldig := dImg.RepoDigests[0]
+		if strings.Contains(ldig, "@") {
+			ldig = strings.Split(ldig, "@")[1]
+		}
+
+		if rdig == ldig {
+			newVersion = true
+		}
+	}
+
+	if newVersion {
+		// newVersion is only set if a local image exists AND a new digest has been observed
+		if err := pullImage(img, creds); err != nil {
+			log.Warn().
+				Err(err).
+				Str("image", img.String()).
+				Msg("Attempted to update version but failed")
+		}
+
+		return nil
+	}
+
+	if !foundLocal {
+		if !hasCreds {
+			return fmt.Errorf("No credentials for registry: %s", img.Registry)
+		}
+
+		return pullImage(img, creds)
 	}
 
 	return nil
@@ -467,14 +488,21 @@ func (c *container) Link(other Identifier, alias string) error {
 	return nil
 }
 
-type Network struct {
+type network struct {
 	net       *docker.Network
 	subnet    string
 	ipPool    map[uint8]struct{}
 	connected []Identifier
 }
 
-func NewNetwork() (*Network, error) {
+type Network interface {
+	Close() error
+	FormatIP(num int) string
+	Interface() string
+	Connect(c Container, ip ...int) (int, error)
+}
+
+func NewNetwork() (Network, error) {
 	conf := func() docker.CreateNetworkOptions {
 		sub := randomPrivateSubnet24()
 
@@ -517,10 +545,10 @@ func NewNetwork() (*Network, error) {
 		ipPool[uint8(i)] = struct{}{}
 	}
 
-	return &Network{net: net, subnet: subnet, ipPool: ipPool}, nil
+	return &network{net: net, subnet: subnet, ipPool: ipPool}, nil
 }
 
-func (n *Network) Close() error {
+func (n *network) Close() error {
 	for _, cont := range n.connected {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 			Container: cont.ID(),
@@ -532,15 +560,15 @@ func (n *Network) Close() error {
 	return DefaultClient.RemoveNetwork(n.net.ID)
 }
 
-func (n *Network) FormatIP(num int) string {
+func (n *network) FormatIP(num int) string {
 	return fmt.Sprintf("%s.%d", n.subnet[0:len(n.subnet)-5], num)
 }
 
-func (n *Network) Interface() string {
+func (n *network) Interface() string {
 	return fmt.Sprintf("dm-%s", n.net.ID[0:12])
 }
 
-func (n *Network) getRandomIP() int {
+func (n *network) getRandomIP() int {
 	for randDigit, _ := range n.ipPool {
 		delete(n.ipPool, randDigit)
 		return int(randDigit)
@@ -548,7 +576,7 @@ func (n *Network) getRandomIP() int {
 	return 0
 }
 
-func (n *Network) releaseIP(ip string) {
+func (n *network) releaseIP(ip string) {
 	parts := strings.Split(ip, ".")
 	strDigit := parts[len(parts)-1]
 
@@ -560,7 +588,7 @@ func (n *Network) releaseIP(ip string) {
 	n.ipPool[uint8(num)] = struct{}{}
 }
 
-func (n *Network) Connect(c Container, ip ...int) (int, error) {
+func (n *network) Connect(c Container, ip ...int) (int, error) {
 	var lastDigit int
 
 	if len(ip) > 0 {

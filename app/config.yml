@@ -37,7 +37,7 @@ lab:
       memoryMB: 85
       dns:
       - name: netsec-forum.dk
-        record: A
+        type: A
       flag:
       - name: Network sniffing
         env: FLAG
@@ -60,7 +60,7 @@ lab:
       memoryMB: 85
       dns:
       - name: dogshare.com
-        record: A
+        type: A
       flag:
       - name: Cross-site scripting
         env: FLAG
@@ -90,7 +90,7 @@ lab:
         points: 8
       dns:
       - name: cph-sec.com
-        record: A
+        type: A
   - name: Man-in-the-Middle
     tags:
     - mitm
@@ -99,7 +99,7 @@ lab:
       memoryMB: 100
       dns:
       - name: secureshare.com
-        record: A
+        type: A
     - image: registry.sec-aau.dk/aau/mitm-client
       memoryMB: 75
       env:
