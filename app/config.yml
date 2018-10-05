@@ -10,15 +10,13 @@ guacamole:
 revproxy:
   host: localhost
 lab:
+  ova_library: /scratch/ova
   capacity:
     buffer: 1
     max: 10
   frontends:
-    directory: /scratch/git/kali-packer/kali-source/dist
-    configs:
-    - has_nat: false
-      ova_file: aau-kali-amd64.ova
-      ram: 4096
+  - image: aau-kali-amd64.ova
+    memoryMB: 4096
   exercise:
   - name: SQL Injection
     tags:

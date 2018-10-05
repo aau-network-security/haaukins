@@ -10,25 +10,27 @@ guacamole:
 revproxy:
   host: localhost
 lab:
+  ova_library: /scratch/ova
   capacity:
     buffer: 2
     max: 10
   frontends:
-    directory: /scratch/git/kali-packer/kali-source/dist
-    configs:
-    - has_nat: false
-      ova_file: aau-kali-amd64.ova
-      ram: 4096
+  - image: aau-kali-amd64.ova
+    memoryMB: 4096
   exercise:
-  - name: Windows
+  - name: Vulnerability exploitation
     tags:
     - scanning
     vbox:
-      directory: /scratch/events/hackerspace/pentesting
-      ova_files:
-      - windows-xp.ova
-      - metasploitable.ova
-      - sickos.ova
+    - image: vulnerability_exploitation/windows-xp.ova
+      memoryMB: 512
+      flag:
+      - name: Vulnerability exploitation
+        env: FLAG
+        default: 619cb4b9-c941-4a26-91fb-78a6a01c9d83
+        points: 10
+    - image: vulnerability_exploitation/metasploitable.ova
+    - image: vulnerability_exploitation/sickos.ova
   - name: SQL Injection
     tags:
     - sql

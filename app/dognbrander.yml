@@ -37,7 +37,7 @@ lab:
       memoryMB: 85
       dns:
       - name: netsec-forum.dk
-        record: A
+        type: A
       flag:
       - name: Network sniffing
         env: FLAG
@@ -57,7 +57,7 @@ lab:
         points: 8
       dns:
       - name: cph-sec.com
-        record: A
+        type: A
   - name: Network Scanning
     tags:
     - scan
