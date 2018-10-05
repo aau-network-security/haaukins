@@ -184,6 +184,16 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		err  error
 	)
 
+	log.Info().
+		Str("Name", req.Name).
+		Str("Tag", req.Tag).
+		Int32("Buffer", req.Buffer).
+		Int32("Capacity", req.Capacity).
+		Strs("Exercises", req.Exercises).
+		Strs("Frontends", req.Frontends).
+		Str("Cap", req.Tag).
+		Msg("Creating event")
+
 	if req.Name == "" || req.Tag == "" {
 		return InvalidArgumentsErr
 	}

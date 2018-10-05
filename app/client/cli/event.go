@@ -74,7 +74,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringSliceP("name", "n", []string{}, "the event name")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "the event name")
 	cmd.Flags().IntVarP(&buffer, "buffer", "b", 2, "amount of lab hubs to buffer")
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "capacity of total amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
