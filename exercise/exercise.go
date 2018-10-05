@@ -2,8 +2,6 @@ package exercise
 
 import (
 	"errors"
-	"fmt"
-
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
@@ -21,10 +19,6 @@ type RecordConfig struct {
 	Name  string `yaml:"name"`
 	Type  string `yaml:"type"`
 	RData string `yaml:"rdata"`
-}
-
-func (rc RecordConfig) Format(ip string) string {
-	return fmt.Sprintf("%s %s %s", rc.Name, rc.Type, ip)
 }
 
 type FlagConfig struct {

@@ -41,9 +41,6 @@ type RR struct {
 }
 
 func (rr *RR) Format() string {
-	if rr.Type == "MX" {
-		return fmt.Sprintf("%s IN MX 10 %s", rr.Name, rr.RData)
-	}
 	return fmt.Sprintf("%s IN %s %s", rr.Name, rr.Type, rr.RData)
 }
 

@@ -66,7 +66,7 @@ func TestExerciseCreate(t *testing.T) {
 		{
 			Name:  "example.org",
 			Type:  "MX",
-			RData: "mx.example.org",
+			RData: "10 mx.example.org",
 		},
 	}
 	secondRecords := []RecordConfig{

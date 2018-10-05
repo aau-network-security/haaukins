@@ -499,8 +499,6 @@ type Network interface {
 	Close() error
 	FormatIP(num int) string
 	Interface() string
-	getRandomIP() int
-	releaseIP(ip string)
 	Connect(c Container, ip ...int) (int, error)
 }
 
