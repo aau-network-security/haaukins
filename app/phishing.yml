@@ -42,6 +42,7 @@ lab:
         value: 08:00:27:21:9C:C0
     - image: registry.sec-aau.dk/aau/phishing-server
       memoryMB: 50
+      mac: 08:00:27:21:9C:C0
       dns:
       - name: cryptobanker.com
         type: A
@@ -60,7 +61,6 @@ lab:
       dns:
       - name: mail.cryptobanker.com
         type: A
-      mac: 08:00:27:21:9C:C0
       env:
       - env: OTHER_HOSTNAMES
         value: cryptobanker.com
