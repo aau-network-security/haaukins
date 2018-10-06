@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -35,6 +36,7 @@ var (
 type CTFd interface {
 	docker.Identifier
 	svcs.ProxyConnector
+	Middleware(http.Handler) http.Handler
 	Start() error
 	Close() error
 	Stop() error
@@ -334,4 +336,60 @@ func waitForServer(path string) error {
 	}()
 
 	return <-errc
+}
+
+func (ctf *ctfd) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// we are only interested in post
+		if r.Method != http.MethodPost {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// log
+		log.Info().
+			Str("URL.Path", r.URL.Path).
+			Str("Method", r.Method).
+			Msg("CTFd.Middleware")
+
+		// populate r.Form if body is available
+		if r.Body != nil {
+			// read buffer and make a copy
+			b, _ := ioutil.ReadAll(r.Body)
+			body := ioutil.NopCloser(bytes.NewReader(b))
+			// set our body again, as we just read it
+			r.Body = body
+			// parse form -> populates r.Form
+			r.ParseForm()
+			for k, v := range r.Form {
+				fmt.Printf("key: %s = %s\n", k, v)
+			}
+
+			// set our body again
+			body = ioutil.NopCloser(bytes.NewReader(b))
+			r.Body = body
+		}
+
+		if strings.Index(r.URL.Path, "/login") == 0 {
+
+		} else if strings.Index(r.URL.Path, "/register") == 0 {
+
+		} else if strings.Index(r.URL.Path, "/chal/") == 0 {
+
+		}
+
+		// start a recorder, record the request and set the headers
+		rec := httptest.NewRecorder()
+		next.ServeHTTP(rec, r)
+		for k, v := range rec.Header() {
+			w.Header()[k] = v
+		}
+
+		// if rec.Code is 301 (redirect), then it was a success, so create a lab
+
+		// set statuscode too ! (this writes out our headers)
+		w.WriteHeader(rec.Code)
+		// write out our body
+		w.Write(rec.Body.Bytes())
+	})
 }

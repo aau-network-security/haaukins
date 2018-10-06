@@ -238,6 +238,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	go ev.Start(context.TODO())
 
 	host := fmt.Sprintf("%s.%s", req.Tag, d.conf.Host)
+
+	log.Info().
+		Str("host", host).
+		Msg("Creating subrouter for guac and CTFd")
+
 	eventRoute := d.mux.Host(host).Subrouter()
 	ev.Connect(eventRoute)
 
