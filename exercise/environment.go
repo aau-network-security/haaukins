@@ -44,7 +44,7 @@ func NewEnvironment(lib vbox.Library, exercises ...Config) (Environment, error) 
 		return nil, err
 	}
 
-	if _, err := ee.network.Connect(ee.dhcpServer.Container(), 2); err != nil {
+	if _, err := ee.network.Connect(ee.dhcpServer.Container(), "", 2); err != nil {
 		return nil, err
 	}
 
@@ -89,7 +89,7 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 		net:        ee.network,
 		dnsIP:      ee.dnsIP,
 		dockerHost: dockerHost{},
-		lib:		ee.lib,
+		lib:        ee.lib,
 	}
 
 	if err := e.Create(); err != nil {
@@ -180,7 +180,7 @@ func (ee *environment) updateDNS() error {
 		return err
 	}
 
-	if _, err := ee.network.Connect(serv.Container(), dns.PreferedIP); err != nil {
+	if _, err := ee.network.Connect(serv.Container(), "", dns.PreferedIP); err != nil {
 		return err
 	}
 

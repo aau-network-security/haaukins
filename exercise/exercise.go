@@ -139,13 +139,13 @@ func (e *exercise) Create() error {
 
 		if e.ips != nil {
 			// Containers need specific ips
-			lastDigit, err = e.net.Connect(c, e.ips[i])
+			lastDigit, err = e.net.Connect(c, spec.MacAddress, e.ips[i])
 			if err != nil {
 				return err
 			}
 		} else {
 			// Let network assign ips
-			lastDigit, err = e.net.Connect(c)
+			lastDigit, err = e.net.Connect(c, spec.MacAddress)
 			if err != nil {
 				return err
 			}
