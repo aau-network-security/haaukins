@@ -19,6 +19,10 @@ import (
 
 	"errors"
 
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
@@ -28,9 +32,10 @@ import (
 )
 
 var (
-	NONCEREGEXP = regexp.MustCompile(`csrf_nonce[ ]*=[ ]*"(.+)"`)
-
-	ServerUnavailableErr = errors.New("Server is unavailable")
+	NONCEREGEXP            = regexp.MustCompile(`csrf_nonce[ ]*=[ ]*"(.+)"`)
+	ServerUnavailableErr   = errors.New("Server is unavailable")
+	UserNotFoundErr        = errors.New("Could not find the specified user")
+	CouldNotFindSessionErr = errors.New("Could not find the specified user")
 )
 
 type CTFd interface {
@@ -59,6 +64,14 @@ type ctfd struct {
 	confDir    string
 	port       uint
 	httpclient *http.Client
+	users      []*user
+	relation   map[string]*user
+}
+
+type user struct {
+	teamname string
+	email    string
+	password string
 }
 
 func New(conf Config) (CTFd, error) {
@@ -96,6 +109,7 @@ func New(conf Config) (CTFd, error) {
 		conf:       conf,
 		httpclient: hc,
 		port:       virtual.GetAvailablePort(),
+		relation:   make(map[string]*user),
 	}
 
 	confDir, err := ioutil.TempDir("", "ctfd")
@@ -338,10 +352,31 @@ func waitForServer(path string) error {
 	return <-errc
 }
 
+type chalRes struct {
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+}
+
 func (ctf *ctfd) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// we are only interested in post
 		if r.Method != http.MethodPost {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// we only want these endpoints (and check)
+		reqLogin := false
+		reqLoginUsername := ""
+		reqRegister := false
+		reqChal := false
+		if strings.Index(r.URL.Path, "/login") == 0 {
+			reqLogin = true
+		} else if strings.Index(r.URL.Path, "/register") == 0 {
+			reqRegister = true
+		} else if strings.Index(r.URL.Path, "/chal/") == 0 {
+			reqChal = true
+		} else {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -353,43 +388,169 @@ func (ctf *ctfd) Middleware(next http.Handler) http.Handler {
 			Msg("CTFd.Middleware")
 
 		// populate r.Form if body is available
-		if r.Body != nil {
+		if r.Body != nil && (reqLogin || reqRegister) {
+			fmt.Println("Body is not nil")
 			// read buffer and make a copy
 			b, _ := ioutil.ReadAll(r.Body)
 			body := ioutil.NopCloser(bytes.NewReader(b))
+
 			// set our body again, as we just read it
 			r.Body = body
+
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(r.Body)
+			s := buf.String()
+			fmt.Println(s)
+
 			// parse form -> populates r.Form
-			r.ParseForm()
-			for k, v := range r.Form {
-				fmt.Printf("key: %s = %s\n", k, v)
+
+			if reqRegister || reqLogin {
+				fmt.Println("We are registering")
+
+				// pass our body
+				urlValues, err := url.ParseQuery(s)
+				reqLoginUsername = urlValues.Get("name")
+				if err != nil {
+					log.Error().
+						Msg("Failed to ParseQuery")
+				}
+
+				// init our hasher
+				hash := sha256.New()
+				hash.Write([]byte(urlValues.Get("password")))
+				md := hash.Sum(nil)
+				urlValues.Set("password", hex.EncodeToString(md))
+
+				if reqRegister {
+					ctf.users = append(ctf.users, &user{
+						teamname: urlValues.Get("name"),
+						email:    urlValues.Get("email"),
+						password: urlValues.Get("password"),
+					})
+				}
+
+				postQuery := urlValues.Encode()
+				clen := len(postQuery)
+
+				fmt.Printf("Previous header length: %d\n", r.ContentLength)
+				fmt.Printf("New header length: %d\n", clen)
+				fmt.Println("New values - " + postQuery)
+
+				r.Body = ioutil.NopCloser(bytes.NewReader([]byte(postQuery)))
+				r.ContentLength = int64(clen)
 			}
 
-			// set our body again
-			body = ioutil.NopCloser(bytes.NewReader(b))
-			r.Body = body
-		}
-
-		if strings.Index(r.URL.Path, "/login") == 0 {
-
-		} else if strings.Index(r.URL.Path, "/register") == 0 {
-
-		} else if strings.Index(r.URL.Path, "/chal/") == 0 {
-
+			if !reqRegister && !reqLogin {
+				// set our body again
+				body = ioutil.NopCloser(bytes.NewReader(b))
+				r.Body = body
+			}
 		}
 
 		// start a recorder, record the request and set the headers
 		rec := httptest.NewRecorder()
 		next.ServeHTTP(rec, r)
 		for k, v := range rec.Header() {
+			fmt.Printf("%s = %v\n", k, v)
 			w.Header()[k] = v
 		}
 
-		// if rec.Code is 301 (redirect), then it was a success, so create a lab
+		// if rec.Code is 302 (redirect), then it was a success, so create a lab
+		if reqLogin || reqRegister {
+			if rec.Code == 302 {
+				if reqLogin || reqRegister {
+
+					user, err := ctf.findUser(reqLoginUsername)
+					if err != nil {
+						log.Error().
+							Str("userInfo", reqLoginUsername).
+							Err(err).
+							Msg("Could not find user")
+					}
+
+					sessionToken, err := ctf.extractSession(rec.Header())
+					if err != nil {
+						log.Error().
+							Err(err).
+							Msg("Could not extract session")
+					}
+
+					ctf.relation[sessionToken] = user
+
+					fmt.Println("----------")
+					for _, user := range ctf.users {
+						fmt.Printf("%+v\n", user)
+					}
+					fmt.Printf("%+v\n", ctf.relation)
+				}
+
+			}
+		} else if reqChal {
+			fmt.Println(reqChal)
+			log.Debug().Msg("Challenge solution")
+			var res chalRes
+			if err := json.NewDecoder(rec.Body).Decode(&res); err != nil {
+				log.Error().
+					Err(err).
+					Msg("Could not decode response")
+				return
+			}
+
+			fmt.Printf("%+v\n", res)
+
+			sessionToken, err := ctf.extractSession(r.Header)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("Could not extract session")
+				return
+			}
+
+			user := ctf.relation[sessionToken]
+
+			log.Debug().
+				Str("solved", res.Message).
+				Str("teamName", user.teamname).
+				Msg("Challenge solution")
+
+			b, err := json.Marshal(res)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("Could not encode")
+				return
+			}
+
+			rec.Body = bytes.NewBuffer(b)
+		}
 
 		// set statuscode too ! (this writes out our headers)
 		w.WriteHeader(rec.Code)
 		// write out our body
 		w.Write(rec.Body.Bytes())
 	})
+}
+
+func (ctf *ctfd) extractSession(headers http.Header) (string, error) {
+	for k, v := range headers {
+		if strings.Contains(v[0], "session") {
+			fmt.Printf("%s = %s\n", k, v)
+			if strings.Index(v[0], ";") != -1 {
+				return v[0][8:strings.Index(v[0], ";")], nil
+			}
+			return v[0][8:], nil
+		}
+	}
+
+	return "", CouldNotFindSessionErr
+}
+
+func (ctf *ctfd) findUser(userinfo string) (*user, error) {
+	for _, user := range ctf.users {
+		if user.teamname == userinfo || user.email == userinfo {
+			return user, nil
+		}
+	}
+
+	return nil, UserNotFoundErr
 }
