@@ -23,7 +23,7 @@ lab:
     - phishing
     docker:
     - image: registry.sec-aau.dk/aau/phishing-client
-      memoryMB: 50
+      memoryMB: 400
       flag:
       - name: Phishing (link)
         env: FLAG_HAS_LINK
@@ -37,21 +37,24 @@ lab:
         env: FLAG_SPOOFED_DOMAIN
         default: 782e1e58-201b-4b85-b4d3-152b23a03a1d
         points: 20
-      env:
-      - env: WEB_MAC
-        value: 08:00:27:21:9C:C0
     - image: registry.sec-aau.dk/aau/phishing-server
       memoryMB: 50
       mac: 08:00:27:21:9C:C0
       dns:
       - name: cryptobanker.com
         type: A
+      - name: www.cryptobanker.com
+        type: CNAME cryptobanker.com
       - name: cryptobanker.com
         type: MX
         rdata: 10 mail.cryptobanker.com
       env:
         - env: HOSTNAME
           value: cryptobanker.com
+        - env: USER
+          value: reynash
+        - env: PASSWORD
+          value: mommaBeProud-1978
       flag:
       - name: Phishing (login)
         env: FLAG_AFTER_LOGIN
