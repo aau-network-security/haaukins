@@ -3,6 +3,7 @@ package exercise
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -12,7 +13,19 @@ var (
 	DuplicateTagErr = errors.New("Tag already exists")
 	MissingTagsErr  = errors.New("No tags, need atleast one tag")
 	UnknownTagErr   = errors.New("Unknown tag")
+	TagsEmptyErr    = errors.New("Cannot have zero tags")
+
+	tagRawRegexp = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
+	tagRegex     = regexp.MustCompile(tagRawRegexp)
 )
+
+type InvalidTagSyntaxErr struct {
+	tag string
+}
+
+func (ite *InvalidTagSyntaxErr) Error() string {
+	return fmt.Sprintf("Invalid syntax for tag \"%s\", allowed syntax: %s", ite.tag, tagRawRegexp)
+}
 
 type Flag struct {
 }
@@ -52,6 +65,20 @@ type Config struct {
 	Tags        []string       `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
 	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
+}
+
+func (conf Config) Validate() error {
+	if len(conf.Tags) == 0 {
+		return TagsEmptyErr
+	}
+
+	for _, t := range conf.Tags {
+		if !tagRegex.MatchString(t) {
+			return &InvalidTagSyntaxErr{t}
+		}
+	}
+
+	return nil
 }
 
 func (conf Config) Flags() []FlagConfig {

@@ -204,12 +204,12 @@ func (ss *signupkeystore) RunHooks(keys []SignupKey) error {
 	return nil
 }
 
-type UserFile struct {
+type UserFile interface {
 	UserStore
 	SignupKeyStore
 }
 
-func NewUserFile(path string) (*UserFile, error) {
+func NewUserFile(path string) (UserFile, error) {
 	var conf struct {
 		Users      []User      `yaml:"users"`
 		SignupKeys []SignupKey `yaml:"signup-keys"`
@@ -237,7 +237,10 @@ func NewUserFile(path string) (*UserFile, error) {
 		}
 	}
 
-	return &UserFile{
+	return &struct {
+		UserStore
+		SignupKeyStore
+	}{
 		NewUserStore(conf.Users, func(u []User) error {
 			conf.Users = u
 			return save()
