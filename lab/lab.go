@@ -59,11 +59,12 @@ func (l *lab) addFrontend(conf frontendConfig) (vbox.VM, error) {
 		vbox.SetBridge(l.environment.Interface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
 	)
-	vm.SetRAM(conf.MemoryMB)
 	if err != nil {
 		return nil, err
 	}
-
+	if err := vm.SetRAM(conf.MemoryMB); err != nil {
+		return nil, err
+	}
 	l.frontends = append(l.frontends, vm)
 	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
 
