@@ -8,6 +8,21 @@ import (
 	"github.com/aau-network-security/go-ntp/store"
 )
 
+func TestUser(t *testing.T) {
+	u, err := store.NewUser("tkp", "test123")
+	if err != nil {
+		t.Fatalf("expected no error when creating user struct, got: %s", err)
+	}
+
+	if ok := u.IsCorrectPassword("test123"); !ok {
+		t.Fatalf("expected no error when comparing passwords")
+	}
+
+	if ok := u.IsCorrectPassword("testtttttttt123"); ok {
+		t.Fatalf("expected error when comparing incorrect passwords")
+	}
+}
+
 func TestUserStore(t *testing.T) {
 	var ran bool
 	var count int
@@ -59,6 +74,42 @@ func TestUserStore(t *testing.T) {
 
 	if ran {
 		t.Fatalf("expected hook not to have been run")
+	}
+}
+
+func TestSignupKeyStore(t *testing.T) {
+	var ran bool
+	var count int
+
+	ss := store.NewSignupKeyStore([]store.SignupKey{}, func(ss []store.SignupKey) error {
+		ran = true
+		count = len(ss)
+		return nil
+	})
+
+	if n := len(ss.ListSignupKeys()); n != 0 {
+		t.Fatalf("unexpected amount of signup keys, expected: 0, got: %d", n)
+	}
+
+	k := store.NewSignupKey()
+	if err := ss.CreateSignupKey(k); err != nil {
+		t.Fatalf("expected no error when storing signup key struct, got: %s", err)
+	}
+
+	if !ran {
+		t.Fatalf("expected hook to have been run")
+	}
+
+	if count != 1 {
+		t.Fatalf("expected hook to have been run with one user")
+	}
+
+	if err := ss.DeleteSignupKey(k); err != nil {
+		t.Fatalf("expected no error when deleting signup key, got: %s", err)
+	}
+
+	if count != 0 {
+		t.Fatalf("expected hook to have been run with zero users")
 	}
 }
 
