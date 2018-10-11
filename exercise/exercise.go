@@ -34,13 +34,12 @@ type EnvVarConfig struct {
 }
 
 type DockerConfig struct {
-	Image    	string         `yaml:"image"`
-	Flags    	[]FlagConfig   `yaml:"flag"`
-	Envs     	[]EnvVarConfig `yaml:"env"`
-	Records  	[]RecordConfig `yaml:"dns"`
-	MemoryMB 	uint           `yaml:"memoryMB"`
-	CPU      	float64        `yaml:"cpu"`
-	MacAddress 	string 		   `yaml:"mac"`
+	Image    string         `yaml:"image"`
+	Flags    []FlagConfig   `yaml:"flag"`
+	Envs     []EnvVarConfig `yaml:"env"`
+	Records  []RecordConfig `yaml:"dns"`
+	MemoryMB uint           `yaml:"memoryMB"`
+	CPU      float64        `yaml:"cpu"`
 }
 
 type Config struct {
@@ -81,7 +80,6 @@ func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 				CPU:      conf.CPU,
 			},
 			EnvVars: envVars,
-			MacAddress: conf.MacAddress,
 		}
 
 		contSpecs = append(contSpecs, spec)
