@@ -370,6 +370,7 @@ func (ctf *ctfd) Middleware(next http.Handler) http.Handler {
 		reqLoginUsername := ""
 		reqRegister := false
 		reqChal := false
+
 		if strings.Index(r.URL.Path, "/login") == 0 {
 			reqLogin = true
 		} else if strings.Index(r.URL.Path, "/register") == 0 {
@@ -389,62 +390,38 @@ func (ctf *ctfd) Middleware(next http.Handler) http.Handler {
 
 		// populate r.Form if body is available
 		if r.Body != nil && (reqLogin || reqRegister) {
-			fmt.Println("Body is not nil")
-			// read buffer and make a copy
-			b, _ := ioutil.ReadAll(r.Body)
-			body := ioutil.NopCloser(bytes.NewReader(b))
-
-			// set our body again, as we just read it
-			r.Body = body
-
+			// pass our body into parsequery to get post params
 			buf := new(bytes.Buffer)
 			buf.ReadFrom(r.Body)
-			s := buf.String()
-			fmt.Println(s)
+			urlValues, err := url.ParseQuery(buf.String())
 
-			// parse form -> populates r.Form
-
-			if reqRegister || reqLogin {
-				fmt.Println("We are registering")
-
-				// pass our body
-				urlValues, err := url.ParseQuery(s)
-				reqLoginUsername = urlValues.Get("name")
-				if err != nil {
-					log.Error().
-						Msg("Failed to ParseQuery")
-				}
-
-				// init our hasher
-				hash := sha256.New()
-				hash.Write([]byte(urlValues.Get("password")))
-				md := hash.Sum(nil)
-				urlValues.Set("password", hex.EncodeToString(md))
-
-				if reqRegister {
-					ctf.users = append(ctf.users, &user{
-						teamname: urlValues.Get("name"),
-						email:    urlValues.Get("email"),
-						password: urlValues.Get("password"),
-					})
-				}
-
-				postQuery := urlValues.Encode()
-				clen := len(postQuery)
-
-				fmt.Printf("Previous header length: %d\n", r.ContentLength)
-				fmt.Printf("New header length: %d\n", clen)
-				fmt.Println("New values - " + postQuery)
-
-				r.Body = ioutil.NopCloser(bytes.NewReader([]byte(postQuery)))
-				r.ContentLength = int64(clen)
+			if err != nil {
+				log.Error().
+					Msg("Failed to ParseQuery")
 			}
 
-			if !reqRegister && !reqLogin {
-				// set our body again
-				body = ioutil.NopCloser(bytes.NewReader(b))
-				r.Body = body
+			// set our username for later use
+			reqLoginUsername = urlValues.Get("name")
+
+			// init our hasher, and replace password
+			hash := sha256.New()
+			hash.Write([]byte(urlValues.Get("password")))
+			hashHexed := hex.EncodeToString(hash.Sum(nil))
+			urlValues.Set("password", hashHexed)
+
+			if reqRegister {
+				ctf.users = append(ctf.users, &user{
+					teamname: urlValues.Get("name"),
+					email:    urlValues.Get("email"),
+					password: urlValues.Get("password"),
+				})
 			}
+
+			postQuery := urlValues.Encode()
+			clen := len(postQuery)
+
+			r.Body = ioutil.NopCloser(bytes.NewReader([]byte(postQuery)))
+			r.ContentLength = int64(clen)
 		}
 
 		// start a recorder, record the request and set the headers
@@ -459,7 +436,6 @@ func (ctf *ctfd) Middleware(next http.Handler) http.Handler {
 		if reqLogin || reqRegister {
 			if rec.Code == 302 {
 				if reqLogin || reqRegister {
-
 					user, err := ctf.findUser(reqLoginUsername)
 					if err != nil {
 						log.Error().
@@ -506,6 +482,7 @@ func (ctf *ctfd) Middleware(next http.Handler) http.Handler {
 				return
 			}
 
+			// should check for errors
 			user := ctf.relation[sessionToken]
 
 			log.Debug().
