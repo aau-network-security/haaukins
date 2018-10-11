@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -134,10 +133,10 @@ func (c *Client) CmdEventList() *cobra.Command {
 			for _, event := range r.Events {
 				fmt.Println(event.Name)
 				fmt.Printf("- Tag: %s\n", event.Tag)
-				fmt.Printf("- Buffer: %d\n", event.Buffer)
+				fmt.Printf("- Name: %d\n", event.Name)
+				fmt.Printf("- Groups: %d\n", event.GroupCount)
+				fmt.Printf("- Exercises: %d\n", event.ExerciseCount)
 				fmt.Printf("- Capacity: %d\n", event.Capacity)
-				fmt.Printf("- Frontends: \n-- %s\n", strings.Join(event.Frontends, "\n-- "))
-				fmt.Printf("- Exercises: \n-- %s\n", strings.Join(event.Exercises, "\n-- "))
 			}
 		},
 	}

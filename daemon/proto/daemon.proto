@@ -46,12 +46,11 @@ message CreateEventRequest {
 message ListEventsRequest {}
 message ListEventsResponse {
   message Events {
-    string name = 1;
-    string tag = 2;
-    repeated string frontends = 3;
-    repeated string exercises = 4;
-    int32 buffer = 5;
-    int32 capacity = 6;
+    string tag = 1;
+    string name = 2;
+    int32 groupCount = 3;
+    int32 exerciseCount = 4;
+    int32 capacity = 5;
   }
 
   repeated Events events = 1;

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
+	"github.com/aau-network-security/go-ntp/exercise"
+	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/gorilla/mux"
 	"log"
 	"net"
@@ -236,6 +238,8 @@ type createEventServer struct {
 
 type testEvent struct {
 	started bool
+	conf    event.Config
+	groups  []event.Group
 	event.Event
 }
 
@@ -245,6 +249,14 @@ func (ev *testEvent) Start(context.Context) error {
 }
 
 func (ev *testEvent) Connect(*mux.Router) {}
+
+func (ev *testEvent) GetConfig() event.Config {
+	return ev.conf
+}
+
+func (ev *testEvent) GetGroups() []event.Group {
+	return ev.groups
+}
 
 type testEventHost struct {
 	ev event.Event
@@ -282,5 +294,45 @@ func TestCreateEvent(t *testing.T) {
 	time.Sleep(1 * time.Millisecond) // wait for goroutine to finish
 	if !ev.started {
 		t.Fatalf("Expected event to be started, but it is not")
+	}
+}
+
+func TestListEvents(t *testing.T) {
+	ctx := context.Background()
+
+	ev := &testEvent{
+		conf: event.Config{
+			LabConfig: lab.LabConfig{
+				Exercises: []exercise.Config{ // define three empty exercises
+					{}, {}, {},
+				},
+			},
+		},
+		groups: []event.Group{ // define two empty groups
+			{}, {},
+		},
+	}
+
+	d := daemon{
+		events: map[string]event.Event{
+			"ev": ev,
+		},
+	}
+
+	req := pb.ListEventsRequest{}
+
+	resp, err := d.ListEvents(ctx, &req)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(resp.Events) != 1 {
+		t.Fatalf("Expected %d event, got %d", 1, len(resp.Events))
+	}
+	if resp.Events[0].ExerciseCount != 3 {
+		t.Fatalf("Expected %d exercises, got %d", 3, resp.Events[0].ExerciseCount)
+	}
+	if resp.Events[0].GroupCount != 2 {
+		t.Fatalf("Expected %d groups, got %d", 2, resp.Events[0].GroupCount)
 	}
 }
