@@ -66,7 +66,6 @@ type ContainerConfig struct {
 	DNS          []string
 	UsedPorts    []string
 	UseBridge    bool
-	MacAddress   string
 }
 
 type Resources struct {
@@ -198,7 +197,6 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 			Env:          env,
 			Cmd:          conf.Cmd,
 			ExposedPorts: ports,
-			MacAddress:   conf.MacAddress,
 		},
 		HostConfig: &hostConf,
 	}
