@@ -499,7 +499,7 @@ type Network interface {
 	Close() error
 	FormatIP(num int) string
 	Interface() string
-	Connect(c Container, mac string, ip ...int) (int, error)
+	Connect(c Container, ip ...int) (int, error)
 }
 
 func NewNetwork() (Network, error) {
@@ -588,7 +588,7 @@ func (n *network) releaseIP(ip string) {
 	n.ipPool[uint8(num)] = struct{}{}
 }
 
-func (n *network) Connect(c Container, mac string, ip ...int) (int, error) {
+func (n *network) Connect(c Container, ip ...int) (int, error) {
 	var lastDigit int
 
 	if len(ip) > 0 {
@@ -606,7 +606,6 @@ func (n *network) Connect(c Container, mac string, ip ...int) (int, error) {
 				IPv4Address: ipAddr,
 			},
 			IPAddress:  ipAddr,
-			MacAddress: mac,
 		},
 	})
 	if err != nil {
