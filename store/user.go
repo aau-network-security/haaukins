@@ -47,11 +47,12 @@ func (u User) IsCorrectPassword(pass string) bool {
 type UserStore interface {
 	DeleteUserByUsername(string) error
 	CreateUser(User) error
+	GetUserByUsername(string) (User, error)
 	ListUsers() []User
 }
 
 type userstore struct {
-	m       sync.Mutex
+	m       sync.RWMutex
 	userMap map[string]*User
 	hooks   []func([]User) error
 	users   []User
@@ -91,6 +92,19 @@ func (us *userstore) DeleteUserByUsername(username string) error {
 	}
 
 	return us.RunHooks()
+}
+
+func (us *userstore) GetUserByUsername(username string) (User, error) {
+	us.m.RLock()
+	defer us.m.RUnlock()
+
+	u, ok := us.userMap[username]
+	if !ok {
+		return User{}, UserNotFoundErr
+	}
+
+	return *u, nil
+
 }
 
 func (us *userstore) ListUsers() []User {
@@ -204,18 +218,22 @@ func (ss *signupkeystore) RunHooks(keys []SignupKey) error {
 	return nil
 }
 
-type UserFile interface {
+type UsersFile interface {
 	UserStore
 	SignupKeyStore
 }
 
-func NewUserFile(path string) (UserFile, error) {
+func NewUserFile(path string) (UsersFile, error) {
 	var conf struct {
 		Users      []User      `yaml:"users"`
 		SignupKeys []SignupKey `yaml:"signup-keys"`
 	}
 
+	var m sync.Mutex
 	save := func() error {
+		m.Lock()
+		defer m.Unlock()
+
 		bytes, err := yaml.Marshal(conf)
 		if err != nil {
 			return err

@@ -27,6 +27,26 @@ func (ite *InvalidTagSyntaxErr) Error() string {
 	return fmt.Sprintf("Invalid syntax for tag \"%s\", allowed syntax: %s", ite.tag, tagRawRegexp)
 }
 
+type Tag string
+
+func NewTag(s string) (Tag, error) {
+	t := Tag(s)
+	if err := t.Validate(); err != nil {
+		return "", err
+	}
+
+	return t, nil
+}
+
+func (t Tag) Validate() error {
+	s := string(t)
+	if !tagRegex.MatchString(s) {
+		return &InvalidTagSyntaxErr{s}
+	}
+
+	return nil
+}
+
 type Flag struct {
 }
 
@@ -62,9 +82,8 @@ type DockerConfig struct {
 
 type Config struct {
 	Name        string         `yaml:"name"`
-	Tags        []string       `yaml:"tags"`
+	Tags        []Tag          `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
-	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
 }
 
 func (conf Config) Validate() error {
@@ -73,8 +92,8 @@ func (conf Config) Validate() error {
 	}
 
 	for _, t := range conf.Tags {
-		if !tagRegex.MatchString(t) {
-			return &InvalidTagSyntaxErr{t}
+		if err := t.Validate(); err != nil {
+			return err
 		}
 	}
 
@@ -83,6 +102,7 @@ func (conf Config) Validate() error {
 
 func (conf Config) Flags() []FlagConfig {
 	var res []FlagConfig
+
 	for _, dockerConf := range conf.DockerConfs {
 		res = append(res, dockerConf.Flags...)
 	}

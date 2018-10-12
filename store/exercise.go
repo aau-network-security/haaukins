@@ -2,13 +2,16 @@ package store
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/exercise"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type UnknownExerTagErr struct {
-	tag string
+	tag exercise.Tag
 }
 
 func (uee *UnknownExerTagErr) Error() string {
@@ -25,21 +28,21 @@ func (eee *ExerTagExistsErr) Error() string {
 
 type exercisestore struct {
 	m         sync.Mutex
-	tags      map[string]*exercise.Config
+	tags      map[exercise.Tag]*exercise.Config
 	exercises []*exercise.Config
 	hooks     []func([]exercise.Config) error
 }
 
 type ExerciseStore interface {
-	GetExercisesByTags(string, ...string) ([]exercise.Config, error)
+	GetExercisesByTags(...exercise.Tag) ([]exercise.Config, error)
 	CreateExercise(exercise.Config) error
-	DeleteExerciseByTag(string) error
+	DeleteExerciseByTag(exercise.Tag) error
 	ListExercises() []exercise.Config
 }
 
 func NewExerciseStore(exercises []exercise.Config, hooks ...func([]exercise.Config) error) (ExerciseStore, error) {
 	s := exercisestore{
-		tags: map[string]*exercise.Config{},
+		tags: map[exercise.Tag]*exercise.Config{},
 	}
 
 	for _, e := range exercises {
@@ -53,12 +56,12 @@ func NewExerciseStore(exercises []exercise.Config, hooks ...func([]exercise.Conf
 	return &s, nil
 }
 
-func (es *exercisestore) GetExercisesByTags(tag string, otherTags ...string) ([]exercise.Config, error) {
+func (es *exercisestore) GetExercisesByTags(tags ...exercise.Tag) ([]exercise.Config, error) {
 	es.m.Lock()
 	defer es.m.Unlock()
 
-	configs := make([]exercise.Config, len(otherTags)+1)
-	for i, t := range append([]string{tag}, otherTags...) {
+	configs := make([]exercise.Config, len(tags))
+	for i, t := range tags {
 		e, ok := es.tags[t]
 		if !ok {
 			return nil, &UnknownExerTagErr{t}
@@ -89,7 +92,7 @@ func (es *exercisestore) CreateExercise(e exercise.Config) error {
 
 	for _, t := range e.Tags {
 		if _, ok := es.tags[t]; ok {
-			return &ExerTagExistsErr{t}
+			return &ExerTagExistsErr{string(t)}
 		}
 	}
 
@@ -102,7 +105,7 @@ func (es *exercisestore) CreateExercise(e exercise.Config) error {
 	return es.RunHooks()
 }
 
-func (es *exercisestore) DeleteExerciseByTag(t string) error {
+func (es *exercisestore) DeleteExerciseByTag(t exercise.Tag) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -133,4 +136,41 @@ func (es *exercisestore) RunHooks() error {
 	}
 
 	return nil
+}
+
+func NewExerciseFile(path string) (ExerciseStore, error) {
+	var conf struct {
+		Exercises []exercise.Config `yaml:"exercises"`
+	}
+
+	var m sync.Mutex
+	save := func() error {
+		m.Lock()
+		defer m.Unlock()
+
+		bytes, err := yaml.Marshal(conf)
+		if err != nil {
+			return err
+		}
+
+		return ioutil.WriteFile(path, bytes, 0644)
+	}
+
+	// file exists
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		f, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		err = yaml.Unmarshal(f, &conf)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return NewExerciseStore(conf.Exercises, func(e []exercise.Config) error {
+		conf.Exercises = e
+		return save()
+	})
 }

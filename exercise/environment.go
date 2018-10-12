@@ -17,7 +17,7 @@ type Environment interface {
 }
 
 type environment struct {
-	tags      map[string]*exercise
+	tags      map[Tag]*exercise
 	exercises []*exercise
 
 	network    *docker.Network
@@ -28,7 +28,7 @@ type environment struct {
 
 func NewEnvironment(exercises ...Config) (Environment, error) {
 	ee := &environment{
-		tags: make(map[string]*exercise),
+		tags: make(map[Tag]*exercise),
 	}
 
 	var err error
@@ -173,7 +173,12 @@ func (ee *environment) Close() error {
 	return nil
 }
 
-func (ee *environment) ResetByTag(t string) error {
+func (ee *environment) ResetByTag(s string) error {
+	t, err := NewTag(s)
+	if err != nil {
+		return err
+	}
+
 	e, ok := ee.tags[t]
 	if !ok {
 		return UnknownTagErr

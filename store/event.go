@@ -2,10 +2,16 @@ package store
 
 import (
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/aau-network-security/go-ntp/exercise"
 	"golang.org/x/crypto/bcrypt"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var (
@@ -15,9 +21,22 @@ var (
 	EmptyTokenErr   = errors.New("Token cannot be empty")
 )
 
+type Event struct {
+	Name     string `yaml:"name"`
+	Tag      string `yaml:"tag"`
+	Buffer   int    `yaml:"buffer"`
+	Capacity int    `yaml:"capacity"`
+	Lab      Lab    `yaml:"lab"`
+}
+
+type Lab struct {
+	Frontends []string       `yaml:"frontends"`
+	Exercises []exercise.Tag `yaml:"exercises"`
+}
+
 type Task struct {
-	ExerciseTag string     `yaml:"extag"`
-	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
+	ExerciseTag exercise.Tag `yaml:"tag"`
+	CompletedAt *time.Time   `yaml:"completed-at,omitempty"`
 }
 
 type Team struct {
@@ -27,7 +46,7 @@ type Team struct {
 	Tasks          []Task `yaml:"tasks"`
 }
 
-func NewTeam(email, name, password string, tasks []Task) (Team, error) {
+func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return Team{}, err
@@ -41,7 +60,7 @@ func NewTeam(email, name, password string, tasks []Task) (Team, error) {
 	}, nil
 }
 
-func (t Team) SolveTaskByTag(tag string) error {
+func (t Team) SolveTaskByTag(tag exercise.Tag) error {
 	var task *Task
 	for i, ta := range t.Tasks {
 		if ta.ExerciseTag == tag {
@@ -59,7 +78,7 @@ func (t Team) SolveTaskByTag(tag string) error {
 	return nil
 }
 
-type EventStore interface {
+type TeamStore interface {
 	CreateTeam(Team) error
 	GetTeamByToken(string) (Team, error)
 	SaveTeam(Team) error
@@ -68,7 +87,7 @@ type EventStore interface {
 	DeleteToken(string) error
 }
 
-type eventstore struct {
+type teamstore struct {
 	m sync.RWMutex
 
 	hooks  []func([]Team) error
@@ -76,15 +95,15 @@ type eventstore struct {
 	tokens map[string]string
 }
 
-func NewEventStore(hooks ...func([]Team) error) EventStore {
-	return &eventstore{
+func NewTeamStore(hooks ...func([]Team) error) TeamStore {
+	return &teamstore{
 		hooks:  hooks,
 		teams:  map[string]Team{},
 		tokens: map[string]string{},
 	}
 }
 
-func (es *eventstore) CreateTeam(t Team) error {
+func (es *teamstore) CreateTeam(t Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -97,7 +116,7 @@ func (es *eventstore) CreateTeam(t Team) error {
 	return es.RunHooks()
 }
 
-func (es *eventstore) SaveTeam(t Team) error {
+func (es *teamstore) SaveTeam(t Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -110,7 +129,7 @@ func (es *eventstore) SaveTeam(t Team) error {
 	return es.RunHooks()
 }
 
-func (es *eventstore) CreateTokenForTeam(token string, in Team) error {
+func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -128,7 +147,7 @@ func (es *eventstore) CreateTokenForTeam(token string, in Team) error {
 	return nil
 }
 
-func (es *eventstore) DeleteToken(token string) error {
+func (es *teamstore) DeleteToken(token string) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -137,7 +156,7 @@ func (es *eventstore) DeleteToken(token string) error {
 	return nil
 }
 
-func (es *eventstore) GetTeamByToken(token string) (Team, error) {
+func (es *teamstore) GetTeamByToken(token string) (Team, error) {
 	es.m.RLock()
 	defer es.m.RUnlock()
 
@@ -154,7 +173,7 @@ func (es *eventstore) GetTeamByToken(token string) (Team, error) {
 	return t, nil
 }
 
-func (es *eventstore) RunHooks() error {
+func (es *teamstore) RunHooks() error {
 	var teams []Team
 	for _, t := range es.teams {
 		teams = append(teams, t)
@@ -167,4 +186,133 @@ func (es *eventstore) RunHooks() error {
 	}
 
 	return nil
+}
+
+type EventStore interface {
+	SetCapacity(n int) error
+	TeamStore
+}
+
+type eventstore struct {
+	m sync.Mutex
+
+	hooks []func(Event) error
+	conf  Event
+	TeamStore
+}
+
+func NewEventStore(conf Event, ts TeamStore, hooks ...func(Event) error) EventStore {
+	return &eventstore{
+		hooks:     hooks,
+		conf:      conf,
+		TeamStore: ts,
+	}
+}
+
+func (es *eventstore) SetCapacity(n int) error {
+	es.m.Lock()
+	defer es.m.Unlock()
+
+	es.conf.Capacity = n
+
+	return es.RunHooks()
+}
+
+func (es *eventstore) RunHooks() error {
+	for _, h := range es.hooks {
+		if err := h(es.conf); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type EventStoreHub interface {
+	CreateEventStore(Event) (EventStore, error)
+}
+
+type eventstorehub struct {
+	m sync.Mutex
+
+	path string
+}
+
+func NewEventStoreHub(path string) (EventStoreHub, error) {
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		if err := os.MkdirAll(path, os.ModePerm); err != nil {
+			return nil, err
+		}
+	}
+
+	return &eventstorehub{
+		path: path,
+	}, nil
+}
+
+type eventFile struct {
+	Event
+	Teams []Team `yaml:"teams"`
+}
+
+func getFileNameForEvent(path string, tag string) (string, error) {
+	now := time.Now().Format("02-01-06")
+	filename := fmt.Sprintf("%s-%s.yml", tag, now)
+	eventPath := filepath.Join(path, filename)
+
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		return eventPath, nil
+	}
+
+	for i := 1; i < 999; i++ {
+		filename := fmt.Sprintf("%s-%s-%d.yml", tag, now, i)
+		eventPath := filepath.Join(path, filename)
+
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			return eventPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("Unable to get filename for event")
+}
+
+func (esh *eventstorehub) CreateEventStore(conf Event) (EventStore, error) {
+	filename, err := getFileNameForEvent(esh.path, conf.Tag)
+	if err != nil {
+		return nil, err
+	}
+
+	ef := eventFile{conf, []Team{}}
+	var m sync.Mutex
+
+	save := func() error {
+		bytes, err := yaml.Marshal(ef)
+		if err != nil {
+			return err
+		}
+
+		return ioutil.WriteFile(filename, bytes, 0644)
+	}
+
+	teamHook := func(teams []Team) error {
+		m.Lock()
+		defer m.Unlock()
+
+		ef.Teams = teams
+
+		return save()
+	}
+
+	eventHook := func(c Event) error {
+		m.Lock()
+		defer m.Unlock()
+
+		ef = eventFile{c, ef.Teams}
+
+		return save()
+	}
+
+	ts := NewTeamStore(teamHook)
+
+	return NewEventStore(conf, ts, eventHook), nil
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/tls"
+	"flag"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -16,7 +18,8 @@ import (
 )
 
 const (
-	mngtPort = ":5454"
+	mngtPort          = ":5454"
+	defaultConfigFile = "config.yml"
 )
 
 func handleCancel(clean func()) {
@@ -51,11 +54,11 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	c, err := daemon.NewConfigFromFile("config.yml")
+	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
+	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
-		log.Fatal().
-			Err(err).
-			Msg("unable to get config")
+		fmt.Printf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)
+		return
 	}
 
 	lis, err := listenerFromConf(c, mngtPort)

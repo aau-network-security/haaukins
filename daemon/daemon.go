@@ -2,8 +2,8 @@ package daemon
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,13 +11,17 @@ import (
 
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/aau-network-security/go-ntp/exercise"
-	"github.com/aau-network-security/go-ntp/lab"
+	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
+	yaml "gopkg.in/yaml.v2"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	dockerclient "github.com/fsouza/go-dockerclient"
 
 	"github.com/rs/zerolog/log"
 )
@@ -27,29 +31,59 @@ var (
 	UnknownEventErr     = errors.New("unable to find event by that tag")
 	MissingTokenErr     = errors.New("no security token provided")
 	InvalidArgumentsErr = errors.New("invalid arguments provided")
+	MissingSecretKey    = errors.New("management signing key cannot be empty")
 )
+
+type Config struct {
+	Host                 string                           `yaml:"host"`
+	ManagementSigningKey string                           `yaml:"management-sign-key"`
+	UsersFile            string                           `yaml:"users-file"`
+	ExercisesFile        string                           `yaml:"exercises-file"`
+	OvaDir               string                           `yaml:"ova-directory"`
+	DockerRepositories   []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
+	TLS                  struct {
+		Management struct {
+			CertFile string `yaml:"cert-file"`
+			KeyFile  string `yaml:"key-file"`
+		} `yaml:"management"`
+	} `yaml:"tls,omitempty"`
+}
+
+func NewConfigFromFile(path string) (*Config, error) {
+	f, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var c Config
+	err = yaml.Unmarshal(f, &c)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, repo := range c.DockerRepositories {
+		docker.Registries[repo.ServerAddress] = repo
+	}
+
+	return &c, nil
+}
 
 type daemon struct {
 	conf            *Config
-	uh              UserHub
+	auth            Authenticator
+	users           store.UsersFile
+	exercises       store.ExerciseStore
 	events          map[string]event.Event
-	exerciseLib     *exercise.Library
 	frontendLibrary vbox.Library
 	mux             *mux.Router
-	eh              EventHost
-}
-
-type EventHost interface {
-	CreateEvent(event.Config) (event.Event, error)
-}
-
-type eventHost struct{}
-
-func (eh *eventHost) CreateEvent(conf event.Config) (event.Event, error) {
-	return event.New(conf)
+	eh              event.Host
 }
 
 func New(conf *Config) (*daemon, error) {
+	if conf.ManagementSigningKey == "" {
+		return nil, MissingSecretKey
+	}
+
 	if conf.Host == "" {
 		conf.Host = "localhost"
 	}
@@ -59,15 +93,22 @@ func New(conf *Config) (*daemon, error) {
 		conf.OvaDir = filepath.Join(dir, "vbox")
 	}
 
-	users := map[string]*User{}
-	for i, _ := range conf.Users {
-		u := conf.Users[i]
-		users[u.Username] = &u
+	if conf.UsersFile == "" {
+		conf.UsersFile = "users.yml"
 	}
 
-	elib, err := exercise.NewLibrary("exercises.yml")
+	if conf.ExercisesFile == "" {
+		conf.ExercisesFile = "exercises.yml"
+	}
+
+	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
+	}
+
+	ef, err := store.NewExerciseFile(conf.ExercisesFile)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
 	}
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
@@ -79,13 +120,15 @@ func New(conf *Config) (*daemon, error) {
 	}()
 
 	d := &daemon{
-		conf:            conf,
-		uh:              NewUserHub(conf),
+		conf:      conf,
+		auth:      NewAuthenticator(uf, conf.ManagementSigningKey),
+		users:     uf,
+		exercises: ef,
+
 		events:          make(map[string]event.Event),
-		exerciseLib:     elib,
 		frontendLibrary: vlib,
 		mux:             m,
-		eh:              &eventHost{},
+		eh:              event.NewHost(vlib, ef),
 	}
 
 	return d, nil
@@ -96,7 +139,7 @@ func (d *daemon) authorize(ctx context.Context) error {
 		if len(md["token"]) > 0 {
 			token := md["token"][0]
 
-			return d.uh.AuthenticateUserByToken(token)
+			return d.auth.AuthenticateUserByToken(token)
 		}
 
 		return MissingTokenErr
@@ -143,7 +186,7 @@ func (d *daemon) GetServer() *grpc.Server {
 }
 
 func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.LoginUserResponse, error) {
-	token, err := d.uh.TokenForUser(req.Username, req.Password)
+	token, err := d.auth.TokenForUser(req.Username, req.Password)
 	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
@@ -152,12 +195,21 @@ func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.L
 }
 
 func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb.LoginUserResponse, error) {
-	k := SignupKey(req.Key)
-	if err := d.uh.AddUser(k, req.Username, req.Password); err != nil {
+	u, err := store.NewUser(req.Username, req.Password)
+	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
-	token, err := d.uh.TokenForUser(req.Username, req.Password)
+	k := store.SignupKey(req.Key)
+	if err := d.users.DeleteSignupKey(k); err != nil {
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+
+	if err := d.users.CreateUser(u); err != nil {
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+
+	token, err := d.auth.TokenForUser(req.Username, req.Password)
 	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
@@ -166,8 +218,9 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 }
 
 func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
-	k, err := d.uh.CreateSignupKey()
-	if err != nil {
+	k := store.NewSignupKey()
+
+	if err := d.users.CreateSignupKey(k); err != nil {
 		return &pb.InviteUserResponse{
 			Error: err.Error(),
 		}, nil
@@ -179,11 +232,6 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-	var (
-		exer []exercise.Config
-		err  error
-	)
-
 	log.Info().
 		Str("Name", req.Name).
 		Str("Tag", req.Tag).
@@ -203,14 +251,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return DuplicateEventErr
 	}
 
-	if len(req.Exercises) > 0 {
-		exer, err = d.exerciseLib.GetByTags(req.Exercises[0], req.Exercises[1:]...)
-		if err != nil {
-			log.Error().Err(err).Msg("Could not get exercises by tags")
-			return err
-		}
-	}
-
 	if req.Buffer == 0 {
 		req.Buffer = 2
 	}
@@ -219,16 +259,24 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		req.Capacity = 10
 	}
 
-	ev, err := d.eh.CreateEvent(event.Config{
+	tags := make([]exercise.Tag, len(req.Exercises))
+	for i, s := range req.Exercises {
+		t, err := exercise.NewTag(s)
+		if err != nil {
+			return err
+		}
+		tags[i] = t
+	}
+
+	ev, err := d.eh.CreateEvent(store.Event{
 		Name:     req.Name,
 		Tag:      req.Tag,
 		Buffer:   int(req.Buffer),
 		Capacity: int(req.Capacity),
-		LabConfig: lab.LabConfig{
+		Lab: store.Lab{
 			Frontends: req.Frontends,
-			Exercises: exer,
+			Exercises: tags,
 		},
-		VBoxLibrary: d.frontendLibrary,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event")
@@ -278,28 +326,30 @@ func (d *daemon) RestartGroupLab(req *pb.RestartGroupLabRequest, resp pb.Daemon_
 }
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	log.Debug().Msg("Listing events..")
+	// log.Debug().Msg("Listing events..")
+
+	// var events []*pb.ListEventsResponse_Events
+	// var eventConf store.Event
+	// var tempExer []string
+
+	// for _, event := range d.events {
+	// 	eventConf = event.GetConfig()
+
+	// 	for _, exercise := range eventConf.LabConfig.Exercises {
+	// 		tempExer = append(tempExer, exercise.Name)
+	// 	}
+
+	// 	events = append(events, &pb.ListEventsResponse_Events{
+	// 		Name:      eventConf.Name,
+	// 		Tag:       eventConf.Tag,
+	// 		Buffer:    int32(eventConf.Buffer),
+	// 		Capacity:  int32(eventConf.Capacity),
+	// 		Frontends: eventConf.LabConfig.Frontends,
+	// 		Exercises: tempExer,
+	// 	})
+	// }
 
 	var events []*pb.ListEventsResponse_Events
-	var eventConf event.Config
-	var tempExer []string
-
-	for _, event := range d.events {
-		eventConf = event.GetConfig()
-
-		for _, exercise := range eventConf.LabConfig.Exercises {
-			tempExer = append(tempExer, exercise.Name)
-		}
-
-		events = append(events, &pb.ListEventsResponse_Events{
-			Name:      eventConf.Name,
-			Tag:       eventConf.Tag,
-			Buffer:    int32(eventConf.Buffer),
-			Capacity:  int32(eventConf.Capacity),
-			Frontends: eventConf.LabConfig.Frontends,
-			Exercises: tempExer,
-		})
-	}
 
 	return &pb.ListEventsResponse{Events: events}, nil
 }
@@ -309,19 +359,19 @@ func (d *daemon) ListEventGroups(ctx context.Context, req *pb.ListEventGroupsReq
 
 	var eventGroups []*pb.ListEventGroupsResponse_Groups
 
-	ev, ok := d.events[req.Tag]
-	if !ok {
-		return nil, UnknownEventErr
-	}
+	// ev, ok := d.events[req.Tag]
+	// if !ok {
+	// 	return nil, UnknownEventErr
+	// }
 
-	groups := ev.GetGroups()
+	// groups := ev.GetGroups()
 
-	for _, group := range groups {
-		eventGroups = append(eventGroups, &pb.ListEventGroupsResponse_Groups{
-			Name:   group.Name,
-			LabTag: group.Lab.GetTag(),
-		})
-	}
+	// for _, group := range groups {
+	// 	eventGroups = append(eventGroups, &pb.ListEventGroupsResponse_Groups{
+	// 		Name:   group.Name,
+	// 		LabTag: group.Lab.GetTag(),
+	// 	})
+	// }
 
 	return &pb.ListEventGroupsResponse{Groups: eventGroups}, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/gorilla/mux"
@@ -21,7 +22,9 @@ type callbackServer struct {
 }
 
 type RegisterRequest struct {
-	Name string `json:"name"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type RegisterResponse struct {
@@ -30,13 +33,19 @@ type RegisterResponse struct {
 }
 
 func (cb *callbackServer) handleRegister(w http.ResponseWriter, r *http.Request) {
-	var input RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	var in RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeErr(w, err)
 		return
 	}
 
-	auth, err := cb.event.Register(Group{Name: input.Name})
+	t, err := store.NewTeam(in.Email, in.Name, in.Password)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+
+	auth, err := cb.event.Register(t)
 	if err != nil {
 		writeErr(w, err)
 		return
