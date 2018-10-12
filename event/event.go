@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
@@ -170,6 +171,8 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 func (ev *event) Close() {
+	now := time.Now()
+
 	if ev.guac != nil {
 		ev.guac.Close()
 	}
@@ -183,6 +186,8 @@ func (ev *event) Close() {
 	if ev.cbSrv != nil {
 		ev.cbSrv.Close()
 	}
+
+	ev.store.Finish(now)
 }
 
 func (ev *event) Register(t store.Team) (*Auth, error) {
