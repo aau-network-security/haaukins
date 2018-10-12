@@ -20,14 +20,12 @@ import (
 )
 
 var (
-	RdpConfErr        = errors.New("error too few rdp connections")
-	StartingCtfdErr   = errors.New("error while starting ctfd")
-	StartingGuacErr   = errors.New("error while starting guac")
-	StartingRevErr    = errors.New("error while starting reverse proxy")
-	EmptyNameErr      = errors.New("event requires a name")
-	EmptyExercisesErr = errors.New("exercises cannot be empty")
-	EmptyTagErr       = errors.New("event requires a tag")
-	NoFrontendErr     = errors.New("lab requires at least one frontend")
+	RdpConfErr      = errors.New("error too few rdp connections")
+	StartingCtfdErr = errors.New("error while starting ctfd")
+	StartingGuacErr = errors.New("error while starting guac")
+	StartingRevErr  = errors.New("error while starting reverse proxy")
+	EmptyNameErr    = errors.New("event requires a name")
+	EmptyTagErr     = errors.New("event requires a tag")
 
 	getDockerHostIp = docker.GetDockerHostIP
 )
@@ -51,12 +49,8 @@ type eventHost struct {
 }
 
 func (eh *eventHost) CreateEvent(conf store.Event) (Event, error) {
-	if len(conf.Lab.Exercises) == 0 {
-		return nil, EmptyExercisesErr
-	}
-
-	if len(conf.Lab.Frontends) == 0 {
-		return nil, NoFrontendErr
+	if err := conf.Validate(); err != nil {
+		return nil, err
 	}
 
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)

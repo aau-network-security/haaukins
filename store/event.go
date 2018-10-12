@@ -19,6 +19,9 @@ var (
 	UnknownTeamErr  = errors.New("Unknown team")
 	UnknownTokenErr = errors.New("Unknown token")
 	EmptyTokenErr   = errors.New("Token cannot be empty")
+
+	EmptyExercisesErr = errors.New("exercises cannot be empty")
+	NoFrontendErr     = errors.New("lab requires at least one frontend")
 )
 
 type Event struct {
@@ -29,6 +32,18 @@ type Event struct {
 	Lab        Lab        `yaml:"lab"`
 	StartedAt  *time.Time `yaml:"started-at,omitempty"`
 	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
+}
+
+func (e Event) Validate() error {
+	if len(e.Lab.Exercises) == 0 {
+		return EmptyExercisesErr
+	}
+
+	if len(e.Lab.Frontends) == 0 {
+		return NoFrontendErr
+	}
+
+	return nil
 }
 
 type Lab struct {
