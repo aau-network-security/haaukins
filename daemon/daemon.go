@@ -292,12 +292,11 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		}
 
 		events = append(events, &pb.ListEventsResponse_Events{
-			Name:      eventConf.Name,
-			Tag:       eventConf.Tag,
-			Buffer:    int32(eventConf.Buffer),
-			Capacity:  int32(eventConf.Capacity),
-			Frontends: eventConf.LabConfig.Frontends,
-			Exercises: tempExer,
+			Name:          eventConf.Name,
+			Tag:           eventConf.Tag,
+			GroupCount:    int32(len(event.GetGroups())),
+			ExerciseCount: int32(len(eventConf.LabConfig.Exercises)),
+			Capacity:      int32(eventConf.Capacity),
 		})
 	}
 
