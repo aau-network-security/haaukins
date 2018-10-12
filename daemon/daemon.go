@@ -377,6 +377,32 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	return nil
 }
 
+func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_ResetExerciseServer) error {
+	ev, ok := d.events[req.EventTag]
+	if !ok {
+		return UnknownEventErr
+	}
+
+	if req.Groups != nil {
+		// the requests has a selection of group ids
+		for _, id := range req.Groups {
+			if g, ok := ev.GetGroups()[id.GroupId]; ok {
+				if err := g.Lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		// all exercises should be reset
+		for _, g := range ev.GetGroups() {
+			if err := g.Lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	log.Debug().Msg("Listing events..")
 
