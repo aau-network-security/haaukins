@@ -44,7 +44,8 @@ lab:
       - name: cryptobanker.com
         type: A
       - name: www.cryptobanker.com
-        type: CNAME cryptobanker.com
+        type: CNAME
+        rdata: cryptobanker.com
       - name: cryptobanker.com
         type: MX
         rdata: 10 mail.cryptobanker.com
@@ -90,7 +91,7 @@ lab:
       memoryMB: 85
       dns:
       - name: netsec-forum.dk
-        record: A
+        type: A
       flag:
       - name: Network sniffing
         env: FLAG
@@ -114,7 +115,7 @@ lab:
       memoryMB: 100
       dns:
       - name: secureshare.com
-        record: A
+        type: A
     - image: registry.sec-aau.dk/aau/mitm-client
       memoryMB: 75
       env:
