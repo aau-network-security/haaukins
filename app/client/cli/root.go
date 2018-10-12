@@ -9,11 +9,12 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"log"
+
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
-	"log"
 )
 
 type Token string
@@ -52,7 +53,18 @@ func NewClient() (*Client, error) {
 		}
 	}
 
-	conn, err := grpc.Dial("cli.sec-aau.dk:5454",
+	host := os.Getenv("NTP_HOST")
+	if host == "" {
+		host = "cli.sec-aau.dk"
+	}
+
+	port := os.Getenv("NTP_PORT")
+	if port == "" {
+		port = "5454"
+	}
+
+	endpoint := fmt.Sprintf("%s:%s", host, port)
+	conn, err := grpc.Dial(endpoint,
 		grpc.WithInsecure(),
 		grpc.WithPerRPCCredentials(Token(c.Token)),
 	)

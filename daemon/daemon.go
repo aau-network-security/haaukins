@@ -37,9 +37,10 @@ var (
 type Config struct {
 	Host                 string                           `yaml:"host"`
 	ManagementSigningKey string                           `yaml:"management-sign-key"`
-	UsersFile            string                           `yaml:"users-file"`
-	ExercisesFile        string                           `yaml:"exercises-file"`
-	OvaDir               string                           `yaml:"ova-directory"`
+	UsersFile            string                           `yaml:"users-file,omitempty"`
+	ExercisesFile        string                           `yaml:"exercises-file,omitempty"`
+	OvaDir               string                           `yaml:"ova-directory,omitempty"`
+	EventsDir            string                           `yaml:"events-directory,omitempty"`
 	DockerRepositories   []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
 	TLS                  struct {
 		Management struct {
@@ -76,7 +77,7 @@ type daemon struct {
 	events          map[string]event.Event
 	frontendLibrary vbox.Library
 	mux             *mux.Router
-	eh              event.Host
+	ehost           event.Host
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -101,6 +102,10 @@ func New(conf *Config) (*daemon, error) {
 		conf.ExercisesFile = "exercises.yml"
 	}
 
+	if conf.EventsDir == "" {
+		conf.EventsDir = "events"
+	}
+
 	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
@@ -119,16 +124,49 @@ func New(conf *Config) (*daemon, error) {
 		}
 	}()
 
-	d := &daemon{
-		conf:      conf,
-		auth:      NewAuthenticator(uf, conf.ManagementSigningKey),
-		users:     uf,
-		exercises: ef,
+	if len(uf.ListUsers()) == 0 && len(uf.ListSignupKeys()) == 0 {
+		k := store.NewSignupKey()
+		if err := uf.CreateSignupKey(k); err != nil {
+			return nil, err
+		}
 
+		log.Info().Msg("No users or signup keys found, creating a key")
+	}
+
+	keys := uf.ListSignupKeys()
+	if len(uf.ListUsers()) == 0 && len(keys) > 0 {
+		log.Info().Msg("No users found, printing keys")
+		for _, k := range keys {
+			log.Info().Str("key", string(k)).Msg("Found key")
+		}
+	}
+
+	esh, err := store.NewEventStoreHub(conf.EventsDir)
+	if err != nil {
+		return nil, err
+	}
+
+	d := &daemon{
+		conf:            conf,
+		auth:            NewAuthenticator(uf, conf.ManagementSigningKey),
+		users:           uf,
+		exercises:       ef,
 		events:          make(map[string]event.Event),
 		frontendLibrary: vlib,
 		mux:             m,
-		eh:              event.NewHost(vlib, ef),
+		ehost:           event.NewHost(vlib, ef, esh),
+	}
+
+	events, err := esh.GetUnfinishedEvents()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ev := range events {
+		err := d.createEvent(ev)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return d, nil
@@ -231,16 +269,34 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}, nil
 }
 
-func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+func (d *daemon) createEvent(conf store.Event) error {
+	fmt.Println(conf.Lab)
 	log.Info().
-		Str("Name", req.Name).
-		Str("Tag", req.Tag).
-		Int32("Buffer", req.Buffer).
-		Int32("Capacity", req.Capacity).
-		Strs("Exercises", req.Exercises).
-		Strs("Frontends", req.Frontends).
-		Str("Cap", req.Tag).
+		Str("Name", conf.Name).
+		Str("Tag", conf.Tag).
+		Int("Buffer", conf.Buffer).
+		Int("Capacity", conf.Capacity).
+		Strs("Frontends", conf.Lab.Frontends).
 		Msg("Creating event")
+
+	ev, err := d.ehost.CreateEvent(conf)
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating event")
+		return err
+	}
+
+	go ev.Start(context.TODO())
+
+	host := fmt.Sprintf("%s.%s", conf.Tag, d.conf.Host)
+	eventRoute := d.mux.Host(host).Subrouter()
+	ev.Connect(eventRoute)
+
+	d.events[conf.Tag] = ev
+
+	return nil
+}
+
+func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
 
 	if req.Name == "" || req.Tag == "" {
 		return InvalidArgumentsErr
@@ -268,7 +324,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		tags[i] = t
 	}
 
-	ev, err := d.eh.CreateEvent(store.Event{
+	conf := store.Event{
 		Name:     req.Name,
 		Tag:      req.Tag,
 		Buffer:   int(req.Buffer),
@@ -277,21 +333,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			Frontends: req.Frontends,
 			Exercises: tags,
 		},
-	})
-	if err != nil {
-		log.Error().Err(err).Msg("Error creating event")
-		return err
 	}
 
-	go ev.Start(context.TODO())
-
-	host := fmt.Sprintf("%s.%s", req.Tag, d.conf.Host)
-	eventRoute := d.mux.Host(host).Subrouter()
-	ev.Connect(eventRoute)
-
-	d.events[req.Tag] = ev
-
-	return nil
+	return d.createEvent(conf)
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {

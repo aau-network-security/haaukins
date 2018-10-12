@@ -52,7 +52,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Frontends: frontends,
 				Exercises: exercises,
 				Capacity:  int32(capacity),
-				Buffer:    int32(capacity),
+				Buffer:    int32(buffer),
 			})
 			if err != nil {
 				PrintError(err.Error())

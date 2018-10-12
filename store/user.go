@@ -225,8 +225,8 @@ type UsersFile interface {
 
 func NewUserFile(path string) (UsersFile, error) {
 	var conf struct {
-		Users      []User      `yaml:"users"`
-		SignupKeys []SignupKey `yaml:"signup-keys"`
+		Users      []User      `yaml:"users,omitempty"`
+		SignupKeys []SignupKey `yaml:"signup-keys,omitempty"`
 	}
 
 	var m sync.Mutex

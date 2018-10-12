@@ -35,11 +35,16 @@ type Host interface {
 	CreateEvent(store.Event) (Event, error)
 }
 
-func NewHost(vlib vbox.Library, elib store.ExerciseStore) Host {
-	return nil
+func NewHost(vlib vbox.Library, elib store.ExerciseStore, esh store.EventStoreHub) Host {
+	return &eventHost{
+		esh:  esh,
+		vlib: vlib,
+		elib: elib,
+	}
 }
 
 type eventHost struct {
+	esh  store.EventStoreHub
 	vlib vbox.Library
 	elib store.ExerciseStore
 }
@@ -66,7 +71,13 @@ func (eh *eventHost) CreateEvent(conf store.Event) (Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEvent(conf, hub)
+
+	es, err := eh.esh.CreateEventStore(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEvent(conf, hub, es)
 }
 
 type Auth struct {
@@ -101,7 +112,7 @@ func rand() string {
 	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
 }
 
-func NewEvent(conf store.Event, hub lab.Hub) (Event, error) {
+func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, error) {
 	cb := &callbackServer{}
 	if err := cb.Run(); err != nil {
 		return nil, err
@@ -125,6 +136,7 @@ func NewEvent(conf store.Event, hub lab.Hub) (Event, error) {
 	}
 
 	ev := &event{
+		store:  store,
 		labhub: hub,
 		cbSrv:  cb,
 		ctfd:   ctf,

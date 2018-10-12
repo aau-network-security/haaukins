@@ -68,8 +68,10 @@ func main() {
 
 	d, err := daemon.New(c)
 	if err != nil {
-		log.Fatal().Err(err)
+		fmt.Printf("unable to create daemon: %s\n", err)
+		return
 	}
+
 	handleCancel(func() {
 		d.Close()
 		log.Info().Msgf("Closed daemon")

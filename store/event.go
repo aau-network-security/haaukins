@@ -22,11 +22,13 @@ var (
 )
 
 type Event struct {
-	Name     string `yaml:"name"`
-	Tag      string `yaml:"tag"`
-	Buffer   int    `yaml:"buffer"`
-	Capacity int    `yaml:"capacity"`
-	Lab      Lab    `yaml:"lab"`
+	Name       string     `yaml:"name"`
+	Tag        string     `yaml:"tag"`
+	Buffer     int        `yaml:"buffer"`
+	Capacity   int        `yaml:"capacity"`
+	Lab        Lab        `yaml:"lab"`
+	StartedAt  *time.Time `yaml:"started-at,omitempty"`
+	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
 }
 
 type Lab struct {
@@ -190,6 +192,7 @@ func (es *teamstore) RunHooks() error {
 
 type EventStore interface {
 	SetCapacity(n int) error
+	Finish(time.Time) error
 	TeamStore
 }
 
@@ -218,6 +221,15 @@ func (es *eventstore) SetCapacity(n int) error {
 	return es.RunHooks()
 }
 
+func (es *eventstore) Finish(t time.Time) error {
+	es.m.Lock()
+	defer es.m.Unlock()
+
+	es.conf.FinishedAt = &t
+
+	return es.RunHooks()
+}
+
 func (es *eventstore) RunHooks() error {
 	for _, h := range es.hooks {
 		if err := h(es.conf); err != nil {
@@ -230,6 +242,7 @@ func (es *eventstore) RunHooks() error {
 
 type EventStoreHub interface {
 	CreateEventStore(Event) (EventStore, error)
+	GetUnfinishedEvents() ([]Event, error)
 }
 
 type eventstorehub struct {
@@ -239,7 +252,7 @@ type eventstorehub struct {
 }
 
 func NewEventStoreHub(path string) (EventStoreHub, error) {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := os.MkdirAll(path, os.ModePerm); err != nil {
 			return nil, err
 		}
@@ -252,7 +265,7 @@ func NewEventStoreHub(path string) (EventStoreHub, error) {
 
 type eventFile struct {
 	Event
-	Teams []Team `yaml:"teams"`
+	Teams []Team `yaml:"teams,omitempty"`
 }
 
 func getFileNameForEvent(path string, tag string) (string, error) {
@@ -314,5 +327,38 @@ func (esh *eventstorehub) CreateEventStore(conf Event) (EventStore, error) {
 
 	ts := NewTeamStore(teamHook)
 
+	if err := eventHook(conf); err != nil {
+		return nil, err
+	}
+
 	return NewEventStore(conf, ts, eventHook), nil
+}
+
+func (esh *eventstorehub) GetUnfinishedEvents() ([]Event, error) {
+	var events []Event
+	err := filepath.Walk(esh.path, func(path string, info os.FileInfo, err error) error {
+		if filepath.Ext(path) == ".yml" {
+			f, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			var e eventFile
+			err = yaml.Unmarshal(f, &e)
+			if err != nil {
+				return err
+			}
+
+			if e.FinishedAt == nil {
+				events = append(events, e.Event)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return events, nil
 }
