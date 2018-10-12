@@ -250,6 +250,8 @@ func (ev *testEvent) Start(context.Context) error {
 
 func (ev *testEvent) Connect(*mux.Router) {}
 
+func (ev *testEvent) Close() { ev.started = false }
+
 func (ev *testEvent) GetConfig() event.Config {
 	return ev.conf
 }
@@ -297,6 +299,48 @@ func TestCreateEvent(t *testing.T) {
 	}
 }
 
+type stopEventServer struct {
+	pb.Daemon_StopEventServer
+}
+
+func TestStopEvent(t *testing.T) {
+	ev1 := &testEvent{started: true}
+	ev2 := &testEvent{started: true}
+
+	d := daemon{
+		events: map[string]event.Event{
+			"ev1": ev1,
+			"ev2": ev2,
+		},
+	}
+
+	req := pb.StopEventRequest{
+		Tag: "ev1",
+	}
+
+	resp := stopEventServer{}
+	err := d.StopEvent(&req, &resp)
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	expectedEvents := 1
+	if len(d.events) != expectedEvents {
+		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
+	}
+	for k := range d.events {
+		if k == "ev1" {
+			t.Fatalf("Expected ev1 to be removed from daemon, but still exists")
+		}
+	}
+	if ev1.started {
+		t.Fatalf("Expected ev1 to be closed, but it is still running")
+	}
+	if !ev2.started {
+    t.Fatalf("Expected ev2 to be running, but it is closed")
+  }
+}
+
 func TestListEvents(t *testing.T) {
 	ctx := context.Background()
 
@@ -334,5 +378,6 @@ func TestListEvents(t *testing.T) {
 	}
 	if resp.Events[0].GroupCount != 2 {
 		t.Fatalf("Expected %d groups, got %d", 2, resp.Events[0].GroupCount)
+
 	}
 }
