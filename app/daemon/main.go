@@ -60,7 +60,9 @@ func main() {
 
 	lis, err := listenerFromConf(c, mngtPort)
 	if err != nil {
-		log.Info().Msg("Failed to listen on management port: " + mngtPort)
+		log.Fatal().
+			Err(err).
+			Msgf("failed to listen on management port %s", mngtPort)
 	}
 
 	d, err := daemon.New(c)

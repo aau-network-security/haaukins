@@ -130,14 +130,22 @@ func (c *Client) CmdEventList() *cobra.Command {
 				return
 			}
 
-			for _, event := range r.Events {
-				fmt.Println(event.Name)
-				fmt.Printf("- Tag: %s\n", event.Tag)
-				fmt.Printf("- Name: %d\n", event.Name)
-				fmt.Printf("- Groups: %d\n", event.GroupCount)
-				fmt.Printf("- Exercises: %d\n", event.ExerciseCount)
-				fmt.Printf("- Capacity: %d\n", event.Capacity)
+			f := formatter{
+				header: []string{"EVENT TAG", "NAME", "# GROUPS", "# EXERCISES", "CAPACITY"},
+				fields: []string{"Tag", "Name", "GroupCount", "ExerciseCount", "Capacity"},
 			}
+
+			var elements []formatElement
+			for _, e := range r.Events {
+				elements = append(elements, e)
+			}
+
+			table, err := f.AsTable(elements)
+			if err != nil {
+				PrintError("Failed to create event list")
+				return
+			}
+			fmt.Printf(table)
 		},
 	}
 }
