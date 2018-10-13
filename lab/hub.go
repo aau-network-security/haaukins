@@ -29,7 +29,7 @@ type Hub interface {
 
 type hub struct {
 	vboxLib vbox.Library
-	conf    LabConfig
+	conf    Config
 
 	m           sync.Mutex
 	createSema  *semaphore
@@ -39,7 +39,7 @@ type hub struct {
 	buffer chan Lab
 }
 
-func NewHub(conf LabConfig, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
+func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
 	if buf > cap {
 		return nil, BufferMaxRatioErr
 	}

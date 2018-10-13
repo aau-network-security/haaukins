@@ -5,10 +5,11 @@ package daemon
 
 import (
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -401,7 +402,7 @@ func (m *ListEventsResponse) GetEvents() []*ListEventsResponse_Events {
 type ListEventsResponse_Events struct {
 	Tag                  string   `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
 	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	GroupCount           int32    `protobuf:"varint,3,opt,name=groupCount,proto3" json:"groupCount,omitempty"`
+	TeamCount            int32    `protobuf:"varint,3,opt,name=teamCount,proto3" json:"teamCount,omitempty"`
 	ExerciseCount        int32    `protobuf:"varint,4,opt,name=exerciseCount,proto3" json:"exerciseCount,omitempty"`
 	Capacity             int32    `protobuf:"varint,5,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -448,9 +449,9 @@ func (m *ListEventsResponse_Events) GetName() string {
 	return ""
 }
 
-func (m *ListEventsResponse_Events) GetGroupCount() int32 {
+func (m *ListEventsResponse_Events) GetTeamCount() int32 {
 	if m != nil {
-		return m.GroupCount
+		return m.TeamCount
 	}
 	return 0
 }
@@ -469,85 +470,85 @@ func (m *ListEventsResponse_Events) GetCapacity() int32 {
 	return 0
 }
 
-type ListEventGroupsRequest struct {
+type ListEventTeamsRequest struct {
 	Tag                  string   `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListEventGroupsRequest) Reset()         { *m = ListEventGroupsRequest{} }
-func (m *ListEventGroupsRequest) String() string { return proto.CompactTextString(m) }
-func (*ListEventGroupsRequest) ProtoMessage()    {}
-func (*ListEventGroupsRequest) Descriptor() ([]byte, []int) {
+func (m *ListEventTeamsRequest) Reset()         { *m = ListEventTeamsRequest{} }
+func (m *ListEventTeamsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListEventTeamsRequest) ProtoMessage()    {}
+func (*ListEventTeamsRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3ec90cbc4aa12fc6, []int{8}
 }
 
-func (m *ListEventGroupsRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListEventGroupsRequest.Unmarshal(m, b)
+func (m *ListEventTeamsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventTeamsRequest.Unmarshal(m, b)
 }
-func (m *ListEventGroupsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListEventGroupsRequest.Marshal(b, m, deterministic)
+func (m *ListEventTeamsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventTeamsRequest.Marshal(b, m, deterministic)
 }
-func (m *ListEventGroupsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListEventGroupsRequest.Merge(m, src)
+func (m *ListEventTeamsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventTeamsRequest.Merge(m, src)
 }
-func (m *ListEventGroupsRequest) XXX_Size() int {
-	return xxx_messageInfo_ListEventGroupsRequest.Size(m)
+func (m *ListEventTeamsRequest) XXX_Size() int {
+	return xxx_messageInfo_ListEventTeamsRequest.Size(m)
 }
-func (m *ListEventGroupsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListEventGroupsRequest.DiscardUnknown(m)
+func (m *ListEventTeamsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventTeamsRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListEventGroupsRequest proto.InternalMessageInfo
+var xxx_messageInfo_ListEventTeamsRequest proto.InternalMessageInfo
 
-func (m *ListEventGroupsRequest) GetTag() string {
+func (m *ListEventTeamsRequest) GetTag() string {
 	if m != nil {
 		return m.Tag
 	}
 	return ""
 }
 
-type ListEventGroupsResponse struct {
-	Groups               []*ListEventGroupsResponse_Groups `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
-	XXX_unrecognized     []byte                            `json:"-"`
-	XXX_sizecache        int32                             `json:"-"`
+type ListEventTeamsResponse struct {
+	Teams                []*ListEventTeamsResponse_Teams `protobuf:"bytes,1,rep,name=teams,proto3" json:"teams,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
+	XXX_unrecognized     []byte                          `json:"-"`
+	XXX_sizecache        int32                           `json:"-"`
 }
 
-func (m *ListEventGroupsResponse) Reset()         { *m = ListEventGroupsResponse{} }
-func (m *ListEventGroupsResponse) String() string { return proto.CompactTextString(m) }
-func (*ListEventGroupsResponse) ProtoMessage()    {}
-func (*ListEventGroupsResponse) Descriptor() ([]byte, []int) {
+func (m *ListEventTeamsResponse) Reset()         { *m = ListEventTeamsResponse{} }
+func (m *ListEventTeamsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListEventTeamsResponse) ProtoMessage()    {}
+func (*ListEventTeamsResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3ec90cbc4aa12fc6, []int{9}
 }
 
-func (m *ListEventGroupsResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListEventGroupsResponse.Unmarshal(m, b)
+func (m *ListEventTeamsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventTeamsResponse.Unmarshal(m, b)
 }
-func (m *ListEventGroupsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListEventGroupsResponse.Marshal(b, m, deterministic)
+func (m *ListEventTeamsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventTeamsResponse.Marshal(b, m, deterministic)
 }
-func (m *ListEventGroupsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListEventGroupsResponse.Merge(m, src)
+func (m *ListEventTeamsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventTeamsResponse.Merge(m, src)
 }
-func (m *ListEventGroupsResponse) XXX_Size() int {
-	return xxx_messageInfo_ListEventGroupsResponse.Size(m)
+func (m *ListEventTeamsResponse) XXX_Size() int {
+	return xxx_messageInfo_ListEventTeamsResponse.Size(m)
 }
-func (m *ListEventGroupsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListEventGroupsResponse.DiscardUnknown(m)
+func (m *ListEventTeamsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventTeamsResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListEventGroupsResponse proto.InternalMessageInfo
+var xxx_messageInfo_ListEventTeamsResponse proto.InternalMessageInfo
 
-func (m *ListEventGroupsResponse) GetGroups() []*ListEventGroupsResponse_Groups {
+func (m *ListEventTeamsResponse) GetTeams() []*ListEventTeamsResponse_Teams {
 	if m != nil {
-		return m.Groups
+		return m.Teams
 	}
 	return nil
 }
 
-type ListEventGroupsResponse_Groups struct {
+type ListEventTeamsResponse_Teams struct {
 	Name                 string   `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
 	LabTag               string   `protobuf:"bytes,2,opt,name=LabTag,proto3" json:"LabTag,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -555,46 +556,46 @@ type ListEventGroupsResponse_Groups struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListEventGroupsResponse_Groups) Reset()         { *m = ListEventGroupsResponse_Groups{} }
-func (m *ListEventGroupsResponse_Groups) String() string { return proto.CompactTextString(m) }
-func (*ListEventGroupsResponse_Groups) ProtoMessage()    {}
-func (*ListEventGroupsResponse_Groups) Descriptor() ([]byte, []int) {
+func (m *ListEventTeamsResponse_Teams) Reset()         { *m = ListEventTeamsResponse_Teams{} }
+func (m *ListEventTeamsResponse_Teams) String() string { return proto.CompactTextString(m) }
+func (*ListEventTeamsResponse_Teams) ProtoMessage()    {}
+func (*ListEventTeamsResponse_Teams) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3ec90cbc4aa12fc6, []int{9, 0}
 }
 
-func (m *ListEventGroupsResponse_Groups) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListEventGroupsResponse_Groups.Unmarshal(m, b)
+func (m *ListEventTeamsResponse_Teams) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListEventTeamsResponse_Teams.Unmarshal(m, b)
 }
-func (m *ListEventGroupsResponse_Groups) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListEventGroupsResponse_Groups.Marshal(b, m, deterministic)
+func (m *ListEventTeamsResponse_Teams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListEventTeamsResponse_Teams.Marshal(b, m, deterministic)
 }
-func (m *ListEventGroupsResponse_Groups) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListEventGroupsResponse_Groups.Merge(m, src)
+func (m *ListEventTeamsResponse_Teams) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListEventTeamsResponse_Teams.Merge(m, src)
 }
-func (m *ListEventGroupsResponse_Groups) XXX_Size() int {
-	return xxx_messageInfo_ListEventGroupsResponse_Groups.Size(m)
+func (m *ListEventTeamsResponse_Teams) XXX_Size() int {
+	return xxx_messageInfo_ListEventTeamsResponse_Teams.Size(m)
 }
-func (m *ListEventGroupsResponse_Groups) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListEventGroupsResponse_Groups.DiscardUnknown(m)
+func (m *ListEventTeamsResponse_Teams) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListEventTeamsResponse_Teams.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListEventGroupsResponse_Groups proto.InternalMessageInfo
+var xxx_messageInfo_ListEventTeamsResponse_Teams proto.InternalMessageInfo
 
-func (m *ListEventGroupsResponse_Groups) GetName() string {
+func (m *ListEventTeamsResponse_Teams) GetName() string {
 	if m != nil {
 		return m.Name
 	}
 	return ""
 }
 
-func (m *ListEventGroupsResponse_Groups) GetLabTag() string {
+func (m *ListEventTeamsResponse_Teams) GetLabTag() string {
 	if m != nil {
 		return m.LabTag
 	}
 	return ""
 }
 
-type RestartGroupLabRequest struct {
+type RestartTeamLabRequest struct {
 	EventTag             string   `protobuf:"bytes,1,opt,name=eventTag,proto3" json:"eventTag,omitempty"`
 	LabTag               string   `protobuf:"bytes,2,opt,name=labTag,proto3" json:"labTag,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -602,39 +603,39 @@ type RestartGroupLabRequest struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RestartGroupLabRequest) Reset()         { *m = RestartGroupLabRequest{} }
-func (m *RestartGroupLabRequest) String() string { return proto.CompactTextString(m) }
-func (*RestartGroupLabRequest) ProtoMessage()    {}
-func (*RestartGroupLabRequest) Descriptor() ([]byte, []int) {
+func (m *RestartTeamLabRequest) Reset()         { *m = RestartTeamLabRequest{} }
+func (m *RestartTeamLabRequest) String() string { return proto.CompactTextString(m) }
+func (*RestartTeamLabRequest) ProtoMessage()    {}
+func (*RestartTeamLabRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3ec90cbc4aa12fc6, []int{10}
 }
 
-func (m *RestartGroupLabRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RestartGroupLabRequest.Unmarshal(m, b)
+func (m *RestartTeamLabRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RestartTeamLabRequest.Unmarshal(m, b)
 }
-func (m *RestartGroupLabRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RestartGroupLabRequest.Marshal(b, m, deterministic)
+func (m *RestartTeamLabRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RestartTeamLabRequest.Marshal(b, m, deterministic)
 }
-func (m *RestartGroupLabRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RestartGroupLabRequest.Merge(m, src)
+func (m *RestartTeamLabRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RestartTeamLabRequest.Merge(m, src)
 }
-func (m *RestartGroupLabRequest) XXX_Size() int {
-	return xxx_messageInfo_RestartGroupLabRequest.Size(m)
+func (m *RestartTeamLabRequest) XXX_Size() int {
+	return xxx_messageInfo_RestartTeamLabRequest.Size(m)
 }
-func (m *RestartGroupLabRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_RestartGroupLabRequest.DiscardUnknown(m)
+func (m *RestartTeamLabRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RestartTeamLabRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RestartGroupLabRequest proto.InternalMessageInfo
+var xxx_messageInfo_RestartTeamLabRequest proto.InternalMessageInfo
 
-func (m *RestartGroupLabRequest) GetEventTag() string {
+func (m *RestartTeamLabRequest) GetEventTag() string {
 	if m != nil {
 		return m.EventTag
 	}
 	return ""
 }
 
-func (m *RestartGroupLabRequest) GetLabTag() string {
+func (m *RestartTeamLabRequest) GetLabTag() string {
 	if m != nil {
 		return m.LabTag
 	}
@@ -737,10 +738,10 @@ func init() {
 	proto.RegisterType((*ListEventsRequest)(nil), "ListEventsRequest")
 	proto.RegisterType((*ListEventsResponse)(nil), "ListEventsResponse")
 	proto.RegisterType((*ListEventsResponse_Events)(nil), "ListEventsResponse.Events")
-	proto.RegisterType((*ListEventGroupsRequest)(nil), "ListEventGroupsRequest")
-	proto.RegisterType((*ListEventGroupsResponse)(nil), "ListEventGroupsResponse")
-	proto.RegisterType((*ListEventGroupsResponse_Groups)(nil), "ListEventGroupsResponse.Groups")
-	proto.RegisterType((*RestartGroupLabRequest)(nil), "RestartGroupLabRequest")
+	proto.RegisterType((*ListEventTeamsRequest)(nil), "ListEventTeamsRequest")
+	proto.RegisterType((*ListEventTeamsResponse)(nil), "ListEventTeamsResponse")
+	proto.RegisterType((*ListEventTeamsResponse_Teams)(nil), "ListEventTeamsResponse.Teams")
+	proto.RegisterType((*RestartTeamLabRequest)(nil), "RestartTeamLabRequest")
 	proto.RegisterType((*StopEventRequest)(nil), "StopEventRequest")
 	proto.RegisterType((*EventStatus)(nil), "EventStatus")
 }
@@ -748,47 +749,46 @@ func init() {
 func init() { proto.RegisterFile("daemon.proto", fileDescriptor_3ec90cbc4aa12fc6) }
 
 var fileDescriptor_3ec90cbc4aa12fc6 = []byte{
-	// 625 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x55, 0xcf, 0x6e, 0xd4, 0x3e,
-	0x10, 0xde, 0x34, 0xdd, 0xe8, 0xb7, 0xd3, 0xfe, 0xd4, 0xee, 0x2c, 0x6a, 0xa3, 0x08, 0xc1, 0xca,
-	0xea, 0x61, 0xc5, 0xc1, 0xaa, 0x4a, 0x45, 0x2f, 0x45, 0x1c, 0xca, 0x1f, 0x81, 0x56, 0x1c, 0xd2,
-	0x72, 0xe4, 0x90, 0x6d, 0xdd, 0x55, 0x54, 0x6a, 0x07, 0xdb, 0x29, 0xf4, 0x0d, 0x38, 0xf2, 0x1c,
-	0x3c, 0x10, 0x17, 0x5e, 0x06, 0xd9, 0x71, 0xb2, 0x4e, 0xb2, 0xe5, 0xe6, 0xef, 0xf3, 0x78, 0xf6,
-	0x9b, 0x2f, 0x33, 0xb3, 0xb0, 0x7d, 0x95, 0xb1, 0x5b, 0xc1, 0x69, 0x21, 0x85, 0x16, 0xe4, 0x03,
-	0xec, 0xce, 0xc5, 0x32, 0xe7, 0x9f, 0x14, 0x93, 0x29, 0xfb, 0x5a, 0x32, 0xa5, 0x31, 0x81, 0xff,
-	0x4a, 0xc5, 0x24, 0xcf, 0x6e, 0x59, 0x1c, 0x4c, 0x83, 0xd9, 0x28, 0x6d, 0xb0, 0xb9, 0x2b, 0x32,
-	0xa5, 0xbe, 0x09, 0x79, 0x15, 0x6f, 0x54, 0x77, 0x35, 0x26, 0xaf, 0x60, 0xec, 0xe5, 0x52, 0x85,
-	0xe0, 0x8a, 0xe1, 0x23, 0x18, 0x6a, 0x71, 0xc3, 0xb8, 0xcb, 0x54, 0x01, 0xc3, 0x32, 0x29, 0x85,
-	0x74, 0x39, 0x2a, 0x40, 0x3e, 0xc3, 0xf8, 0x3c, 0x5f, 0xf2, 0xb2, 0xf0, 0xd5, 0xec, 0x42, 0x78,
-	0xc3, 0xee, 0xdd, 0x73, 0x73, 0x6c, 0xe9, 0xdb, 0xf8, 0x87, 0xbe, 0xb0, 0xa3, 0x6f, 0x02, 0xe3,
-	0xf7, 0xfc, 0x2e, 0xd7, 0xcc, 0x4b, 0x4f, 0x4e, 0x01, 0x7d, 0xd2, 0xa9, 0xee, 0xff, 0xe8, 0x7a,
-	0xc5, 0xbf, 0x02, 0xc0, 0x33, 0xc9, 0x32, 0xcd, 0xde, 0xdc, 0x31, 0xae, 0x6b, 0xcd, 0x08, 0x9b,
-	0x9e, 0x7b, 0xf6, 0x6c, 0x52, 0xea, 0x6c, 0xe9, 0x9e, 0x9b, 0x23, 0x3e, 0x86, 0xd1, 0xb5, 0x14,
-	0x5c, 0x33, 0x7e, 0xa5, 0xe2, 0x70, 0x1a, 0xce, 0x46, 0xe9, 0x8a, 0x30, 0xb7, 0xec, 0x3b, 0x93,
-	0x97, 0xb9, 0x62, 0x2a, 0xde, 0xac, 0x6e, 0x1b, 0x02, 0xf7, 0x20, 0x5a, 0x94, 0xd7, 0xd7, 0x4c,
-	0xc6, 0xc3, 0x69, 0x30, 0x1b, 0xa6, 0x0e, 0x99, 0xfa, 0x2f, 0xb3, 0x22, 0xbb, 0xcc, 0xf5, 0x7d,
-	0x1c, 0xd9, 0x9b, 0x06, 0x9b, 0xfa, 0xe7, 0xb9, 0xd2, 0x56, 0xa9, 0xaa, 0xeb, 0xff, 0x13, 0x00,
-	0xfa, 0xac, 0x33, 0xe0, 0x08, 0x22, 0x66, 0x99, 0x38, 0x98, 0x86, 0xb3, 0xad, 0xa3, 0x84, 0xf6,
-	0x83, 0xa8, 0x83, 0x2e, 0x32, 0xf9, 0x19, 0x40, 0x54, 0x51, 0x75, 0xb1, 0xc1, 0xaa, 0xd8, 0xda,
-	0x92, 0x0d, 0xcf, 0x92, 0x27, 0x00, 0x4b, 0x29, 0xca, 0xe2, 0x4c, 0x94, 0x5c, 0xdb, 0xcf, 0x35,
-	0x4c, 0x3d, 0x06, 0x0f, 0xe0, 0xff, 0xba, 0xe2, 0x2a, 0x64, 0xd3, 0x86, 0xb4, 0xc9, 0x56, 0xc9,
-	0xc3, 0x4e, 0xc9, 0xcf, 0x60, 0xaf, 0xd1, 0xfd, 0xce, 0x24, 0x56, 0x5e, 0x5b, 0xb5, 0x15, 0x92,
-	0x1f, 0x01, 0xec, 0xf7, 0x82, 0x9d, 0x1d, 0x27, 0x10, 0x59, 0x5d, 0xb5, 0x1d, 0x4f, 0xe9, 0x03,
-	0x91, 0xd4, 0x41, 0x17, 0x9e, 0x1c, 0x43, 0x54, 0x31, 0xc6, 0x80, 0x8f, 0x5e, 0x4f, 0x98, 0xb3,
-	0xf9, 0x8a, 0xf3, 0x6c, 0x71, 0xd1, 0xb4, 0x85, 0x43, 0x64, 0x0e, 0x7b, 0x29, 0x53, 0x3a, 0x93,
-	0x55, 0xf6, 0x79, 0xb6, 0xf0, 0x66, 0xd3, 0xba, 0x7d, 0xd1, 0x68, 0x6f, 0xb0, 0xc9, 0xf6, 0xa5,
-	0x95, 0xad, 0x42, 0xe4, 0x00, 0x76, 0xcf, 0xb5, 0x28, 0x5a, 0x1d, 0xda, 0x2f, 0xff, 0x25, 0x6c,
-	0xd9, 0x88, 0x73, 0x9d, 0xe9, 0xd2, 0x36, 0x18, 0xe3, 0xda, 0x78, 0x5a, 0xc5, 0x38, 0x64, 0x78,
-	0x65, 0x23, 0xea, 0x1f, 0xa9, 0xd0, 0xd1, 0xef, 0x10, 0xa2, 0xd7, 0x76, 0xb3, 0xe0, 0x31, 0x8c,
-	0x9a, 0x3d, 0x80, 0x63, 0xda, 0xdd, 0x2f, 0x09, 0xd2, 0xde, 0x9a, 0x20, 0x03, 0x7c, 0x01, 0xb0,
-	0x1a, 0x7e, 0x44, 0xda, 0xdb, 0x04, 0x0f, 0xbc, 0x3b, 0x01, 0x58, 0x0d, 0x30, 0x22, 0xed, 0x8d,
-	0x78, 0x32, 0xa1, 0xfd, 0x09, 0x27, 0x03, 0x3c, 0x86, 0x2d, 0x6f, 0x74, 0x71, 0x42, 0xfb, 0x83,
-	0x9c, 0x6c, 0x53, 0xcf, 0x13, 0x32, 0x38, 0x0c, 0xf0, 0x10, 0x46, 0x8d, 0x99, 0x38, 0xa6, 0x5d,
-	0x63, 0xd7, 0xbc, 0x38, 0x01, 0x58, 0xcd, 0x0e, 0x22, 0xed, 0xcd, 0x60, 0x32, 0x59, 0x33, 0x5c,
-	0x64, 0x80, 0x6f, 0x61, 0xa7, 0xd3, 0x65, 0xb8, 0x4f, 0xd7, 0xb7, 0x73, 0x12, 0x3f, 0xd4, 0x90,
-	0x64, 0x80, 0xa7, 0xb0, 0xd3, 0xe9, 0x26, 0xdc, 0xa7, 0xeb, 0xfb, 0xab, 0x2f, 0x7f, 0x11, 0xd9,
-	0x3f, 0x8a, 0xe7, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0xe6, 0x52, 0xf8, 0xe0, 0x38, 0x06, 0x00,
-	0x00,
+	// 622 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x55, 0xc1, 0x6e, 0x13, 0x31,
+	0x10, 0xcd, 0x36, 0xdd, 0x88, 0x4c, 0x4b, 0xd5, 0x4c, 0x68, 0x58, 0xad, 0x8a, 0x14, 0x59, 0x3d,
+	0x84, 0x8b, 0x55, 0xb5, 0x15, 0x95, 0x10, 0x88, 0x43, 0xe1, 0x00, 0x44, 0x1c, 0xd2, 0x72, 0xe4,
+	0xe0, 0xb4, 0xd3, 0x2a, 0x2a, 0xf1, 0x06, 0xdb, 0x29, 0xf4, 0xca, 0x07, 0xf0, 0x21, 0xfc, 0x0d,
+	0x47, 0xfe, 0x06, 0xd9, 0xeb, 0xdd, 0x78, 0xb3, 0x5b, 0x6e, 0x7e, 0x33, 0xe3, 0xc9, 0x9b, 0xb7,
+	0xf3, 0x1c, 0xd8, 0xbe, 0x12, 0x34, 0xcf, 0x24, 0x5f, 0xa8, 0xcc, 0x64, 0xec, 0x03, 0xec, 0x8e,
+	0xb3, 0x9b, 0x99, 0xfc, 0xac, 0x49, 0x4d, 0xe8, 0xdb, 0x92, 0xb4, 0xc1, 0x14, 0x1e, 0x2d, 0x35,
+	0x29, 0x29, 0xe6, 0x94, 0x44, 0xc3, 0x68, 0xd4, 0x9d, 0x94, 0xd8, 0xe6, 0x16, 0x42, 0xeb, 0xef,
+	0x99, 0xba, 0x4a, 0x36, 0xf2, 0x5c, 0x81, 0xd9, 0x1b, 0xe8, 0x05, 0xbd, 0xf4, 0x22, 0x93, 0x9a,
+	0xf0, 0x09, 0xc4, 0x26, 0xbb, 0x25, 0xe9, 0x3b, 0xe5, 0xc0, 0x46, 0x49, 0xa9, 0x4c, 0xf9, 0x1e,
+	0x39, 0x60, 0x5f, 0xa0, 0x77, 0x3e, 0xbb, 0x91, 0xcb, 0x45, 0xc8, 0x66, 0x17, 0xda, 0xb7, 0x74,
+	0xef, 0xaf, 0xdb, 0x63, 0x85, 0xdf, 0xc6, 0x7f, 0xf8, 0xb5, 0xd7, 0xf8, 0xf5, 0xa1, 0xf7, 0x5e,
+	0xde, 0xcd, 0x0c, 0x05, 0xed, 0xd9, 0x2b, 0xc0, 0x30, 0xe8, 0x59, 0xd7, 0x7f, 0xb4, 0x99, 0xf1,
+	0xef, 0x08, 0xf0, 0x4c, 0x91, 0x30, 0xf4, 0xee, 0x8e, 0xa4, 0x29, 0x38, 0x23, 0x6c, 0x06, 0xea,
+	0xb9, 0xb3, 0x6d, 0x69, 0xc4, 0x8d, 0xbf, 0x6e, 0x8f, 0xb8, 0x0f, 0xdd, 0x6b, 0x95, 0x49, 0x43,
+	0xf2, 0x4a, 0x27, 0xed, 0x61, 0x7b, 0xd4, 0x9d, 0xac, 0x02, 0x36, 0x4b, 0x3f, 0x48, 0x5d, 0xce,
+	0x34, 0xe9, 0x64, 0x33, 0xcf, 0x96, 0x01, 0x1c, 0x40, 0x67, 0xba, 0xbc, 0xbe, 0x26, 0x95, 0xc4,
+	0xc3, 0x68, 0x14, 0x4f, 0x3c, 0xb2, 0xf3, 0x5f, 0x8a, 0x85, 0xb8, 0x9c, 0x99, 0xfb, 0xa4, 0xe3,
+	0x32, 0x25, 0xb6, 0xf3, 0x8f, 0x67, 0xda, 0x38, 0xa6, 0xba, 0x98, 0xff, 0x6f, 0x04, 0x18, 0x46,
+	0xbd, 0x00, 0x47, 0xd0, 0x21, 0x17, 0x49, 0xa2, 0x61, 0x7b, 0xb4, 0x75, 0x94, 0xf2, 0x7a, 0x11,
+	0xf7, 0xd0, 0x57, 0xa6, 0xbf, 0x22, 0xe8, 0xe4, 0xa1, 0x62, 0xd8, 0x68, 0x35, 0x6c, 0x21, 0xc9,
+	0x46, 0x20, 0xc9, 0x3e, 0x74, 0x0d, 0x89, 0xf9, 0x59, 0xb6, 0x94, 0xc6, 0x7d, 0xad, 0x78, 0xb2,
+	0x0a, 0xe0, 0x01, 0x3c, 0x2e, 0xe6, 0xcd, 0x2b, 0x36, 0x5d, 0x45, 0x35, 0x58, 0x19, 0x38, 0x5e,
+	0x1b, 0xf8, 0x39, 0xec, 0x95, 0xac, 0x2f, 0x48, 0xcc, 0x75, 0xb0, 0x53, 0x55, 0x7a, 0xec, 0x67,
+	0x04, 0x83, 0xf5, 0x5a, 0x2f, 0xc5, 0x31, 0xc4, 0x96, 0x54, 0xa1, 0xc4, 0x33, 0xde, 0x5c, 0xc7,
+	0x73, 0x94, 0xd7, 0xa6, 0xc7, 0x10, 0x3b, 0x6c, 0xe7, 0xfe, 0x14, 0xac, 0x82, 0x3d, 0xdb, 0x8f,
+	0x37, 0x16, 0xd3, 0x8b, 0x72, 0x1b, 0x3c, 0x62, 0x1f, 0x61, 0x6f, 0x42, 0xda, 0x08, 0xe5, 0x3a,
+	0x8f, 0xc5, 0x34, 0x70, 0xa4, 0xd3, 0xf8, 0xa2, 0x24, 0x5d, 0x62, 0xdb, 0xec, 0x6b, 0xa5, 0x59,
+	0x8e, 0xd8, 0x01, 0xec, 0x9e, 0x9b, 0x6c, 0x51, 0xd9, 0xcb, 0xfa, 0xdc, 0xaf, 0x61, 0xcb, 0x55,
+	0x9c, 0x1b, 0x61, 0x96, 0x6e, 0xad, 0x48, 0x1a, 0xab, 0x65, 0x5e, 0xe3, 0x91, 0x8d, 0x6b, 0x57,
+	0x51, 0xfc, 0x48, 0x8e, 0x8e, 0xfe, 0xb4, 0xa1, 0xf3, 0xd6, 0xbd, 0x27, 0x78, 0x02, 0xdd, 0xd2,
+	0xfd, 0xd8, 0xe3, 0xeb, 0xaf, 0x4a, 0x8a, 0xbc, 0xf6, 0x38, 0xb0, 0x16, 0xbe, 0x00, 0x58, 0x59,
+	0x1e, 0x91, 0xd7, 0xfc, 0xff, 0xc0, 0xbd, 0x53, 0x80, 0x95, 0x6d, 0x11, 0x79, 0xcd, 0xd8, 0x69,
+	0x9f, 0xd7, 0x7d, 0xcd, 0x5a, 0x78, 0x02, 0x5b, 0x81, 0x61, 0xb1, 0xcf, 0xeb, 0xf6, 0x4d, 0xb7,
+	0x79, 0xa0, 0x09, 0x6b, 0x1d, 0x46, 0x78, 0x08, 0xdd, 0x52, 0x4c, 0xec, 0xf1, 0x75, 0x61, 0x1b,
+	0x6e, 0x9c, 0x02, 0xac, 0x1c, 0x83, 0xc8, 0x6b, 0xce, 0x4b, 0xfb, 0x0d, 0x96, 0x62, 0x2d, 0x3c,
+	0x83, 0x9d, 0xea, 0x82, 0xe1, 0x80, 0x37, 0x6e, 0x71, 0xfa, 0xf4, 0x81, 0x4d, 0x64, 0x2d, 0x7c,
+	0x09, 0x3b, 0xd5, 0x4d, 0xc2, 0x01, 0x6f, 0x5c, 0xad, 0x3a, 0xf3, 0x69, 0xc7, 0xfd, 0x33, 0x1c,
+	0xff, 0x0b, 0x00, 0x00, 0xff, 0xff, 0x78, 0x16, 0xe2, 0xd8, 0x29, 0x06, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -809,8 +809,8 @@ type DaemonClient interface {
 	CreateEvent(ctx context.Context, in *CreateEventRequest, opts ...grpc.CallOption) (Daemon_CreateEventClient, error)
 	StopEvent(ctx context.Context, in *StopEventRequest, opts ...grpc.CallOption) (Daemon_StopEventClient, error)
 	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*ListEventsResponse, error)
-	ListEventGroups(ctx context.Context, in *ListEventGroupsRequest, opts ...grpc.CallOption) (*ListEventGroupsResponse, error)
-	RestartGroupLab(ctx context.Context, in *RestartGroupLabRequest, opts ...grpc.CallOption) (Daemon_RestartGroupLabClient, error)
+	ListEventTeams(ctx context.Context, in *ListEventTeamsRequest, opts ...grpc.CallOption) (*ListEventTeamsResponse, error)
+	RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (Daemon_RestartTeamLabClient, error)
 }
 
 type daemonClient struct {
@@ -921,21 +921,21 @@ func (c *daemonClient) ListEvents(ctx context.Context, in *ListEventsRequest, op
 	return out, nil
 }
 
-func (c *daemonClient) ListEventGroups(ctx context.Context, in *ListEventGroupsRequest, opts ...grpc.CallOption) (*ListEventGroupsResponse, error) {
-	out := new(ListEventGroupsResponse)
-	err := c.cc.Invoke(ctx, "/Daemon/ListEventGroups", in, out, opts...)
+func (c *daemonClient) ListEventTeams(ctx context.Context, in *ListEventTeamsRequest, opts ...grpc.CallOption) (*ListEventTeamsResponse, error) {
+	out := new(ListEventTeamsResponse)
+	err := c.cc.Invoke(ctx, "/Daemon/ListEventTeams", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *daemonClient) RestartGroupLab(ctx context.Context, in *RestartGroupLabRequest, opts ...grpc.CallOption) (Daemon_RestartGroupLabClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Daemon_serviceDesc.Streams[2], "/Daemon/RestartGroupLab", opts...)
+func (c *daemonClient) RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (Daemon_RestartTeamLabClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Daemon_serviceDesc.Streams[2], "/Daemon/RestartTeamLab", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonRestartGroupLabClient{stream}
+	x := &daemonRestartTeamLabClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -945,16 +945,16 @@ func (c *daemonClient) RestartGroupLab(ctx context.Context, in *RestartGroupLabR
 	return x, nil
 }
 
-type Daemon_RestartGroupLabClient interface {
+type Daemon_RestartTeamLabClient interface {
 	Recv() (*EventStatus, error)
 	grpc.ClientStream
 }
 
-type daemonRestartGroupLabClient struct {
+type daemonRestartTeamLabClient struct {
 	grpc.ClientStream
 }
 
-func (x *daemonRestartGroupLabClient) Recv() (*EventStatus, error) {
+func (x *daemonRestartTeamLabClient) Recv() (*EventStatus, error) {
 	m := new(EventStatus)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -970,8 +970,8 @@ type DaemonServer interface {
 	CreateEvent(*CreateEventRequest, Daemon_CreateEventServer) error
 	StopEvent(*StopEventRequest, Daemon_StopEventServer) error
 	ListEvents(context.Context, *ListEventsRequest) (*ListEventsResponse, error)
-	ListEventGroups(context.Context, *ListEventGroupsRequest) (*ListEventGroupsResponse, error)
-	RestartGroupLab(*RestartGroupLabRequest, Daemon_RestartGroupLabServer) error
+	ListEventTeams(context.Context, *ListEventTeamsRequest) (*ListEventTeamsResponse, error)
+	RestartTeamLab(*RestartTeamLabRequest, Daemon_RestartTeamLabServer) error
 }
 
 func RegisterDaemonServer(s *grpc.Server, srv DaemonServer) {
@@ -1092,42 +1092,42 @@ func _Daemon_ListEvents_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_ListEventGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListEventGroupsRequest)
+func _Daemon_ListEventTeams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEventTeamsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DaemonServer).ListEventGroups(ctx, in)
+		return srv.(DaemonServer).ListEventTeams(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Daemon/ListEventGroups",
+		FullMethod: "/Daemon/ListEventTeams",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DaemonServer).ListEventGroups(ctx, req.(*ListEventGroupsRequest))
+		return srv.(DaemonServer).ListEventTeams(ctx, req.(*ListEventTeamsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_RestartGroupLab_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(RestartGroupLabRequest)
+func _Daemon_RestartTeamLab_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RestartTeamLabRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DaemonServer).RestartGroupLab(m, &daemonRestartGroupLabServer{stream})
+	return srv.(DaemonServer).RestartTeamLab(m, &daemonRestartTeamLabServer{stream})
 }
 
-type Daemon_RestartGroupLabServer interface {
+type Daemon_RestartTeamLabServer interface {
 	Send(*EventStatus) error
 	grpc.ServerStream
 }
 
-type daemonRestartGroupLabServer struct {
+type daemonRestartTeamLabServer struct {
 	grpc.ServerStream
 }
 
-func (x *daemonRestartGroupLabServer) Send(m *EventStatus) error {
+func (x *daemonRestartTeamLabServer) Send(m *EventStatus) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -1152,8 +1152,8 @@ var _Daemon_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_ListEvents_Handler,
 		},
 		{
-			MethodName: "ListEventGroups",
-			Handler:    _Daemon_ListEventGroups_Handler,
+			MethodName: "ListEventTeams",
+			Handler:    _Daemon_ListEventTeams_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -1168,8 +1168,8 @@ var _Daemon_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 		{
-			StreamName:    "RestartGroupLab",
-			Handler:       _Daemon_RestartGroupLab_Handler,
+			StreamName:    "RestartTeamLab",
+			Handler:       _Daemon_RestartTeamLab_Handler,
 			ServerStreams: true,
 		},
 	},

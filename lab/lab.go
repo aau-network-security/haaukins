@@ -16,6 +16,19 @@ var (
 	newEnvironment = exercise.NewEnvironment
 )
 
+type Config struct {
+	Frontends []string          `yaml:"frontends"`
+	Exercises []exercise.Config `yaml:"exercises"`
+}
+
+func (conf Config) Flags() []exercise.FlagConfig {
+	var res []exercise.FlagConfig
+	for _, exercise := range conf.Exercises {
+		res = append(res, exercise.Flags()...)
+	}
+	return res
+}
+
 type Lab interface {
 	Start() error
 	Stop() error
@@ -34,7 +47,7 @@ type lab struct {
 	rdpConnPorts []uint
 }
 
-func NewLab(lib vbox.Library, config LabConfig) (Lab, error) {
+func NewLab(lib vbox.Library, config Config) (Lab, error) {
 	environ, err := newEnvironment(config.Exercises...)
 	if err != nil {
 		return nil, err

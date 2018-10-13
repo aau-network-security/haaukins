@@ -7,13 +7,19 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"syscall"
+
+	"log"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
-	"log"
+)
+
+var (
+	RequireTLS = true
 )
 
 type Token string
@@ -25,7 +31,7 @@ func (t Token) GetRequestMetadata(context.Context, ...string) (map[string]string
 }
 
 func (t Token) RequireTransportSecurity() bool {
-	return false
+	return RequireTLS
 }
 
 type Client struct {
@@ -52,7 +58,23 @@ func NewClient() (*Client, error) {
 		}
 	}
 
-	conn, err := grpc.Dial("cli.sec-aau.dk:5454",
+	host := os.Getenv("NTP_HOST")
+	if host == "" {
+		host = "cli.sec-aau.dk"
+	}
+
+	port := os.Getenv("NTP_PORT")
+	if port == "" {
+		port = "5454"
+	}
+
+	ssl := os.Getenv("NTP_SSL_OFF")
+	if strings.ToLower(ssl) == "true" {
+		RequireTLS = false
+	}
+
+	endpoint := fmt.Sprintf("%s:%s", host, port)
+	conn, err := grpc.Dial(endpoint,
 		grpc.WithInsecure(),
 		grpc.WithPerRPCCredentials(Token(c.Token)),
 	)

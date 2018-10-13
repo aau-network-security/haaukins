@@ -1,25 +1,28 @@
 package daemon
 
 import (
+	"testing"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-	"testing"
 
 	"context"
 	"fmt"
+	"log"
+	"net"
+	"time"
+
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/gorilla/mux"
-	"log"
-	"net"
-	"time"
 )
 
 var lis *bufconn.Listener
 
-const bufSize = 1024 * 1024
+const bufSize = 1024 * 1024 // => 1 MB
 
 type testUserHub struct {
 	signupKey string
@@ -29,7 +32,7 @@ type testUserHub struct {
 	password string
 	token    string
 
-	UserHub
+	store.TeamStore
 }
 
 func (t testUserHub) CreateSignupKey() (SignupKey, error) {
@@ -337,8 +340,8 @@ func TestStopEvent(t *testing.T) {
 		t.Fatalf("Expected ev1 to be closed, but it is still running")
 	}
 	if !ev2.started {
-    t.Fatalf("Expected ev2 to be running, but it is closed")
-  }
+		t.Fatalf("Expected ev2 to be running, but it is closed")
+	}
 }
 
 func TestListEvents(t *testing.T) {

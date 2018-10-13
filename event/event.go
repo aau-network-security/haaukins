@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aau-network-security/go-ntp/lab"
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -24,10 +26,54 @@ var (
 	StartingRevErr  = errors.New("error while starting reverse proxy")
 	EmptyNameErr    = errors.New("event requires a name")
 	EmptyTagErr     = errors.New("event requires a tag")
-	NoFrontendErr   = errors.New("lab requires at least one frontend")
 
 	getDockerHostIp = docker.GetDockerHostIP
 )
+
+type Host interface {
+	CreateEvent(store.Event) (Event, error)
+}
+
+func NewHost(vlib vbox.Library, elib store.ExerciseStore, esh store.EventStoreHub) Host {
+	return &eventHost{
+		esh:  esh,
+		vlib: vlib,
+		elib: elib,
+	}
+}
+
+type eventHost struct {
+	esh  store.EventStoreHub
+	vlib vbox.Library
+	elib store.ExerciseStore
+}
+
+func (eh *eventHost) CreateEvent(conf store.Event) (Event, error) {
+	if err := conf.Validate(); err != nil {
+		return nil, err
+	}
+
+	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
+	if err != nil {
+		return nil, err
+	}
+
+	labConf := lab.Config{
+		Exercises: exer,
+		Frontends: conf.Lab.Frontends,
+	}
+	hub, err := lab.NewHub(labConf, eh.vlib, conf.Capacity, conf.Buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	es, err := eh.esh.CreateEventStore(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEvent(conf, hub, es)
+}
 
 type Auth struct {
 	Username string `json:"username"`
@@ -42,56 +88,31 @@ type Group struct {
 type Event interface {
 	Start(context.Context) error
 	Close()
-	Register(Group) (*Auth, error)
+	Register(store.Team) (*Auth, error)
 	Connect(*mux.Router)
-	GetConfig() Config
+
+	GetConfig() store.Event
+	GetTeams() []store.Team
 	GetHub() lab.Hub
-	GetGroups() []Group
 }
 
 type event struct {
-	conf   Config
 	ctfd   ctfd.CTFd
 	guac   guacamole.Guacamole
-	cbSrv  *callbackServer
 	labhub lab.Hub
-	groups []Group
+	cbSrv  *callbackServer
+
+	labs  map[string]lab.Lab
+	store store.EventStore
 }
 
 func rand() string {
 	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
 }
 
-func New(conf Config) (Event, error) {
-	if conf.Name == "" {
-		return nil, EmptyNameErr
-	}
-
-	if conf.Tag == "" {
-		return nil, EmptyTagErr
-	}
-
-	if len(conf.LabConfig.Frontends) == 0 {
-		return nil, NoFrontendErr
-	}
-
-	if conf.VBoxLibrary == nil {
-		conf.VBoxLibrary = vbox.NewLibrary(".")
-	}
-
-	for _, f := range conf.LabConfig.Frontends {
-		if ok := conf.VBoxLibrary.IsAvailable(f); !ok {
-			return nil, fmt.Errorf("Unknown frontend: %s", f)
-		}
-	}
-
+func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, error) {
 	cb := &callbackServer{}
 	if err := cb.Run(); err != nil {
-		return nil, err
-	}
-
-	hub, err := lab.NewHub(conf.LabConfig, conf.VBoxLibrary, conf.Capacity, conf.Buffer)
-	if err != nil {
 		return nil, err
 	}
 
@@ -113,7 +134,7 @@ func New(conf Config) (Event, error) {
 	}
 
 	ev := &event{
-		conf:   conf,
+		store:  store,
 		labhub: hub,
 		cbSrv:  cb,
 		ctfd:   ctf,
@@ -147,6 +168,8 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 func (ev *event) Close() {
+	now := time.Now()
+
 	if ev.guac != nil {
 		ev.guac.Close()
 	}
@@ -160,9 +183,11 @@ func (ev *event) Close() {
 	if ev.cbSrv != nil {
 		ev.cbSrv.Close()
 	}
+
+	ev.store.Finish(now)
 }
 
-func (ev *event) Register(group Group) (*Auth, error) {
+func (ev *event) Register(t store.Team) (*Auth, error) {
 	lab, err := ev.labhub.Get()
 	if err != nil {
 		return nil, err
@@ -178,13 +203,13 @@ func (ev *event) Register(group Group) (*Auth, error) {
 		return nil, RdpConfErr
 	}
 
-	auth := Auth{
-		Username: group.Name,
-		Password: rand(),
+	if err := ev.guac.CreateUser(t.Email, t.HashedPassword); err != nil {
+		return nil, err
 	}
 
-	if err := ev.guac.CreateUser(auth.Username, auth.Password); err != nil {
-		return nil, err
+	auth := Auth{
+		Username: t.Email,
+		Password: t.HashedPassword,
 	}
 
 	hostIp, err := getDockerHostIp()
@@ -194,9 +219,9 @@ func (ev *event) Register(group Group) (*Auth, error) {
 
 	for i, port := range rdpPorts {
 		num := i + 1
-		name := fmt.Sprintf("%s-client%d", group.Name, num)
+		name := fmt.Sprintf("%s-client%d", t.Email, num)
 
-		log.Debug().Str("group", group.Name).Uint("port", port).Msg("Creating RDP Connection for group")
+		log.Debug().Str("group", t.Name).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
 			Host:     hostIp,
 			Port:     port,
@@ -209,8 +234,11 @@ func (ev *event) Register(group Group) (*Auth, error) {
 		}
 	}
 
-	group.Lab = lab
-	ev.groups = append(ev.groups, group)
+	ev.labs[t.Email] = lab
+
+	if err := ev.store.CreateTeam(t); err != nil {
+		return nil, err
+	}
 
 	return &auth, nil
 }
@@ -227,14 +255,14 @@ func handler(h http.Handler) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func (ev *event) GetConfig() Config {
-	return ev.conf
-}
-
 func (ev *event) GetHub() lab.Hub {
 	return ev.labhub
 }
 
-func (ev *event) GetGroups() []Group {
-	return ev.groups
+func (ev *event) GetConfig() store.Event {
+	return ev.store.Read()
+}
+
+func (ev *event) GetTeams() []store.Team {
+	return ev.store.GetTeams()
 }

@@ -8,8 +8,8 @@ service Daemon {
   rpc CreateEvent (CreateEventRequest) returns (stream EventStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
-  rpc ListEventGroups (ListEventGroupsRequest) returns (ListEventGroupsResponse) {}
-  rpc RestartGroupLab (RestartGroupLabRequest) returns (stream EventStatus) {}
+  rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
+  rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
 }
 
 message LoginUserRequest {
@@ -48,7 +48,7 @@ message ListEventsResponse {
   message Events {
     string tag = 1;
     string name = 2;
-    int32 groupCount = 3;
+    int32 teamCount = 3;
     int32 exerciseCount = 4;
     int32 capacity = 5;
   }
@@ -56,18 +56,18 @@ message ListEventsResponse {
   repeated Events events = 1;
 }
 
-message ListEventGroupsRequest {
+message ListEventTeamsRequest {
   string tag = 1;
 }
-message ListEventGroupsResponse {
-  message Groups {
+message ListEventTeamsResponse {
+  message Teams {
     string Name = 1;
     string LabTag = 2;
   }
-  repeated Groups groups = 1;
+  repeated Teams teams = 1;
 }
 
-message RestartGroupLabRequest {
+message RestartTeamLabRequest {
   string eventTag = 1;
   string labTag = 2;
 }
