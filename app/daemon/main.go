@@ -34,10 +34,10 @@ func handleCancel(clean func()) {
 }
 
 func listenerFromConf(c *daemon.Config, port string) (net.Listener, error) {
-	if c.TLS.Management.CertFile != "" && c.TLS.Management.KeyFile != "" {
+	if c.Management.TLS.CertFile != "" && c.Management.TLS.KeyFile != "" {
 		cer, err := tls.LoadX509KeyPair(
-			c.TLS.Management.CertFile,
-			c.TLS.Management.KeyFile,
+			c.Management.TLS.CertFile,
+			c.Management.TLS.KeyFile,
 		)
 		if err != nil {
 			return nil, err
@@ -63,7 +63,9 @@ func main() {
 
 	lis, err := listenerFromConf(c, mngtPort)
 	if err != nil {
-		log.Info().Msg("Failed to listen on management port: " + mngtPort)
+		log.Fatal().
+			Err(err).
+			Msgf("failed to listen on management port %s", mngtPort)
 	}
 
 	d, err := daemon.New(c)

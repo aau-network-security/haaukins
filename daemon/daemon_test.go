@@ -1,23 +1,28 @@
 package daemon
 
 import (
+	"testing"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-	"testing"
 
 	"context"
 	"fmt"
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
-	"github.com/aau-network-security/go-ntp/event"
-	"github.com/gorilla/mux"
 	"log"
 	"net"
 	"time"
+
+	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/aau-network-security/go-ntp/event"
+	"github.com/aau-network-security/go-ntp/exercise"
+	"github.com/aau-network-security/go-ntp/lab"
+	"github.com/aau-network-security/go-ntp/store"
+	"github.com/gorilla/mux"
 )
 
 var lis *bufconn.Listener
 
-const bufSize = 1024 * 1024
+const bufSize = 1024 * 1024 // => 1 MB
 
 type testUserHub struct {
 	signupKey string
@@ -27,7 +32,7 @@ type testUserHub struct {
 	password string
 	token    string
 
-	UserHub
+	store.TeamStore
 }
 
 func (t testUserHub) CreateSignupKey() (SignupKey, error) {
@@ -236,6 +241,8 @@ type createEventServer struct {
 
 type testEvent struct {
 	started bool
+	conf    event.Config
+	groups  []event.Group
 	event.Event
 }
 
@@ -245,6 +252,16 @@ func (ev *testEvent) Start(context.Context) error {
 }
 
 func (ev *testEvent) Connect(*mux.Router) {}
+
+func (ev *testEvent) Close() { ev.started = false }
+
+func (ev *testEvent) GetConfig() event.Config {
+	return ev.conf
+}
+
+func (ev *testEvent) GetGroups() []event.Group {
+	return ev.groups
+}
 
 type testEventHost struct {
 	ev event.Event
@@ -282,5 +299,88 @@ func TestCreateEvent(t *testing.T) {
 	time.Sleep(1 * time.Millisecond) // wait for goroutine to finish
 	if !ev.started {
 		t.Fatalf("Expected event to be started, but it is not")
+	}
+}
+
+type stopEventServer struct {
+	pb.Daemon_StopEventServer
+}
+
+func TestStopEvent(t *testing.T) {
+	ev1 := &testEvent{started: true}
+	ev2 := &testEvent{started: true}
+
+	d := daemon{
+		events: map[string]event.Event{
+			"ev1": ev1,
+			"ev2": ev2,
+		},
+	}
+
+	req := pb.StopEventRequest{
+		Tag: "ev1",
+	}
+
+	resp := stopEventServer{}
+	err := d.StopEvent(&req, &resp)
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	expectedEvents := 1
+	if len(d.events) != expectedEvents {
+		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
+	}
+	for k := range d.events {
+		if k == "ev1" {
+			t.Fatalf("Expected ev1 to be removed from daemon, but still exists")
+		}
+	}
+	if ev1.started {
+		t.Fatalf("Expected ev1 to be closed, but it is still running")
+	}
+	if !ev2.started {
+		t.Fatalf("Expected ev2 to be running, but it is closed")
+	}
+}
+
+func TestListEvents(t *testing.T) {
+	ctx := context.Background()
+
+	ev := &testEvent{
+		conf: event.Config{
+			LabConfig: lab.LabConfig{
+				Exercises: []exercise.Config{ // define three empty exercises
+					{}, {}, {},
+				},
+			},
+		},
+		groups: []event.Group{ // define two empty groups
+			{}, {},
+		},
+	}
+
+	d := daemon{
+		events: map[string]event.Event{
+			"ev": ev,
+		},
+	}
+
+	req := pb.ListEventsRequest{}
+
+	resp, err := d.ListEvents(ctx, &req)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(resp.Events) != 1 {
+		t.Fatalf("Expected %d event, got %d", 1, len(resp.Events))
+	}
+	if resp.Events[0].ExerciseCount != 3 {
+		t.Fatalf("Expected %d exercises, got %d", 3, resp.Events[0].ExerciseCount)
+	}
+	if resp.Events[0].GroupCount != 2 {
+		t.Fatalf("Expected %d groups, got %d", 2, resp.Events[0].GroupCount)
+
 	}
 }

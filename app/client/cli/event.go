@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -131,14 +130,22 @@ func (c *Client) CmdEventList() *cobra.Command {
 				return
 			}
 
-			for _, event := range r.Events {
-				fmt.Println(event.Name)
-				fmt.Printf("- Tag: %s\n", event.Tag)
-				fmt.Printf("- Buffer: %d\n", event.Buffer)
-				fmt.Printf("- Capacity: %d\n", event.Capacity)
-				fmt.Printf("- Frontends: \n-- %s\n", strings.Join(event.Frontends, "\n-- "))
-				fmt.Printf("- Exercises: \n-- %s\n", strings.Join(event.Exercises, "\n-- "))
+			f := formatter{
+				header: []string{"EVENT TAG", "NAME", "# GROUPS", "# EXERCISES", "CAPACITY"},
+				fields: []string{"Tag", "Name", "GroupCount", "ExerciseCount", "Capacity"},
 			}
+
+			var elements []formatElement
+			for _, e := range r.Events {
+				elements = append(elements, e)
+			}
+
+			table, err := f.AsTable(elements)
+			if err != nil {
+				PrintError("Failed to create event list")
+				return
+			}
+			fmt.Printf(table)
 		},
 	}
 }

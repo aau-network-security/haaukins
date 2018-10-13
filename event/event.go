@@ -90,6 +90,9 @@ type Event interface {
 	Close()
 	Register(store.Team) (*Auth, error)
 	Connect(*mux.Router)
+
+	GetConfig() store.Event
+	GetTeams() []store.Team
 	GetHub() lab.Hub
 }
 
@@ -254,4 +257,12 @@ func handler(h http.Handler) func(http.ResponseWriter, *http.Request) {
 
 func (ev *event) GetHub() lab.Hub {
 	return ev.labhub
+}
+
+func (ev *event) GetConfig() store.Event {
+	return ev.store.Read()
+}
+
+func (ev *event) GetTeams() []store.Team {
+	return ev.store.GetTeams()
 }

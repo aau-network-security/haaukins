@@ -350,7 +350,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	return nil
 }
 
-func (d *daemon) RestartGroupLab(req *pb.RestartGroupLabRequest, resp pb.Daemon_RestartGroupLabServer) error {
+func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_RestartTeamLabServer) error {
 	ev, ok := d.events[req.EventTag]
 	if !ok {
 		return UnknownEventErr
@@ -370,54 +370,45 @@ func (d *daemon) RestartGroupLab(req *pb.RestartGroupLabRequest, resp pb.Daemon_
 }
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	// log.Debug().Msg("Listing events..")
-
-	// var events []*pb.ListEventsResponse_Events
-	// var eventConf store.Event
-	// var tempExer []string
-
-	// for _, event := range d.events {
-	// 	eventConf = event.GetConfig()
-
-	// 	for _, exercise := range eventConf.LabConfig.Exercises {
-	// 		tempExer = append(tempExer, exercise.Name)
-	// 	}
-
-	// 	events = append(events, &pb.ListEventsResponse_Events{
-	// 		Name:      eventConf.Name,
-	// 		Tag:       eventConf.Tag,
-	// 		Buffer:    int32(eventConf.Buffer),
-	// 		Capacity:  int32(eventConf.Capacity),
-	// 		Frontends: eventConf.LabConfig.Frontends,
-	// 		Exercises: tempExer,
-	// 	})
-	// }
+	log.Debug().Msg("Listing events..")
 
 	var events []*pb.ListEventsResponse_Events
+
+	for _, event := range d.events {
+		conf := event.GetConfig()
+
+		events = append(events, &pb.ListEventsResponse_Events{
+			Name:          conf.Name,
+			Tag:           conf.Tag,
+			TeamCount:     int32(len(event.GetTeams())),
+			ExerciseCount: int32(len(conf.Lab.Exercises)),
+			Capacity:      int32(conf.Capacity),
+		})
+	}
 
 	return &pb.ListEventsResponse{Events: events}, nil
 }
 
-func (d *daemon) ListEventGroups(ctx context.Context, req *pb.ListEventGroupsRequest) (*pb.ListEventGroupsResponse, error) {
+func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
 	log.Debug().Msg("Listing event groups..")
 
-	var eventGroups []*pb.ListEventGroupsResponse_Groups
+	var eventTeams []*pb.ListEventTeamsResponse_Teams
 
 	// ev, ok := d.events[req.Tag]
 	// if !ok {
 	// 	return nil, UnknownEventErr
 	// }
 
-	// groups := ev.GetGroups()
+	// groups := ev.GetTeams()
 
 	// for _, group := range groups {
-	// 	eventGroups = append(eventGroups, &pb.ListEventGroupsResponse_Groups{
+	// 	eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
 	// 		Name:   group.Name,
 	// 		LabTag: group.Lab.GetTag(),
 	// 	})
 	// }
 
-	return &pb.ListEventGroupsResponse{Groups: eventGroups}, nil
+	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
 
 func (d *daemon) Close() {

@@ -98,6 +98,7 @@ func (t Team) SolveTaskByTag(tag exercise.Tag) error {
 type TeamStore interface {
 	CreateTeam(Team) error
 	GetTeamByToken(string) (Team, error)
+	GetTeams() []Team
 	SaveTeam(Team) error
 
 	CreateTokenForTeam(string, Team) error
@@ -173,6 +174,15 @@ func (es *teamstore) DeleteToken(token string) error {
 	return nil
 }
 
+func (es *teamstore) GetTeams() []Team {
+	var teams []Team
+	for _, t := range es.teams {
+		teams = append(teams, t)
+	}
+
+	return teams
+}
+
 func (es *teamstore) GetTeamByToken(token string) (Team, error) {
 	es.m.RLock()
 	defer es.m.RUnlock()
@@ -191,11 +201,7 @@ func (es *teamstore) GetTeamByToken(token string) (Team, error) {
 }
 
 func (es *teamstore) RunHooks() error {
-	var teams []Team
-	for _, t := range es.teams {
-		teams = append(teams, t)
-	}
-
+	teams := es.GetTeams()
 	for _, h := range es.hooks {
 		if err := h(teams); err != nil {
 			return err
@@ -206,6 +212,7 @@ func (es *teamstore) RunHooks() error {
 }
 
 type EventStore interface {
+	Read() Event
 	SetCapacity(n int) error
 	Finish(time.Time) error
 	TeamStore
@@ -225,6 +232,13 @@ func NewEventStore(conf Event, ts TeamStore, hooks ...func(Event) error) EventSt
 		conf:      conf,
 		TeamStore: ts,
 	}
+}
+
+func (es *eventstore) Read() Event {
+	es.m.Lock()
+	defer es.m.Unlock()
+
+	return es.conf
 }
 
 func (es *eventstore) SetCapacity(n int) error {
