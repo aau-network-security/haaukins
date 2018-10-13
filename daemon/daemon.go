@@ -35,19 +35,19 @@ var (
 )
 
 type Config struct {
-	Host                 string                           `yaml:"host"`
-	ManagementSigningKey string                           `yaml:"management-sign-key"`
-	UsersFile            string                           `yaml:"users-file,omitempty"`
-	ExercisesFile        string                           `yaml:"exercises-file,omitempty"`
-	OvaDir               string                           `yaml:"ova-directory,omitempty"`
-	EventsDir            string                           `yaml:"events-directory,omitempty"`
-	DockerRepositories   []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
-	TLS                  struct {
-		Management struct {
+	Host               string                           `yaml:"host"`
+	UsersFile          string                           `yaml:"users-file,omitempty"`
+	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
+	OvaDir             string                           `yaml:"ova-directory,omitempty"`
+	EventsDir          string                           `yaml:"events-directory,omitempty"`
+	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
+	Management         struct {
+		SigningKey string `yaml:"sign-key"`
+		TLS        struct {
 			CertFile string `yaml:"cert-file"`
 			KeyFile  string `yaml:"key-file"`
-		} `yaml:"management"`
-	} `yaml:"tls,omitempty"`
+		} `yaml:"TLS"`
+	} `yaml:"management,omitempty"`
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
@@ -81,7 +81,7 @@ type daemon struct {
 }
 
 func New(conf *Config) (*daemon, error) {
-	if conf.ManagementSigningKey == "" {
+	if conf.Management.SigningKey == "" {
 		return nil, MissingSecretKey
 	}
 
@@ -148,7 +148,7 @@ func New(conf *Config) (*daemon, error) {
 
 	d := &daemon{
 		conf:            conf,
-		auth:            NewAuthenticator(uf, conf.ManagementSigningKey),
+		auth:            NewAuthenticator(uf, conf.Management.SigningKey),
 		users:           uf,
 		exercises:       ef,
 		events:          make(map[string]event.Event),

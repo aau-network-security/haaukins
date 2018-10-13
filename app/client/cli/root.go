@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"log"
@@ -15,6 +16,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
+)
+
+var (
+	RequireTLS = true
 )
 
 type Token string
@@ -26,7 +31,7 @@ func (t Token) GetRequestMetadata(context.Context, ...string) (map[string]string
 }
 
 func (t Token) RequireTransportSecurity() bool {
-	return false
+	return RequireTLS
 }
 
 type Client struct {
@@ -61,6 +66,11 @@ func NewClient() (*Client, error) {
 	port := os.Getenv("NTP_PORT")
 	if port == "" {
 		port = "5454"
+	}
+
+	ssl := os.Getenv("NTP_SSL_OFF")
+	if strings.ToLower(ssl) == "true" {
+		RequireTLS = false
 	}
 
 	endpoint := fmt.Sprintf("%s:%s", host, port)

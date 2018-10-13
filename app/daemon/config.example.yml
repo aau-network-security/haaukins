@@ -1,8 +1,0 @@
-host: localhost
-management-sign-key: "some_secret"
-ova-directory: "/vms"
-docker-repositories:
-    - username: SomeUser
-      password: SomePass
-      serveraddress: registry.sec-aau.dk
-  
