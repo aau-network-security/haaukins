@@ -1,386 +1,356 @@
 package daemon
 
 import (
-	"testing"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
-
-	"context"
 	"fmt"
 	"log"
 	"net"
+	"testing"
 	"time"
 
+	"context"
+
+	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
-	"github.com/aau-network-security/go-ntp/event"
-	"github.com/aau-network-security/go-ntp/exercise"
-	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
-	"github.com/gorilla/mux"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
-var lis *bufconn.Listener
-
-const bufSize = 1024 * 1024 // => 1 MB
-
-type testUserHub struct {
-	signupKey string
-	err       error
-
-	username string
-	password string
-	token    string
-
-	store.TeamStore
+type noAuth struct {
+	allowed bool
 }
 
-func (t testUserHub) CreateSignupKey() (SignupKey, error) {
-	return SignupKey(t.signupKey), t.err
+func (a *noAuth) TokenForUser(username, password string) (string, error) {
+	return "whatever", nil
 }
 
-func (t testUserHub) AddUser(k SignupKey, username, password string) error {
-	if k == SignupKey(t.signupKey) && username == t.username && password == t.password {
+func (a *noAuth) AuthenticateUserByToken(t string) error {
+	if a.allowed {
 		return nil
 	}
-	return fmt.Errorf("failure")
+
+	return fmt.Errorf("unauthorized")
 }
 
-func (t testUserHub) TokenForUser(username, password string) (string, error) {
-	if username == t.username && password == t.password {
-		return t.token, nil
-	}
-	return "", fmt.Errorf("failure")
-}
-
-func init() {
-	lis = bufconn.Listen(bufSize)
-	d := &daemon{
-		uh: testUserHub{
-			signupKey: "keyval",
-			err:       nil,
-			username:  "user",
-			password:  "pass",
-			token:     "token",
-		},
-	}
+func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func() error) {
+	const oneMegaByte = 1024 * 1024
+	lis := bufconn.Listen(oneMegaByte)
 	s := d.GetServer()
-
 	pb.RegisterDaemonServer(s, d)
+
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("Server exited with error: %v", err)
 		}
 	}()
-}
 
-func bufDialer(string, time.Duration) (net.Conn, error) {
-	return lis.Dial()
-}
-
-func TestNoToken(t *testing.T) {
-	ctx := context.Background()
-	conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("Failed to dial bufnet: %v", err)
+	dialer := func(string, time.Duration) (net.Conn, error) {
+		return lis.Dial()
 	}
-	defer conn.Close()
 
-	client := pb.NewDaemonClient(conn)
-	req := &pb.InviteUserRequest{}
-	_, err = client.InviteUser(ctx, req)
-	if err == nil {
-		t.Fatalf("Expected an error, but did not receive one")
-	}
+	return dialer, lis.Close
 }
 
 func TestInviteUser(t *testing.T) {
-
-	cases := []struct {
-		name     string
-		keyValue string
-		err      error
+	tt := []struct {
+		name  string
+		token string
+		count int
 	}{
-		{"OK", "1", nil},
-		{"Error in retrieving SignupKey", "", fmt.Errorf("failure")},
+		{name: "Normal invitation", token: "", count: 1},
 	}
 
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			s := store.NewSignupKeyStore([]store.SignupKey{})
+
 			ctx := context.Background()
 			d := &daemon{
-				uh: testUserHub{
-					signupKey: c.keyValue,
-					err:       c.err,
+				auth: &noAuth{
+					allowed: false,
+				},
+				users: struct {
+					store.SignupKeyStore
+					store.UserStore
+				}{
+					s,
+					store.NewUserStore([]store.User{}),
 				},
 			}
-			req := &pb.InviteUserRequest{}
-			resp, _ := d.InviteUser(ctx, req)
 
-			if resp.Key != c.keyValue {
-				t.Fatalf("Expected key '%s', but got '%s'", c.keyValue, resp.Key)
-			}
-			expectedErrMsg := ""
-			if c.err != nil {
-				expectedErrMsg = c.err.Error()
-			}
+			dialer, close := getServer(d)
+			defer close()
 
-			if resp.Error != expectedErrMsg {
-				t.Fatalf("Expected error: '%s', but got '%s'", expectedErrMsg, resp.Error)
-			}
-		})
-	}
-}
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Token(tc.Token)),
+			)
 
-func TestSignupUser(t *testing.T) {
-	cases := []struct {
-		name     string
-		req      pb.SignupUserRequest
-		expected pb.LoginUserResponse
-	}{
-		{
-			"OK",
-			pb.SignupUserRequest{
-				Key:      "keyval",
-				Username: "user",
-				Password: "pass",
-			},
-			pb.LoginUserResponse{
-				Token: "token",
-				Error: "",
-			},
-		},
-		{
-			"Invalid signup key",
-			pb.SignupUserRequest{
-				Key:      "invalid-key",
-				Username: "user",
-				Password: "pass",
-			},
-			pb.LoginUserResponse{
-				Token: "",
-				Error: "failure",
-			},
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			ctx := context.Background()
-			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
 			if err != nil {
-				t.Fatalf("Failed to dial bufnet: %v", err)
+				t.Fatalf("failed to dial bufnet: %v", err)
 			}
 			defer conn.Close()
 
 			client := pb.NewDaemonClient(conn)
-			resp, _ := client.SignupUser(ctx, &c.req)
-			if resp.Error != c.expected.Error {
-				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
-			}
-			if resp.Token != c.expected.Token {
-				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
-			}
-		})
-	}
-}
-
-func TestLoginUser(t *testing.T) {
-	cases := []struct {
-		name     string
-		req      pb.LoginUserRequest
-		expected pb.LoginUserResponse
-	}{
-		{
-			"OK",
-			pb.LoginUserRequest{
-				Username: "user",
-				Password: "pass",
-			},
-			pb.LoginUserResponse{
-				Token: "token",
-				Error: "",
-			},
-		},
-		{
-			"Invalid credentials",
-			pb.LoginUserRequest{
-				Username: "user",
-				Password: "invalid-password",
-			},
-			pb.LoginUserResponse{
-				Token: "",
-				Error: "failure",
-			},
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			ctx := context.Background()
-			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
+			_, err = client.InviteUser(ctx, &pb.InviteUserRequest{})
 			if err != nil {
-				t.Fatalf("Failed to dial bufnet: %v", err)
+				t.Fatalf("failed to invite user: %v", err)
 			}
-			defer conn.Close()
 
-			client := pb.NewDaemonClient(conn)
-
-			resp, _ := client.LoginUser(ctx, &c.req)
-			if resp.Error != c.expected.Error {
-				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
-			}
-			if resp.Token != c.expected.Token {
-				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
-			}
 		})
 	}
 }
 
-type createEventServer struct {
-	pb.Daemon_CreateEventServer
-}
+// func TestSignupUser(t *testing.T) {
+// 	cases := []struct {
+// 		name     string
+// 		req      pb.SignupUserRequest
+// 		expected pb.LoginUserResponse
+// 	}{
+// 		{
+// 			"OK",
+// 			pb.SignupUserRequest{
+// 				Key:      "keyval",
+// 				Username: "user",
+// 				Password: "pass",
+// 			},
+// 			pb.LoginUserResponse{
+// 				Token: "token",
+// 				Error: "",
+// 			},
+// 		},
+// 		{
+// 			"Invalid signup key",
+// 			pb.SignupUserRequest{
+// 				Key:      "invalid-key",
+// 				Username: "user",
+// 				Password: "pass",
+// 			},
+// 			pb.LoginUserResponse{
+// 				Token: "",
+// 				Error: "failure",
+// 			},
+// 		},
+// 	}
+// 	for _, c := range cases {
+// 		t.Run(c.name, func(t *testing.T) {
+// 			ctx := context.Background()
+// 			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
+// 			if err != nil {
+// 				t.Fatalf("Failed to dial bufnet: %v", err)
+// 			}
+// 			defer conn.Close()
 
-type testEvent struct {
-	started bool
-	conf    event.Config
-	groups  []event.Group
-	event.Event
-}
+// 			client := pb.NewDaemonClient(conn)
+// 			resp, _ := client.SignupUser(ctx, &c.req)
+// 			if resp.Error != c.expected.Error {
+// 				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
+// 			}
+// 			if resp.Token != c.expected.Token {
+// 				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
+// 			}
+// 		})
+// 	}
+// }
 
-func (ev *testEvent) Start(context.Context) error {
-	ev.started = true
-	return nil
-}
+// func TestLoginUser(t *testing.T) {
+// 	cases := []struct {
+// 		name     string
+// 		req      pb.LoginUserRequest
+// 		expected pb.LoginUserResponse
+// 	}{
+// 		{
+// 			"OK",
+// 			pb.LoginUserRequest{
+// 				Username: "user",
+// 				Password: "pass",
+// 			},
+// 			pb.LoginUserResponse{
+// 				Token: "token",
+// 				Error: "",
+// 			},
+// 		},
+// 		{
+// 			"Invalid credentials",
+// 			pb.LoginUserRequest{
+// 				Username: "user",
+// 				Password: "invalid-password",
+// 			},
+// 			pb.LoginUserResponse{
+// 				Token: "",
+// 				Error: "failure",
+// 			},
+// 		},
+// 	}
+// 	for _, c := range cases {
+// 		t.Run(c.name, func(t *testing.T) {
+// 			ctx := context.Background()
+// 			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
+// 			if err != nil {
+// 				t.Fatalf("Failed to dial bufnet: %v", err)
+// 			}
+// 			defer conn.Close()
 
-func (ev *testEvent) Connect(*mux.Router) {}
+// 			client := pb.NewDaemonClient(conn)
 
-func (ev *testEvent) Close() { ev.started = false }
+// 			resp, _ := client.LoginUser(ctx, &c.req)
+// 			if resp.Error != c.expected.Error {
+// 				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
+// 			}
+// 			if resp.Token != c.expected.Token {
+// 				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
+// 			}
+// 		})
+// 	}
+// }
 
-func (ev *testEvent) GetConfig() event.Config {
-	return ev.conf
-}
+// type createEventServer struct {
+// 	pb.Daemon_CreateEventServer
+// }
 
-func (ev *testEvent) GetGroups() []event.Group {
-	return ev.groups
-}
+// type testEvent struct {
+// 	started bool
+// 	conf    event.Config
+// 	groups  []event.Group
+// 	event.Event
+// }
 
-type testEventHost struct {
-	ev event.Event
-	EventHost
-}
+// func (ev *testEvent) Start(context.Context) error {
+// 	ev.started = true
+// 	return nil
+// }
 
-func (eh *testEventHost) CreateEvent(event.Config) (event.Event, error) {
-	return eh.ev, nil
-}
+// func (ev *testEvent) Connect(*mux.Router) {}
 
-func TestCreateEvent(t *testing.T) {
-	ev := &testEvent{started: false}
+// func (ev *testEvent) Close() { ev.started = false }
 
-	d := daemon{
-		conf:   &Config{Host: "localhost"},
-		mux:    mux.NewRouter(),
-		events: make(map[string]event.Event),
-		eh:     &testEventHost{ev: ev},
-	}
-	req := pb.CreateEventRequest{
-		Name:      "Event 1",
-		Tag:       "ev1",
-		Frontends: []string{"frontend1"},
-	}
+// func (ev *testEvent) GetConfig() event.Config {
+// 	return ev.conf
+// }
 
-	resp := createEventServer{}
-	err := d.CreateEvent(&req, &resp)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	expectedEvents := 1
-	if len(d.events) != expectedEvents {
-		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
-	}
-	time.Sleep(1 * time.Millisecond) // wait for goroutine to finish
-	if !ev.started {
-		t.Fatalf("Expected event to be started, but it is not")
-	}
-}
+// func (ev *testEvent) GetGroups() []event.Group {
+// 	return ev.groups
+// }
 
-type stopEventServer struct {
-	pb.Daemon_StopEventServer
-}
+// type testEventHost struct {
+// 	ev event.Event
+// 	EventHost
+// }
 
-func TestStopEvent(t *testing.T) {
-	ev1 := &testEvent{started: true}
-	ev2 := &testEvent{started: true}
+// func (eh *testEventHost) CreateEvent(event.Config) (event.Event, error) {
+// 	return eh.ev, nil
+// }
 
-	d := daemon{
-		events: map[string]event.Event{
-			"ev1": ev1,
-			"ev2": ev2,
-		},
-	}
+// func TestCreateEvent(t *testing.T) {
+// 	ev := &testEvent{started: false}
 
-	req := pb.StopEventRequest{
-		Tag: "ev1",
-	}
+// 	d := daemon{
+// 		conf:   &Config{Host: "localhost"},
+// 		mux:    mux.NewRouter(),
+// 		events: make(map[string]event.Event),
+// 		eh:     &testEventHost{ev: ev},
+// 	}
+// 	req := pb.CreateEventRequest{
+// 		Name:      "Event 1",
+// 		Tag:       "ev1",
+// 		Frontends: []string{"frontend1"},
+// 	}
 
-	resp := stopEventServer{}
-	err := d.StopEvent(&req, &resp)
-	if err != nil {
-		t.Fatalf("Unexpected error: %s", err)
-	}
+// 	resp := createEventServer{}
+// 	err := d.CreateEvent(&req, &resp)
+// 	if err != nil {
+// 		t.Fatalf("Unexpected error: %v", err)
+// 	}
+// 	expectedEvents := 1
+// 	if len(d.events) != expectedEvents {
+// 		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
+// 	}
+// 	time.Sleep(1 * time.Millisecond) // wait for goroutine to finish
+// 	if !ev.started {
+// 		t.Fatalf("Expected event to be started, but it is not")
+// 	}
+// }
 
-	expectedEvents := 1
-	if len(d.events) != expectedEvents {
-		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
-	}
-	for k := range d.events {
-		if k == "ev1" {
-			t.Fatalf("Expected ev1 to be removed from daemon, but still exists")
-		}
-	}
-	if ev1.started {
-		t.Fatalf("Expected ev1 to be closed, but it is still running")
-	}
-	if !ev2.started {
-		t.Fatalf("Expected ev2 to be running, but it is closed")
-	}
-}
+// type stopEventServer struct {
+// 	pb.Daemon_StopEventServer
+// }
 
-func TestListEvents(t *testing.T) {
-	ctx := context.Background()
+// func TestStopEvent(t *testing.T) {
+// 	ev1 := &testEvent{started: true}
+// 	ev2 := &testEvent{started: true}
 
-	ev := &testEvent{
-		conf: event.Config{
-			LabConfig: lab.LabConfig{
-				Exercises: []exercise.Config{ // define three empty exercises
-					{}, {}, {},
-				},
-			},
-		},
-		groups: []event.Group{ // define two empty groups
-			{}, {},
-		},
-	}
+// 	d := daemon{
+// 		events: map[string]event.Event{
+// 			"ev1": ev1,
+// 			"ev2": ev2,
+// 		},
+// 	}
 
-	d := daemon{
-		events: map[string]event.Event{
-			"ev": ev,
-		},
-	}
+// 	req := pb.StopEventRequest{
+// 		Tag: "ev1",
+// 	}
 
-	req := pb.ListEventsRequest{}
+// 	resp := stopEventServer{}
+// 	err := d.StopEvent(&req, &resp)
+// 	if err != nil {
+// 		t.Fatalf("Unexpected error: %s", err)
+// 	}
 
-	resp, err := d.ListEvents(ctx, &req)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+// 	expectedEvents := 1
+// 	if len(d.events) != expectedEvents {
+// 		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
+// 	}
+// 	for k := range d.events {
+// 		if k == "ev1" {
+// 			t.Fatalf("Expected ev1 to be removed from daemon, but still exists")
+// 		}
+// 	}
+// 	if ev1.started {
+// 		t.Fatalf("Expected ev1 to be closed, but it is still running")
+// 	}
+// 	if !ev2.started {
+// 		t.Fatalf("Expected ev2 to be running, but it is closed")
+// 	}
+// }
 
-	if len(resp.Events) != 1 {
-		t.Fatalf("Expected %d event, got %d", 1, len(resp.Events))
-	}
-	if resp.Events[0].ExerciseCount != 3 {
-		t.Fatalf("Expected %d exercises, got %d", 3, resp.Events[0].ExerciseCount)
-	}
-	if resp.Events[0].GroupCount != 2 {
-		t.Fatalf("Expected %d groups, got %d", 2, resp.Events[0].GroupCount)
+// func TestListEvents(t *testing.T) {
+// 	ctx := context.Background()
 
-	}
-}
+// 	ev := &testEvent{
+// 		conf: event.Config{
+// 			LabConfig: lab.LabConfig{
+// 				Exercises: []exercise.Config{ // define three empty exercises
+// 					{}, {}, {},
+// 				},
+// 			},
+// 		},
+// 		groups: []event.Group{ // define two empty groups
+// 			{}, {},
+// 		},
+// 	}
+
+// 	d := daemon{
+// 		events: map[string]event.Event{
+// 			"ev": ev,
+// 		},
+// 	}
+
+// 	req := pb.ListEventsRequest{}
+
+// 	resp, err := d.ListEvents(ctx, &req)
+// 	if err != nil {
+// 		t.Fatalf("Unexpected error: %v", err)
+// 	}
+
+// 	if len(resp.Events) != 1 {
+// 		t.Fatalf("Expected %d event, got %d", 1, len(resp.Events))
+// 	}
+// 	if resp.Events[0].ExerciseCount != 3 {
+// 		t.Fatalf("Expected %d exercises, got %d", 3, resp.Events[0].ExerciseCount)
+// 	}
+// 	if resp.Events[0].GroupCount != 2 {
+// 		t.Fatalf("Expected %d groups, got %d", 2, resp.Events[0].GroupCount)
+
+// 	}
+// }
