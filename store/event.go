@@ -14,14 +14,17 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+type EmptyVarErr struct {
+	Variable string
+}
+
+func (eve *EmptyVarErr) Error() string { return fmt.Sprintf("%s cannot be empty", eve.Variable) }
+
 var (
 	TeamExistsErr   = errors.New("Team already exists")
 	UnknownTeamErr  = errors.New("Unknown team")
 	UnknownTokenErr = errors.New("Unknown token")
-	EmptyTokenErr   = errors.New("Token cannot be empty")
-
-	EmptyExercisesErr = errors.New("exercises cannot be empty")
-	NoFrontendErr     = errors.New("lab requires at least one frontend")
+	NoFrontendErr   = errors.New("lab requires at least one frontend")
 )
 
 type Event struct {
@@ -35,12 +38,20 @@ type Event struct {
 }
 
 func (e Event) Validate() error {
+	if e.Name == "" {
+		return &EmptyVarErr{"Name"}
+	}
+
+	if e.Tag == "" {
+		return &EmptyVarErr{"Tag"}
+	}
+
 	if len(e.Lab.Exercises) == 0 {
-		return EmptyExercisesErr
+		return &EmptyVarErr{"Exercises"}
 	}
 
 	if len(e.Lab.Frontends) == 0 {
-		return NoFrontendErr
+		return &EmptyVarErr{"Frontends"}
 	}
 
 	return nil
@@ -152,7 +163,7 @@ func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
 	defer es.m.Unlock()
 
 	if token == "" {
-		return EmptyTokenErr
+		return &EmptyVarErr{"Token"}
 	}
 
 	t, ok := es.teams[in.Email]

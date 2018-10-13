@@ -2,7 +2,7 @@ package daemon
 
 import (
 	"fmt"
-	"log"
+	"io"
 	"net"
 	"testing"
 	"time"
@@ -11,9 +11,17 @@ import (
 
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/aau-network-security/go-ntp/event"
+	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
+	"github.com/gorilla/mux"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+)
+
+const (
+	respToken = "whatever"
 )
 
 type noAuth struct {
@@ -21,7 +29,7 @@ type noAuth struct {
 }
 
 func (a *noAuth) TokenForUser(username, password string) (string, error) {
-	return "whatever", nil
+	return respToken, nil
 }
 
 func (a *noAuth) AuthenticateUserByToken(t string) error {
@@ -39,9 +47,7 @@ func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func()
 	pb.RegisterDaemonServer(s, d)
 
 	go func() {
-		if err := s.Serve(lis); err != nil {
-			log.Fatalf("Server exited with error: %v", err)
-		}
+		s.Serve(lis)
 	}()
 
 	dialer := func(string, time.Duration) (net.Conn, error) {
@@ -53,11 +59,13 @@ func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func()
 
 func TestInviteUser(t *testing.T) {
 	tt := []struct {
-		name  string
-		token string
-		count int
+		name    string
+		token   string
+		allowed bool
+		err     string
 	}{
-		{name: "Normal invitation", token: "", count: 1},
+		{name: "Normal with auth", allowed: true},
+		{name: "Not authed", allowed: false, err: "rpc error: code = Unknown desc = unauthorized"},
 	}
 
 	for _, tc := range tt {
@@ -67,7 +75,7 @@ func TestInviteUser(t *testing.T) {
 			ctx := context.Background()
 			d := &daemon{
 				auth: &noAuth{
-					allowed: false,
+					allowed: tc.allowed,
 				},
 				users: struct {
 					store.SignupKeyStore
@@ -84,7 +92,7 @@ func TestInviteUser(t *testing.T) {
 			conn, err := grpc.DialContext(ctx, "bufnet",
 				grpc.WithDialer(dialer),
 				grpc.WithInsecure(),
-				grpc.WithPerRPCCredentials(cli.Token(tc.Token)),
+				grpc.WithPerRPCCredentials(cli.Creds{Token: tc.token, Insecure: true}),
 			)
 
 			if err != nil {
@@ -93,188 +101,384 @@ func TestInviteUser(t *testing.T) {
 			defer conn.Close()
 
 			client := pb.NewDaemonClient(conn)
-			_, err = client.InviteUser(ctx, &pb.InviteUserRequest{})
+			resp, err := client.InviteUser(ctx, &pb.InviteUserRequest{})
 			if err != nil {
-				t.Fatalf("failed to invite user: %v", err)
+				if tc.err != "" {
+					if tc.err != err.Error() {
+						t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+					}
+
+					return
+				}
+
+				t.Fatalf("expected no error, but received: %s", err)
+			}
+
+			if tc.err != "" {
+				t.Fatalf("expected error, but received none")
+			}
+
+			if resp.Key == "" {
+				t.Fatalf("expected key not be empty string")
+			}
+
+			if len(s.ListSignupKeys()) != 1 {
+				t.Fatalf("expected one key to have been inserted into store")
 			}
 
 		})
 	}
 }
 
-// func TestSignupUser(t *testing.T) {
-// 	cases := []struct {
-// 		name     string
-// 		req      pb.SignupUserRequest
-// 		expected pb.LoginUserResponse
-// 	}{
-// 		{
-// 			"OK",
-// 			pb.SignupUserRequest{
-// 				Key:      "keyval",
-// 				Username: "user",
-// 				Password: "pass",
-// 			},
-// 			pb.LoginUserResponse{
-// 				Token: "token",
-// 				Error: "",
-// 			},
-// 		},
-// 		{
-// 			"Invalid signup key",
-// 			pb.SignupUserRequest{
-// 				Key:      "invalid-key",
-// 				Username: "user",
-// 				Password: "pass",
-// 			},
-// 			pb.LoginUserResponse{
-// 				Token: "",
-// 				Error: "failure",
-// 			},
-// 		},
-// 	}
-// 	for _, c := range cases {
-// 		t.Run(c.name, func(t *testing.T) {
-// 			ctx := context.Background()
-// 			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
-// 			if err != nil {
-// 				t.Fatalf("Failed to dial bufnet: %v", err)
-// 			}
-// 			defer conn.Close()
+func TestSignupUser(t *testing.T) {
+	tt := []struct {
+		name      string
+		createKey bool
+		user      string
+		pass      string
+		err       string
+	}{
+		{name: "Normal", createKey: true, user: "tkp", pass: "tkptkp"},
+		{name: "Too short password", createKey: true, user: "tkp", pass: "tkp", err: "Password too short, requires atleast six characters"},
+		{name: "No key", user: "tkp", pass: "tkptkp", err: "Signup key not found"},
+	}
 
-// 			client := pb.NewDaemonClient(conn)
-// 			resp, _ := client.SignupUser(ctx, &c.req)
-// 			if resp.Error != c.expected.Error {
-// 				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
-// 			}
-// 			if resp.Token != c.expected.Token {
-// 				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
-// 			}
-// 		})
-// 	}
-// }
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			var key store.SignupKey
+			var signupKeys []store.SignupKey
+			if tc.createKey {
+				key = store.NewSignupKey()
+				signupKeys = append(signupKeys, key)
+			}
 
-// func TestLoginUser(t *testing.T) {
-// 	cases := []struct {
-// 		name     string
-// 		req      pb.LoginUserRequest
-// 		expected pb.LoginUserResponse
-// 	}{
-// 		{
-// 			"OK",
-// 			pb.LoginUserRequest{
-// 				Username: "user",
-// 				Password: "pass",
-// 			},
-// 			pb.LoginUserResponse{
-// 				Token: "token",
-// 				Error: "",
-// 			},
-// 		},
-// 		{
-// 			"Invalid credentials",
-// 			pb.LoginUserRequest{
-// 				Username: "user",
-// 				Password: "invalid-password",
-// 			},
-// 			pb.LoginUserResponse{
-// 				Token: "",
-// 				Error: "failure",
-// 			},
-// 		},
-// 	}
-// 	for _, c := range cases {
-// 		t.Run(c.name, func(t *testing.T) {
-// 			ctx := context.Background()
-// 			conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
-// 			if err != nil {
-// 				t.Fatalf("Failed to dial bufnet: %v", err)
-// 			}
-// 			defer conn.Close()
+			ks := store.NewSignupKeyStore(signupKeys)
+			us := store.NewUserStore([]store.User{})
 
-// 			client := pb.NewDaemonClient(conn)
+			ctx := context.Background()
+			d := &daemon{
+				auth: &noAuth{
+					allowed: true,
+				},
+				users: struct {
+					store.SignupKeyStore
+					store.UserStore
+				}{
+					ks,
+					us,
+				},
+			}
 
-// 			resp, _ := client.LoginUser(ctx, &c.req)
-// 			if resp.Error != c.expected.Error {
-// 				t.Fatalf("Expected error '%s', but got '%s'", c.expected.Error, resp.Error)
-// 			}
-// 			if resp.Token != c.expected.Token {
-// 				t.Fatalf("Expected token '%s', but got '%s'", c.expected.Token, resp.Token)
-// 			}
-// 		})
-// 	}
-// }
+			dialer, close := getServer(d)
+			defer close()
 
-// type createEventServer struct {
-// 	pb.Daemon_CreateEventServer
-// }
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
 
-// type testEvent struct {
-// 	started bool
-// 	conf    event.Config
-// 	groups  []event.Group
-// 	event.Event
-// }
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
 
-// func (ev *testEvent) Start(context.Context) error {
-// 	ev.started = true
-// 	return nil
-// }
+			client := pb.NewDaemonClient(conn)
+			resp, err := client.SignupUser(ctx, &pb.SignupUserRequest{
+				Key:      string(key),
+				Username: tc.user,
+				Password: tc.pass,
+			})
+			if err != nil {
+				if tc.err != "" {
+					if tc.err != err.Error() {
+						t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+					}
 
-// func (ev *testEvent) Connect(*mux.Router) {}
+					return
+				}
 
-// func (ev *testEvent) Close() { ev.started = false }
+				t.Fatalf("expected no error, but received: %s", err)
+			}
 
-// func (ev *testEvent) GetConfig() event.Config {
-// 	return ev.conf
-// }
+			if resp.Error != "" {
+				if tc.err != "" {
+					if tc.err != resp.Error {
+						t.Fatalf("unexpected response error (expected: %s) received: %s", tc.err, err)
+					}
 
-// func (ev *testEvent) GetGroups() []event.Group {
-// 	return ev.groups
-// }
+					return
+				}
 
-// type testEventHost struct {
-// 	ev event.Event
-// 	EventHost
-// }
+				t.Fatalf("expected no response error, but received: %s", resp.Error)
+			}
 
-// func (eh *testEventHost) CreateEvent(event.Config) (event.Event, error) {
-// 	return eh.ev, nil
-// }
+			if tc.err != "" {
+				t.Fatalf("expected error, but received none")
+			}
 
-// func TestCreateEvent(t *testing.T) {
-// 	ev := &testEvent{started: false}
+			if len(us.ListUsers()) != 1 {
+				t.Fatalf("expected one user to have been created in store")
+			}
 
-// 	d := daemon{
-// 		conf:   &Config{Host: "localhost"},
-// 		mux:    mux.NewRouter(),
-// 		events: make(map[string]event.Event),
-// 		eh:     &testEventHost{ev: ev},
-// 	}
-// 	req := pb.CreateEventRequest{
-// 		Name:      "Event 1",
-// 		Tag:       "ev1",
-// 		Frontends: []string{"frontend1"},
-// 	}
+			if resp.Token != respToken {
+				t.Fatalf("unexpected token (expected: %s) in response: %s", respToken, resp.Token)
+			}
+		})
+	}
+}
 
-// 	resp := createEventServer{}
-// 	err := d.CreateEvent(&req, &resp)
-// 	if err != nil {
-// 		t.Fatalf("Unexpected error: %v", err)
-// 	}
-// 	expectedEvents := 1
-// 	if len(d.events) != expectedEvents {
-// 		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
-// 	}
-// 	time.Sleep(1 * time.Millisecond) // wait for goroutine to finish
-// 	if !ev.started {
-// 		t.Fatalf("Expected event to be started, but it is not")
-// 	}
-// }
+func TestLoginUser(t *testing.T) {
+	type user struct {
+		u string
+		p string
+	}
 
-// type stopEventServer struct {
-// 	pb.Daemon_StopEventServer
-// }
+	tt := []struct {
+		name       string
+		createUser bool
+		user       user
+		err        string
+	}{
+		{name: "Normal", createUser: true, user: user{u: "tkp", p: "tkptkp"}},
+		{name: "Unknown user", user: user{u: "tkp", p: "tkptkp"}, err: "Invalid username or password"},
+		{name: "No username", user: user{u: "", p: "whatever"}, err: "Username cannot be empty"},
+		{name: "No password", user: user{u: "tkp", p: ""}, err: "Password cannot be empty"},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			var users []store.User
+			if tc.createUser {
+				u, err := store.NewUser(tc.user.u, tc.user.p)
+				if err != nil {
+					t.Fatalf("unexpected error when creating user: %s", err)
+				}
+
+				users = append(users, u)
+			}
+
+			us := store.NewUserStore(users)
+			auth := NewAuthenticator(us, "some-signing-key")
+			ctx := context.Background()
+			d := &daemon{
+				auth: auth,
+				users: struct {
+					store.SignupKeyStore
+					store.UserStore
+				}{
+					nil,
+					us,
+				},
+			}
+
+			dialer, close := getServer(d)
+			defer close()
+
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			resp, err := client.LoginUser(ctx, &pb.LoginUserRequest{
+				Username: tc.user.u,
+				Password: tc.user.p,
+			})
+			if err != nil {
+				if tc.err != "" {
+					if tc.err != err.Error() {
+						t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+					}
+
+					return
+				}
+
+				t.Fatalf("expected no error, but received: %s", err)
+			}
+
+			if resp.Error != "" {
+				if tc.err != "" {
+					if tc.err != resp.Error {
+						t.Fatalf("unexpected response error (expected: %s) received: %s", tc.err, resp.Error)
+					}
+
+					return
+				}
+
+				t.Fatalf("expected no response error, but received: %s", resp.Error)
+			}
+
+			if tc.err != "" {
+				t.Fatalf("expected error, but received none")
+			}
+
+			if resp.Token == "" {
+				t.Fatalf("expected token to be non-empty")
+			}
+
+			if err := auth.AuthenticateUserByToken(resp.Token); err != nil {
+				t.Fatalf("expected to be able to authenticate with token")
+			}
+		})
+	}
+}
+
+type eventCreator struct {
+	calls int
+	conf  store.Event
+	event *fakeEvent
+}
+
+func (ec *eventCreator) CreateEvent(conf store.Event) (event.Event, error) {
+	ec.conf = conf
+	ec.calls += 1
+	return ec.event, nil
+}
+
+type fakeEvent struct {
+	connected int
+	started   int
+	close     int
+	register  int
+}
+
+func (fe *fakeEvent) Start(context.Context) error {
+	fe.started += 1
+	return nil
+}
+
+func (fe *fakeEvent) Connect(*mux.Router) {
+	fe.connected += 1
+}
+
+func (fe *fakeEvent) Close() {
+	fe.close += 1
+}
+
+func (fe *fakeEvent) Register(store.Team) (*event.Auth, error) {
+	fe.register += 1
+	return nil, nil
+}
+
+func (fe *fakeEvent) GetConfig() store.Event {
+	return store.Event{}
+}
+
+func (fe *fakeEvent) GetTeams() []store.Team {
+	return nil
+}
+
+func (fe *fakeEvent) GetHub() lab.Hub {
+	return nil
+}
+
+func TestCreateEvent(t *testing.T) {
+	type user struct {
+		u string
+		p string
+	}
+
+	tt := []struct {
+		name  string
+		event pb.CreateEventRequest
+		err   string
+	}{
+		{name: "Normal", event: pb.CreateEventRequest{Name: "Test", Tag: "tst", Exercises: []string{"hb"}, Frontends: []string{"kali"}}},
+		{name: "Empty name", event: pb.CreateEventRequest{Tag: "tst", Exercises: []string{"hb"}, Frontends: []string{"kali"}}, err: "Name cannot be empty"},
+		{name: "Empty tag", event: pb.CreateEventRequest{Name: "Test", Exercises: []string{"hb"}, Frontends: []string{"kali"}}, err: "Tag cannot be empty"},
+		{name: "Empty exercises", event: pb.CreateEventRequest{Name: "Test", Tag: "tst", Frontends: []string{"kali"}}, err: "Exercises cannot be empty"},
+		{name: "Empty frontends", event: pb.CreateEventRequest{Name: "Test", Tag: "tst", Exercises: []string{"hb"}}, err: "Frontends cannot be empty"},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ev := fakeEvent{}
+
+			ctx := context.Background()
+			events := map[string]event.Event{}
+			d := &daemon{
+				conf:   &Config{},
+				events: events,
+				auth: &noAuth{
+					allowed: true,
+				},
+				mux: mux.NewRouter(),
+				ehost: &eventCreator{
+					event: &ev,
+				},
+			}
+
+			dialer, close := getServer(d)
+			defer close()
+
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			resp, err := client.CreateEvent(ctx, &tc.event)
+			if err != nil {
+				t.Fatalf("expected no error when initiating connection, but received: %s", err)
+			}
+
+			for {
+				_, err = resp.Recv()
+				if err != nil {
+					break
+				}
+			}
+
+			st, ok := status.FromError(err)
+			if ok {
+				err = fmt.Errorf(st.Message())
+			}
+
+			if err != nil && err != io.EOF {
+				if tc.err != "" {
+					if tc.err != err.Error() {
+						t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+					}
+
+					return
+				}
+
+				t.Fatalf("expected no error, but received: %s", err)
+
+			}
+
+			if tc.err != "" {
+				if tc.err != err.Error() {
+					t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+				}
+
+				return
+			}
+
+			if tc.err != "" {
+				t.Fatalf("expected error, but received none")
+			}
+
+			if len(events) != 1 {
+				t.Fatalf("expected one event to have been created")
+			}
+
+		})
+	}
+}
 
 // func TestStopEvent(t *testing.T) {
 // 	ev1 := &testEvent{started: true}
