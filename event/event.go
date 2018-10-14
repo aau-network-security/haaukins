@@ -184,7 +184,6 @@ func (ev *event) Close() {
 }
 
 func (ev *event) Register(t store.Team) (*Auth, error) {
-	log.Debug().Msgf("Registering team %+v", t)
 	lab, err := ev.labhub.Get()
 	if err != nil {
 		return nil, err
