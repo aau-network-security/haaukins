@@ -18,8 +18,7 @@ script:
 - go test -v ./...
 
 before_deploy:
-- ./scripts/build_binaries.sh
-- ls -alh ./build
+- go run ./scripts/build_binaries.go
 
 deploy:
   provider: releases
