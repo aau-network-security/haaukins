@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -22,8 +21,8 @@ func (c *Client) CmdEvent() *cobra.Command {
 		c.CmdEventCreate(),
 		c.CmdEventStop(),
 		c.CmdEventList(),
-		c.CmdEventGroups(),
-		c.CmdEventGroupRestart())
+		c.CmdEventTeams(),
+		c.CmdEventTeamRestart())
 
 	return cmd
 }
@@ -52,7 +51,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Frontends: frontends,
 				Exercises: exercises,
 				Capacity:  int32(capacity),
-				Buffer:    int32(capacity),
+				Buffer:    int32(buffer),
 			})
 			if err != nil {
 				PrintError(err.Error())
@@ -131,29 +130,37 @@ func (c *Client) CmdEventList() *cobra.Command {
 				return
 			}
 
-			for _, event := range r.Events {
-				fmt.Println(event.Name)
-				fmt.Printf("- Tag: %s\n", event.Tag)
-				fmt.Printf("- Buffer: %d\n", event.Buffer)
-				fmt.Printf("- Capacity: %d\n", event.Capacity)
-				fmt.Printf("- Frontends: \n-- %s\n", strings.Join(event.Frontends, "\n-- "))
-				fmt.Printf("- Exercises: \n-- %s\n", strings.Join(event.Exercises, "\n-- "))
+			f := formatter{
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "# EXERCISES", "CAPACITY"},
+				fields: []string{"Tag", "Name", "TeamCount", "ExerciseCount", "Capacity"},
 			}
+
+			var elements []formatElement
+			for _, e := range r.Events {
+				elements = append(elements, e)
+			}
+
+			table, err := f.AsTable(elements)
+			if err != nil {
+				PrintError("Failed to create event list")
+				return
+			}
+			fmt.Printf(table)
 		},
 	}
 }
 
-func (c *Client) CmdEventGroups() *cobra.Command {
+func (c *Client) CmdEventTeams() *cobra.Command {
 	return &cobra.Command{
-		Use:   "groups [tag]",
-		Short: "Get groups for a event",
+		Use:   "teams [tag]",
+		Short: "Get teams for a event",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
 			tag := args[0]
-			r, err := c.rpcClient.ListEventGroups(ctx, &pb.ListEventGroupsRequest{
+			r, err := c.rpcClient.ListEventTeams(ctx, &pb.ListEventTeamsRequest{
 				Tag: tag,
 			})
 
@@ -162,19 +169,19 @@ func (c *Client) CmdEventGroups() *cobra.Command {
 				return
 			}
 
-			for _, group := range r.Groups {
-				fmt.Printf("%s\n", group.Name)
-				fmt.Printf("- %s\n", group.LabTag)
+			for _, team := range r.Teams {
+				fmt.Printf("%s\n", team.Name)
+				fmt.Printf("- %s\n", team.LabTag)
 			}
 
 		},
 	}
 }
 
-func (c *Client) CmdEventGroupRestart() *cobra.Command {
+func (c *Client) CmdEventTeamRestart() *cobra.Command {
 	return &cobra.Command{
-		Use:   "restart [event tag] [group lab tag]",
-		Short: "Restart lab for a group",
+		Use:   "restart [event tag] [team lab tag]",
+		Short: "Restart lab for a team",
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -183,7 +190,7 @@ func (c *Client) CmdEventGroupRestart() *cobra.Command {
 			eventTag := args[0]
 			labTag := args[1]
 
-			stream, err := c.rpcClient.RestartGroupLab(ctx, &pb.RestartGroupLabRequest{
+			stream, err := c.rpcClient.RestartTeamLab(ctx, &pb.RestartTeamLabRequest{
 				EventTag: eventTag,
 				LabTag:   labTag,
 			})

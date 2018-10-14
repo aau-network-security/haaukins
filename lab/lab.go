@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aau-network-security/go-ntp/exercise"
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
@@ -15,6 +16,19 @@ import (
 var (
 	newEnvironment = exercise.NewEnvironment
 )
+
+type Config struct {
+	Frontends []string         `yaml:"frontends"`
+	Exercises []store.Exercise `yaml:"exercises"`
+}
+
+func (conf Config) Flags() []store.FlagConfig {
+	var res []store.FlagConfig
+	for _, exercise := range conf.Exercises {
+		res = append(res, exercise.Flags()...)
+	}
+	return res
+}
 
 type Lab interface {
 	Start() error
@@ -34,7 +48,7 @@ type lab struct {
 	rdpConnPorts []uint
 }
 
-func NewLab(lib vbox.Library, config LabConfig) (Lab, error) {
+func NewLab(lib vbox.Library, config Config) (Lab, error) {
 	environ, err := newEnvironment(config.Exercises...)
 	if err != nil {
 		return nil, err

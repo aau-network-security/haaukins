@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/tls"
+	"flag"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -16,7 +18,8 @@ import (
 )
 
 const (
-	mngtPort = ":5454"
+	mngtPort          = ":5454"
+	defaultConfigFile = "config.yml"
 )
 
 func handleCancel(clean func()) {
@@ -31,10 +34,10 @@ func handleCancel(clean func()) {
 }
 
 func listenerFromConf(c *daemon.Config, port string) (net.Listener, error) {
-	if c.TLS.Management.CertFile != "" && c.TLS.Management.KeyFile != "" {
+	if c.Management.TLS.CertFile != "" && c.Management.TLS.KeyFile != "" {
 		cer, err := tls.LoadX509KeyPair(
-			c.TLS.Management.CertFile,
-			c.TLS.Management.KeyFile,
+			c.Management.TLS.CertFile,
+			c.Management.TLS.KeyFile,
 		)
 		if err != nil {
 			return nil, err
@@ -51,22 +54,26 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	c, err := daemon.NewConfigFromFile("config.yml")
+	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
+	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
-		log.Fatal().
-			Err(err).
-			Msg("unable to get config")
+		fmt.Printf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)
+		return
 	}
 
 	lis, err := listenerFromConf(c, mngtPort)
 	if err != nil {
-		log.Info().Msg("Failed to listen on management port: " + mngtPort)
+		log.Fatal().
+			Err(err).
+			Msgf("failed to listen on management port %s", mngtPort)
 	}
 
 	d, err := daemon.New(c)
 	if err != nil {
-		log.Fatal().Err(err)
+		fmt.Printf("unable to create daemon: %s\n", err)
+		return
 	}
+
 	handleCancel(func() {
 		d.Close()
 		log.Info().Msgf("Closed daemon")

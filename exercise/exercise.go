@@ -2,8 +2,9 @@ package exercise
 
 import (
 	"errors"
-	"fmt"
+	"regexp"
 
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
@@ -12,92 +13,15 @@ var (
 	DuplicateTagErr = errors.New("Tag already exists")
 	MissingTagsErr  = errors.New("No tags, need atleast one tag")
 	UnknownTagErr   = errors.New("Unknown tag")
+
+	tagRawRegexp = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
+	tagRegex     = regexp.MustCompile(tagRawRegexp)
 )
 
-type Flag struct {
-}
-
-type RecordConfig struct {
-	Type string `yaml:"record"`
-	Name string `yaml:"name"`
-}
-
-func (rc RecordConfig) Format(ip string) string {
-	return fmt.Sprintf("%s %s %s", rc.Name, rc.Type, ip)
-}
-
-type FlagConfig struct {
-	Name    string `yaml:"name"`
-	EnvVar  string `yaml:"env"`
-	Default string `yaml:"default"`
-	Points  uint   `yaml:"points"`
-}
-
-type EnvVarConfig struct {
-	EnvVar string `yaml:"env"`
-	Value  string `yaml:"value"`
-}
-
-type DockerConfig struct {
-	Image    string         `yaml:"image"`
-	Flags    []FlagConfig   `yaml:"flag"`
-	Envs     []EnvVarConfig `yaml:"env"`
-	Records  []RecordConfig `yaml:"dns"`
-	MemoryMB uint           `yaml:"memoryMB"`
-	CPU      float64        `yaml:"cpu"`
-}
-
-type Config struct {
-	Name        string         `yaml:"name"`
-	Tags        []string       `yaml:"tags"`
-	DockerConfs []DockerConfig `yaml:"docker"`
-	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
-}
-
-func (conf Config) Flags() []FlagConfig {
-	var res []FlagConfig
-	for _, dockerConf := range conf.DockerConfs {
-		res = append(res, dockerConf.Flags...)
-	}
-	return res
-}
-
-func (ec Config) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
-	var contSpecs []docker.ContainerConfig
-	var contRecords [][]RecordConfig
-
-	for _, conf := range ec.DockerConfs {
-		envVars := make(map[string]string)
-
-		for _, flag := range conf.Flags {
-			envVars[flag.EnvVar] = flag.Default
-		}
-
-		for _, env := range conf.Envs {
-			envVars[env.EnvVar] = env.Value
-		}
-
-		// docker config
-		spec := docker.ContainerConfig{
-			Image: conf.Image,
-			Resources: &docker.Resources{
-				MemoryMB: conf.MemoryMB,
-				CPU:      conf.CPU,
-			},
-			EnvVars: envVars,
-		}
-
-		contSpecs = append(contSpecs, spec)
-		contRecords = append(contRecords, conf.Records)
-	}
-
-	return contSpecs, contRecords
-}
-
 type exercise struct {
-	conf       *Config
+	conf       *store.Exercise
 	net        *docker.Network
-	flags      []Flag
+	flags      []store.Flag
 	machines   []virtual.Instance
 	ips        []int
 	dnsIP      string

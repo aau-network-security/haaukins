@@ -1,13 +1,14 @@
 package exercise
 
 import (
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
 type Environment interface {
-	Add(conf Config, updateDNS bool) error
+	Add(conf store.Exercise, updateDNS bool) error
 	ResetByTag(t string) error
 	Interface() string
 	Start() error
@@ -17,7 +18,7 @@ type Environment interface {
 }
 
 type environment struct {
-	tags      map[string]*exercise
+	tags      map[store.Tag]*exercise
 	exercises []*exercise
 
 	network    *docker.Network
@@ -26,9 +27,9 @@ type environment struct {
 	dnsIP      string
 }
 
-func NewEnvironment(exercises ...Config) (Environment, error) {
+func NewEnvironment(exercises ...store.Exercise) (Environment, error) {
 	ee := &environment{
-		tags: make(map[string]*exercise),
+		tags: make(map[store.Tag]*exercise),
 	}
 
 	var err error
@@ -65,7 +66,7 @@ func NewEnvironment(exercises ...Config) (Environment, error) {
 	return ee, nil
 }
 
-func (ee *environment) Add(conf Config, updateDNS bool) error {
+func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
 	if len(conf.Tags) == 0 {
 		return MissingTagsErr
 	}
@@ -173,7 +174,12 @@ func (ee *environment) Close() error {
 	return nil
 }
 
-func (ee *environment) ResetByTag(t string) error {
+func (ee *environment) ResetByTag(s string) error {
+	t, err := store.NewTag(s)
+	if err != nil {
+		return err
+	}
+
 	e, ok := ee.tags[t]
 	if !ok {
 		return UnknownTagErr
