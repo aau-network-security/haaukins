@@ -23,9 +23,9 @@ func (c *Client) CmdExercise() *cobra.Command {
 
 func (c *Client) CmdExerciseReset() *cobra.Command {
 	var (
-		evTag    string
-		groupIds []string
-		groups   []*pb.ResetExerciseRequest_Group
+		evTag   string
+		teamIds []string
+		teams   []*pb.ResetExerciseRequest_Team
 	)
 
 	cmd := &cobra.Command{
@@ -36,15 +36,15 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			for _, g := range groupIds {
-				groups = append(groups, &pb.ResetExerciseRequest_Group{GroupId: g})
+			for _, t := range teamIds {
+				teams = append(teams, &pb.ResetExerciseRequest_Team{TeamId: t})
 			}
 
 			exTag := args[0]
 			stream, err := c.rpcClient.ResetExercise(ctx, &pb.ResetExerciseRequest{
 				ExerciseTag: exTag,
 				EventTag:    evTag,
-				Groups:      groups,
+				Teams:       teams,
 			})
 			if err != nil {
 				PrintError(err.Error())
@@ -67,7 +67,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&evTag, "evtag", "e", "", "the event name")
-	cmd.Flags().StringSliceVarP(&groupIds, "groups", "g", nil, "list of groups for which to reset the exercise")
+	cmd.Flags().StringSliceVarP(&teamIds, "groups", "g", nil, "list of groups for which to reset the exercise")
 	cmd.MarkFlagRequired("evtag")
 
 	return cmd

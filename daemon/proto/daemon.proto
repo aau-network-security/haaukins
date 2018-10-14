@@ -76,12 +76,12 @@ message RestartTeamLabRequest {
 }
 
 message ResetExerciseRequest {
-    message Group {
-        string groupId = 1;
+    message Team {
+        string teamId = 1;
     }
     string exerciseTag = 1;
     string eventTag = 2;
-    repeated Group groups = 3;
+    repeated Team teams = 3;
 }
 
 message StopEventRequest {

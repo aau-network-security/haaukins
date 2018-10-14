@@ -89,6 +89,7 @@ type Event interface {
 	GetConfig() store.Event
 	GetTeams() []store.Team
 	GetHub() lab.Hub
+	GetLabByTeam(teamId string) (lab.Lab, bool)
 }
 
 type event struct {
@@ -261,4 +262,9 @@ func (ev *event) GetConfig() store.Event {
 
 func (ev *event) GetTeams() []store.Team {
 	return ev.store.GetTeams()
+}
+
+func (ev *event) GetLabByTeam(teamId string) (lab.Lab, bool) {
+	lab, ok := ev.labs[teamId]
+	return lab, ok
 }
