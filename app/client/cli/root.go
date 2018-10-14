@@ -18,20 +18,19 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	RequireTLS = true
-)
+type Creds struct {
+	Token    string
+	Insecure bool
+}
 
-type Token string
-
-func (t Token) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
+func (c Creds) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
 	return map[string]string{
-		"token": string(t),
+		"token": string(c.Token),
 	}, nil
 }
 
-func (t Token) RequireTransportSecurity() bool {
-	return RequireTLS
+func (c Creds) RequireTransportSecurity() bool {
+	return !c.Insecure
 }
 
 type Client struct {
@@ -68,15 +67,17 @@ func NewClient() (*Client, error) {
 		port = "5454"
 	}
 
+	creds := Creds{Token: c.Token}
+
 	ssl := os.Getenv("NTP_SSL_OFF")
 	if strings.ToLower(ssl) == "true" {
-		RequireTLS = false
+		creds.Insecure = true
 	}
 
 	endpoint := fmt.Sprintf("%s:%s", host, port)
 	conn, err := grpc.Dial(endpoint,
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(Token(c.Token)),
+		grpc.WithPerRPCCredentials(creds),
 	)
 	if err != nil {
 		return nil, err

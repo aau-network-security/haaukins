@@ -27,11 +27,11 @@ import (
 )
 
 var (
-	DuplicateEventErr   = errors.New("event with that tag already exists")
-	UnknownEventErr     = errors.New("unable to find event by that tag")
-	MissingTokenErr     = errors.New("no security token provided")
-	InvalidArgumentsErr = errors.New("invalid arguments provided")
-	MissingSecretKey    = errors.New("management signing key cannot be empty")
+	DuplicateEventErr   = errors.New("Event with that tag already exists")
+	UnknownEventErr     = errors.New("Unable to find event by that tag")
+	MissingTokenErr     = errors.New("No security token provided")
+	InvalidArgumentsErr = errors.New("Invalid arguments provided")
+	MissingSecretKey    = errors.New("Management signing key cannot be empty")
 )
 
 type Config struct {
@@ -270,7 +270,6 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 }
 
 func (d *daemon) createEvent(conf store.Event) error {
-	fmt.Println(conf.Lab)
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", conf.Tag).
@@ -297,24 +296,6 @@ func (d *daemon) createEvent(conf store.Event) error {
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-
-	if req.Name == "" || req.Tag == "" {
-		return InvalidArgumentsErr
-	}
-
-	_, ok := d.events[req.Tag]
-	if ok {
-		return DuplicateEventErr
-	}
-
-	if req.Buffer == 0 {
-		req.Buffer = 2
-	}
-
-	if req.Capacity == 0 {
-		req.Capacity = 10
-	}
-
 	tags := make([]exercise.Tag, len(req.Exercises))
 	for i, s := range req.Exercises {
 		t, err := exercise.NewTag(s)
@@ -335,10 +316,31 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		},
 	}
 
+	if err := conf.Validate(); err != nil {
+		return err
+	}
+
+	_, ok := d.events[req.Tag]
+	if ok {
+		return DuplicateEventErr
+	}
+
+	if conf.Buffer == 0 {
+		conf.Buffer = 2
+	}
+
+	if conf.Capacity == 0 {
+		conf.Capacity = 10
+	}
+
 	return d.createEvent(conf)
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
+	if req.Tag == "" {
+		return &store.EmptyVarErr{"Tag"}
+	}
+
 	ev, ok := d.events[req.Tag]
 	if !ok {
 		return UnknownEventErr

@@ -17,9 +17,10 @@ var (
 	UserStoreNoFileErr = errors.New("Unable to find user store file")
 	UserExistsErr      = errors.New("User already exists")
 	UserNotFoundErr    = errors.New("User not found")
+	PasswdTooShortErr  = errors.New("Password too short, requires atleast six characters")
 
-	SignupKeyExistsErr   = errors.New("SignupKey already exists")
-	SignupKeyNotFoundErr = errors.New("SignupKey not found")
+	SignupKeyExistsErr   = errors.New("Signup key already exists")
+	SignupKeyNotFoundErr = errors.New("Signup key not found")
 )
 
 type User struct {
@@ -29,6 +30,10 @@ type User struct {
 }
 
 func NewUser(username, password string) (User, error) {
+	if len(password) < 6 {
+		return User{}, PasswdTooShortErr
+	}
+
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return User{}, err

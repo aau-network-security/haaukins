@@ -20,6 +20,8 @@ var (
 	InvalidTokenFormatErr    = errors.New("Invalid token format")
 	TokenExpiredErr          = errors.New("Token has expired")
 	UnknownUserErr           = errors.New("Unknown user")
+	EmptyUserErr             = errors.New("Username cannot be empty")
+	EmptyPasswdErr           = errors.New("Password cannot be empty")
 )
 
 type Authenticator interface {
@@ -41,6 +43,14 @@ func NewAuthenticator(us store.UserStore, key string) Authenticator {
 
 func (a *auth) TokenForUser(username, password string) (string, error) {
 	username = strings.ToLower(username)
+
+	if username == "" {
+		return "", EmptyUserErr
+	}
+
+	if password == "" {
+		return "", EmptyPasswdErr
+	}
 
 	u, err := a.us.GetUserByUsername(username)
 	if err != nil {
