@@ -12,13 +12,19 @@ import (
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+func init() {
+	zerolog.SetGlobalLevel(zerolog.Disabled)
+}
 
 const (
 	respToken = "whatever"
@@ -65,7 +71,7 @@ func TestInviteUser(t *testing.T) {
 		err     string
 	}{
 		{name: "Normal with auth", allowed: true},
-		{name: "Not authed", allowed: false, err: "rpc error: code = Unknown desc = unauthorized"},
+		{name: "Unauthorized", allowed: false, err: "unauthorized"},
 	}
 
 	for _, tc := range tt {
@@ -103,6 +109,11 @@ func TestInviteUser(t *testing.T) {
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.InviteUser(ctx, &pb.InviteUserRequest{})
 			if err != nil {
+				st, ok := status.FromError(err)
+				if ok {
+					err = fmt.Errorf(st.Message())
+				}
+
 				if tc.err != "" {
 					if tc.err != err.Error() {
 						t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
@@ -175,7 +186,6 @@ func TestSignupUser(t *testing.T) {
 			conn, err := grpc.DialContext(ctx, "bufnet",
 				grpc.WithDialer(dialer),
 				grpc.WithInsecure(),
-				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
 			)
 
 			if err != nil {
@@ -278,7 +288,6 @@ func TestLoginUser(t *testing.T) {
 			conn, err := grpc.DialContext(ctx, "bufnet",
 				grpc.WithDialer(dialer),
 				grpc.WithInsecure(),
-				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
 			)
 
 			if err != nil {
@@ -380,17 +389,14 @@ func (fe *fakeEvent) GetHub() lab.Hub {
 }
 
 func TestCreateEvent(t *testing.T) {
-	type user struct {
-		u string
-		p string
-	}
-
 	tt := []struct {
-		name  string
-		event pb.CreateEventRequest
-		err   string
+		name         string
+		event        pb.CreateEventRequest
+		unauthorized bool
+		err          string
 	}{
 		{name: "Normal", event: pb.CreateEventRequest{Name: "Test", Tag: "tst", Exercises: []string{"hb"}, Frontends: []string{"kali"}}},
+		{name: "Unauthorized", unauthorized: true, event: pb.CreateEventRequest{Name: "Test", Tag: "tst", Exercises: []string{"hb"}, Frontends: []string{"kali"}}, err: "unauthorized"},
 		{name: "Empty name", event: pb.CreateEventRequest{Tag: "tst", Exercises: []string{"hb"}, Frontends: []string{"kali"}}, err: "Name cannot be empty"},
 		{name: "Empty tag", event: pb.CreateEventRequest{Name: "Test", Exercises: []string{"hb"}, Frontends: []string{"kali"}}, err: "Tag cannot be empty"},
 		{name: "Empty exercises", event: pb.CreateEventRequest{Name: "Test", Tag: "tst", Frontends: []string{"kali"}}, err: "Exercises cannot be empty"},
@@ -400,6 +406,9 @@ func TestCreateEvent(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := fakeEvent{}
+			ec := &eventCreator{
+				event: &ev,
+			}
 
 			ctx := context.Background()
 			events := map[string]event.Event{}
@@ -407,12 +416,10 @@ func TestCreateEvent(t *testing.T) {
 				conf:   &Config{},
 				events: events,
 				auth: &noAuth{
-					allowed: true,
+					allowed: !tc.unauthorized,
 				},
-				mux: mux.NewRouter(),
-				ehost: &eventCreator{
-					event: &ev,
-				},
+				mux:   mux.NewRouter(),
+				ehost: ec,
 			}
 
 			dialer, close := getServer(d)
@@ -430,13 +437,13 @@ func TestCreateEvent(t *testing.T) {
 			defer conn.Close()
 
 			client := pb.NewDaemonClient(conn)
-			resp, err := client.CreateEvent(ctx, &tc.event)
+			stream, err := client.CreateEvent(ctx, &tc.event)
 			if err != nil {
 				t.Fatalf("expected no error when initiating connection, but received: %s", err)
 			}
 
 			for {
-				_, err = resp.Recv()
+				_, err = stream.Recv()
 				if err != nil {
 					break
 				}
@@ -476,85 +483,228 @@ func TestCreateEvent(t *testing.T) {
 				t.Fatalf("expected one event to have been created")
 			}
 
+			if tc.event.Name != ec.conf.Name {
+				t.Fatalf("name is set incorrectly (expected: %s) received: %s", tc.event.Name, ec.conf.Name)
+			}
+
+			if tc.event.Tag != ec.conf.Tag {
+				t.Fatalf("tag is set incorrectly (expected: %s) received: %s", tc.event.Tag, ec.conf.Tag)
+			}
+
+			if ev.started != 1 {
+				t.Fatalf("expected event to have been started once")
+			}
+
+			if ev.connected != 1 {
+				t.Fatalf("expected event to have been connected once")
+			}
+
+			if ev.close != 0 {
+				t.Fatalf("expected event to not have been closed")
+			}
+
 		})
 	}
 }
 
-// func TestStopEvent(t *testing.T) {
-// 	ev1 := &testEvent{started: true}
-// 	ev2 := &testEvent{started: true}
+func TestStopEvent(t *testing.T) {
+	dummyEvent := store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []exercise.Tag{"hb"}, Frontends: []string{"kali"}}}
+	tt := []struct {
+		name         string
+		unauthorized bool
+		event        *pb.CreateEventRequest
+		stopTag      string
+		err          string
+	}{
+		{name: "Normal", stopTag: "tst"},
+		{name: "Empty delete tag", stopTag: "", err: "Tag cannot be empty"},
+		{name: "Unknown tag", stopTag: "some-other-tag", err: "Unable to find event by that tag"},
+		{name: "Unauthorized", unauthorized: true, stopTag: "tst", err: "unauthorized"},
+	}
 
-// 	d := daemon{
-// 		events: map[string]event.Event{
-// 			"ev1": ev1,
-// 			"ev2": ev2,
-// 		},
-// 	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ev := fakeEvent{}
+			ec := &eventCreator{
+				event: &ev,
+			}
 
-// 	req := pb.StopEventRequest{
-// 		Tag: "ev1",
-// 	}
+			ctx := context.Background()
+			events := map[string]event.Event{}
+			d := &daemon{
+				conf:   &Config{},
+				events: events,
+				auth: &noAuth{
+					allowed: !tc.unauthorized,
+				},
+				mux:   mux.NewRouter(),
+				ehost: ec,
+			}
 
-// 	resp := stopEventServer{}
-// 	err := d.StopEvent(&req, &resp)
-// 	if err != nil {
-// 		t.Fatalf("Unexpected error: %s", err)
-// 	}
+			if err := d.createEvent(dummyEvent); err != nil {
+				t.Fatalf("expected no error when adding event")
+			}
 
-// 	expectedEvents := 1
-// 	if len(d.events) != expectedEvents {
-// 		t.Fatalf("Expected %d event, got %d", expectedEvents, len(d.events))
-// 	}
-// 	for k := range d.events {
-// 		if k == "ev1" {
-// 			t.Fatalf("Expected ev1 to be removed from daemon, but still exists")
-// 		}
-// 	}
-// 	if ev1.started {
-// 		t.Fatalf("Expected ev1 to be closed, but it is still running")
-// 	}
-// 	if !ev2.started {
-// 		t.Fatalf("Expected ev2 to be running, but it is closed")
-// 	}
-// }
+			dialer, close := getServer(d)
+			defer close()
 
-// func TestListEvents(t *testing.T) {
-// 	ctx := context.Background()
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
 
-// 	ev := &testEvent{
-// 		conf: event.Config{
-// 			LabConfig: lab.LabConfig{
-// 				Exercises: []exercise.Config{ // define three empty exercises
-// 					{}, {}, {},
-// 				},
-// 			},
-// 		},
-// 		groups: []event.Group{ // define two empty groups
-// 			{}, {},
-// 		},
-// 	}
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
 
-// 	d := daemon{
-// 		events: map[string]event.Event{
-// 			"ev": ev,
-// 		},
-// 	}
+			client := pb.NewDaemonClient(conn)
+			stream, err := client.StopEvent(ctx, &pb.StopEventRequest{
+				Tag: tc.stopTag,
+			})
+			if err != nil {
+				t.Fatalf("expected no error when initiating connection, but received: %s", err)
+			}
 
-// 	req := pb.ListEventsRequest{}
+			for {
+				_, err = stream.Recv()
+				if err != nil {
+					break
+				}
+			}
 
-// 	resp, err := d.ListEvents(ctx, &req)
-// 	if err != nil {
-// 		t.Fatalf("Unexpected error: %v", err)
-// 	}
+			st, ok := status.FromError(err)
+			if ok {
+				err = fmt.Errorf(st.Message())
+			}
 
-// 	if len(resp.Events) != 1 {
-// 		t.Fatalf("Expected %d event, got %d", 1, len(resp.Events))
-// 	}
-// 	if resp.Events[0].ExerciseCount != 3 {
-// 		t.Fatalf("Expected %d exercises, got %d", 3, resp.Events[0].ExerciseCount)
-// 	}
-// 	if resp.Events[0].GroupCount != 2 {
-// 		t.Fatalf("Expected %d groups, got %d", 2, resp.Events[0].GroupCount)
+			if err != nil && err != io.EOF {
+				if tc.err != "" {
+					if tc.err != err.Error() {
+						t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+					}
 
-// 	}
-// }
+					return
+				}
+
+				t.Fatalf("expected no error, but received: %s", err)
+
+			}
+
+			if tc.err != "" {
+				if tc.err != err.Error() {
+					t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+				}
+
+				return
+			}
+
+			if tc.err != "" {
+				t.Fatalf("expected error, but received none")
+			}
+
+			if len(events) != 0 {
+				t.Fatalf("expected one event to have been stopped")
+			}
+
+			if ev.close != 1 {
+				t.Fatalf("expected event to not have been closed")
+			}
+
+		})
+	}
+}
+
+func TestListEvents(t *testing.T) {
+	dummyEvent := &store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []exercise.Tag{"hb"}, Frontends: []string{"kali"}}}
+	tt := []struct {
+		name         string
+		unauthorized bool
+		count        int
+		err          string
+	}{
+		{name: "Normal", count: 1},
+		{name: "Normal three events", count: 3},
+		{name: "Unauthorized", unauthorized: true, count: 1, err: "unauthorized"},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ev := fakeEvent{}
+			ec := &eventCreator{
+				event: &ev,
+			}
+
+			ctx := context.Background()
+			events := map[string]event.Event{}
+			d := &daemon{
+				conf:   &Config{},
+				events: events,
+				auth: &noAuth{
+					allowed: !tc.unauthorized,
+				},
+				mux:   mux.NewRouter(),
+				ehost: ec,
+			}
+
+			for i := 1; i <= tc.count; i++ {
+				tempEvent := *dummyEvent
+				tempEvent.Tag = fmt.Sprintf("tst-%d", i)
+
+				if err := d.createEvent(tempEvent); err != nil {
+					t.Fatalf("expected no error when adding event")
+				}
+			}
+
+			dialer, close := getServer(d)
+			defer close()
+
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			resp, err := client.ListEvents(ctx, &pb.ListEventsRequest{})
+			if err != nil {
+				st, ok := status.FromError(err)
+				if ok {
+					err = fmt.Errorf(st.Message())
+				}
+
+				if tc.err != "" {
+					if tc.err != err.Error() {
+						t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+					}
+
+					return
+				}
+
+				t.Fatalf("expected no error, but received: %s", err)
+			}
+
+			if tc.err != "" {
+				if tc.err != err.Error() {
+					t.Fatalf("unexpected error (expected: %s) received: %s", tc.err, err)
+				}
+
+				return
+			}
+
+			if tc.err != "" {
+				t.Fatalf("expected error, but received none")
+			}
+
+			if n := len(resp.Events); n != tc.count {
+				t.Fatalf("unexpected amount of events (expected: %d), received: %d", tc.count, n)
+			}
+		})
+	}
+}

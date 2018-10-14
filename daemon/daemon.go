@@ -27,11 +27,11 @@ import (
 )
 
 var (
-	DuplicateEventErr   = errors.New("event with that tag already exists")
-	UnknownEventErr     = errors.New("unable to find event by that tag")
-	MissingTokenErr     = errors.New("no security token provided")
-	InvalidArgumentsErr = errors.New("invalid arguments provided")
-	MissingSecretKey    = errors.New("management signing key cannot be empty")
+	DuplicateEventErr   = errors.New("Event with that tag already exists")
+	UnknownEventErr     = errors.New("Unable to find event by that tag")
+	MissingTokenErr     = errors.New("No security token provided")
+	InvalidArgumentsErr = errors.New("Invalid arguments provided")
+	MissingSecretKey    = errors.New("Management signing key cannot be empty")
 )
 
 type Config struct {
@@ -337,6 +337,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
+	if req.Tag == "" {
+		return &store.EmptyVarErr{"Tag"}
+	}
+
 	ev, ok := d.events[req.Tag]
 	if !ok {
 		return UnknownEventErr
