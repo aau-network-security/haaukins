@@ -5,6 +5,10 @@ language: go
 go:
 - '1.10'
 
+cache:
+  directories:
+  - $HOME/.cache/go-build
+
 install:
   - go get -t ./...
   - go get github.com/Microsoft/go-winio
