@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aau-network-security/go-ntp/exercise"
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
@@ -17,12 +18,12 @@ var (
 )
 
 type Config struct {
-	Frontends []string          `yaml:"frontends"`
-	Exercises []exercise.Config `yaml:"exercises"`
+	Frontends []string         `yaml:"frontends"`
+	Exercises []store.Exercise `yaml:"exercises"`
 }
 
-func (conf Config) Flags() []exercise.FlagConfig {
-	var res []exercise.FlagConfig
+func (conf Config) Flags() []store.FlagConfig {
+	var res []store.FlagConfig
 	for _, exercise := range conf.Exercises {
 		res = append(res, exercise.Flags()...)
 	}

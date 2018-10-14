@@ -1,17 +1,22 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/exercise"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	yaml "gopkg.in/yaml.v2"
 )
 
+var (
+	EmptyExTags = errors.New("Exercise cannot have zero tags")
+)
+
 type UnknownExerTagErr struct {
-	tag exercise.Tag
+	tag Tag
 }
 
 func (uee *UnknownExerTagErr) Error() string {
@@ -23,26 +28,120 @@ type ExerTagExistsErr struct {
 }
 
 func (eee *ExerTagExistsErr) Error() string {
-	return fmt.Sprintf("Exercise tag already exists: %s", eee.tag)
+	return fmt.Sprintf("Tag already exists: %s", eee.tag)
+}
+
+type Exercise struct {
+	Name        string         `yaml:"name"`
+	Tags        []Tag          `yaml:"tags"`
+	DockerConfs []DockerConfig `yaml:"docker"`
+}
+
+func (e Exercise) Validate() error {
+	if len(e.Tags) == 0 {
+		return EmptyExTags
+	}
+
+	for _, t := range e.Tags {
+		if err := t.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (e Exercise) Flags() []FlagConfig {
+	var res []FlagConfig
+
+	for _, dockerConf := range e.DockerConfs {
+		res = append(res, dockerConf.Flags...)
+	}
+	return res
+}
+
+func (e Exercise) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
+	var contSpecs []docker.ContainerConfig
+	var contRecords [][]RecordConfig
+
+	for _, conf := range e.DockerConfs {
+		envVars := make(map[string]string)
+
+		for _, flag := range conf.Flags {
+			envVars[flag.EnvVar] = flag.Default
+		}
+
+		for _, env := range conf.Envs {
+			envVars[env.EnvVar] = env.Value
+		}
+
+		// docker config
+		spec := docker.ContainerConfig{
+			Image: conf.Image,
+			Resources: &docker.Resources{
+				MemoryMB: conf.MemoryMB,
+				CPU:      conf.CPU,
+			},
+			EnvVars: envVars,
+		}
+
+		contSpecs = append(contSpecs, spec)
+		contRecords = append(contRecords, conf.Records)
+	}
+
+	return contSpecs, contRecords
+}
+
+type Flag struct {
+}
+
+type RecordConfig struct {
+	Type string `yaml:"record"`
+	Name string `yaml:"name"`
+}
+
+func (rc RecordConfig) Format(ip string) string {
+	return fmt.Sprintf("%s %s %s", rc.Name, rc.Type, ip)
+}
+
+type FlagConfig struct {
+	Name    string `yaml:"name"`
+	EnvVar  string `yaml:"env"`
+	Default string `yaml:"default"`
+	Points  uint   `yaml:"points"`
+}
+
+type EnvVarConfig struct {
+	EnvVar string `yaml:"env"`
+	Value  string `yaml:"value"`
+}
+
+type DockerConfig struct {
+	Image    string         `yaml:"image"`
+	Flags    []FlagConfig   `yaml:"flag"`
+	Envs     []EnvVarConfig `yaml:"env"`
+	Records  []RecordConfig `yaml:"dns"`
+	MemoryMB uint           `yaml:"memoryMB"`
+	CPU      float64        `yaml:"cpu"`
 }
 
 type exercisestore struct {
 	m         sync.Mutex
-	tags      map[exercise.Tag]*exercise.Config
-	exercises []*exercise.Config
-	hooks     []func([]exercise.Config) error
+	tags      map[Tag]*Exercise
+	exercises []*Exercise
+	hooks     []func([]Exercise) error
 }
 
 type ExerciseStore interface {
-	GetExercisesByTags(...exercise.Tag) ([]exercise.Config, error)
-	CreateExercise(exercise.Config) error
-	DeleteExerciseByTag(exercise.Tag) error
-	ListExercises() []exercise.Config
+	GetExercisesByTags(...Tag) ([]Exercise, error)
+	CreateExercise(Exercise) error
+	DeleteExerciseByTag(Tag) error
+	ListExercises() []Exercise
 }
 
-func NewExerciseStore(exercises []exercise.Config, hooks ...func([]exercise.Config) error) (ExerciseStore, error) {
+func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (ExerciseStore, error) {
 	s := exercisestore{
-		tags: map[exercise.Tag]*exercise.Config{},
+		tags: map[Tag]*Exercise{},
 	}
 
 	for _, e := range exercises {
@@ -56,11 +155,11 @@ func NewExerciseStore(exercises []exercise.Config, hooks ...func([]exercise.Conf
 	return &s, nil
 }
 
-func (es *exercisestore) GetExercisesByTags(tags ...exercise.Tag) ([]exercise.Config, error) {
+func (es *exercisestore) GetExercisesByTags(tags ...Tag) ([]Exercise, error) {
 	es.m.Lock()
 	defer es.m.Unlock()
 
-	configs := make([]exercise.Config, len(tags))
+	configs := make([]Exercise, len(tags))
 	for i, t := range tags {
 		e, ok := es.tags[t]
 		if !ok {
@@ -73,8 +172,8 @@ func (es *exercisestore) GetExercisesByTags(tags ...exercise.Tag) ([]exercise.Co
 	return configs, nil
 }
 
-func (es *exercisestore) ListExercises() []exercise.Config {
-	exer := make([]exercise.Config, len(es.exercises))
+func (es *exercisestore) ListExercises() []Exercise {
+	exer := make([]Exercise, len(es.exercises))
 	for i, e := range es.exercises {
 		exer[i] = *e
 	}
@@ -82,7 +181,7 @@ func (es *exercisestore) ListExercises() []exercise.Config {
 	return exer
 }
 
-func (es *exercisestore) CreateExercise(e exercise.Config) error {
+func (es *exercisestore) CreateExercise(e Exercise) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -105,7 +204,7 @@ func (es *exercisestore) CreateExercise(e exercise.Config) error {
 	return es.RunHooks()
 }
 
-func (es *exercisestore) DeleteExerciseByTag(t exercise.Tag) error {
+func (es *exercisestore) DeleteExerciseByTag(t Tag) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -140,7 +239,7 @@ func (es *exercisestore) RunHooks() error {
 
 func NewExerciseFile(path string) (ExerciseStore, error) {
 	var conf struct {
-		Exercises []exercise.Config `yaml:"exercises"`
+		Exercises []Exercise `yaml:"exercises"`
 	}
 
 	var m sync.Mutex
@@ -169,7 +268,7 @@ func NewExerciseFile(path string) (ExerciseStore, error) {
 		}
 	}
 
-	return NewExerciseStore(conf.Exercises, func(e []exercise.Config) error {
+	return NewExerciseStore(conf.Exercises, func(e []Exercise) error {
 		conf.Exercises = e
 		return save()
 	})

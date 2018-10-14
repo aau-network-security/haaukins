@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/exercise"
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
 )
@@ -21,10 +21,10 @@ type Hub interface {
 	Get() (Lab, error)
 	Close()
 	Available() int
-	Flags() []exercise.FlagConfig
+	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
-	//Config() []exercise.Config
+	//Config() []store.Exercise
 }
 
 type hub struct {
@@ -112,7 +112,7 @@ func (h *hub) Close() {
 	}
 }
 
-func (h *hub) Flags() []exercise.FlagConfig {
+func (h *hub) Flags() []store.FlagConfig {
 	return h.conf.Flags()
 }
 

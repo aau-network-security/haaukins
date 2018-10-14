@@ -12,7 +12,6 @@ import (
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
-	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/gorilla/mux"
@@ -508,7 +507,7 @@ func TestCreateEvent(t *testing.T) {
 }
 
 func TestStopEvent(t *testing.T) {
-	dummyEvent := store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []exercise.Tag{"hb"}, Frontends: []string{"kali"}}}
+	dummyEvent := store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []store.Tag{"hb"}, Frontends: []string{"kali"}}}
 	tt := []struct {
 		name         string
 		unauthorized bool
@@ -617,7 +616,7 @@ func TestStopEvent(t *testing.T) {
 }
 
 func TestListEvents(t *testing.T) {
-	dummyEvent := &store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []exercise.Tag{"hb"}, Frontends: []string{"kali"}}}
+	dummyEvent := &store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []store.Tag{"hb"}, Frontends: []string{"kali"}}}
 	tt := []struct {
 		name         string
 		unauthorized bool

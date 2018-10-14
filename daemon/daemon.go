@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/aau-network-security/go-ntp/event"
-	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
@@ -296,9 +295,9 @@ func (d *daemon) createEvent(conf store.Event) error {
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-	tags := make([]exercise.Tag, len(req.Exercises))
+	tags := make([]store.Tag, len(req.Exercises))
 	for i, s := range req.Exercises {
-		t, err := exercise.NewTag(s)
+		t, err := store.NewTag(s)
 		if err != nil {
 			return err
 		}
