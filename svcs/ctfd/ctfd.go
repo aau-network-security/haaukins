@@ -18,6 +18,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"errors"
@@ -35,6 +36,7 @@ var (
 	ServerUnavailableErr   = errors.New("Server is unavailable")
 	UserNotFoundErr        = errors.New("Could not find the specified user")
 	CouldNotFindSessionErr = errors.New("Could not find the specified user")
+	NoSessionErr           = errors.New("No session found")
 )
 
 type CTFd interface {
@@ -365,11 +367,20 @@ func (i Interceptors) Intercept(http.Handler) http.Handler {
 	})
 }
 
-type RegisterInterception struct {
-	out chan store.Team
+func NewRegisterInterception() *registerInterception {
+	return &registerInterception{
+		teamStream: make(chan store.Team, 10),
+		sessionMap: map[string]string{},
+	}
 }
 
-func (*RegisterInterception) ValidRequest(r *http.Request) bool {
+type registerInterception struct {
+	m          sync.RWMutex
+	teamStream chan store.Team
+	sessionMap map[string]string
+}
+
+func (*registerInterception) ValidRequest(r *http.Request) bool {
 	if r.URL.Path == "/register" && r.Method == http.MethodPost {
 		return true
 	}
@@ -377,13 +388,71 @@ func (*RegisterInterception) ValidRequest(r *http.Request) bool {
 	return false
 }
 
-func (*RegisterInterception) Intercept(next http.Handler) http.Handler {
+func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := r.FormValue("name")
+		email := r.FormValue("email")
 		pass := r.FormValue("password")
-		r.Form.Set("password", fmt.Sprintf("%x", sha256.Sum256([]byte(pass))))
+		hashedPass := fmt.Sprintf("%x", sha256.Sum256([]byte(pass)))
 
-		next.ServeHTTP(w, r)
+		r.Form.Set("password", hashedPass)
+
+		rec := httptest.NewRecorder()
+		next.ServeHTTP(rec, r)
+		for k, v := range rec.HeaderMap {
+			w.Header()[k] = v
+		}
+		w.WriteHeader(rec.Code)
+		rec.Body.WriteTo(w)
+
+		resp := rec.Result()
+		var session string
+		for _, c := range resp.Cookies() {
+			if c.Name == "session" {
+				session = c.Value
+				break
+			}
+		}
+
+		if session != "" {
+			t, err := store.NewTeam(email, name, hashedPass)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("email", email).
+					Str("name", name).
+					Str("hashed_pass", hashedPass).
+					Msg("Unable to create new team")
+				return
+			}
+
+			ri.teamStream <- t
+
+			ri.m.Lock()
+			ri.sessionMap[session] = email
+			ri.m.Unlock()
+		}
+
 	})
+}
+
+func (ri *registerInterception) GetTeamEmailBySession(sess string) (string, error) {
+	ri.m.RLock()
+	email, ok := ri.sessionMap[sess]
+	ri.m.RUnlock()
+	if !ok {
+		return "", NoSessionErr
+	}
+
+	return email, nil
+}
+
+func (ri *registerInterception) TeamStream() <-chan store.Team {
+	return ri.teamStream
+}
+
+func (ri *registerInterception) Close() {
+	close(ri.teamStream)
 }
 
 type chalRes struct {

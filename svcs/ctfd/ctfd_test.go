@@ -3,7 +3,6 @@ package ctfd_test
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 )
 
@@ -44,7 +44,7 @@ func TestRegisterInterception(t *testing.T) {
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
 
-			interceptor := &ctfd.RegisterInterception{}
+			interceptor := ctfd.NewRegisterInterception()
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -94,11 +94,38 @@ func TestRegisterInterception(t *testing.T) {
 			}
 
 			resp := w.Result()
-			body, _ := ioutil.ReadAll(resp.Body)
+			var session string
+			for _, c := range resp.Cookies() {
+				if c.Name == "session" {
+					session = c.Value
+				}
 
-			fmt.Println(resp.StatusCode)
-			fmt.Println(resp.Header.Get("Content-Type"))
-			fmt.Println(string(body))
+			}
+			interceptor.Close()
+
+			if session == "" {
+				t.Fatalf("expected session to be none empty")
+			}
+
+			_, err := interceptor.GetTeamEmailBySession(session)
+			if err != nil {
+				t.Fatalf("expected no error when fetching team's email by session: %s", err)
+			}
+
+			var n int
+			var te store.Team
+			for team := range interceptor.TeamStream() {
+				te = team
+				n += 1
+			}
+
+			if n != 1 {
+				t.Fatalf("expected receive one team only, got: %d", n)
+			}
+
+			if te.Email == "" {
+				t.Fatalf("expected to receive a team")
+			}
 
 		})
 	}
