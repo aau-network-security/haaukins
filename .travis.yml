@@ -5,29 +5,31 @@ language: go
 go:
 - '1.10'
 
-env:
-  global:
-  - GOARCH=amd64
-  matrix:
-  - GOOS=linux APP=daemon
-  - GOOS=linux APP=client
-  - GOOS=darwin APP=daemon
-  - GOOS=darwin APP=client
-  - GOOS=windows APP=daemon
-  - GOOS=windows APP=client
+install:
+  - go get -t ./...
+  - go get github.com/Microsoft/go-winio
+  - go get github.com/inconshreveable/mousetrap
+  - go get github.com/Azure/go-ansiterm/winterm
+  - go get github.com/konsorten/go-windows-terminal-sequences
 
 script:
-- go test -v ./...
-- env GOOS=$GOOS GOARCH=$GOARCH go build ./build/ntp-$APP-$GOOS-$GOARCH github.com/aau-network-security/go-ntp/app/$APP
+  - go test -v ./...
 
 after_script:
-- ls -alh ./build
+  - ./scripts/build_binaries.sh
+  - ls -alh ./build
+
+#before_deploy:
+#  - ./scripts/build_binaries.sh
+#  - ls -alh ./build
 
 deploy:
   provider: releases
   api_key:
     secure: eRNgqr7ugxm+ofsFLoyIYRD2mQv3WWCDYi5dxITZvOhQFD71sAN8eG1f+6OpcgW1VaaCJGFGD7LYgTG8/cGTxJqPiXOQEbGXfJW4GqphZpwnzs0GqXCEEI985GOi3HEkplxvcd7Kf7nrJBJ6j5XXg0i7QqHCqkGuacMWzTFpcJGfHmFVFZxARf5AISBM6WuJhzdGkFgT1C8SRWVx6iiMI+X/g9ssVDXcWRAn55tzNGMbDB27COoSIHezKty1JFVTYyKEyvdBY6gthV4hsDvS+XekUntVnBiJM0IDhubZZWaWWLKNXFdzS/2ggELX+8hcKsUrbjoU8EgtB3flc0niBFuCs3gy6zroTkJwQKNDz2dcL6bd0G3pl5OXZdwbqjaiADlG7WHvihCCF9sWTSdbDJPCLSjH3/tUiftTEegsvBG5vXKbkREtpW+KSQkppHDuG7upqfHI564XCf1mMak09BlqfJS+moE9Q9J8fP58Ciw3uNAWC19hNvxNlYooVk1X6OgTTZYzKPEWYPgPGmfHmpXcnvUqaX9P6zpgWeHK+5cGAKfiUIU2+lxs/AdFFsvFSea71dSfSF6rJBTmkYpXWAK2wX2ub+El+rgHpatHJwatlG2QjWTdJHc8sIF6QlahqORtnhZ1S8dfWP2iKvZNe/OggWKHn/KBhl4LIEXDsVk=
-  file: "./build/ntp-$APP-$GOOS-$GOARCH"
+  file_glob: true
+  file: "./build/*"
+  skip_cleanup: true
   on:
     repo: aau-network-security/go-ntp
     tags: true
