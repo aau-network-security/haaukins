@@ -402,19 +402,20 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 
 	var eventTeams []*pb.ListEventTeamsResponse_Teams
 
-	// ev, ok := d.events[req.Tag]
-	// if !ok {
-	// 	return nil, UnknownEventErr
-	// }
+	ev, ok := d.events[req.Tag]
+	if !ok {
+		return nil, UnknownEventErr
+	}
 
-	// groups := ev.GetTeams()
+	groups := ev.GetTeams()
 
-	// for _, group := range groups {
-	// 	eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-	// 		Name:   group.Name,
-	// 		LabTag: group.Lab.GetTag(),
-	// 	})
-	// }
+	for _, g := range groups {
+		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
+			Id:    g.Id[0:8],
+			Name:  g.Name,
+			Email: g.Email,
+		})
+	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }

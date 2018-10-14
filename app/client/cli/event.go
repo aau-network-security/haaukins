@@ -152,7 +152,7 @@ func (c *Client) CmdEventList() *cobra.Command {
 
 func (c *Client) CmdEventTeams() *cobra.Command {
 	return &cobra.Command{
-		Use:   "teams [tag]",
+		Use:   "teams [event tag]",
 		Short: "Get teams for a event",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -169,11 +169,22 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 				return
 			}
 
-			for _, team := range r.Teams {
-				fmt.Printf("%s\n", team.Name)
-				fmt.Printf("- %s\n", team.LabTag)
+			f := formatter{
+				header: []string{"TEAM ID", "NAME", "EMAIL"},
+				fields: []string{"ID", "Name", "Email"},
 			}
 
+			var elements []formatElement
+			for _, e := range r.Teams {
+				elements = append(elements, e)
+			}
+
+			table, err := f.AsTable(elements)
+			if err != nil {
+				PrintError("Failed to create event list")
+				return
+			}
+			fmt.Printf(table)
 		},
 	}
 }

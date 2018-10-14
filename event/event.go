@@ -80,11 +80,6 @@ type Auth struct {
 	Password string `json:"password"`
 }
 
-type Group struct {
-	Name string
-	Lab  lab.Lab
-}
-
 type Event interface {
 	Start(context.Context) error
 	Close()
