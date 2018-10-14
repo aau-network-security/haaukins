@@ -17,3 +17,4 @@ auth.json
 *.out
 
 app/daemon/*.yml
+app/daemon/events/
