@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 )
 
@@ -28,10 +27,10 @@ func TestNewExerciseStore(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			var exers []exercise.Config
+			var exers []store.Exercise
 			var tags []string
 			for _, e := range tc.in {
-				exers = append(exers, exercise.Config{
+				exers = append(exers, store.Exercise{
 					Name: e.name,
 					Tags: e.tags,
 				})
@@ -89,19 +88,19 @@ func TestCreateExercise(t *testing.T) {
 			var count int
 			var errToThrow error
 
-			hook := func(e []exercise.Config) error {
+			hook := func(e []store.Exercise) error {
 				count = len(e)
 				ran = true
 
 				return errToThrow
 			}
 
-			es, err := store.NewExerciseStore([]exercise.Config{}, hook)
+			es, err := store.NewExerciseStore([]store.Exercise{}, hook)
 			if err != nil {
 				t.Fatalf("received error when creating exercise store, but expected none: %s", err)
 			}
 
-			err = es.CreateExercise(exercise.Config{
+			err = es.CreateExercise(store.Exercise{
 				Name: tc.in.name,
 				Tags: tc.in.tags,
 			})
@@ -125,13 +124,13 @@ func TestCreateExercise(t *testing.T) {
 				t.Fatalf("expected hook to have been run with one exercise")
 			}
 
-			es, err = store.NewExerciseStore([]exercise.Config{}, hook)
+			es, err = store.NewExerciseStore([]store.Exercise{}, hook)
 			if err != nil {
 				t.Fatalf("received error when creating exercise store, but expected none: %s", err)
 			}
 
 			errToThrow = errors.New("Some error")
-			err = es.CreateExercise(exercise.Config{
+			err = es.CreateExercise(store.Exercise{
 				Name: tc.in.name,
 				Tags: tc.in.tags,
 			})
@@ -163,9 +162,9 @@ func TestGetExercises(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			var exer []exercise.Config
+			var exer []store.Exercise
 			for _, e := range tc.in {
-				exer = append(exer, exercise.Config{
+				exer = append(exer, store.Exercise{
 					Name: e.name,
 					Tags: e.tags,
 				})
@@ -213,8 +212,8 @@ func TestDeleteExercise(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			es, err := store.NewExerciseStore([]exercise.Config{
-				exercise.Config{
+			es, err := store.NewExerciseStore([]store.Exercise{
+				store.Exercise{
 					Name: tc.in.name,
 					Tags: tc.in.tags,
 				}})

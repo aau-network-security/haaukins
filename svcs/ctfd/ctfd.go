@@ -18,7 +18,7 @@ import (
 
 	"errors"
 
-	"github.com/aau-network-security/go-ntp/exercise"
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -38,7 +38,7 @@ type CTFd interface {
 	Start() error
 	Close() error
 	Stop() error
-	Flags() []exercise.FlagConfig
+	Flags() []store.FlagConfig
 }
 
 type Config struct {
@@ -48,7 +48,7 @@ type Config struct {
 	AdminPass    string `yaml:"admin_pass"`
 	CallbackHost string
 	CallbackPort uint
-	Flags        []exercise.FlagConfig
+	Flags        []store.FlagConfig
 }
 
 type ctfd struct {
@@ -164,7 +164,7 @@ func (ctf *ctfd) Stop() error {
 	return ctf.cont.Stop()
 }
 
-func (ctf *ctfd) Flags() []exercise.FlagConfig {
+func (ctf *ctfd) Flags() []store.FlagConfig {
 	return ctf.conf.Flags
 }
 

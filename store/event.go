@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/exercise"
 	"golang.org/x/crypto/bcrypt"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -29,7 +28,7 @@ var (
 
 type Event struct {
 	Name       string     `yaml:"name"`
-	Tag        string     `yaml:"tag"`
+	Tag        Tag        `yaml:"tag"`
 	Buffer     int        `yaml:"buffer"`
 	Capacity   int        `yaml:"capacity"`
 	Lab        Lab        `yaml:"lab"`
@@ -58,13 +57,13 @@ func (e Event) Validate() error {
 }
 
 type Lab struct {
-	Frontends []string       `yaml:"frontends"`
-	Exercises []exercise.Tag `yaml:"exercises"`
+	Frontends []string `yaml:"frontends"`
+	Exercises []Tag    `yaml:"exercises"`
 }
 
 type Task struct {
-	ExerciseTag exercise.Tag `yaml:"tag"`
-	CompletedAt *time.Time   `yaml:"completed-at,omitempty"`
+	ExerciseTag Tag        `yaml:"tag"`
+	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
 }
 
 type Team struct {
@@ -88,7 +87,7 @@ func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
 	}, nil
 }
 
-func (t Team) SolveTaskByTag(tag exercise.Tag) error {
+func (t Team) SolveTaskByTag(tag Tag) error {
 	var task *Task
 	for i, ta := range t.Tasks {
 		if ta.ExerciseTag == tag {
@@ -308,7 +307,7 @@ type eventFile struct {
 	Teams []Team `yaml:"teams,omitempty"`
 }
 
-func getFileNameForEvent(path string, tag string) (string, error) {
+func getFileNameForEvent(path string, tag Tag) (string, error) {
 	now := time.Now().Format("02-01-06")
 	filename := fmt.Sprintf("%s-%s.yml", tag, now)
 	eventPath := filepath.Join(path, filename)

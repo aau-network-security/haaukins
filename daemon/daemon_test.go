@@ -12,7 +12,6 @@ import (
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
-	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/gorilla/mux"
@@ -411,7 +410,7 @@ func TestCreateEvent(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			events := map[string]event.Event{}
+			events := map[store.Tag]event.Event{}
 			d := &daemon{
 				conf:   &Config{},
 				events: events,
@@ -487,8 +486,9 @@ func TestCreateEvent(t *testing.T) {
 				t.Fatalf("name is set incorrectly (expected: %s) received: %s", tc.event.Name, ec.conf.Name)
 			}
 
-			if tc.event.Tag != ec.conf.Tag {
-				t.Fatalf("tag is set incorrectly (expected: %s) received: %s", tc.event.Tag, ec.conf.Tag)
+			evtag, _ := store.NewTag(tc.event.Tag)
+			if evtag != ec.conf.Tag {
+				t.Fatalf("tag is set incorrectly (expected: %s) received: %s", evtag, ec.conf.Tag)
 			}
 
 			if ev.started != 1 {
@@ -508,7 +508,7 @@ func TestCreateEvent(t *testing.T) {
 }
 
 func TestStopEvent(t *testing.T) {
-	dummyEvent := store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []exercise.Tag{"hb"}, Frontends: []string{"kali"}}}
+	dummyEvent := store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []store.Tag{"hb"}, Frontends: []string{"kali"}}}
 	tt := []struct {
 		name         string
 		unauthorized bool
@@ -530,7 +530,7 @@ func TestStopEvent(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			events := map[string]event.Event{}
+			events := map[store.Tag]event.Event{}
 			d := &daemon{
 				conf:   &Config{},
 				events: events,
@@ -617,7 +617,7 @@ func TestStopEvent(t *testing.T) {
 }
 
 func TestListEvents(t *testing.T) {
-	dummyEvent := &store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []exercise.Tag{"hb"}, Frontends: []string{"kali"}}}
+	dummyEvent := &store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []store.Tag{"hb"}, Frontends: []string{"kali"}}}
 	tt := []struct {
 		name         string
 		unauthorized bool
@@ -637,7 +637,7 @@ func TestListEvents(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			events := map[string]event.Event{}
+			events := map[store.Tag]event.Event{}
 			d := &daemon{
 				conf:   &Config{},
 				events: events,
@@ -650,7 +650,7 @@ func TestListEvents(t *testing.T) {
 
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *dummyEvent
-				tempEvent.Tag = fmt.Sprintf("tst-%d", i)
+				tempEvent.Tag, _ = store.NewTag(fmt.Sprintf("tst-%d", i))
 
 				if err := d.createEvent(tempEvent); err != nil {
 					t.Fatalf("expected no error when adding event")
