@@ -378,7 +378,11 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 }
 
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_ResetExerciseServer) error {
-	ev, ok := d.events[req.EventTag]
+	evtag, err := store.NewTag(req.EventTag)
+	if err != nil {
+		return err
+	}
+	ev, ok := d.events[evtag]
 	if !ok {
 		return UnknownEventErr
 	}
@@ -426,8 +430,11 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
 	var eventTeams []*pb.ListEventTeamsResponse_Teams
-
-	ev, ok := d.events[req.Tag]
+	evtag, err := store.NewTag(req.Tag)
+	if err != nil {
+		return nil, err
+	}
+	ev, ok := d.events[evtag]
 	if !ok {
 		return nil, UnknownEventErr
 	}

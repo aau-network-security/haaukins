@@ -12,7 +12,6 @@ import (
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
-	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
@@ -355,6 +354,8 @@ type fakeEvent struct {
 	started   int
 	close     int
 	register  int
+
+	event.Event
 }
 
 func (fe *fakeEvent) Start(context.Context) error {
@@ -380,10 +381,6 @@ func (fe *fakeEvent) GetConfig() store.Event {
 }
 
 func (fe *fakeEvent) GetTeams() []store.Team {
-	return nil
-}
-
-func (fe *fakeEvent) GetHub() lab.Hub {
 	return nil
 }
 

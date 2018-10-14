@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -67,6 +68,7 @@ type Task struct {
 }
 
 type Team struct {
+	Id             string `yaml:"id"`
 	Email          string `yaml:"email"`
 	Name           string `yaml:"name"`
 	HashedPassword string `yaml:"hashed-password"`
