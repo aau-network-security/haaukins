@@ -135,11 +135,11 @@ func (es *teamstore) CreateTeam(t Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
-	if _, ok := es.teams[t.Email]; ok {
+	if _, ok := es.teams[t.Id]; ok {
 		return TeamExistsErr
 	}
 
-	es.teams[t.Email] = t
+	es.teams[t.Id] = t
 
 	return es.RunHooks()
 }
@@ -148,11 +148,11 @@ func (es *teamstore) SaveTeam(t Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
-	if _, ok := es.teams[t.Email]; !ok {
+	if _, ok := es.teams[t.Id]; !ok {
 		return UnknownTeamErr
 	}
 
-	es.teams[t.Email] = t
+	es.teams[t.Id] = t
 
 	return es.RunHooks()
 }
@@ -165,12 +165,12 @@ func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
 		return &EmptyVarErr{"Token"}
 	}
 
-	t, ok := es.teams[in.Email]
+	t, ok := es.teams[in.Id]
 	if !ok {
 		return UnknownTeamErr
 	}
 
-	es.tokens[token] = t.Email
+	es.tokens[token] = t.Id
 
 	return nil
 }

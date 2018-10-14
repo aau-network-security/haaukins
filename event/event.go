@@ -134,6 +134,7 @@ func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, err
 		cbSrv:  cb,
 		ctfd:   ctf,
 		guac:   guac,
+		labs:   map[string]lab.Lab{},
 	}
 	cb.event = ev
 
@@ -183,6 +184,7 @@ func (ev *event) Close() {
 }
 
 func (ev *event) Register(t store.Team) (*Auth, error) {
+	log.Debug().Msgf("Registering team %+v", t)
 	lab, err := ev.labhub.Get()
 	if err != nil {
 		return nil, err
@@ -198,12 +200,12 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 		return nil, RdpConfErr
 	}
 
-	if err := ev.guac.CreateUser(t.Email, t.HashedPassword); err != nil {
+	if err := ev.guac.CreateUser(t.Id, t.HashedPassword); err != nil {
 		return nil, err
 	}
 
 	auth := Auth{
-		Username: t.Email,
+		Username: t.Id,
 		Password: t.HashedPassword,
 	}
 
@@ -214,7 +216,7 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 
 	for i, port := range rdpPorts {
 		num := i + 1
-		name := fmt.Sprintf("%s-client%d", t.Email, num)
+		name := fmt.Sprintf("%s-client%d", t.Id, num)
 
 		log.Debug().Str("group", t.Name).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
@@ -229,7 +231,7 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 		}
 	}
 
-	ev.labs[t.Email] = lab
+	ev.labs[t.Id] = lab
 
 	if err := ev.store.CreateTeam(t); err != nil {
 		return nil, err

@@ -261,10 +261,13 @@ func (guac *guacamole) login(username, password string) (string, error) {
 	}
 
 	endpoint := guac.baseUrl() + "/guacamole/api/tokens"
+	log.Debug().Msgf("Calling %s", endpoint)
 	req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
 	}
+	log.Debug().Msgf("Successfully logged in!")
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := guac.client.Do(req)
@@ -316,23 +319,28 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 
 	// out of 2XX range
 	if status < http.StatusOK || status > 300 {
+		log.Debug().Msgf("Received bytes: %s", content)
+
 		var msg struct {
 			Message string `json:"message"`
 		}
 
 		if err := json.Unmarshal(content, &msg); err != nil {
+
+			log.Error().Msgf("Guacamole error: %+v", err)
 			return UnexpectedRespErr
 		}
 
 		switch msg.Message {
 		case "Permission Denied.":
+			log.Debug().Msgf("Permission denied, so logging in")
 			token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
 			if err != nil {
 				return err
 			}
 
 			guac.token = token
-
+			log.Debug().Msgf("Retry denied request..")
 			content, status, err = perform()
 			if err != nil {
 				return err
@@ -362,6 +370,7 @@ func (guac *guacamole) changeAdminPass(newPass string) error {
 
 		jsonData, _ := json.Marshal(data)
 		endpoint := guac.baseUrl() + "/guacamole/api/session/data/mysql/users/guacadmin/password?token=" + t
+		log.Debug().Msgf("Calling %s", endpoint)
 		req, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err
@@ -402,7 +411,7 @@ func (guac *guacamole) CreateUser(username, password string) error {
 		}
 		jsonData, _ := json.Marshal(data)
 		endpoint := guac.baseUrl() + "/guacamole/api/session/data/mysql/users?token=" + t
-
+		log.Debug().Msgf("Calling %s", endpoint)
 		req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err
@@ -427,6 +436,7 @@ func (guac *guacamole) CreateUser(username, password string) error {
 func (guac *guacamole) logout() error {
 	action := func(t string) (*http.Response, error) {
 		endpoint := guac.baseUrl() + "/guacamole/api/tokens/" + t
+		log.Debug().Msgf("Calling %s", endpoint)
 		req, err := http.NewRequest("DELETE", endpoint, nil)
 		if err != nil {
 			return nil, err
@@ -505,6 +515,8 @@ type CreateRDPConnOpts struct {
 }
 
 func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
+
+	log.Debug().Msgf("%+v", opts)
 	if opts.Host == "" {
 		return NoHostErr
 	}
@@ -565,7 +577,7 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 
 	action := func(t string) (*http.Response, error) {
 		endpoint := guac.baseUrl() + "/guacamole/api/session/data/mysql/connections?token=" + t
-
+		log.Debug().Msgf("Calling %s", endpoint)
 		req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err
@@ -607,7 +619,7 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 			guac.baseUrl(),
 			guacuser,
 			t)
-
+		log.Debug().Msgf("Calling %s", endpoint)
 		req, err := http.NewRequest("PATCH", endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err

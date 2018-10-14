@@ -171,7 +171,7 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 
 			f := formatter{
 				header: []string{"TEAM ID", "NAME", "EMAIL"},
-				fields: []string{"ID", "Name", "Email"},
+				fields: []string{"Id", "Name", "Email"},
 			}
 
 			var elements []formatElement
