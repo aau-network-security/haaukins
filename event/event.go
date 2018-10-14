@@ -218,7 +218,7 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 		num := i + 1
 		name := fmt.Sprintf("%s-client%d", t.Id, num)
 
-		log.Debug().Str("group", t.Name).Uint("port", port).Msg("Creating RDP Connection for group")
+		log.Debug().Str("team", t.Name).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
 			Host:     hostIp,
 			Port:     port,

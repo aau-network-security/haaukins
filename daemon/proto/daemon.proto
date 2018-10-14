@@ -11,7 +11,7 @@ service Daemon {
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
 
-  rpc ResetExercise (ResetExerciseRequest) returns (stream EventStatus) {}
+  rpc ResetExercise (ResetExerciseRequest) returns (stream ResetExerciseStatus) {}
 }
 
 message LoginUserRequest {
@@ -77,11 +77,15 @@ message RestartTeamLabRequest {
 
 message ResetExerciseRequest {
     message Team {
-        string teamId = 1;
+        string Id = 1;
     }
     string exerciseTag = 1;
     string eventTag = 2;
     repeated Team teams = 3;
+}
+
+message ResetExerciseStatus {
+    string teamId = 1;
 }
 
 message StopEventRequest {

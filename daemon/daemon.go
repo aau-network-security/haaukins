@@ -386,10 +386,11 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 	if req.Teams != nil {
 		// the requests has a selection of group ids
 		for _, reqTeam := range req.Teams {
-			if lab, ok := ev.GetLabByTeam(reqTeam.TeamId); ok {
+			if lab, ok := ev.GetLabByTeam(reqTeam.Id); ok {
 				if err := lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
 					return err
 				}
+				resp.Send(&pb.ResetExerciseStatus{TeamId: reqTeam.Id})
 			}
 		}
 	} else {
@@ -399,14 +400,13 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 			if err := lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
 				return err
 			}
+			resp.Send(&pb.ResetExerciseStatus{TeamId: t.Id})
 		}
 	}
 	return nil
 }
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	log.Debug().Msg("Listing events..")
-
 	var events []*pb.ListEventsResponse_Events
 
 	for _, event := range d.events {
@@ -425,8 +425,6 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 }
 
 func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
-	log.Debug().Msg("Listing event groups..")
-
 	var eventTeams []*pb.ListEventTeamsResponse_Teams
 
 	ev, ok := d.events[req.Tag]
@@ -434,13 +432,13 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 		return nil, UnknownEventErr
 	}
 
-	groups := ev.GetTeams()
+	teams := ev.GetTeams()
 
-	for _, g := range groups {
+	for _, t := range teams {
 		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-			Id:    g.Id[0:8],
-			Name:  g.Name,
-			Email: g.Email,
+			Id:    t.Id,
+			Name:  t.Name,
+			Email: t.Email,
 		})
 	}
 

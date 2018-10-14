@@ -80,6 +80,7 @@ func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
 	}
 
 	return Team{
+		Id:             uuid.New().String()[0:8],
 		Email:          email,
 		Name:           name,
 		HashedPassword: string(hashedBytes[:]),
