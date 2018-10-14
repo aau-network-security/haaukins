@@ -21,8 +21,8 @@ func (c *Client) CmdEvent() *cobra.Command {
 		c.CmdEventCreate(),
 		c.CmdEventStop(),
 		c.CmdEventList(),
-		c.CmdEventGroups(),
-		c.CmdEventGroupRestart())
+		c.CmdEventTeams(),
+		c.CmdEventTeamRestart())
 
 	return cmd
 }
@@ -131,8 +131,8 @@ func (c *Client) CmdEventList() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# GROUPS", "# EXERCISES", "CAPACITY"},
-				fields: []string{"Tag", "Name", "GroupCount", "ExerciseCount", "Capacity"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "# EXERCISES", "CAPACITY"},
+				fields: []string{"Tag", "Name", "TeamCount", "ExerciseCount", "Capacity"},
 			}
 
 			var elements []formatElement
@@ -150,17 +150,17 @@ func (c *Client) CmdEventList() *cobra.Command {
 	}
 }
 
-func (c *Client) CmdEventGroups() *cobra.Command {
+func (c *Client) CmdEventTeams() *cobra.Command {
 	return &cobra.Command{
-		Use:   "groups [tag]",
-		Short: "Get groups for a event",
+		Use:   "teams [tag]",
+		Short: "Get teams for a event",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
 			tag := args[0]
-			r, err := c.rpcClient.ListEventGroups(ctx, &pb.ListEventGroupsRequest{
+			r, err := c.rpcClient.ListEventTeams(ctx, &pb.ListEventTeamsRequest{
 				Tag: tag,
 			})
 
@@ -169,19 +169,19 @@ func (c *Client) CmdEventGroups() *cobra.Command {
 				return
 			}
 
-			for _, group := range r.Groups {
-				fmt.Printf("%s\n", group.Name)
-				fmt.Printf("- %s\n", group.LabTag)
+			for _, team := range r.Teams {
+				fmt.Printf("%s\n", team.Name)
+				fmt.Printf("- %s\n", team.LabTag)
 			}
 
 		},
 	}
 }
 
-func (c *Client) CmdEventGroupRestart() *cobra.Command {
+func (c *Client) CmdEventTeamRestart() *cobra.Command {
 	return &cobra.Command{
-		Use:   "restart [event tag] [group lab tag]",
-		Short: "Restart lab for a group",
+		Use:   "restart [event tag] [team lab tag]",
+		Short: "Restart lab for a team",
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -190,7 +190,7 @@ func (c *Client) CmdEventGroupRestart() *cobra.Command {
 			eventTag := args[0]
 			labTag := args[1]
 
-			stream, err := c.rpcClient.RestartGroupLab(ctx, &pb.RestartGroupLabRequest{
+			stream, err := c.rpcClient.RestartTeamLab(ctx, &pb.RestartTeamLabRequest{
 				EventTag: eventTag,
 				LabTag:   labTag,
 			})
