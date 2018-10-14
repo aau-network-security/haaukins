@@ -10,22 +10,16 @@ cache:
   - $HOME/.cache/go-build
 
 install:
-  - go get -t ./...
-  - go get github.com/Microsoft/go-winio
-  - go get github.com/inconshreveable/mousetrap
-  - go get github.com/Azure/go-ansiterm/winterm
-  - go get github.com/konsorten/go-windows-terminal-sequences
+- go get -t ./...
+- go get github.com/Microsoft/go-winio
+- go get github.com/inconshreveable/mousetrap
 
 script:
-  - go test -v ./...
+- go test -v ./...
 
-after_script:
-  - ./scripts/build_binaries.sh
-  - ls -alh ./build
-
-#before_deploy:
-#  - ./scripts/build_binaries.sh
-#  - ls -alh ./build
+before_deploy:
+- ./scripts/build_binaries.sh
+- ls -alh ./build
 
 deploy:
   provider: releases
