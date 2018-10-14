@@ -62,7 +62,8 @@ type Lab struct {
 }
 
 type Task struct {
-	ExerciseTag Tag        `yaml:"tag"`
+	OwnerEmail  string     `yaml:"-"`
+	ExerciseTag Tag        `yaml:"tag,omitempty"`
 	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
 }
 
