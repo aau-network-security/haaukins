@@ -28,7 +28,7 @@ var (
 
 type Event struct {
 	Name       string     `yaml:"name"`
-	Tag        string     `yaml:"tag"`
+	Tag        Tag        `yaml:"tag"`
 	Buffer     int        `yaml:"buffer"`
 	Capacity   int        `yaml:"capacity"`
 	Lab        Lab        `yaml:"lab"`
@@ -307,7 +307,7 @@ type eventFile struct {
 	Teams []Team `yaml:"teams,omitempty"`
 }
 
-func getFileNameForEvent(path string, tag string) (string, error) {
+func getFileNameForEvent(path string, tag Tag) (string, error) {
 	now := time.Now().Format("02-01-06")
 	filename := fmt.Sprintf("%s-%s.yml", tag, now)
 	eventPath := filepath.Join(path, filename)

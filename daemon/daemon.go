@@ -73,7 +73,7 @@ type daemon struct {
 	auth            Authenticator
 	users           store.UsersFile
 	exercises       store.ExerciseStore
-	events          map[string]event.Event
+	events          map[store.Tag]event.Event
 	frontendLibrary vbox.Library
 	mux             *mux.Router
 	ehost           event.Host
@@ -150,7 +150,7 @@ func New(conf *Config) (*daemon, error) {
 		auth:            NewAuthenticator(uf, conf.Management.SigningKey),
 		users:           uf,
 		exercises:       ef,
-		events:          make(map[string]event.Event),
+		events:          make(map[store.Tag]event.Event),
 		frontendLibrary: vlib,
 		mux:             m,
 		ehost:           event.NewHost(vlib, ef, esh),
@@ -271,7 +271,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 func (d *daemon) createEvent(conf store.Event) error {
 	log.Info().
 		Str("Name", conf.Name).
-		Str("Tag", conf.Tag).
+		Str("Tag", string(conf.Tag)).
 		Int("Buffer", conf.Buffer).
 		Int("Capacity", conf.Capacity).
 		Strs("Frontends", conf.Lab.Frontends).
@@ -304,9 +304,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		tags[i] = t
 	}
 
+	evtag, _ := store.NewTag(req.Tag)
 	conf := store.Event{
 		Name:     req.Name,
-		Tag:      req.Tag,
+		Tag:      evtag,
 		Buffer:   int(req.Buffer),
 		Capacity: int(req.Capacity),
 		Lab: store.Lab{
@@ -319,7 +320,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return err
 	}
 
-	_, ok := d.events[req.Tag]
+	_, ok := d.events[evtag]
 	if ok {
 		return DuplicateEventErr
 	}
@@ -336,23 +337,29 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
-	if req.Tag == "" {
-		return &store.EmptyVarErr{"Tag"}
+	evtag, err := store.NewTag(req.Tag)
+	if err != nil {
+		return err
 	}
 
-	ev, ok := d.events[req.Tag]
+	ev, ok := d.events[evtag]
 	if !ok {
 		return UnknownEventErr
 	}
 
-	delete(d.events, req.Tag)
+	delete(d.events, evtag)
 
 	ev.Close()
 	return nil
 }
 
 func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_RestartTeamLabServer) error {
-	ev, ok := d.events[req.EventTag]
+	evtag, err := store.NewTag(req.EventTag)
+	if err != nil {
+		return err
+	}
+
+	ev, ok := d.events[evtag]
 	if !ok {
 		return UnknownEventErr
 	}
@@ -380,7 +387,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 		events = append(events, &pb.ListEventsResponse_Events{
 			Name:          conf.Name,
-			Tag:           conf.Tag,
+			Tag:           string(conf.Tag),
 			TeamCount:     int32(len(event.GetTeams())),
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
