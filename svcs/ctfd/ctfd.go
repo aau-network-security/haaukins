@@ -352,6 +352,41 @@ func waitForServer(path string) error {
 	return <-errc
 }
 
+type Interception interface {
+	ValidRequest(func(r *http.Request)) bool
+	Intercept(http.Handler) http.Handler
+}
+
+type Interceptors []Interception
+
+func (i Interceptors) Intercept(http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+	})
+}
+
+type RegisterInterception struct {
+	out chan store.Team
+}
+
+func (*RegisterInterception) ValidRequest(r *http.Request) bool {
+	if r.URL.Path == "/register" && r.Method == http.MethodPost {
+		return true
+	}
+
+	return false
+}
+
+func (*RegisterInterception) Intercept(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pass := r.FormValue("password")
+		r.Form.Set("password", fmt.Sprintf("%x", sha256.Sum256([]byte(pass))))
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 type chalRes struct {
 	Message string `json:"message"`
 	Status  int    `json:"status"`
