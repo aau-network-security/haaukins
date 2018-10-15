@@ -39,11 +39,7 @@ func (cb *callbackServer) handleRegister(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	t, err := store.NewTeam(in.Email, in.Name, in.Password)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
+	t := store.NewTeam(in.Email, in.Name, in.Password)
 
 	auth, err := cb.event.Register(t)
 	if err != nil {
