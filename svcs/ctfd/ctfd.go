@@ -27,9 +27,11 @@ import (
 )
 
 var (
-	NONCEREGEXP = regexp.MustCompile(`csrf_nonce[ ]*=[ ]*"(.+)"`)
-
-	ServerUnavailableErr = errors.New("Server is unavailable")
+	NONCEREGEXP            = regexp.MustCompile(`csrf_nonce[ ]*=[ ]*"(.+)"`)
+	ServerUnavailableErr   = errors.New("Server is unavailable")
+	UserNotFoundErr        = errors.New("Could not find the specified user")
+	CouldNotFindSessionErr = errors.New("Could not find the specified user")
+	NoSessionErr           = errors.New("No session found")
 )
 
 type CTFd interface {
@@ -57,6 +59,14 @@ type ctfd struct {
 	confDir    string
 	port       uint
 	httpclient *http.Client
+	users      []*user
+	relation   map[string]*user
+}
+
+type user struct {
+	teamname string
+	email    string
+	password string
 }
 
 func New(conf Config) (CTFd, error) {
@@ -94,6 +104,7 @@ func New(conf Config) (CTFd, error) {
 		conf:       conf,
 		httpclient: hc,
 		port:       virtual.GetAvailablePort(),
+		relation:   make(map[string]*user),
 	}
 
 	confDir, err := ioutil.TempDir("", "ctfd")

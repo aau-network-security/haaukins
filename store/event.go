@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,7 +64,8 @@ type Lab struct {
 }
 
 type Task struct {
-	ExerciseTag Tag        `yaml:"tag"`
+	OwnerID     string     `yaml:"-"`
+	ExerciseTag Tag        `yaml:"tag,omitempty"`
 	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
 }
 
@@ -81,6 +83,7 @@ func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
 		return Team{}, err
 	}
 
+	email = strings.ToLower(email)
 	return Team{
 		Id:             uuid.New().String()[0:8],
 		Email:          email,
@@ -111,6 +114,8 @@ func (t Team) SolveTaskByTag(tag Tag) error {
 type TeamStore interface {
 	CreateTeam(Team) error
 	GetTeamByToken(string) (Team, error)
+	GetTeamByEmail(string) (Team, error)
+	GetTeamByName(string) (Team, error)
 	GetTeams() []Team
 	SaveTeam(Team) error
 
@@ -124,6 +129,8 @@ type teamstore struct {
 	hooks  []func([]Team) error
 	teams  map[string]Team
 	tokens map[string]string
+	emails map[string]string
+	names  map[string]string
 }
 
 func NewTeamStore(hooks ...func([]Team) error) TeamStore {
@@ -131,6 +138,8 @@ func NewTeamStore(hooks ...func([]Team) error) TeamStore {
 		hooks:  hooks,
 		teams:  map[string]Team{},
 		tokens: map[string]string{},
+		names:  map[string]string{},
+		emails: map[string]string{},
 	}
 }
 
@@ -143,6 +152,8 @@ func (es *teamstore) CreateTeam(t Team) error {
 	}
 
 	es.teams[t.Id] = t
+	es.emails[t.Email] = t.Id
+	es.names[t.Name] = t.Id
 
 	return es.RunHooks()
 }
@@ -196,16 +207,50 @@ func (es *teamstore) GetTeams() []Team {
 	return teams
 }
 
-func (es *teamstore) GetTeamByToken(token string) (Team, error) {
+func (es *teamstore) GetTeamByEmail(email string) (Team, error) {
 	es.m.RLock()
 	defer es.m.RUnlock()
 
-	m, ok := es.tokens[token]
+	id, ok := es.emails[email]
 	if !ok {
 		return Team{}, UnknownTokenErr
 	}
 
-	t, ok := es.teams[m]
+	t, ok := es.teams[id]
+	if !ok {
+		return Team{}, UnknownTeamErr
+	}
+
+	return t, nil
+}
+
+func (es *teamstore) GetTeamByName(name string) (Team, error) {
+	es.m.RLock()
+	defer es.m.RUnlock()
+
+	id, ok := es.names[name]
+	if !ok {
+		return Team{}, UnknownTokenErr
+	}
+
+	t, ok := es.teams[id]
+	if !ok {
+		return Team{}, UnknownTeamErr
+	}
+
+	return t, nil
+}
+
+func (es *teamstore) GetTeamByToken(token string) (Team, error) {
+	es.m.RLock()
+	defer es.m.RUnlock()
+
+	id, ok := es.tokens[token]
+	if !ok {
+		return Team{}, UnknownTokenErr
+	}
+
+	t, ok := es.teams[id]
 	if !ok {
 		return Team{}, UnknownTeamErr
 	}
