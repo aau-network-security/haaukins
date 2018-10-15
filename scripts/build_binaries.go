@@ -15,11 +15,6 @@ var (
 		{Os: LINUX, App: DAEMON},
 	}
 
-	appname = map[string]string{
-		"client": "ntp",
-		"daemon": "ntpd",
-	}
-
 	WINDOWS = os{"windows", ".exe"}
 	LINUX   = os{"linux", ""}
 	DARWIN  = os{"darwin", ""}
