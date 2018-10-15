@@ -1,3 +1,5 @@
+// +build ignore
+
 package ctfd_test
 
 import (
