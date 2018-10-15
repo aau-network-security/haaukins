@@ -62,8 +62,9 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		t := store.NewTeam(email, name, pass, ri.defaultTasks...)
 		r.Form.Set("password", t.HashedPassword)
 
-		formdata := []byte(r.Form.Encode())
-		r.Body = ioutil.NopCloser(bytes.NewBuffer(formdata))
+		formdata := r.Form.Encode()
+		r.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(formdata)))
+		r.ContentLength = int64(len(formdata))
 
 		log.Debug().Msgf("Starting record and serve..")
 		log.Debug().Msgf("%+v", r)
