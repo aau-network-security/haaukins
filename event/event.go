@@ -241,7 +241,6 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 }
 
 func (ev *event) Connect(r *mux.Router) {
-	r.Use(ev.ctfd.Middleware)
 	r.HandleFunc("/guacamole{rest:.*}", handler(ev.guac.ProxyHandler()))
 	r.HandleFunc("/{rest:.*}", handler(ev.ctfd.ProxyHandler()))
 }
