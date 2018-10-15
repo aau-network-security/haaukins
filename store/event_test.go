@@ -24,7 +24,7 @@ func TestNewTeam(t *testing.T) {
 func TestTeamSolveTask(t *testing.T) {
 	etag := "abc"
 	team, err := store.NewTeam("some name", "some@email.com", "some_password", []store.Task{
-		store.Task{ExerciseTag: etag},
+		store.Task{FlagTag: etag},
 	})
 	if err != nil {
 		t.Fatalf("expected no error when creating team")

@@ -43,6 +43,7 @@ type Guacamole interface {
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	Close()
+	Login(username, password string) (string, error)
 }
 
 type Config struct {
@@ -235,7 +236,7 @@ func (guac *guacamole) configureInstance() error {
 	}
 
 	for i := 0; i < 15; i++ {
-		_, err := temp.login(DefaultAdminUser, DefaultAdminPass)
+		_, err := temp.Login(DefaultAdminUser, DefaultAdminPass)
 		if err == nil {
 			break
 		}
@@ -254,7 +255,7 @@ func (guac *guacamole) baseUrl() string {
 	return fmt.Sprintf("http://127.0.0.1:%d", guac.webPort)
 }
 
-func (guac *guacamole) login(username, password string) (string, error) {
+func (guac *guacamole) Login(username, password string) (string, error) {
 	form := url.Values{
 		"username": {username},
 		"password": {password},
@@ -326,7 +327,7 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 
 		switch msg.Message {
 		case "Permission Denied.":
-			token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
+			token, err := guac.Login(DefaultAdminUser, guac.conf.AdminPass)
 			if err != nil {
 				return err
 			}

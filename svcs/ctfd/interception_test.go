@@ -47,7 +47,7 @@ func TestRegisterInterception(t *testing.T) {
 			var ranPreHook bool
 			pre := func() error { ranPreHook = true; return nil }
 
-			interceptor := ctfd.NewRegisterInterception(ts, []func() error{pre})
+			interceptor := ctfd.NewRegisterInterception(ts, []func() error{pre}, []func(store.Team) error{})
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -129,7 +129,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 	email := "some@email.com"
 
 	ts := store.NewTeamStore()
-	team, _ := store.NewTeam(email, "name_goes_here", "passhere")
+	team := store.NewTeam(email, "name_goes_here", "passhere")
 	if err := ts.CreateTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")
 	}
@@ -153,7 +153,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 		task      *store.Task
 		intercept bool
 	}{
-		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, task: &store.Task{OwnerID: team.Id, ExerciseTag: "hb"}, session: knownSession, intercept: true},
+		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, task: &store.Task{OwnerID: team.Id, FlagTag: "hb"}, session: knownSession, intercept: true},
 		{name: "Index", path: "/", method: "GET", intercept: false},
 	}
 
@@ -223,8 +223,8 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			}
 
 			if tc.task != nil {
-				if tc.task.ExerciseTag != task.ExerciseTag {
-					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.task.ExerciseTag, task.ExerciseTag)
+				if tc.task.FlagTag != task.FlagTag {
+					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.task.FlagTag, task.FlagTag)
 				}
 
 				if tc.task.OwnerID != task.OwnerID {
@@ -247,7 +247,7 @@ func TestLoginInterception(t *testing.T) {
 	}
 
 	ts := store.NewTeamStore()
-	team, _ := store.NewTeam(knownEmail, "name_goes_here", "passhere")
+	team := store.NewTeam(knownEmail, "name_goes_here", "passhere")
 	if err := ts.CreateTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")
 	}

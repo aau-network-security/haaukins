@@ -41,6 +41,7 @@ type CTFd interface {
 	Close() error
 	Stop() error
 	Flags() []store.FlagConfig
+	FlagMap() map[int]store.Tag
 }
 
 type Config struct {
@@ -61,6 +62,7 @@ type ctfd struct {
 	httpclient *http.Client
 	users      []*user
 	relation   map[string]*user
+	challenges map[int]store.Tag
 }
 
 type user struct {
@@ -105,6 +107,7 @@ func New(conf Config) (CTFd, error) {
 		httpclient: hc,
 		port:       virtual.GetAvailablePort(),
 		relation:   make(map[string]*user),
+		challenges: make(map[int]store.Tag),
 	}
 
 	confDir, err := ioutil.TempDir("", "ctfd")
@@ -186,6 +189,10 @@ func (ctf *ctfd) ID() string {
 func (ctf *ctfd) ProxyHandler() http.Handler {
 	origin, _ := url.Parse(ctf.baseUrl())
 	return httputil.NewSingleHostReverseProxy(origin)
+}
+
+func (ctf *ctfd) FlagMap() map[int]store.Tag {
+	return ctf.challenges
 }
 
 func (ctf *ctfd) baseUrl() string {
@@ -290,11 +297,13 @@ func (ctf *ctfd) configureInstance() error {
 	}
 	defer resp.Body.Close()
 
-	for _, flag := range ctf.conf.Flags {
+	for id, flag := range ctf.conf.Flags {
 		err := ctf.createFlag(flag.Name, flag.Default, flag.Points)
 		if err != nil {
 			return err
 		}
+		ctf.challenges[id+1] = flag.Tag
+
 		log.Debug().
 			Str("name", flag.Name).
 			Str("flag", flag.Default).

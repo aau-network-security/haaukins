@@ -21,10 +21,11 @@ var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
 )
 
-func NewRegisterInterception(ts store.TeamStore, pre []func() error, tasks ...store.Task) *registerInterception {
+func NewRegisterInterception(ts store.TeamStore, pre []func() error, post []func(t store.Team) error, tasks ...store.Task) *registerInterception {
 	return &registerInterception{
 		defaultTasks: tasks,
 		preHooks:     pre,
+		postHooks:	  post,
 		teamStore:    ts,
 	}
 }
@@ -32,6 +33,7 @@ func NewRegisterInterception(ts store.TeamStore, pre []func() error, tasks ...st
 type registerInterception struct {
 	defaultTasks []store.Task
 	preHooks     []func() error
+	postHooks    []func(t store.Team) error
 	teamStore    store.TeamStore
 }
 
@@ -45,8 +47,10 @@ func (*registerInterception) ValidRequest(r *http.Request) bool {
 
 func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Debug().Msgf("Intercepting /register with %d prehooks", len(ri.preHooks))
 		for _, h := range ri.preHooks {
 			if err := h(); err != nil {
+				log.Debug().Msgf("Error!: %+v", err)
 				w.Write([]byte(fmt.Sprintf("<h1>%s</h1>", err)))
 				return
 			}
@@ -55,18 +59,13 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
-		t, err := store.NewTeam(email, name, pass, ri.defaultTasks...)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("email", email).
-				Str("name", name).
-				Msg("Unable to create new team")
-			return
-		}
+		t := store.NewTeam(email, name, pass, ri.defaultTasks...)
 
 		r.Form.Set("password", t.HashedPassword)
+		log.Debug().Msgf("Starting record and serve..")
+		log.Debug().Msgf("%+v", r)
 		resp, _ := recordAndServe(next, r, w)
+		log.Debug().Msgf("Finished record and serve!")
 
 		var session string
 		for _, c := range resp.Cookies() {
@@ -93,6 +92,14 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 					Str("name", t.Name).
 					Msg("Unable to store session token for team")
 				return
+			}
+
+			for _, h := range ri.postHooks {
+				if err := h(t); err != nil {
+					log.Warn().
+						Err(err).
+						Msgf("Unable to run post hook for %s", t.Name)
+				}
 			}
 		}
 
@@ -169,7 +176,7 @@ func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, 
 		now := time.Now()
 		task := store.Task{
 			OwnerID:     id,
-			ExerciseTag: tag,
+			FlagTag:     tag,
 			CompletedAt: &now,
 		}
 

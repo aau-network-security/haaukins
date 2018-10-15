@@ -65,7 +65,7 @@ type Lab struct {
 
 type Task struct {
 	OwnerID     string     `yaml:"-"`
-	ExerciseTag Tag        `yaml:"tag,omitempty"`
+	FlagTag     Tag        `yaml:"tag,omitempty"`
 	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
 }
 
@@ -93,7 +93,7 @@ func NewTeam(email, name, password string, tasks ...Task) Team {
 func (t Team) SolveTaskByTag(tag Tag) error {
 	var task *Task
 	for i, ta := range t.Tasks {
-		if ta.ExerciseTag == tag {
+		if ta.FlagTag == tag {
 			task = &t.Tasks[i]
 		}
 	}
