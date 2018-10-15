@@ -29,7 +29,7 @@ exercise:
     memoryMB: 50
     dns:
     - name: example.org
-      record: A
+      type: A
     flag:
     - name: Third flag
       env: FLAG_3

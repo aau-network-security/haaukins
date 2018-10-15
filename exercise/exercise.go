@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 )
 
 var (
@@ -42,17 +43,26 @@ type DockerConfig struct {
 	CPU      float64        `yaml:"cpu"`
 }
 
+type VBoxConfig struct {
+	Image    string       `yaml:"image"`
+	MemoryMB uint         `yaml:"memoryMB"`
+	Flags    []FlagConfig `yaml:"flag"`
+}
+
 type Config struct {
 	Name        string         `yaml:"name"`
 	Tags        []string       `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
-	// VBoxConfig   []VBoxConfig   `yaml:"vbox"`
+	VBoxConfig  []VBoxConfig   `yaml:"vbox"`
 }
 
 func (conf Config) Flags() []FlagConfig {
 	var res []FlagConfig
 	for _, dockerConf := range conf.DockerConfs {
 		res = append(res, dockerConf.Flags...)
+	}
+	for _, vboxConf := range conf.VBoxConfig {
+		res = append(res, vboxConf.Flags...)
 	}
 	return res
 }
@@ -108,6 +118,7 @@ type exercise struct {
 	dnsIP      string
 	dnsRecords []RecordConfig
 	dockerHost DockerHost
+	lib        vbox.Library
 }
 
 func (e *exercise) Create() error {
@@ -153,6 +164,17 @@ func (e *exercise) Create() error {
 		}
 
 		machines = append(machines, c)
+	}
+
+	for _, spec := range e.conf.VBoxConfig {
+		vm, err := e.lib.GetCopy(
+			spec.Image,
+			vbox.SetBridge(e.net.Interface()),
+		)
+		if err != nil {
+			return err
+		}
+		machines = append(machines, vm)
 	}
 
 	if e.ips == nil {

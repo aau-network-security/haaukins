@@ -45,7 +45,7 @@ func NewHub(config Config) (Hub, error) {
 		createSema:  NewSemaphore(createLimit),
 		maximumSema: NewSemaphore(config.Capacity.Max),
 		buffer:      make(chan Lab, config.Capacity.Buffer),
-		vboxLib:     vboxNewLibrary(config.Frontend.Directory),
+		vboxLib:     vboxNewLibrary(config.OvaLibrary),
 	}
 
 	log.Debug().Msgf("Instantiating %d lab(s)", config.Capacity.Buffer)

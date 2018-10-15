@@ -605,7 +605,7 @@ func (n *network) Connect(c Container, ip ...int) (int, error) {
 			IPAMConfig: &docker.EndpointIPAMConfig{
 				IPv4Address: ipAddr,
 			},
-			IPAddress: ipAddr,
+			IPAddress:  ipAddr,
 		},
 	})
 	if err != nil {

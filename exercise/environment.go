@@ -4,6 +4,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 )
 
 type Environment interface {
@@ -22,11 +23,14 @@ type environment struct {
 	dnsServer  *dns.Server
 	dhcpServer *dhcp.Server
 	dnsIP      string
+
+	lib vbox.Library
 }
 
-func NewEnvironment(exercises ...Config) (Environment, error) {
+func NewEnvironment(lib vbox.Library, exercises ...Config) (Environment, error) {
 	ee := &environment{
 		tags: make(map[string]*exercise),
+		lib:  lib,
 	}
 
 	var err error
@@ -85,6 +89,7 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 		net:        ee.network,
 		dnsIP:      ee.dnsIP,
 		dockerHost: dockerHost{},
+		lib:        ee.lib,
 	}
 
 	if err := e.Create(); err != nil {

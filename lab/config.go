@@ -12,15 +12,16 @@ type capacity struct {
 	Max    int `yaml:"max"`
 }
 
-type frontend struct {
-	Directory string   `yaml:"directory"`
-	OvaFiles  []string `yaml:"ova_files"`
+type frontendConfig struct {
+	Image    string `yaml:"image"`
+	MemoryMB uint   `yaml:"memoryMB"`
 }
 
 type Config struct {
-	Capacity  capacity          `yaml:"capacity"`
-	Frontend  frontend          `yaml:"frontend"`
-	Exercises []exercise.Config `yaml:"exercise"`
+	OvaLibrary string            `yaml:"ova_library"`
+	Capacity   capacity          `yaml:"capacity"`
+	Frontends  []frontendConfig  `yaml:"frontends"`
+	Exercises  []exercise.Config `yaml:"exercise"`
 }
 
 func (conf Config) Flags() []exercise.FlagConfig {

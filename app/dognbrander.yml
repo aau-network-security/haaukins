@@ -1,5 +1,5 @@
 ctfd:
-  name: Demo
+  name: Døgnbrænder
   admin_user: admin
   admin_email: cyber@es.aau.dk
   admin_pass: Zg5txAyg2WNmUt6vz7ep
@@ -12,8 +12,8 @@ revproxy:
 lab:
   ova_library: /scratch/ova
   capacity:
-    buffer: 1
-    max: 10
+    buffer: 10
+    max: 100
   frontends:
   - image: aau-kali-amd64.ova
     memoryMB: 4096
@@ -43,39 +43,6 @@ lab:
         env: FLAG
         default: 613ee1e1-ab15-4c0e-b324-3f2a6eee25f2
         points: 5
-  - name: Cross-Site Scripting
-    tags:
-    - xss
-    docker:
-    - image: registry.sec-aau.dk/aau/xss-client
-      memoryMB: 512
-      env:
-      - env: TARGET_URL
-        value: https://dogshare.com
-      - env: USERNAME
-        value: whatever
-      - env: PASSWORD
-        value: pas122nes
-    - image: registry.sec-aau.dk/aau/xss-server
-      memoryMB: 85
-      dns:
-      - name: dogshare.com
-        type: A
-      flag:
-      - name: Cross-site scripting
-        env: FLAG
-        default: 8bf23f64-9150-45a4-8901-a157896c73a4
-        points: 15
-  - name: Network Scanning
-    tags:
-    - scan
-    docker:
-    - image: registry.sec-aau.dk/aau/hidden-server
-      flag:
-      - name: Network scanning
-        env: FLAG
-        default: 8d6bd6bb-c773-4e62-9c4a-620b331703eb
-        points: 5
   - name: Heartbleed Exploit
     tags:
     - heart
@@ -91,22 +58,35 @@ lab:
       dns:
       - name: cph-sec.com
         type: A
-  - name: Man-in-the-Middle
+  - name: Network Scanning
     tags:
-    - mitm
+    - scan
     docker:
-    - image: registry.sec-aau.dk/aau/mitm-server
-      memoryMB: 100
-      dns:
-      - name: secureshare.com
-        type: A
-    - image: registry.sec-aau.dk/aau/mitm-client
-      memoryMB: 75
-      env:
-      - env: TARGET_URL
-        value: https://secureshare.com
+    - image: registry.sec-aau.dk/aau/hidden-server
       flag:
-      - name: Man in the middle
+      - name: Network scanning
         env: FLAG
-        default: 2bd60c1f-530a-4287-af42-1b869b78e288
-        points: 15
+        default: 8d6bd6bb-c773-4e62-9c4a-620b331703eb
+        points: 5
+  - name: Broken Session Management
+    tags:
+    - session
+    docker:
+    - image: registry.sec-aau.dk/aau/broken-session-management
+      memoryMB: 100
+      flag:
+      - name: Broken session
+        env: flag
+        default: 642ff156-f94b-4fab-afb0-46449714e911
+        points: 8
+  - name: Vulnerability exploitation
+    tags:
+    - windows
+    vbox:
+    - image: vulnerability_exploitation/windows-xp.ova
+      memoryMB: 512
+      flag:
+      - name: Vulnerability exploitation
+        env: FLAG
+        default: 619cb4b9-c941-4a26-91fb-78a6a01c9d83
+        points: 10
