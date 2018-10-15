@@ -131,7 +131,8 @@ func Execute() {
 	var rootCmd = &cobra.Command{Use: "ntp"}
 	rootCmd.AddCommand(
 		c.CmdUser(),
-		c.CmdEvent())
+		c.CmdEvent(),
+		c.CmdExercise())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

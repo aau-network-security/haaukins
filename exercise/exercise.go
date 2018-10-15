@@ -108,8 +108,24 @@ func (e *exercise) Close() error {
 	return nil
 }
 
-func (e *exercise) Reset() error {
+func (e *exercise) Restart() error {
 	if err := e.Stop(); err != nil {
+		return err
+	}
+
+	if err := e.Start(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *exercise) Reset() error {
+	if err := e.Close(); err != nil {
+		return err
+	}
+
+	if err := e.Create(); err != nil {
 		return err
 	}
 

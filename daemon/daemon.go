@@ -377,9 +377,40 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	return nil
 }
 
-func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	log.Debug().Msg("Listing events..")
+func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_ResetExerciseServer) error {
+	evtag, err := store.NewTag(req.EventTag)
+	if err != nil {
+		return err
+	}
+	ev, ok := d.events[evtag]
+	if !ok {
+		return UnknownEventErr
+	}
 
+	if req.Teams != nil {
+		// the requests has a selection of group ids
+		for _, reqTeam := range req.Teams {
+			if lab, ok := ev.GetLabByTeam(reqTeam.Id); ok {
+				if err := lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
+					return err
+				}
+				resp.Send(&pb.ResetExerciseStatus{TeamId: reqTeam.Id})
+			}
+		}
+	} else {
+		// all exercises should be reset
+		for _, t := range ev.GetTeams() {
+			lab, _ := ev.GetLabByTeam(t.Id)
+			if err := lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
+				return err
+			}
+			resp.Send(&pb.ResetExerciseStatus{TeamId: t.Id})
+		}
+	}
+	return nil
+}
+
+func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
 
 	for _, event := range d.events {
@@ -398,23 +429,25 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 }
 
 func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
-	log.Debug().Msg("Listing event groups..")
-
 	var eventTeams []*pb.ListEventTeamsResponse_Teams
+	evtag, err := store.NewTag(req.Tag)
+	if err != nil {
+		return nil, err
+	}
+	ev, ok := d.events[evtag]
+	if !ok {
+		return nil, UnknownEventErr
+	}
 
-	// ev, ok := d.events[req.Tag]
-	// if !ok {
-	// 	return nil, UnknownEventErr
-	// }
+	teams := ev.GetTeams()
 
-	// groups := ev.GetTeams()
-
-	// for _, group := range groups {
-	// 	eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-	// 		Name:   group.Name,
-	// 		LabTag: group.Lab.GetTag(),
-	// 	})
-	// }
+	for _, t := range teams {
+		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
+			Id:    t.Id,
+			Name:  t.Name,
+			Email: t.Email,
+		})
+	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
