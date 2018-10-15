@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	bcs = []BuildContext{
+	bcs = []buildContext{
 		{Os: DARWIN, App: CLIENT},
 		{Os: LINUX, App: CLIENT},
 		{Os: WINDOWS, App: CLIENT},
@@ -20,43 +20,43 @@ var (
 		"daemon": "ntpd",
 	}
 
-	WINDOWS = Os{"windows", ".exe"}
-	LINUX   = Os{"linux", ""}
-	DARWIN  = Os{"darwin", ""}
+	WINDOWS = os{"windows", ".exe"}
+	LINUX   = os{"linux", ""}
+	DARWIN  = os{"darwin", ""}
 
-	DAEMON = App{"daemon", "ntpd"}
-	CLIENT = App{"client", "ntp"}
+	DAEMON = app{"daemon", "ntpd"}
+	CLIENT = app{"client", "ntp"}
 )
 
-type Os struct {
+type os struct {
 	Name      string
 	Extension string
 }
 
-type App struct {
+type app struct {
 	Subdirectory   string
 	FilenamePrefix string
 }
 
-type BuildContext struct {
+type buildContext struct {
 	Arch string
-	Os   Os
-	App  App
+	Os   os
+	App  app
 }
 
-func (bc *BuildContext) OutputFileName() string {
+func (bc *buildContext) outputFileName() string {
 	return fmt.Sprintf("%s-%s-%s%s", bc.App.FilenamePrefix, bc.Os.Name, bc.Arch, bc.Os.Extension)
 }
 
-func (bc *BuildContext) OutputFilePath() string {
-	return fmt.Sprintf("./build/%s", bc.OutputFileName())
+func (bc *buildContext) outputFilePath() string {
+	return fmt.Sprintf("./build/%s", bc.outputFileName())
 }
 
-func (bc *BuildContext) Package() string {
+func (bc *buildContext) packageName() string {
 	return fmt.Sprintf("github.com/aau-network-security/go-ntp/app/%s", bc.App.Subdirectory)
 }
 
-func (bc *BuildContext) Build(ctx context.Context) error {
+func (bc *buildContext) build(ctx context.Context) error {
 	cmd := exec.CommandContext(
 		ctx,
 		"env",
@@ -65,8 +65,8 @@ func (bc *BuildContext) Build(ctx context.Context) error {
 		"go",
 		"build",
 		"-o",
-		bc.OutputFilePath(),
-		bc.Package(),
+		bc.outputFilePath(),
+		bc.packageName(),
 	)
 	_, err := cmd.CombinedOutput()
 	return err
@@ -76,12 +76,12 @@ func main() {
 	ctx := context.Background()
 	for _, bc := range bcs {
 		for _, arch := range []string{"amd64", "386"} {
-			bcWithArch := BuildContext{arch, bc.Os, bc.App}
-			if err := bcWithArch.Build(ctx); err != nil {
-				fmt.Printf("\u2717 %s: %+v\n", bcWithArch.OutputFileName(), err)
+			bcWithArch := buildContext{arch, bc.Os, bc.App}
+			if err := bcWithArch.build(ctx); err != nil {
+				fmt.Printf("\u2717 %s: %+v\n", bcWithArch.outputFileName(), err)
 				continue
 			}
-			fmt.Printf("\u2713 %s\n", bcWithArch.OutputFileName())
+			fmt.Printf("\u2713 %s\n", bcWithArch.outputFileName())
 		}
 	}
 }

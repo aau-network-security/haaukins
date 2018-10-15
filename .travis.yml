@@ -5,6 +5,9 @@ language: go
 go:
 - '1.10'
 
+services:
+- docker
+
 cache:
   directories:
   - $HOME/.cache/go-build
