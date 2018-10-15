@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
+	"crypto/sha256"
 )
 
 type EmptyVarErr struct {
@@ -76,16 +76,13 @@ type Team struct {
 }
 
 func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return Team{}, err
-	}
+	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 
 	return Team{
 		Id:             uuid.New().String()[0:8],
 		Email:          email,
 		Name:           name,
-		HashedPassword: string(hashedBytes[:]),
+		HashedPassword: hashedPassword,
 		Tasks:          tasks,
 	}, nil
 }
