@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -25,7 +26,7 @@ func NewRegisterInterception(ts store.TeamStore, pre []func() error, post []func
 	return &registerInterception{
 		defaultTasks: tasks,
 		preHooks:     pre,
-		postHooks:	  post,
+		postHooks:    post,
 		teamStore:    ts,
 	}
 }
@@ -50,7 +51,6 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		log.Debug().Msgf("Intercepting /register with %d prehooks", len(ri.preHooks))
 		for _, h := range ri.preHooks {
 			if err := h(); err != nil {
-				log.Debug().Msgf("Error!: %+v", err)
 				w.Write([]byte(fmt.Sprintf("<h1>%s</h1>", err)))
 				return
 			}
@@ -60,8 +60,11 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
 		t := store.NewTeam(email, name, pass, ri.defaultTasks...)
-
 		r.Form.Set("password", t.HashedPassword)
+
+		formdata := []byte(r.Form.Encode())
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(formdata))
+
 		log.Debug().Msgf("Starting record and serve..")
 		log.Debug().Msgf("%+v", r)
 		resp, _ := recordAndServe(next, r, w)
