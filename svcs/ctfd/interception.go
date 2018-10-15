@@ -21,19 +21,6 @@ var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
 )
 
-type Interception interface {
-	ValidRequest(func(r *http.Request)) bool
-	Intercept(http.Handler) http.Handler
-}
-
-type Interceptors []Interception
-
-func (i Interceptors) Intercept(http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-	})
-}
-
 func NewRegisterInterception(ts store.TeamStore, pre []func() error, tasks ...store.Task) *registerInterception {
 	return &registerInterception{
 		defaultTasks: tasks,
