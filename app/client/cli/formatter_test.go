@@ -25,9 +25,9 @@ func TestFormatter_AsTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
-	expected := `A a     B b     C c
-First   Second  Third
-Fourth  Fifth   Sixth
+	expected := `A a      B b      C c
+First    Second   Third
+Fourth   Fifth    Sixth
 `
 	if formatted != expected {
 		t.Fatalf("Expected '%s', but got '%s'", expected, formatted)

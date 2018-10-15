@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -68,6 +69,7 @@ type Task struct {
 }
 
 type Team struct {
+	Id             string `yaml:"id"`
 	Email          string `yaml:"email"`
 	Name           string `yaml:"name"`
 	HashedPassword string `yaml:"hashed-password"`
@@ -81,6 +83,7 @@ func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
 	}
 
 	return Team{
+		Id:             uuid.New().String()[0:8],
 		Email:          email,
 		Name:           name,
 		HashedPassword: string(hashedBytes[:]),
@@ -136,11 +139,11 @@ func (es *teamstore) CreateTeam(t Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
-	if _, ok := es.teams[t.Email]; ok {
+	if _, ok := es.teams[t.Id]; ok {
 		return TeamExistsErr
 	}
 
-	es.teams[t.Email] = t
+	es.teams[t.Id] = t
 
 	return es.RunHooks()
 }
@@ -149,11 +152,11 @@ func (es *teamstore) SaveTeam(t Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 
-	if _, ok := es.teams[t.Email]; !ok {
+	if _, ok := es.teams[t.Id]; !ok {
 		return UnknownTeamErr
 	}
 
-	es.teams[t.Email] = t
+	es.teams[t.Id] = t
 
 	return es.RunHooks()
 }
@@ -166,12 +169,12 @@ func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
 		return &EmptyVarErr{"Token"}
 	}
 
-	t, ok := es.teams[in.Email]
+	t, ok := es.teams[in.Id]
 	if !ok {
 		return UnknownTeamErr
 	}
 
-	es.tokens[token] = t.Email
+	es.tokens[token] = t.Id
 
 	return nil
 }

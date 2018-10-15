@@ -80,11 +80,6 @@ type Auth struct {
 	Password string `json:"password"`
 }
 
-type Group struct {
-	Name string
-	Lab  lab.Lab
-}
-
 type Event interface {
 	Start(context.Context) error
 	Close()
@@ -94,6 +89,7 @@ type Event interface {
 	GetConfig() store.Event
 	GetTeams() []store.Team
 	GetHub() lab.Hub
+	GetLabByTeam(teamId string) (lab.Lab, bool)
 }
 
 type event struct {
@@ -139,6 +135,7 @@ func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, err
 		cbSrv:  cb,
 		ctfd:   ctf,
 		guac:   guac,
+		labs:   map[string]lab.Lab{},
 	}
 	cb.event = ev
 
@@ -203,12 +200,12 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 		return nil, RdpConfErr
 	}
 
-	if err := ev.guac.CreateUser(t.Email, t.HashedPassword); err != nil {
+	if err := ev.guac.CreateUser(t.Id, t.HashedPassword); err != nil {
 		return nil, err
 	}
 
 	auth := Auth{
-		Username: t.Email,
+		Username: t.Id,
 		Password: t.HashedPassword,
 	}
 
@@ -219,9 +216,9 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 
 	for i, port := range rdpPorts {
 		num := i + 1
-		name := fmt.Sprintf("%s-client%d", t.Email, num)
+		name := fmt.Sprintf("%s-client%d", t.Id, num)
 
-		log.Debug().Str("group", t.Name).Uint("port", port).Msg("Creating RDP Connection for group")
+		log.Debug().Str("team", t.Name).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
 			Host:     hostIp,
 			Port:     port,
@@ -234,7 +231,7 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 		}
 	}
 
-	ev.labs[t.Email] = lab
+	ev.labs[t.Id] = lab
 
 	if err := ev.store.CreateTeam(t); err != nil {
 		return nil, err
@@ -266,4 +263,9 @@ func (ev *event) GetConfig() store.Event {
 
 func (ev *event) GetTeams() []store.Team {
 	return ev.store.GetTeams()
+}
+
+func (ev *event) GetLabByTeam(teamId string) (lab.Lab, bool) {
+	lab, ok := ev.labs[teamId]
+	return lab, ok
 }

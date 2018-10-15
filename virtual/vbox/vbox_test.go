@@ -8,6 +8,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
+	tst "github.com/aau-network-security/go-ntp/testing"
 )
 
 const (
@@ -36,6 +37,8 @@ func execute(cmd string, cmds ...string) (string, error) {
 }
 
 func TestVmBase(t *testing.T) {
+	tst.SkipCI(t)
+
 	// new vm
 	vm, err := vbox.NewVMFromOVA("go-ntp-ova.ova", "go-ntp")
 	assert.Equal(t, err, nil)

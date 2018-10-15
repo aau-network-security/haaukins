@@ -35,7 +35,7 @@ type Lab interface {
 	Stop() error
 	Restart() error
 	Close()
-	Exercises() exercise.Environment
+	GetEnvironment() exercise.Environment
 	RdpConnPorts() []uint
 	GetTag() string
 }
@@ -94,7 +94,7 @@ func (l *lab) addFrontend(ovaFile string) (vbox.VM, error) {
 	return vm, nil
 }
 
-func (l *lab) Exercises() exercise.Environment {
+func (l *lab) GetEnvironment() exercise.Environment {
 	return l.environment
 }
 

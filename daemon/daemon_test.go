@@ -12,6 +12,7 @@ import (
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/gorilla/mux"
@@ -355,6 +356,9 @@ type fakeEvent struct {
 	started   int
 	close     int
 	register  int
+	teams     []store.Team
+	lab       fakeLab
+	event.Event
 }
 
 func (fe *fakeEvent) Start(context.Context) error {
@@ -380,10 +384,29 @@ func (fe *fakeEvent) GetConfig() store.Event {
 }
 
 func (fe *fakeEvent) GetTeams() []store.Team {
-	return nil
+	return fe.teams
 }
 
-func (fe *fakeEvent) GetHub() lab.Hub {
+func (fe *fakeEvent) GetLabByTeam(teamId string) (lab.Lab, bool) {
+	return &fe.lab, true
+}
+
+type fakeLab struct {
+	environment exercise.Environment
+	lab.Lab
+}
+
+func (fl *fakeLab) GetEnvironment() exercise.Environment {
+	return fl.environment
+}
+
+type fakeEnvironment struct {
+	resettedExercises int
+	exercise.Environment
+}
+
+func (fe *fakeEnvironment) ResetByTag(t string) error {
+	fe.resettedExercises += 1
 	return nil
 }
 
@@ -704,6 +727,183 @@ func TestListEvents(t *testing.T) {
 
 			if n := len(resp.Events); n != tc.count {
 				t.Fatalf("unexpected amount of events (expected: %d), received: %d", tc.count, n)
+			}
+		})
+	}
+}
+
+func TestListEventTeams(t *testing.T) {
+	tt := []struct {
+		name           string
+		unauthorized   bool
+		tag            string
+		err            string
+		nExpectedTeams int
+	}{
+		{name: "Normal", tag: "tst", nExpectedTeams: 4},
+		{name: "Unauthorized", unauthorized: true, err: "unauthorized"},
+		{name: "Unknown event", tag: "unknown", err: UnknownEventErr.Error()},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			events := map[store.Tag]event.Event{}
+
+			d := &daemon{
+				conf:   &Config{},
+				events: events,
+				auth: &noAuth{
+					allowed: !tc.unauthorized,
+				},
+				mux: mux.NewRouter(),
+			}
+
+			ev := fakeEvent{teams: []store.Team{}, lab: fakeLab{environment: &fakeEnvironment{}}}
+			for i := 0; i < tc.nExpectedTeams; i++ {
+				g := store.Team{}
+				ev.teams = append(ev.teams, g)
+			}
+			d.events["tst"] = &ev
+
+			dialer, close := getServer(d)
+			defer close()
+
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			resp, err := client.ListEventTeams(ctx, &pb.ListEventTeamsRequest{Tag: tc.tag})
+			if err != nil {
+				st, ok := status.FromError(err)
+				if ok {
+					err = fmt.Errorf(st.Message())
+				}
+				if err.Error() != tc.err {
+					t.Fatalf("expected error '%s', but got '%s'", tc.err, err.Error())
+				}
+			} else {
+				if len(resp.Teams) != tc.nExpectedTeams {
+					t.Fatalf("expected %d teams, but got %d", tc.nExpectedTeams, len(resp.Teams))
+				}
+			}
+		})
+	}
+}
+
+func TestResetExercise(t *testing.T) {
+	tt := []struct {
+		name         string
+		unauthorized bool
+		extag        string
+		evtag        string
+		teams        []*pb.ResetExerciseRequest_Team
+		err          string
+		expected     int
+	}{
+		{
+			name:     "Reset specific team",
+			extag:    "sql",
+			evtag:    "tst",
+			teams:    []*pb.ResetExerciseRequest_Team{{Id: "team-1"}},
+			expected: 1,
+		},
+		{
+			name:     "Reset all teams",
+			extag:    "sql",
+			evtag:    "tst",
+			teams:    nil,
+			expected: 2,
+		},
+		{
+			name:         "Unauthorized",
+			extag:        "sql",
+			evtag:        "tst",
+			teams:        []*pb.ResetExerciseRequest_Team{{Id: "team-1"}},
+			unauthorized: true,
+			err:          "unauthorized",
+		},
+		{
+			name:  "Unknown event",
+			extag: "sql",
+			evtag: "unknown",
+			teams: []*pb.ResetExerciseRequest_Team{{Id: "team-1"}},
+			err:   UnknownEventErr.Error(),
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			d := &daemon{
+				conf:   &Config{},
+				events: map[store.Tag]event.Event{},
+				auth: &noAuth{
+					allowed: !tc.unauthorized,
+				},
+				mux: mux.NewRouter(),
+			}
+
+			ev := fakeEvent{lab: fakeLab{environment: &fakeEnvironment{}}}
+			for i := 1; i <= 2; i++ {
+				g := store.Team{Id: fmt.Sprintf("team-%d", i)}
+				ev.teams = append(ev.teams, g)
+			}
+			d.events["tst"] = &ev
+
+			dialer, close := getServer(d)
+			defer close()
+
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			stream, err := client.ResetExercise(ctx, &pb.ResetExerciseRequest{
+				ExerciseTag: tc.extag,
+				EventTag:    tc.evtag,
+				Teams:       tc.teams,
+			})
+			if err != nil {
+				t.Fatalf("expected no error when initiating connection, but received: %s", err)
+			}
+
+			count := 0
+			for {
+				_, err := stream.Recv()
+				if err != nil {
+					break
+				}
+				count += 1
+			}
+
+			if err != nil && err != io.EOF {
+				st, ok := status.FromError(err)
+				if ok {
+					err = fmt.Errorf(st.Message())
+				}
+				if tc.err != "" && err.Error() != tc.err {
+					t.Fatalf("expected error '%s', but got '%s'", tc.err, err.Error())
+				}
+				return
+			}
+
+			if count != tc.expected {
+				t.Fatalf("Expected %d resets, but observed %d", tc.expected, count)
 			}
 		})
 	}
