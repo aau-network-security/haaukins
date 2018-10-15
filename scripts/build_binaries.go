@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -15,15 +16,15 @@ var (
 		{Os: LINUX, App: DAEMON},
 	}
 
-	WINDOWS = os{"windows", ".exe"}
-	LINUX   = os{"linux", ""}
-	DARWIN  = os{"darwin", ""}
+	WINDOWS = OperatingSystems{"windows", ".exe"}
+	LINUX   = OperatingSystems{"linux", ""}
+	DARWIN  = OperatingSystems{"darwin", ""}
 
-	DAEMON = app{"daemon", "ntpd"}
-	CLIENT = app{"client", "ntp"}
+	DAEMON = app{"daemon", "ntpd", "github.com/aau-network-security/go-ntp/daemon"}
+	CLIENT = app{"client", "ntp", "github.com/aau-network-security/go-ntp/app/client/cli"}
 )
 
-type os struct {
+type OperatingSystems struct {
 	Name      string
 	Extension string
 }
@@ -31,11 +32,12 @@ type os struct {
 type app struct {
 	Subdirectory   string
 	FilenamePrefix string
+	ImportPath     string
 }
 
 type buildContext struct {
 	Arch string
-	Os   os
+	Os   OperatingSystems
 	App  app
 }
 
@@ -51,6 +53,10 @@ func (bc *buildContext) packageName() string {
 	return fmt.Sprintf("github.com/aau-network-security/go-ntp/app/%s", bc.App.Subdirectory)
 }
 
+func (bc *buildContext) linkFlags(version string) string {
+	return fmt.Sprintf("-X %s.version=%s", bc.App.ImportPath, version)
+}
+
 func (bc *buildContext) build(ctx context.Context) error {
 	cmd := exec.CommandContext(
 		ctx,
@@ -59,16 +65,18 @@ func (bc *buildContext) build(ctx context.Context) error {
 		fmt.Sprintf("GARCH=%s", bc.Arch),
 		"go",
 		"build",
+		"-ldflags",
+		bc.linkFlags(os.Getenv("GIT_TAG")),
 		"-o",
 		bc.outputFilePath(),
 		bc.packageName(),
 	)
-	_, err := cmd.CombinedOutput()
-	return err
+	return cmd.Run()
 }
 
 func main() {
 	ctx := context.Background()
+	fmt.Printf("Building version %s\n", os.Getenv("GIT_TAG"))
 	for _, bc := range bcs {
 		for _, arch := range []string{"amd64", "386"} {
 			bcWithArch := buildContext{arch, bc.Os, bc.App}

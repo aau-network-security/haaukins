@@ -130,6 +130,7 @@ func Execute() {
 
 	var rootCmd = &cobra.Command{Use: "ntp"}
 	rootCmd.AddCommand(
+		c.CmdVersion(),
 		c.CmdUser(),
 		c.CmdEvent(),
 		c.CmdExercise())

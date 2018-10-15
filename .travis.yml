@@ -11,6 +11,11 @@ services:
 cache:
   directories:
   - "$HOME/.cache/go-build"
+
+env:
+  global:
+    GIT_TAG=$(git describe --tags)
+
 install:
 - go get -t ./...
 - go get github.com/Microsoft/go-winio

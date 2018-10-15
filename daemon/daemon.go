@@ -31,6 +31,8 @@ var (
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	MissingSecretKey    = errors.New("Management signing key cannot be empty")
+
+	version string
 )
 
 type Config struct {
@@ -457,4 +459,8 @@ func (d *daemon) Close() {
 		ev.Close()
 		delete(d.events, t)
 	}
+}
+
+func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error) {
+	return &pb.VersionResponse{Version: version}, nil
 }
