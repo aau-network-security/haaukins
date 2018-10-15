@@ -75,7 +75,7 @@ type Team struct {
 	Tasks          []Task `yaml:"tasks"`
 }
 
-func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
+func NewTeam(email, name, password string, tasks ...Task) Team {
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 
 	return Team{
@@ -84,7 +84,7 @@ func NewTeam(email, name, password string, tasks ...Task) (Team, error) {
 		Name:           name,
 		HashedPassword: hashedPassword,
 		Tasks:          tasks,
-	}, nil
+	}
 }
 
 func (t Team) SolveTaskByTag(tag Tag) error {
