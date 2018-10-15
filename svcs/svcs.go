@@ -7,14 +7,21 @@ type ProxyConnector interface {
 }
 
 type Interception interface {
-	ValidRequest(func(r *http.Request)) bool
+	ValidRequest(r *http.Request) bool
 	Intercept(http.Handler) http.Handler
 }
 
 type Interceptors []Interception
 
-func (i Interceptors) Intercept(http.Handler) http.Handler {
+func (inter Interceptors) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, i := range inter {
+			if i.ValidRequest(r) {
+				i.Intercept(next)
+				return
+			}
+		}
 
+		next.ServeHTTP(w, r)
 	})
 }
