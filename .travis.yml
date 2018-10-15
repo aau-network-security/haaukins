@@ -10,8 +10,7 @@ services:
 
 cache:
   directories:
-  - $HOME/.cache/go-build
-
+  - "$HOME/.cache/go-build"
 install:
 - go get -t ./...
 - go get github.com/Microsoft/go-winio
@@ -33,3 +32,6 @@ deploy:
   on:
     repo: aau-network-security/go-ntp
     tags: true
+notifications:
+  slack:
+    secure: pbJLqnA2ilvWp9REuHrWqf/Pl/hSGkENBvjBPQyW6TvJytUHiObwP/aCQxyL31i8ZzItc1r+9db1tk12BFE5eObxyb4DHmHbaQ1/pwA7Bzf2SsM5J68Pyr9w/kXk44PUqfifeBLH/xhjCNtm+f8ZIkJiKfOZxgn9ddYt/vG4Nt8w6s43ZODDO+Caql1AH1iZ4xsJ6X/VPyvWfh9FaZpYnDQBI10fcsg4kGMZ6+p4pZ2wvRyo8LQJoIUcDGXATr7+kr3wB04r3BRAACydg0bDWPpuRBn6svIar6J12lHR05n0K+rtl+VYLLGJZuNPn3Tqh7tdt0ifrPTE0W1fM24mlOikLlYWhZ5Olf23DVxbxqeegu/x4E4ctT9ua/0UbBfZHVlb9pzFf+OoSYwX/N7dE9Dt7zuoeMebL3ECYXxyEvP1qHLNvxmeVydFFHKy2pu1pSQP/paz+1ShqgjbMOHFrz52HVvy/7b1qCMKDFnpYp6lc9adPgWJpsxGAY2dMw83iBJno+A9LF3LJzhv2TdRC+w1fQTUBdzW/wUkDLa9diHNdolN/2gFsAK8iJtLc2cz6hAh/2U4mRdrBjCULqZcGwBRS5jPA79zDZpMwhbET2j3vrqUx6iicAI8MI6Nptkt3g193trwS7oljXOkpdqBkXdh/ZpRYoiK/3nOc/LKfnI=
