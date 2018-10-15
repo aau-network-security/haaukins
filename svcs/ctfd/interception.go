@@ -75,7 +75,6 @@ func NewRegisterInterception(sessMap *sessionMap, pre []func() error, post []fun
 }
 
 type registerInterception struct {
-	m            sync.RWMutex
 	defaultTasks []store.Task
 	preHooks     []func() error
 	postHooks    []func(store.Team) error
@@ -105,16 +104,8 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		hashedPass := fmt.Sprintf("%x", sha256.Sum256([]byte(pass)))
 
 		r.Form.Set("password", hashedPass)
+		resp, _ := recordAndServe(next, r, w)
 
-		rec := httptest.NewRecorder()
-		next.ServeHTTP(rec, r)
-		for k, v := range rec.HeaderMap {
-			w.Header()[k] = v
-		}
-		w.WriteHeader(rec.Code)
-		rec.Body.WriteTo(w)
-
-		resp := rec.Result()
 		var session string
 		for _, c := range resp.Cookies() {
 			if c.Name == "session" {
@@ -181,18 +172,9 @@ func (*checkFlagInterception) ValidRequest(r *http.Request) bool {
 
 func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rec := httptest.NewRecorder()
-		next.ServeHTTP(rec, r)
-		for k, v := range rec.HeaderMap {
-			w.Header()[k] = v
-		}
-		w.WriteHeader(rec.Code)
+		resp, body := recordAndServe(next, r, w)
 
-		var rawBody bytes.Buffer
-		multi := io.MultiWriter(w, &rawBody)
-		rec.Body.WriteTo(multi)
-
-		cfi.inspectResponse(r, rawBody.Bytes(), rec.Result())
+		cfi.inspectResponse(r, body, resp)
 	})
 }
 
@@ -254,4 +236,60 @@ func (cfi *checkFlagInterception) getEmailFromSession(r *http.Request) (string, 
 	session := c.Value
 
 	return cfi.sessionMap.GetEmailBySession(session)
+}
+
+type loginInterception struct {
+	sessionMap *sessionMap
+}
+
+func NewLoginInterceptor(sessMap *sessionMap) *loginInterception {
+	return &loginInterception{
+		sessionMap: sessMap,
+	}
+}
+
+func (*loginInterception) ValidRequest(r *http.Request) bool {
+	if r.URL.Path == "/login" && r.Method == http.MethodPost {
+		return true
+	}
+
+	return false
+}
+
+func (li *loginInterception) Intercept(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		email := r.FormValue("name")
+		pass := r.FormValue("password")
+		hashedPass := fmt.Sprintf("%x", sha256.Sum256([]byte(pass)))
+		r.Form.Set("password", hashedPass)
+
+		resp, _ := recordAndServe(next, r, w)
+
+		var session string
+		for _, c := range resp.Cookies() {
+			if c.Name == "session" {
+				session = c.Value
+				break
+			}
+		}
+
+		if session != "" {
+			li.sessionMap.SetSessionForEmail(session, email)
+		}
+	})
+}
+
+func recordAndServe(next http.Handler, r *http.Request, w http.ResponseWriter) (*http.Response, []byte) {
+	rec := httptest.NewRecorder()
+	next.ServeHTTP(rec, r)
+	for k, v := range rec.HeaderMap {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(rec.Code)
+
+	var rawBody bytes.Buffer
+	multi := io.MultiWriter(w, &rawBody)
+	rec.Body.WriteTo(multi)
+
+	return rec.Result(), rawBody.Bytes()
 }
