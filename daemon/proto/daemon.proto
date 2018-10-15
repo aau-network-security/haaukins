@@ -12,6 +12,8 @@ service Daemon {
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
 
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetExerciseStatus) {}
+
+  rpc Version (Empty) returns (VersionResponse) {}
 }
 
 message LoginUserRequest {
@@ -95,5 +97,11 @@ message StopEventRequest {
 message EventStatus {
   string entity = 1;
   string status = 2;
+}
+
+message Empty {}
+
+message VersionResponse {
+    string version = 1;
 }
 
