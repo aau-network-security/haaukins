@@ -37,7 +37,6 @@ var (
 type CTFd interface {
 	docker.Identifier
 	svcs.ProxyConnector
-	Middleware(http.Handler) http.Handler
 	Start() error
 	Close() error
 	Stop() error

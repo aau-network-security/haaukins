@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aau-network-security/go-ntp/store"
@@ -21,36 +20,6 @@ import (
 var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
 )
-
-type sessionMap struct {
-	m           sync.RWMutex
-	sessToEmail map[string]string
-}
-
-func NewSessionMap() *sessionMap {
-	return &sessionMap{
-		sessToEmail: map[string]string{},
-	}
-}
-
-func (sm *sessionMap) GetEmailBySession(s string) (string, error) {
-	sm.m.RLock()
-	defer sm.m.RUnlock()
-
-	email, ok := sm.sessToEmail[s]
-	if !ok {
-		return "", NoSessionErr
-	}
-
-	return email, nil
-}
-
-func (sm *sessionMap) SetSessionForEmail(s, email string) {
-	sm.m.Lock()
-	defer sm.m.Unlock()
-
-	sm.sessToEmail[s] = email
-}
 
 type Interception interface {
 	ValidRequest(func(r *http.Request)) bool
@@ -65,20 +34,18 @@ func (i Interceptors) Intercept(http.Handler) http.Handler {
 	})
 }
 
-func NewRegisterInterception(sessMap *sessionMap, pre []func() error, post []func(store.Team) error, tasks ...store.Task) *registerInterception {
+func NewRegisterInterception(ts store.TeamStore, pre []func() error, tasks ...store.Task) *registerInterception {
 	return &registerInterception{
 		defaultTasks: tasks,
 		preHooks:     pre,
-		postHooks:    post,
-		sessionMap:   sessMap,
+		teamStore:    ts,
 	}
 }
 
 type registerInterception struct {
 	defaultTasks []store.Task
 	preHooks     []func() error
-	postHooks    []func(store.Team) error
-	sessionMap   *sessionMap
+	teamStore    store.TeamStore
 }
 
 func (*registerInterception) ValidRequest(r *http.Request) bool {
@@ -101,9 +68,17 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
-		hashedPass := fmt.Sprintf("%x", sha256.Sum256([]byte(pass)))
+		t, err := store.NewTeam(email, name, pass, ri.defaultTasks...)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("email", email).
+				Str("name", name).
+				Msg("Unable to create new team")
+			return
+		}
 
-		r.Form.Set("password", hashedPass)
+		r.Form.Set("password", t.HashedPassword)
 		resp, _ := recordAndServe(next, r, w)
 
 		var session string
@@ -115,29 +90,23 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		}
 
 		if session != "" {
-			t, err := store.NewTeam(email, name, hashedPass, ri.defaultTasks...)
-			if err != nil {
+			if err := ri.teamStore.CreateTeam(t); err != nil {
 				log.Warn().
 					Err(err).
-					Str("email", email).
-					Str("name", name).
-					Str("hashed_pass", hashedPass).
-					Msg("Unable to create new team")
+					Str("email", t.Email).
+					Str("name", t.Name).
+					Msg("Unable to store new team")
 				return
 			}
 
-			for _, h := range ri.postHooks {
-				if err := h(t); err != nil {
-					log.Warn().
-						Err(err).
-						Str("email", email).
-						Str("name", name).
-						Str("hashed_pass", hashedPass).
-						Msg("Post hook failed (register intercept)")
-				}
+			if err := ri.teamStore.CreateTokenForTeam(session, t); err != nil {
+				log.Warn().
+					Err(err).
+					Str("email", t.Email).
+					Str("name", t.Name).
+					Msg("Unable to store session token for team")
+				return
 			}
-
-			ri.sessionMap.SetSessionForEmail(session, email)
 		}
 
 	})
@@ -149,14 +118,14 @@ type challengeResp struct {
 }
 
 type checkFlagInterception struct {
-	sessionMap   *sessionMap
+	teamStore    store.TeamStore
 	challengeMap map[int]store.Tag
 	postHooks    []func(store.Task) error
 }
 
-func NewCheckFlagInterceptor(sessMap *sessionMap, chalMap map[int]store.Tag, post ...func(store.Task) error) *checkFlagInterception {
+func NewCheckFlagInterceptor(ts store.TeamStore, chalMap map[int]store.Tag, post ...func(store.Task) error) *checkFlagInterception {
 	return &checkFlagInterception{
-		sessionMap:   sessMap,
+		teamStore:    ts,
 		challengeMap: chalMap,
 		postHooks:    post,
 	}
@@ -181,7 +150,7 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, resp *http.Response) {
 	defer resp.Body.Close()
 
-	email, err := cfi.getEmailFromSession(r)
+	id, err := cfi.getIDFromSession(r)
 	if err != nil {
 		log.Warn().
 			Err(err).
@@ -212,7 +181,7 @@ func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, 
 	if strings.ToLower(chal.Message) == "correct" {
 		now := time.Now()
 		task := store.Task{
-			OwnerEmail:  email,
+			OwnerID:     id,
 			ExerciseTag: tag,
 			CompletedAt: &now,
 		}
@@ -228,23 +197,27 @@ func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, 
 	}
 }
 
-func (cfi *checkFlagInterception) getEmailFromSession(r *http.Request) (string, error) {
+func (cfi *checkFlagInterception) getIDFromSession(r *http.Request) (string, error) {
 	c, err := r.Cookie("session")
 	if err != nil {
 		return "", fmt.Errorf("Unable to find session cookie")
 	}
 	session := c.Value
+	t, err := cfi.teamStore.GetTeamByToken(session)
+	if err != nil {
+		return "", err
+	}
 
-	return cfi.sessionMap.GetEmailBySession(session)
+	return t.Id, nil
 }
 
 type loginInterception struct {
-	sessionMap *sessionMap
+	teamStore store.TeamStore
 }
 
-func NewLoginInterceptor(sessMap *sessionMap) *loginInterception {
+func NewLoginInterceptor(ts store.TeamStore) *loginInterception {
 	return &loginInterception{
-		sessionMap: sessMap,
+		teamStore: ts,
 	}
 }
 
@@ -258,7 +231,7 @@ func (*loginInterception) ValidRequest(r *http.Request) bool {
 
 func (li *loginInterception) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		email := r.FormValue("name")
+		name := r.FormValue("name")
 		pass := r.FormValue("password")
 		hashedPass := fmt.Sprintf("%x", sha256.Sum256([]byte(pass)))
 		r.Form.Set("password", hashedPass)
@@ -273,8 +246,22 @@ func (li *loginInterception) Intercept(next http.Handler) http.Handler {
 			}
 		}
 
+		var t store.Team
+		var err error
+		t, err = li.teamStore.GetTeamByEmail(name)
+		if err != nil {
+			t, err = li.teamStore.GetTeamByName(name)
+		}
+
+		if err != nil {
+			log.Warn().
+				Str("name", name).
+				Msg("Unknown team with name/email")
+			return
+		}
+
 		if session != "" {
-			li.sessionMap.SetSessionForEmail(session, email)
+			li.teamStore.CreateTokenForTeam(session, t)
 		}
 	})
 }

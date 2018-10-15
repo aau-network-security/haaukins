@@ -1,8 +1,6 @@
 package ctfd_test
 
 import (
-	"crypto/sha256"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -45,15 +43,11 @@ func TestRegisterInterception(t *testing.T) {
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
 
-			sm := ctfd.NewSessionMap()
-
+			ts := store.NewTeamStore()
 			var ranPreHook bool
 			pre := func() error { ranPreHook = true; return nil }
 
-			var ranPostHook bool
-			post := func(store.Team) error { ranPostHook = true; return nil }
-
-			interceptor := ctfd.NewRegisterInterception(sm, []func() error{pre}, []func(store.Team) error{post})
+			interceptor := ctfd.NewRegisterInterception(ts, []func() error{pre})
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -85,9 +79,9 @@ func TestRegisterInterception(t *testing.T) {
 			interceptor.Intercept(testHandler).ServeHTTP(w, req)
 
 			f := *tc.form
-			hashedFormPass := fmt.Sprintf("%x", sha256.Sum256([]byte(f.Get("password"))))
-			if password != hashedFormPass {
-				t.Fatalf("expected password to be hashed with sha256")
+			orgPassword := f.Get("password")
+			if password == orgPassword {
+				t.Fatalf("expected password to be changed (org: %s), received: %s", orgPassword, password)
 			}
 
 			if f.Get("name") != name {
@@ -115,7 +109,7 @@ func TestRegisterInterception(t *testing.T) {
 				t.Fatalf("expected session to be none empty")
 			}
 
-			_, err := sm.GetEmailBySession(session)
+			_, err := ts.GetTeamByToken(session)
 			if err != nil {
 				t.Fatalf("expected no error when fetching team's email by session: %s", err)
 			}
@@ -123,11 +117,6 @@ func TestRegisterInterception(t *testing.T) {
 			if !ranPreHook {
 				t.Fatalf("expected pre hook to have been run")
 			}
-
-			if !ranPostHook {
-				t.Fatalf("expected post hook to have been run")
-			}
-
 		})
 	}
 
@@ -139,8 +128,15 @@ func TestCheckFlagInterceptor(t *testing.T) {
 	knownSession := "known_session"
 	email := "some@email.com"
 
-	sm := ctfd.NewSessionMap()
-	sm.SetSessionForEmail(knownSession, email)
+	ts := store.NewTeamStore()
+	team, _ := store.NewTeam(email, "name_goes_here", "passhere")
+	if err := ts.CreateTeam(team); err != nil {
+		t.Fatalf("expected to be able to create team")
+	}
+
+	if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
+		t.Fatalf("expected to be able to create token for team")
+	}
 
 	validForm := url.Values{
 		"key":   {flag},
@@ -157,7 +153,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 		task      *store.Task
 		intercept bool
 	}{
-		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, task: &store.Task{OwnerEmail: email, ExerciseTag: "hb"}, session: knownSession, intercept: true},
+		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, task: &store.Task{OwnerID: team.Id, ExerciseTag: "hb"}, session: knownSession, intercept: true},
 		{name: "Index", path: "/", method: "GET", intercept: false},
 	}
 
@@ -179,7 +175,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			var task *store.Task
 			post := func(t store.Task) error { task = &t; return nil }
 
-			interceptor := ctfd.NewCheckFlagInterceptor(sm, tc.tagMap, post)
+			interceptor := ctfd.NewCheckFlagInterceptor(ts, tc.tagMap, post)
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -231,8 +227,8 @@ func TestCheckFlagInterceptor(t *testing.T) {
 					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.task.ExerciseTag, task.ExerciseTag)
 				}
 
-				if tc.task.OwnerEmail != task.OwnerEmail {
-					t.Fatalf("mismatch across owner email (expected: %s), received: %s", tc.task.OwnerEmail, task.OwnerEmail)
+				if tc.task.OwnerID != task.OwnerID {
+					t.Fatalf("mismatch across owner id (expected: %s), received: %s", tc.task.OwnerID, task.OwnerID)
 				}
 			}
 
@@ -248,6 +244,12 @@ func TestLoginInterception(t *testing.T) {
 		"name":     {knownEmail},
 		"password": {"secret_password"},
 		"nonce":    {"random_string"},
+	}
+
+	ts := store.NewTeamStore()
+	team, _ := store.NewTeam(knownEmail, "name_goes_here", "passhere")
+	if err := ts.CreateTeam(team); err != nil {
+		t.Fatalf("expected to be able to create team")
 	}
 
 	tt := []struct {
@@ -270,8 +272,7 @@ func TestLoginInterception(t *testing.T) {
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
 
-			sm := ctfd.NewSessionMap()
-			interceptor := ctfd.NewLoginInterceptor(sm)
+			interceptor := ctfd.NewLoginInterceptor(ts)
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -302,9 +303,9 @@ func TestLoginInterception(t *testing.T) {
 			interceptor.Intercept(testHandler).ServeHTTP(w, req)
 
 			f := *tc.form
-			hashedFormPass := fmt.Sprintf("%x", sha256.Sum256([]byte(f.Get("password"))))
-			if password != hashedFormPass {
-				t.Fatalf("expected password to be hashed with sha256")
+			orgPassword := f.Get("password")
+			if password == orgPassword {
+				t.Fatalf("expected password to be changed")
 			}
 
 			if f.Get("name") != name {
@@ -328,9 +329,9 @@ func TestLoginInterception(t *testing.T) {
 				t.Fatalf("expected session to be none empty")
 			}
 
-			_, err := sm.GetEmailBySession(session)
+			_, err := ts.GetTeamByToken(session)
 			if err != nil {
-				t.Fatalf("expected no error when fetching team's email by session: %s", err)
+				t.Fatalf("expected no error when fetching team by session: %s", err)
 			}
 		})
 	}
