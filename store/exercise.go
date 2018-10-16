@@ -105,6 +105,7 @@ func (rc RecordConfig) Format(ip string) string {
 }
 
 type FlagConfig struct {
+	Tag 	Tag    `yaml:"tag"`
 	Name    string `yaml:"name"`
 	EnvVar  string `yaml:"env"`
 	Default string `yaml:"default"`

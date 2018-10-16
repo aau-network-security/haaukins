@@ -7,6 +7,7 @@ import (
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"sync/atomic"
 )
 
 var (
@@ -20,7 +21,7 @@ var (
 type Hub interface {
 	Get() (Lab, error)
 	Close()
-	Available() int
+	Available() int32
 	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
@@ -35,8 +36,9 @@ type hub struct {
 	createSema  *semaphore
 	maximumSema *semaphore
 
-	labs   []Lab
-	buffer chan Lab
+	labs     []Lab
+	buffer   chan Lab
+	numbLabs int32
 }
 
 func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
@@ -83,17 +85,19 @@ func (h *hub) addLab() error {
 	}
 
 	h.buffer <- lab
+	atomic.AddInt32(&h.numbLabs, 1)
 
 	return nil
 }
 
-func (h *hub) Available() int {
-	return len(h.buffer)
+func (h *hub) Available() int32 {
+	return atomic.LoadInt32(&h.numbLabs)
 }
 
 func (h *hub) Get() (Lab, error) {
 	select {
 	case lab := <-h.buffer:
+		atomic.AddInt32(&h.numbLabs, -1)
 		go h.addLab()
 		h.labs = append(h.labs, lab)
 		return lab, nil

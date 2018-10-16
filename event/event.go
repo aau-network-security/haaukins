@@ -5,18 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"net/url"
 )
 
 var (
@@ -83,7 +83,7 @@ type Auth struct {
 type Event interface {
 	Start(context.Context) error
 	Close()
-	Register(store.Team) (*Auth, error)
+	AssignLab(store.Team) error
 	Connect(*mux.Router)
 
 	GetConfig() store.Event
@@ -96,27 +96,17 @@ type event struct {
 	ctfd   ctfd.CTFd
 	guac   guacamole.Guacamole
 	labhub lab.Hub
-	cbSrv  *callbackServer
 
 	labs  map[string]lab.Lab
 	store store.EventStore
-}
 
-func rand() string {
-	return strings.Replace(fmt.Sprintf("%v", uuid.New()), "-", "", -1)
+	guacUserStore *guacamole.GuacUserStore
 }
 
 func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, error) {
-	cb := &callbackServer{}
-	if err := cb.Run(); err != nil {
-		return nil, err
-	}
-
 	ctfdConf := ctfd.Config{
-		Name:         conf.Name,
-		CallbackHost: cb.host,
-		CallbackPort: cb.port,
-		Flags:        hub.Flags(),
+		Name:  conf.Name,
+		Flags: hub.Flags(),
 	}
 
 	ctf, err := ctfd.New(ctfdConf)
@@ -130,14 +120,13 @@ func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, err
 	}
 
 	ev := &event{
-		store:  store,
-		labhub: hub,
-		cbSrv:  cb,
-		ctfd:   ctf,
-		guac:   guac,
-		labs:   map[string]lab.Lab{},
+		store:         store,
+		labhub:        hub,
+		ctfd:          ctf,
+		guac:          guac,
+		labs:          map[string]lab.Lab{},
+		guacUserStore: guacamole.NewGuacUserStore(),
 	}
-	cb.event = ev
 
 	return ev, nil
 }
@@ -177,17 +166,13 @@ func (ev *event) Close() {
 		ev.labhub.Close()
 	}
 
-	if ev.cbSrv != nil {
-		ev.cbSrv.Close()
-	}
-
 	ev.store.Finish(now)
 }
 
-func (ev *event) Register(t store.Team) (*Auth, error) {
+func (ev *event) AssignLab(t store.Team) error {
 	lab, err := ev.labhub.Get()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	rdpPorts := lab.RdpConnPorts()
@@ -197,21 +182,22 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 			Int("amount", n).
 			Msg("Too few RDP connections")
 
-		return nil, RdpConfErr
+		return RdpConfErr
 	}
-
-	if err := ev.guac.CreateUser(t.Id, t.HashedPassword); err != nil {
-		return nil, err
-	}
-
-	auth := Auth{
+	u := guacamole.GuacUser{
 		Username: t.Id,
 		Password: t.HashedPassword,
 	}
 
+	if err := ev.guac.CreateUser(u.Username, u.Password); err != nil {
+		return err
+	}
+
+	ev.guacUserStore.CreateUserForTeam(t.Id, u)
+
 	hostIp, err := getDockerHostIp()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for i, port := range rdpPorts {
@@ -223,24 +209,53 @@ func (ev *event) Register(t store.Team) (*Auth, error) {
 			Host:     hostIp,
 			Port:     port,
 			Name:     name,
-			GuacUser: auth.Username,
-			Username: &auth.Username,
-			Password: &auth.Password,
+			GuacUser: u.Username,
+			Username: &u.Username,
+			Password: &u.Password,
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	ev.labs[t.Id] = lab
 
-	if err := ev.store.CreateTeam(t); err != nil {
-		return nil, err
-	}
-
-	return &auth, nil
+	return nil
 }
 
 func (ev *event) Connect(r *mux.Router) {
+	prehooks := []func() error{
+		func() error {
+			if ev.labhub.Available() == 0 {
+				return lab.CouldNotFindLabErr
+			}
+			return nil
+		},
+	}
+
+	posthooks := []func(t store.Team) error{
+		ev.AssignLab,
+	}
+
+	loginFunc := func(u string, p string) (string, error) {
+		content, err := ev.guac.RawLogin(u, p)
+		if err != nil {
+			return "", err
+		}
+		return url.QueryEscape(string(content)), nil
+	}
+
+	defaultTasks := []store.Task{}
+	for _, f := range ev.labhub.Flags() {
+		defaultTasks = append(defaultTasks, store.Task{FlagTag: f.Tag})
+	}
+
+	interceptors := svcs.Interceptors{
+		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks, defaultTasks...),
+		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.FlagMap()),
+		ctfd.NewLoginInterceptor(ev.store),
+		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, loginFunc),
+	}
+	r.Use(interceptors.Intercept)
 	r.HandleFunc("/guacamole{rest:.*}", handler(ev.guac.ProxyHandler()))
 	r.HandleFunc("/{rest:.*}", handler(ev.ctfd.ProxyHandler()))
 }

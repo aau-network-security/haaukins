@@ -35,19 +35,19 @@ func TestRegisterInterception(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-
 			req := httptest.NewRequest(tc.method, host+tc.path, nil)
 			if tc.form != nil {
 				f := *tc.form
 				req = httptest.NewRequest(tc.method, host+tc.path, strings.NewReader(f.Encode()))
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
+			cl := req.ContentLength
 
 			ts := store.NewTeamStore()
 			var ranPreHook bool
 			pre := func() error { ranPreHook = true; return nil }
 
-			interceptor := ctfd.NewRegisterInterception(ts, []func() error{pre})
+			interceptor := ctfd.NewRegisterInterception(ts, []func() error{pre}, []func(store.Team) error{})
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -58,11 +58,14 @@ func TestRegisterInterception(t *testing.T) {
 			}
 
 			var name, email, password, nonce string
+			var postCl int64
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				name = r.FormValue("name")
 				email = r.FormValue("email")
 				password = r.FormValue("password")
 				nonce = r.FormValue("nonce")
+
+				postCl = req.ContentLength
 
 				expiration := time.Now().Add(365 * 24 * time.Hour)
 				cookie := http.Cookie{Name: "session", Value: "secret-cookie", Expires: expiration}
@@ -82,6 +85,10 @@ func TestRegisterInterception(t *testing.T) {
 			orgPassword := f.Get("password")
 			if password == orgPassword {
 				t.Fatalf("expected password to be changed (org: %s), received: %s", orgPassword, password)
+			}
+
+			if cl == postCl {
+				t.Fatalf("expected content-length (pre: %d) to change after interception, received: %d", cl, postCl)
 			}
 
 			if f.Get("name") != name {
@@ -129,7 +136,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 	email := "some@email.com"
 
 	ts := store.NewTeamStore()
-	team, _ := store.NewTeam(email, "name_goes_here", "passhere")
+	team := store.NewTeam(email, "name_goes_here", "passhere")
 	if err := ts.CreateTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")
 	}
@@ -153,7 +160,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 		task      *store.Task
 		intercept bool
 	}{
-		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, task: &store.Task{OwnerID: team.Id, ExerciseTag: "hb"}, session: knownSession, intercept: true},
+		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, task: &store.Task{OwnerID: team.Id, FlagTag: "hb"}, session: knownSession, intercept: true},
 		{name: "Index", path: "/", method: "GET", intercept: false},
 	}
 
@@ -223,8 +230,8 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			}
 
 			if tc.task != nil {
-				if tc.task.ExerciseTag != task.ExerciseTag {
-					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.task.ExerciseTag, task.ExerciseTag)
+				if tc.task.FlagTag != task.FlagTag {
+					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.task.FlagTag, task.FlagTag)
 				}
 
 				if tc.task.OwnerID != task.OwnerID {
@@ -247,7 +254,7 @@ func TestLoginInterception(t *testing.T) {
 	}
 
 	ts := store.NewTeamStore()
-	team, _ := store.NewTeam(knownEmail, "name_goes_here", "passhere")
+	team := store.NewTeam(knownEmail, "name_goes_here", "passhere")
 	if err := ts.CreateTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")
 	}
@@ -271,6 +278,7 @@ func TestLoginInterception(t *testing.T) {
 				req = httptest.NewRequest(tc.method, host+tc.path, strings.NewReader(f.Encode()))
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
+			cl := req.ContentLength
 
 			interceptor := ctfd.NewLoginInterceptor(ts)
 			ok := interceptor.ValidRequest(req)
@@ -283,10 +291,13 @@ func TestLoginInterception(t *testing.T) {
 			}
 
 			var name, password, nonce string
+			var postCl int64
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				name = r.FormValue("name")
 				password = r.FormValue("password")
 				nonce = r.FormValue("nonce")
+
+				postCl = r.ContentLength
 
 				expiration := time.Now().Add(365 * 24 * time.Hour)
 				cookie := http.Cookie{Name: "session", Value: "secret-cookie", Expires: expiration}
@@ -306,6 +317,10 @@ func TestLoginInterception(t *testing.T) {
 			orgPassword := f.Get("password")
 			if password == orgPassword {
 				t.Fatalf("expected password to be changed")
+			}
+
+			if cl == postCl {
+				t.Fatalf("expected content-length (pre: %d) to change after interception, received: %d", cl, postCl)
 			}
 
 			if f.Get("name") != name {

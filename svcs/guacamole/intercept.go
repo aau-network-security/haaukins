@@ -3,7 +3,6 @@ package guacamole
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/store"
@@ -19,25 +18,25 @@ type GuacUser struct {
 	Password string
 }
 
-type guacUserStore struct {
+type GuacUserStore struct {
 	m     sync.RWMutex
 	teams map[string]GuacUser
 }
 
-func NewGuacUserStore() *guacUserStore {
-	return &guacUserStore{
+func NewGuacUserStore() *GuacUserStore {
+	return &GuacUserStore{
 		teams: map[string]GuacUser{},
 	}
 }
 
-func (us *guacUserStore) CreateUserForTeam(tid string, u GuacUser) {
+func (us *GuacUserStore) CreateUserForTeam(tid string, u GuacUser) {
 	us.m.Lock()
 	defer us.m.Unlock()
 
 	us.teams[tid] = u
 }
 
-func (us *guacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
+func (us *GuacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
 	us.m.RLock()
 	defer us.m.RUnlock()
 
@@ -50,12 +49,12 @@ func (us *guacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
 }
 
 type guacTokenLoginEndpoint struct {
-	users     *guacUserStore
+	users     *GuacUserStore
 	loginFunc func(string, string) (string, error)
 	teamStore store.TeamStore
 }
 
-func NewGuacTokenLoginEndpoint(users *guacUserStore, ts store.TeamStore, loginFunc func(string, string) (string, error)) *guacTokenLoginEndpoint {
+func NewGuacTokenLoginEndpoint(users *GuacUserStore, ts store.TeamStore, loginFunc func(string, string) (string, error)) *guacTokenLoginEndpoint {
 	return &guacTokenLoginEndpoint{
 		teamStore: ts,
 		users:     users,
@@ -104,7 +103,7 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			return
 		}
 
-		authC := http.Cookie{Name: "GUAC_AUTH", Value: url.QueryEscape(token), Path: "/guacamole/"}
+		authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
 		http.SetCookie(w, &authC)
 		http.Redirect(w, r, "/guacamole", http.StatusFound)
 	})

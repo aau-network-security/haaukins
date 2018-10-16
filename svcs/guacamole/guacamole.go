@@ -43,6 +43,7 @@ type Guacamole interface {
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	Close()
+	RawLogin(username, password string) ([]byte, error)
 }
 
 type Config struct {
@@ -255,30 +256,17 @@ func (guac *guacamole) baseUrl() string {
 }
 
 func (guac *guacamole) login(username, password string) (string, error) {
-	form := url.Values{
-		"username": {username},
-		"password": {password},
-	}
-
-	endpoint := guac.baseUrl() + "/guacamole/api/tokens"
-	req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
+	content, err := guac.RawLogin(username, password)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := guac.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
 
 	var output struct {
 		Message   *string `json:"message"`
 		AuthToken *string `json:"authToken"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&output); err != nil {
+	if err := json.Unmarshal(content, &output); err != nil {
 		return "", err
 	}
 
@@ -291,6 +279,28 @@ func (guac *guacamole) login(username, password string) (string, error) {
 	}
 
 	return *output.AuthToken, nil
+}
+
+func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
+	form := url.Values{
+		"username": {username},
+		"password": {password},
+	}
+
+	endpoint := guac.baseUrl() + "/guacamole/api/tokens"
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := guac.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {

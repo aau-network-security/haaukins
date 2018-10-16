@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -21,10 +22,11 @@ var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
 )
 
-func NewRegisterInterception(ts store.TeamStore, pre []func() error, tasks ...store.Task) *registerInterception {
+func NewRegisterInterception(ts store.TeamStore, pre []func() error, post []func(t store.Team) error, tasks ...store.Task) *registerInterception {
 	return &registerInterception{
 		defaultTasks: tasks,
 		preHooks:     pre,
+		postHooks:    post,
 		teamStore:    ts,
 	}
 }
@@ -32,6 +34,7 @@ func NewRegisterInterception(ts store.TeamStore, pre []func() error, tasks ...st
 type registerInterception struct {
 	defaultTasks []store.Task
 	preHooks     []func() error
+	postHooks    []func(t store.Team) error
 	teamStore    store.TeamStore
 }
 
@@ -55,19 +58,15 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
-		t, err := store.NewTeam(email, name, pass, ri.defaultTasks...)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("email", email).
-				Str("name", name).
-				Msg("Unable to create new team")
-			return
-		}
-
+		t := store.NewTeam(email, name, pass, ri.defaultTasks...)
 		r.Form.Set("password", t.HashedPassword)
-		resp, _ := recordAndServe(next, r, w)
 
+		// update body and content-length
+		formdata := r.Form.Encode()
+		r.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(formdata)))
+		r.ContentLength = int64(len(formdata))
+
+		resp, _ := recordAndServe(next, r, w)
 		var session string
 		for _, c := range resp.Cookies() {
 			if c.Name == "session" {
@@ -93,6 +92,14 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 					Str("name", t.Name).
 					Msg("Unable to store session token for team")
 				return
+			}
+
+			for _, h := range ri.postHooks {
+				if err := h(t); err != nil {
+					log.Warn().
+						Err(err).
+						Msgf("Unable to run post hook for %s", t.Name)
+				}
 			}
 		}
 
@@ -169,7 +176,7 @@ func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, 
 		now := time.Now()
 		task := store.Task{
 			OwnerID:     id,
-			ExerciseTag: tag,
+			FlagTag:     tag,
 			CompletedAt: &now,
 		}
 
@@ -222,6 +229,11 @@ func (li *loginInterception) Intercept(next http.Handler) http.Handler {
 		pass := r.FormValue("password")
 		hashedPass := fmt.Sprintf("%x", sha256.Sum256([]byte(pass)))
 		r.Form.Set("password", hashedPass)
+
+		// update body and content-length
+		formdata := r.Form.Encode()
+		r.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(formdata)))
+		r.ContentLength = int64(len(formdata))
 
 		resp, _ := recordAndServe(next, r, w)
 
