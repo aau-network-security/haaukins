@@ -81,8 +81,6 @@ type container struct {
 }
 
 func NewContainer(conf ContainerConfig) (Container, error) {
-	log.Debug().Msgf("NewContainer(%+v)", conf)
-
 	var env []string
 	for k, v := range conf.EnvVars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
@@ -278,7 +276,6 @@ func pullImage(img Image, reg docker.AuthConfiguration) error {
 }
 
 func ensureImage(imgStr string) error {
-	log.Debug().Msgf("ensureImage(%s)", imgStr)
 	img := parseImage(imgStr)
 
 	dImg, err := DefaultClient.InspectImage(img.String())
@@ -398,12 +395,9 @@ func (c *container) ID() string {
 func (c *container) Close() error {
 	if c.network != nil {
 		for _, cont := range append(c.linked, c) {
-			if err := DefaultClient.DisconnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
+			DefaultClient.DisconnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
 				Container: cont.ID(),
-			}); err != nil {
-				log.Warn().Msgf("Failed to disconnect container %s from network %s", c.id, c.network.ID)
-				continue
-			}
+			})
 		}
 
 		if err := DefaultClient.RemoveNetwork(c.network.ID); err != nil {
