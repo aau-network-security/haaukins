@@ -35,13 +35,13 @@ func TestRegisterInterception(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-
 			req := httptest.NewRequest(tc.method, host+tc.path, nil)
 			if tc.form != nil {
 				f := *tc.form
 				req = httptest.NewRequest(tc.method, host+tc.path, strings.NewReader(f.Encode()))
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
+			cl := req.ContentLength
 
 			ts := store.NewTeamStore()
 			var ranPreHook bool
@@ -58,11 +58,14 @@ func TestRegisterInterception(t *testing.T) {
 			}
 
 			var name, email, password, nonce string
+			var postCl int64
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				name = r.FormValue("name")
 				email = r.FormValue("email")
 				password = r.FormValue("password")
 				nonce = r.FormValue("nonce")
+
+				postCl = req.ContentLength
 
 				expiration := time.Now().Add(365 * 24 * time.Hour)
 				cookie := http.Cookie{Name: "session", Value: "secret-cookie", Expires: expiration}
@@ -82,6 +85,10 @@ func TestRegisterInterception(t *testing.T) {
 			orgPassword := f.Get("password")
 			if password == orgPassword {
 				t.Fatalf("expected password to be changed (org: %s), received: %s", orgPassword, password)
+			}
+
+			if cl == postCl {
+				t.Fatalf("expected content-length (pre: %d) to change after interception, received: %d", cl, postCl)
 			}
 
 			if f.Get("name") != name {
@@ -271,6 +278,7 @@ func TestLoginInterception(t *testing.T) {
 				req = httptest.NewRequest(tc.method, host+tc.path, strings.NewReader(f.Encode()))
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
+			cl := req.ContentLength
 
 			interceptor := ctfd.NewLoginInterceptor(ts)
 			ok := interceptor.ValidRequest(req)
@@ -283,10 +291,13 @@ func TestLoginInterception(t *testing.T) {
 			}
 
 			var name, password, nonce string
+			var postCl int64
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				name = r.FormValue("name")
 				password = r.FormValue("password")
 				nonce = r.FormValue("nonce")
+
+				postCl = r.ContentLength
 
 				expiration := time.Now().Add(365 * 24 * time.Hour)
 				cookie := http.Cookie{Name: "session", Value: "secret-cookie", Expires: expiration}
@@ -306,6 +317,10 @@ func TestLoginInterception(t *testing.T) {
 			orgPassword := f.Get("password")
 			if password == orgPassword {
 				t.Fatalf("expected password to be changed")
+			}
+
+			if cl == postCl {
+				t.Fatalf("expected content-length (pre: %d) to change after interception, received: %d", cl, postCl)
 			}
 
 			if f.Get("name") != name {

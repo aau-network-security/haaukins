@@ -48,7 +48,6 @@ func (*registerInterception) ValidRequest(r *http.Request) bool {
 
 func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debug().Msgf("Intercepting /register with %d prehooks", len(ri.preHooks))
 		for _, h := range ri.preHooks {
 			if err := h(); err != nil {
 				w.Write([]byte(fmt.Sprintf("<h1>%s</h1>", err)))
@@ -62,15 +61,12 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		t := store.NewTeam(email, name, pass, ri.defaultTasks...)
 		r.Form.Set("password", t.HashedPassword)
 
+		// update body and content-length
 		formdata := r.Form.Encode()
 		r.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(formdata)))
 		r.ContentLength = int64(len(formdata))
 
-		log.Debug().Msgf("Starting record and serve..")
-		log.Debug().Msgf("%+v", r)
 		resp, _ := recordAndServe(next, r, w)
-		log.Debug().Msgf("Finished record and serve!")
-
 		var session string
 		for _, c := range resp.Cookies() {
 			if c.Name == "session" {
@@ -233,6 +229,11 @@ func (li *loginInterception) Intercept(next http.Handler) http.Handler {
 		pass := r.FormValue("password")
 		hashedPass := fmt.Sprintf("%x", sha256.Sum256([]byte(pass)))
 		r.Form.Set("password", hashedPass)
+
+		// update body and content-length
+		formdata := r.Form.Encode()
+		r.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(formdata)))
+		r.ContentLength = int64(len(formdata))
 
 		resp, _ := recordAndServe(next, r, w)
 

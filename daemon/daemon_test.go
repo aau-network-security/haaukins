@@ -374,9 +374,9 @@ func (fe *fakeEvent) Close() {
 	fe.close += 1
 }
 
-func (fe *fakeEvent) Register(store.Team) (*event.Auth, error) {
+func (fe *fakeEvent) Register(store.Team) error {
 	fe.register += 1
-	return nil, nil
+	return nil
 }
 
 func (fe *fakeEvent) GetConfig() store.Event {

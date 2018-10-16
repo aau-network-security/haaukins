@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"crypto/sha256"
+
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
-	"crypto/sha256"
 )
 
 type EmptyVarErr struct {
@@ -74,7 +75,7 @@ type Team struct {
 	Email          string `yaml:"email"`
 	Name           string `yaml:"name"`
 	HashedPassword string `yaml:"hashed-password"`
-	Tasks          []Task `yaml:"tasks"`
+	Tasks          []Task `yaml:"tasks,omitempty"`
 }
 
 func NewTeam(email, name, password string, tasks ...Task) Team {

@@ -5,17 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-		"time"
+	"time"
 
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-		"github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
-	"github.com/aau-network-security/go-ntp/svcs"
 )
 
 var (
@@ -104,8 +104,8 @@ type event struct {
 
 func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, error) {
 	ctfdConf := ctfd.Config{
-		Name:         conf.Name,
-		Flags:        hub.Flags(),
+		Name:  conf.Name,
+		Flags: hub.Flags(),
 	}
 
 	ctf, err := ctfd.New(ctfdConf)
@@ -119,11 +119,11 @@ func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, err
 	}
 
 	ev := &event{
-		store:  store,
-		labhub: hub,
-		ctfd:   ctf,
-		guac:   guac,
-		labs:   map[string]lab.Lab{},
+		store:         store,
+		labhub:        hub,
+		ctfd:          ctf,
+		guac:          guac,
+		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
 	}
 
@@ -226,7 +226,7 @@ func (ev *event) Register(t store.Team) error {
 }
 
 func (ev *event) Connect(r *mux.Router) {
-	prehooks := []func() error {
+	prehooks := []func() error{
 		func() error {
 			if ev.labhub.Available() == 0 {
 				return lab.CouldNotFindLabErr
@@ -235,12 +235,17 @@ func (ev *event) Connect(r *mux.Router) {
 		},
 	}
 
-	posthooks := []func(t store.Team) error {
+	posthooks := []func(t store.Team) error{
 		ev.Register,
 	}
 
+	defaultTasks := []store.Task{}
+	for _, f := range ev.labhub.Flags() {
+		defaultTasks = append(defaultTasks, store.Task{FlagTag: f.Tag})
+	}
+
 	interceptors := svcs.Interceptors{
-		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks),
+		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks, defaultTasks...),
 		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.FlagMap()),
 		ctfd.NewLoginInterceptor(ev.store),
 		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, ev.guac.Login),

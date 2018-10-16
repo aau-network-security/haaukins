@@ -2,7 +2,6 @@ package svcs
 
 import (
 	"net/http"
-	"github.com/rs/zerolog/log"
 )
 
 type ProxyConnector interface {
@@ -18,11 +17,9 @@ type Interceptors []Interception
 
 func (inter Interceptors) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for n, i := range inter {
-			log.Debug().Msgf("%d: %s", n, i.ValidRequest(r))
+		for _, i := range inter {
 			if i.ValidRequest(r) {
 				i.Intercept(next).ServeHTTP(w, r)
-				log.Debug().Msgf("Succesfully intercepted!")
 				return
 			}
 		}

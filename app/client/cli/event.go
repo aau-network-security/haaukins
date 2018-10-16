@@ -41,7 +41,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		Short: "Create event",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 
 			tag := args[0]

@@ -118,7 +118,7 @@ func New(conf Config) (CTFd, error) {
 	ctf.confDir = confDir
 
 	dconf := docker.ContainerConfig{
-		Image: "registry.sec-aau.dk/aau/ctfd",
+		Image: "ctfd/ctfd",
 		Mounts: []string{
 			fmt.Sprintf("%s/:/opt/CTFd/CTFd/data", confDir),
 		},
