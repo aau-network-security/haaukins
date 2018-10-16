@@ -61,7 +61,8 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 	}
 
 	for _, f := range config.Frontends {
-		_, err = l.addFrontend(f)
+		vboxConfig := store.InstanceConfig{Image: f}
+		_, err = l.addFrontend(vboxConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -70,7 +71,7 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 	return l, nil
 }
 
-func (l *lab) addFrontend(conf frontendConfig) (vbox.VM, error) {
+func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
 	hostIp, err := docker.GetDockerHostIP()
 
 	if err != nil {
@@ -78,14 +79,11 @@ func (l *lab) addFrontend(conf frontendConfig) (vbox.VM, error) {
 	}
 
 	rdpPort := virtual.GetAvailablePort()
-	vm, err := l.lib.GetCopy(conf.Image,
+	vm, err := l.lib.GetCopy(conf,
 		vbox.SetBridge(l.environment.Interface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
 	)
 	if err != nil {
-		return nil, err
-	}
-	if err := vm.SetRAM(conf.MemoryMB); err != nil {
 		return nil, err
 	}
 	l.frontends = append(l.frontends, vm)

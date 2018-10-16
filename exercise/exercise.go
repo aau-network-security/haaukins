@@ -31,12 +31,12 @@ func (dockerHost) CreateContainer(conf docker.ContainerConfig) (docker.Container
 
 type exercise struct {
 	conf       *store.Exercise
-	net        *docker.Network
+	net        docker.Network
 	flags      []store.Flag
 	machines   []virtual.Instance
 	ips        []int
 	dnsIP      string
-	dnsRecords []RecordConfig
+	dnsRecords []store.RecordConfig
 	dockerHost DockerHost
 	lib        vbox.Library
 }
@@ -86,9 +86,9 @@ func (e *exercise) Create() error {
 		machines = append(machines, c)
 	}
 
-	for _, spec := range e.conf.VBoxConfig {
+	for _, vboxConfig := range e.conf.VboxConfs {
 		vm, err := e.lib.GetCopy(
-			spec.Image,
+			vboxConfig.InstanceConfig,
 			vbox.SetBridge(e.net.Interface()),
 		)
 		if err != nil {

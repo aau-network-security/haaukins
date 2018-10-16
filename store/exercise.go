@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	EmptyExTags = errors.New("Exercise cannot have zero tags")
+	EmptyExTags         = errors.New("Exercise cannot have zero tags")
+	ImageNotDefinedErr  = errors.New("image cannot be empty")
+	MemoryNotDefinedErr = errors.New("memory cannot be empty")
 )
 
 type UnknownExerTagErr struct {
@@ -35,6 +37,7 @@ type Exercise struct {
 	Name        string         `yaml:"name"`
 	Tags        []Tag          `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
+	VboxConfs   []VboxConfig   `yaml:"vbox"`
 }
 
 func (e Exercise) Validate() error {
@@ -96,8 +99,9 @@ type Flag struct {
 }
 
 type RecordConfig struct {
-	Type string `yaml:"record"`
-	Name string `yaml:"name"`
+	Type  string `yaml:"record"`
+	Name  string `yaml:"name"`
+	RData string `yaml:"rdata"`
 }
 
 func (rc RecordConfig) Format(ip string) string {
@@ -105,7 +109,7 @@ func (rc RecordConfig) Format(ip string) string {
 }
 
 type FlagConfig struct {
-	Tag 	Tag    `yaml:"tag"`
+	Tag     Tag    `yaml:"tag"`
 	Name    string `yaml:"name"`
 	EnvVar  string `yaml:"env"`
 	Default string `yaml:"default"`
@@ -118,12 +122,34 @@ type EnvVarConfig struct {
 }
 
 type DockerConfig struct {
-	Image    string         `yaml:"image"`
-	Flags    []FlagConfig   `yaml:"flag"`
-	Envs     []EnvVarConfig `yaml:"env"`
-	Records  []RecordConfig `yaml:"dns"`
-	MemoryMB uint           `yaml:"memoryMB"`
-	CPU      float64        `yaml:"cpu"`
+	Envs                   []EnvVarConfig `yaml:"env"`
+	ExerciseInstanceConfig `yaml:",inline"`
+}
+
+type VboxConfig struct {
+	ExerciseInstanceConfig `yaml:",inline"`
+}
+
+func (vc VboxConfig) Validate() error {
+	if vc.Image == "" {
+		return ImageNotDefinedErr
+	}
+	if vc.MemoryMB == 0 {
+		return MemoryNotDefinedErr
+	}
+	return nil
+}
+
+type ExerciseInstanceConfig struct {
+	Flags          []FlagConfig   `yaml:"flag"`
+	Records        []RecordConfig `yaml:"dns"`
+	InstanceConfig `yaml:",inline"`
+}
+
+type InstanceConfig struct {
+	Image    string  `yaml:"image"`
+	MemoryMB uint    `yaml:"memoryMB"`
+	CPU      float64 `yaml:"cpu"`
 }
 
 type exercisestore struct {
@@ -266,6 +292,14 @@ func NewExerciseFile(path string) (ExerciseStore, error) {
 		err = yaml.Unmarshal(f, &conf)
 		if err != nil {
 			return nil, err
+		}
+
+		for _, ex := range conf.Exercises {
+			for _, vboxConf := range ex.VboxConfs {
+				if err := vboxConf.Validate(); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 

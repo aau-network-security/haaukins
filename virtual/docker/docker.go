@@ -81,6 +81,8 @@ type container struct {
 }
 
 func NewContainer(conf ContainerConfig) (Container, error) {
+	log.Debug().Msgf("NewContainer(%+v)", conf)
+
 	var env []string
 	for k, v := range conf.EnvVars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
@@ -276,6 +278,7 @@ func pullImage(img Image, reg docker.AuthConfiguration) error {
 }
 
 func ensureImage(imgStr string) error {
+	log.Debug().Msgf("ensureImage(%s)", imgStr)
 	img := parseImage(imgStr)
 
 	dImg, err := DefaultClient.InspectImage(img.String())
@@ -605,7 +608,7 @@ func (n *network) Connect(c Container, ip ...int) (int, error) {
 			IPAMConfig: &docker.EndpointIPAMConfig{
 				IPv4Address: ipAddr,
 			},
-			IPAddress:  ipAddr,
+			IPAddress: ipAddr,
 		},
 	})
 	if err != nil {

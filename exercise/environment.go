@@ -6,6 +6,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/rs/zerolog/log"
 )
 
 type Environment interface {
@@ -71,6 +72,7 @@ func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment,
 }
 
 func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
+	log.Debug().Msgf("environment.Add(%+v)", conf)
 	if len(conf.Tags) == 0 {
 		return MissingTagsErr
 	}

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -45,6 +46,7 @@ func (rr *RR) Format() string {
 }
 
 func New(records []RR) (*Server, error) {
+	log.Debug().Msgf("dns.New(%+v)", records)
 	f, err := ioutil.TempFile("", "zonefile")
 	if err != nil {
 		return nil, err
