@@ -36,7 +36,8 @@ var (
 )
 
 type Config struct {
-	Host               string                           `yaml:"host"`
+	Host               string                           `yaml:"host,omitempty"`
+	Port               uint                             `yaml:"port,omitempty"`
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	OvaDir             string                           `yaml:"ova-directory,omitempty"`
@@ -90,6 +91,10 @@ func New(conf *Config) (*daemon, error) {
 		conf.Host = "localhost"
 	}
 
+	if conf.Port == 0 {
+		conf.Port = 80
+	}
+
 	if conf.OvaDir == "" {
 		dir, _ := os.Getwd()
 		conf.OvaDir = filepath.Join(dir, "vbox")
@@ -120,7 +125,7 @@ func New(conf *Config) (*daemon, error) {
 	vlib := vbox.NewLibrary(conf.OvaDir)
 	m := mux.NewRouter()
 	go func() {
-		if err := http.ListenAndServe(":8080", m); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), m); err != nil {
 			fmt.Println("Serving error", err)
 		}
 	}()
