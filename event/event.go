@@ -31,7 +31,7 @@ var (
 )
 
 type Host interface {
-	CreateEvent(store.Event) (Event, error)
+	CreateEvent(store.EventStore) (Event, error)
 }
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, esh store.EventStoreHub) Host {
@@ -48,7 +48,8 @@ type eventHost struct {
 	elib store.ExerciseStore
 }
 
-func (eh *eventHost) CreateEvent(conf store.Event) (Event, error) {
+func (eh *eventHost) CreateEvent(es store.EventStore) (Event, error) {
+	conf := es.Read()
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
@@ -67,11 +68,6 @@ func (eh *eventHost) CreateEvent(conf store.Event) (Event, error) {
 		return nil, err
 	}
 
-	es, err := eh.esh.CreateEventStore(conf)
-	if err != nil {
-		return nil, err
-	}
-
 	return NewEvent(conf, hub, es)
 }
 
@@ -83,6 +79,7 @@ type Auth struct {
 type Event interface {
 	Start(context.Context) error
 	Close()
+	Finish()
 	AssignLab(store.Team) error
 	Connect(*mux.Router)
 
@@ -154,8 +151,6 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 func (ev *event) Close() {
-	now := time.Now()
-
 	if ev.guac != nil {
 		ev.guac.Close()
 	}
@@ -165,7 +160,10 @@ func (ev *event) Close() {
 	if ev.labhub != nil {
 		ev.labhub.Close()
 	}
+}
 
+func (ev *event) Finish() {
+	now := time.Now()
 	ev.store.Finish(now)
 }
 

@@ -98,7 +98,7 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 				if err := h(t); err != nil {
 					log.Warn().
 						Err(err).
-						Msgf("Unable to run post hook for %s", t.Name)
+						Msgf("Unable to run post hook %s for %s", h, t.Name)
 				}
 			}
 		}

@@ -14,7 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
-)
+	"github.com/rs/zerolog/log"
+	)
 
 type EmptyVarErr struct {
 	Variable string
@@ -37,6 +38,7 @@ type Event struct {
 	Lab        Lab        `yaml:"lab"`
 	StartedAt  *time.Time `yaml:"started-at,omitempty"`
 	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
+	Teams      []Team     `yaml:"teams,omitempty"`
 }
 
 func (e Event) Validate() error {
@@ -131,14 +133,18 @@ type teamstore struct {
 	names  map[string]string
 }
 
-func NewTeamStore(hooks ...func([]Team) error) TeamStore {
-	return &teamstore{
+func NewTeamStore(teams []Team, hooks ...func([]Team) error) TeamStore {
+	ts := &teamstore{
 		hooks:  hooks,
 		teams:  map[string]Team{},
 		tokens: map[string]string{},
 		names:  map[string]string{},
 		emails: map[string]string{},
 	}
+	for _, t := range teams {
+		ts.CreateTeam(t)
+	}
+	return ts
 }
 
 func (es *teamstore) CreateTeam(t Team) error {
@@ -327,7 +333,7 @@ func (es *eventstore) RunHooks() error {
 
 type EventStoreHub interface {
 	CreateEventStore(Event) (EventStore, error)
-	GetUnfinishedEvents() ([]Event, error)
+	GetUnfinishedEvents() ([]EventStore, error)
 }
 
 type eventstorehub struct {
@@ -348,10 +354,33 @@ func NewEventStoreHub(path string) (EventStoreHub, error) {
 	}, nil
 }
 
-type eventFile struct {
-	Event
-	Teams []Team `yaml:"teams,omitempty"`
+func (ef *eventFile) save() error {
+	bytes, err := yaml.Marshal(ef)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(ef.path, bytes, 0644)
 }
+
+func (ef *eventFile) SaveTeams(teams []Team) error {
+	ef.m.Lock()
+	defer ef.m.Unlock()
+
+	ef.Teams = teams
+
+	return ef.save()
+}
+
+func (ef *eventFile) SaveEvent(event Event) error {
+	ef.m.Lock()
+	defer ef.m.Unlock()
+
+	ef.Event = event
+
+	return ef.save()
+}
+
 
 func getFileNameForEvent(path string, tag Tag) (string, error) {
 	now := time.Now().Format("02-01-06")
@@ -380,62 +409,42 @@ func (esh *eventstorehub) CreateEventStore(conf Event) (EventStore, error) {
 		return nil, err
 	}
 
-	ef := eventFile{conf, []Team{}}
-	var m sync.Mutex
-
-	save := func() error {
-		bytes, err := yaml.Marshal(ef)
-		if err != nil {
-			return err
-		}
-
-		return ioutil.WriteFile(filename, bytes, 0644)
+	ef := &eventFile{
+		Event:  conf,
+		Teams: []Team{},
+		path:  filename,
 	}
 
-	teamHook := func(teams []Team) error {
-		m.Lock()
-		defer m.Unlock()
+	ts := NewTeamStore(nil, ef.SaveTeams)
 
-		ef.Teams = teams
-
-		return save()
-	}
-
-	eventHook := func(c Event) error {
-		m.Lock()
-		defer m.Unlock()
-
-		ef = eventFile{c, ef.Teams}
-
-		return save()
-	}
-
-	ts := NewTeamStore(teamHook)
-
-	if err := eventHook(conf); err != nil {
+	if err := ef.SaveEvent(conf); err != nil {
 		return nil, err
 	}
 
-	return NewEventStore(conf, ts, eventHook), nil
+	return NewEventStore(conf, ts, ef.SaveEvent), nil
 }
 
-func (esh *eventstorehub) GetUnfinishedEvents() ([]Event, error) {
-	var events []Event
+func (esh *eventstorehub) GetUnfinishedEvents() ([]EventStore, error) {
+	var events []EventStore
 	err := filepath.Walk(esh.path, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".yml" {
+			log.Debug().Msgf("Found unfinished event configuration: %s", path)
 			f, err := ioutil.ReadFile(path)
 			if err != nil {
 				return err
 			}
 
-			var e eventFile
-			err = yaml.Unmarshal(f, &e)
+			var ef eventFile
+			err = yaml.Unmarshal(f, &ef)
 			if err != nil {
 				return err
 			}
+			ef.path = path
 
-			if e.FinishedAt == nil {
-				events = append(events, e.Event)
+			if ef.FinishedAt == nil {
+				ts := NewTeamStore(ef.Teams, ef.SaveTeams)
+				e := NewEventStore(ef.Event, ts, ef.SaveEvent)
+				events = append(events, e)
 			}
 		}
 

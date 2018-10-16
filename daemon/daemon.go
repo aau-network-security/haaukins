@@ -163,13 +163,13 @@ func New(conf *Config) (*daemon, error) {
 		ehost:           event.NewHost(vlib, ef, esh),
 	}
 
-	events, err := esh.GetUnfinishedEvents()
+	eventStores, err := esh.GetUnfinishedEvents()
 	if err != nil {
 		return nil, err
 	}
 
-	for _, ev := range events {
-		err := d.createEvent(ev)
+	for _, es := range eventStores {
+		err := d.createEvent(es)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +275,8 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}, nil
 }
 
-func (d *daemon) createEvent(conf store.Event) error {
+func (d *daemon) createEvent(es store.EventStore) error {
+	conf := es.Read()
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
@@ -284,7 +285,7 @@ func (d *daemon) createEvent(conf store.Event) error {
 		Strs("Frontends", conf.Lab.Frontends).
 		Msg("Creating event")
 
-	ev, err := d.ehost.CreateEvent(conf)
+	ev, err := d.ehost.CreateEvent(es)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event")
 		return err
@@ -340,7 +341,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	return d.createEvent(conf)
+	return d.createEvent(store.EventFile{conf, nil})
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
@@ -357,6 +358,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	delete(d.events, evtag)
 
 	ev.Close()
+	ev.Finish()
 	return nil
 }
 
