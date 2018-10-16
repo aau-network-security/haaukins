@@ -145,7 +145,9 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}
 
 	hostConf := docker.HostConfig{
-		ExtraHosts: []string{fmt.Sprintf("host:%s", hostIP)},
+		ExtraHosts:       []string{fmt.Sprintf("host:%s", hostIP)},
+		MemorySwap:       0,
+		MemorySwappiness: 0,
 	}
 
 	if conf.Resources != nil {
@@ -486,14 +488,21 @@ func (c *container) Link(other Identifier, alias string) error {
 	return nil
 }
 
-type Network struct {
+type network struct {
 	net       *docker.Network
 	subnet    string
 	ipPool    map[uint8]struct{}
 	connected []Identifier
 }
 
-func NewNetwork() (*Network, error) {
+type Network interface {
+	Close() error
+	FormatIP(num int) string
+	Interface() string
+	Connect(c Container, ip ...int) (int, error)
+}
+
+func NewNetwork() (Network, error) {
 	conf := func() docker.CreateNetworkOptions {
 		sub := randomPrivateSubnet24()
 
@@ -536,10 +545,10 @@ func NewNetwork() (*Network, error) {
 		ipPool[uint8(i)] = struct{}{}
 	}
 
-	return &Network{net: net, subnet: subnet, ipPool: ipPool}, nil
+	return &network{net: net, subnet: subnet, ipPool: ipPool}, nil
 }
 
-func (n *Network) Close() error {
+func (n *network) Close() error {
 	for _, cont := range n.connected {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
 			Container: cont.ID(),
@@ -551,15 +560,15 @@ func (n *Network) Close() error {
 	return DefaultClient.RemoveNetwork(n.net.ID)
 }
 
-func (n *Network) FormatIP(num int) string {
+func (n *network) FormatIP(num int) string {
 	return fmt.Sprintf("%s.%d", n.subnet[0:len(n.subnet)-5], num)
 }
 
-func (n *Network) Interface() string {
+func (n *network) Interface() string {
 	return fmt.Sprintf("dm-%s", n.net.ID[0:12])
 }
 
-func (n *Network) getRandomIP() int {
+func (n *network) getRandomIP() int {
 	for randDigit, _ := range n.ipPool {
 		delete(n.ipPool, randDigit)
 		return int(randDigit)
@@ -567,7 +576,7 @@ func (n *Network) getRandomIP() int {
 	return 0
 }
 
-func (n *Network) releaseIP(ip string) {
+func (n *network) releaseIP(ip string) {
 	parts := strings.Split(ip, ".")
 	strDigit := parts[len(parts)-1]
 
@@ -579,7 +588,7 @@ func (n *Network) releaseIP(ip string) {
 	n.ipPool[uint8(num)] = struct{}{}
 }
 
-func (n *Network) Connect(c Container, ip ...int) (int, error) {
+func (n *network) Connect(c Container, ip ...int) (int, error) {
 	var lastDigit int
 
 	if len(ip) > 0 {
@@ -596,7 +605,7 @@ func (n *Network) Connect(c Container, ip ...int) (int, error) {
 			IPAMConfig: &docker.EndpointIPAMConfig{
 				IPv4Address: ipAddr,
 			},
-			IPAddress: ipAddr,
+			IPAddress:  ipAddr,
 		},
 	})
 	if err != nil {

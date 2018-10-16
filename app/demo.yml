@@ -1,4 +1,36 @@
-exercises:
+ctfd:
+  name: Demo
+  admin_user: admin
+  admin_email: cyber@es.aau.dk
+  admin_pass: Zg5txAyg2WNmUt6vz7ep
+guacamole:
+  admin_pass: admin
+  host: localhost
+  port: 80
+revproxy:
+  host: localhost
+lab:
+  ova_library: /scratch/ova
+  capacity:
+    buffer: 2
+    max: 10
+  frontends:
+  - image: aau-kali-amd64.ova
+    memoryMB: 4096
+  exercise:
+  - name: Vulnerability exploitation
+    tags:
+    - scanning
+    vbox:
+    - image: vulnerability_exploitation/windows-xp.ova
+      memoryMB: 512
+      flag:
+      - name: Vulnerability exploitation
+        env: FLAG
+        default: 619cb4b9-c941-4a26-91fb-78a6a01c9d83
+        points: 10
+    - image: vulnerability_exploitation/metasploitable.ova
+    - image: vulnerability_exploitation/sickos.ova
   - name: SQL Injection
     tags:
     - sql
@@ -6,13 +38,11 @@ exercises:
     - image: registry.sec-aau.dk/aau/sql-client
       memoryMB: 50
       flag:
-      - tag: sql_1
-        name: Web server login
+      - name: Web server login
         env: INTERNAL_FLAG
         default: c5b0238c-f504-4ade-8075-3afb71e88cf6
         points: 5
-      - tag: sql_2
-        name: SQL injection
+      - name: SQL injection
         env: DB_FLAG
         default: 334637ad-2c51-45dd-89d9-9b7c7155b366
         points: 15
@@ -22,8 +52,7 @@ exercises:
       - name: netsec-forum.dk
         type: A
       flag:
-      - tag: sql_3
-        name: Network sniffing
+      - name: Network sniffing
         env: FLAG
         default: 613ee1e1-ab15-4c0e-b324-3f2a6eee25f2
         points: 5
@@ -46,8 +75,7 @@ exercises:
       - name: dogshare.com
         type: A
       flag:
-      - tag: xss_1
-        name: Cross-site scripting
+      - name: Cross-site scripting
         env: FLAG
         default: 8bf23f64-9150-45a4-8901-a157896c73a4
         points: 15
@@ -57,8 +85,7 @@ exercises:
     docker:
     - image: registry.sec-aau.dk/aau/hidden-server
       flag:
-      - tag: scan_1
-        name: Network scanning
+      - name: Network scanning
         env: FLAG
         default: 8d6bd6bb-c773-4e62-9c4a-620b331703eb
         points: 5
@@ -70,8 +97,7 @@ exercises:
     - image: registry.sec-aau.dk/aau/heartbleed
       memoryMB: 100
       flag:
-      - tag: hb_1
-        name: Heartbleed
+      - name: Heartbleed
         env: FLAG
         default: d346b8aa-469f-42e3-a8ed-4e0d004c9938
         points: 8
@@ -93,8 +119,7 @@ exercises:
       - env: TARGET_URL
         value: https://secureshare.com
       flag:
-      - tag: mitm_1
-        name: Man in the middle
+      - name: Man in the middle
         env: FLAG
         default: 2bd60c1f-530a-4287-af42-1b869b78e288
         points: 15

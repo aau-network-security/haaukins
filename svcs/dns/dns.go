@@ -9,7 +9,24 @@ import (
 )
 
 const (
-	PreferedIP = 3
+	PreferedIP      = 3
+	coreFileContent = `. {
+    file zonefile
+    prometheus     # enable metrics
+    errors         # show errors
+    log            # enable query logs
+}
+`
+	zonePrefixContent = `$ORIGIN .
+@   3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. (
+                2017042745 ; serial
+                7200       ; refresh (2 hours)
+                3600       ; retry (1 hour)
+                1209600    ; expire (2 weeks)
+                3600       ; minimum (1 hour)
+                )
+
+`
 )
 
 type Server struct {
@@ -17,34 +34,61 @@ type Server struct {
 	confFile string
 }
 
-func New(records []string) (*Server, error) {
-	f, err := ioutil.TempFile("", "unbound-conf")
+type RR struct {
+	Name  string
+	Type  string
+	RData string
+}
+
+func (rr *RR) Format() string {
+	return fmt.Sprintf("%s IN %s %s", rr.Name, rr.Type, rr.RData)
+}
+
+func New(records []RR) (*Server, error) {
+	f, err := ioutil.TempFile("", "zonefile")
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+
+	c, err := ioutil.TempFile("", "Corefile")
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+
 	confFile := f.Name()
 
+	f.Write([]byte(zonePrefixContent))
+
 	for _, r := range records {
-		line := fmt.Sprintf(`local-data: "%s"`, r)
-		_, err = f.Write([]byte(line + "\n"))
+		_, err = f.Write([]byte(r.Format() + "\n"))
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	coreFile := c.Name()
+
+	c.Write([]byte(coreFileContent))
+
 	f.Sync()
 
 	cont, err := docker.NewContainer(docker.ContainerConfig{
-		Image: "tpanum/unbound",
+		Image: "coredns/coredns",
 		Mounts: []string{
-			fmt.Sprintf("%s:/opt/unbound/etc/unbound/a-records.conf", confFile),
+			fmt.Sprintf("%s:/Corefile", coreFile),
+			fmt.Sprintf("%s:/zonefile", confFile),
 		},
-		UsedPorts: []string{"53/tcp"},
+		UsedPorts: []string{
+			"53/tcp",
+			"53/udp",
+		},
 		Resources: &docker.Resources{
 			MemoryMB: 50,
 			CPU:      0.3,
 		},
+		Cmd: []string{"--conf", "Corefile"},
 	})
 	if err != nil {
 		return nil, err

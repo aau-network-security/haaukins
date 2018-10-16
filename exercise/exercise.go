@@ -7,6 +7,7 @@ import (
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 )
 
 var (
@@ -18,6 +19,16 @@ var (
 	tagRegex     = regexp.MustCompile(tagRawRegexp)
 )
 
+type DockerHost interface {
+	CreateContainer(conf docker.ContainerConfig) (docker.Container, error)
+}
+
+type dockerHost struct{}
+
+func (dockerHost) CreateContainer(conf docker.ContainerConfig) (docker.Container, error) {
+	return docker.NewContainer(conf)
+}
+
 type exercise struct {
 	conf       *store.Exercise
 	net        *docker.Network
@@ -25,7 +36,9 @@ type exercise struct {
 	machines   []virtual.Instance
 	ips        []int
 	dnsIP      string
-	dnsRecords []string
+	dnsRecords []RecordConfig
+	dockerHost DockerHost
+	lib        vbox.Library
 }
 
 func (e *exercise) Create() error {
@@ -36,7 +49,7 @@ func (e *exercise) Create() error {
 	for i, spec := range containers {
 		spec.DNS = []string{e.dnsIP}
 
-		c, err := docker.NewContainer(spec)
+		c, err := e.dockerHost.CreateContainer(spec)
 		if err != nil {
 			return err
 		}
@@ -64,10 +77,24 @@ func (e *exercise) Create() error {
 		// Example: 172.16.5.216
 
 		for _, record := range records[i] {
-			e.dnsRecords = append(e.dnsRecords, record.Format(ipaddr))
+			if record.RData == "" {
+				record.RData = ipaddr
+			}
+			e.dnsRecords = append(e.dnsRecords, record)
 		}
 
 		machines = append(machines, c)
+	}
+
+	for _, spec := range e.conf.VBoxConfig {
+		vm, err := e.lib.GetCopy(
+			spec.Image,
+			vbox.SetBridge(e.net.Interface()),
+		)
+		if err != nil {
+			return err
+		}
+		machines = append(machines, vm)
 	}
 
 	if e.ips == nil {

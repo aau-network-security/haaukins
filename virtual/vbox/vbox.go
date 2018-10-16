@@ -38,6 +38,7 @@ func (err *VBoxErr) Error() string {
 
 type VM interface {
 	virtual.Instance
+	virtual.ResourceResizer
 	Restart() error
 	Snapshot(string) error
 	LinkedClone(string, ...VMOpt) (VM, error)
@@ -183,6 +184,11 @@ func SetLocalRDP(ip string, port uint) VMOpt {
 		}
 
 		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vram", "128")
+		if err != nil {
+			return err
+		}
+
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--clipboard", "bidirectional")
 		if err != nil {
 			return err
 		}

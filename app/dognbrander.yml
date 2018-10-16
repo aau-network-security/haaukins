@@ -1,0 +1,92 @@
+ctfd:
+  name: Døgnbrænder
+  admin_user: admin
+  admin_email: cyber@es.aau.dk
+  admin_pass: Zg5txAyg2WNmUt6vz7ep
+guacamole:
+  admin_pass: admin
+  host: localhost
+  port: 80
+revproxy:
+  host: localhost
+lab:
+  ova_library: /scratch/ova
+  capacity:
+    buffer: 10
+    max: 100
+  frontends:
+  - image: aau-kali-amd64.ova
+    memoryMB: 4096
+  exercise:
+  - name: SQL Injection
+    tags:
+    - sql
+    docker:
+    - image: registry.sec-aau.dk/aau/sql-client
+      memoryMB: 50
+      flag:
+      - name: Web server login
+        env: INTERNAL_FLAG
+        default: c5b0238c-f504-4ade-8075-3afb71e88cf6
+        points: 5
+      - name: SQL injection
+        env: DB_FLAG
+        default: 334637ad-2c51-45dd-89d9-9b7c7155b366
+        points: 15
+    - image: registry.sec-aau.dk/aau/sql-server
+      memoryMB: 85
+      dns:
+      - name: netsec-forum.dk
+        type: A
+      flag:
+      - name: Network sniffing
+        env: FLAG
+        default: 613ee1e1-ab15-4c0e-b324-3f2a6eee25f2
+        points: 5
+  - name: Heartbleed Exploit
+    tags:
+    - heart
+    - hb
+    docker:
+    - image: registry.sec-aau.dk/aau/heartbleed
+      memoryMB: 100
+      flag:
+      - name: Heartbleed
+        env: FLAG
+        default: d346b8aa-469f-42e3-a8ed-4e0d004c9938
+        points: 8
+      dns:
+      - name: cph-sec.com
+        type: A
+  - name: Network Scanning
+    tags:
+    - scan
+    docker:
+    - image: registry.sec-aau.dk/aau/hidden-server
+      flag:
+      - name: Network scanning
+        env: FLAG
+        default: 8d6bd6bb-c773-4e62-9c4a-620b331703eb
+        points: 5
+  - name: Broken Session Management
+    tags:
+    - session
+    docker:
+    - image: registry.sec-aau.dk/aau/broken-session-management
+      memoryMB: 100
+      flag:
+      - name: Broken session
+        env: flag
+        default: 642ff156-f94b-4fab-afb0-46449714e911
+        points: 8
+  - name: Vulnerability exploitation
+    tags:
+    - windows
+    vbox:
+    - image: vulnerability_exploitation/windows-xp.ova
+      memoryMB: 512
+      flag:
+      - name: Vulnerability exploitation
+        env: FLAG
+        default: 619cb4b9-c941-4a26-91fb-78a6a01c9d83
+        points: 10

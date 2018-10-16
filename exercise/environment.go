@@ -5,6 +5,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 )
 
 type Environment interface {
@@ -21,15 +22,18 @@ type environment struct {
 	tags      map[store.Tag]*exercise
 	exercises []*exercise
 
-	network    *docker.Network
+	network    docker.Network
 	dnsServer  *dns.Server
 	dhcpServer *dhcp.Server
 	dnsIP      string
+
+	lib vbox.Library
 }
 
-func NewEnvironment(exercises ...store.Exercise) (Environment, error) {
+func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment, error) {
 	ee := &environment{
 		tags: make(map[store.Tag]*exercise),
+		lib:  lib,
 	}
 
 	var err error
@@ -84,9 +88,11 @@ func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
 	}
 
 	e := &exercise{
-		conf:  &conf,
-		net:   ee.network,
-		dnsIP: ee.dnsIP,
+		conf:       &conf,
+		net:        ee.network,
+		dnsIP:      ee.dnsIP,
+		dockerHost: dockerHost{},
+		lib:        ee.lib,
 	}
 
 	if err := e.Create(); err != nil {
@@ -199,12 +205,14 @@ func (ee *environment) updateDNS() error {
 		}
 	}
 
-	var records []string
+	var rrSet []dns.RR
 	for _, e := range ee.exercises {
-		records = append(records, e.dnsRecords...)
+		for _, record := range e.dnsRecords {
+			rrSet = append(rrSet, dns.RR{record.Name, record.Type, record.RData})
+		}
 	}
 
-	serv, err := dns.New(records)
+	serv, err := dns.New(rrSet)
 	if err != nil {
 		return err
 	}
