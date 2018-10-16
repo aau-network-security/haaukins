@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"net/url"
+
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
@@ -16,7 +18,6 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
-	"net/url"
 )
 
 var (
@@ -31,28 +32,31 @@ var (
 )
 
 type Host interface {
-	CreateEvent(store.EventStore) (Event, error)
+	CreateEventFromConfig(store.EventConfig) (Event, error)
+	CreateEventFromEventFile(store.EventFile) (Event, error)
 }
 
-func NewHost(vlib vbox.Library, elib store.ExerciseStore, esh store.EventStoreHub) Host {
+func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
 	return &eventHost{
-		esh:  esh,
+		efh:  efh,
 		vlib: vlib,
 		elib: elib,
 	}
 }
 
 type eventHost struct {
-	esh  store.EventStoreHub
+	efh  store.EventFileHub
 	vlib vbox.Library
 	elib store.ExerciseStore
 }
 
-func (eh *eventHost) CreateEvent(es store.EventStore) (Event, error) {
-	conf := es.Read()
+func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error) {
+	conf := ef.Read()
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
+
+	fmt.Println(conf)
 
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
@@ -68,7 +72,16 @@ func (eh *eventHost) CreateEvent(es store.EventStore) (Event, error) {
 		return nil, err
 	}
 
-	return NewEvent(conf, hub, es)
+	return NewEvent(ef, hub)
+}
+
+func (eh *eventHost) CreateEventFromConfig(conf store.EventConfig) (Event, error) {
+	ef, err := eh.efh.CreateEventFile(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return eh.CreateEventFromEventFile(ef)
 }
 
 type Auth struct {
@@ -83,7 +96,7 @@ type Event interface {
 	AssignLab(store.Team) error
 	Connect(*mux.Router)
 
-	GetConfig() store.Event
+	GetConfig() store.EventConfig
 	GetTeams() []store.Team
 	GetHub() lab.Hub
 	GetLabByTeam(teamId string) (lab.Lab, bool)
@@ -95,12 +108,13 @@ type event struct {
 	labhub lab.Hub
 
 	labs  map[string]lab.Lab
-	store store.EventStore
+	store store.EventFile
 
 	guacUserStore *guacamole.GuacUserStore
 }
 
-func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, error) {
+func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
+	conf := ef.Read()
 	ctfdConf := ctfd.Config{
 		Name:  conf.Name,
 		Flags: hub.Flags(),
@@ -117,7 +131,7 @@ func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, err
 	}
 
 	ev := &event{
-		store:         store,
+		store:         ef,
 		labhub:        hub,
 		ctfd:          ctf,
 		guac:          guac,
@@ -269,7 +283,7 @@ func (ev *event) GetHub() lab.Hub {
 	return ev.labhub
 }
 
-func (ev *event) GetConfig() store.Event {
+func (ev *event) GetConfig() store.EventConfig {
 	return ev.store.Read()
 }
 
