@@ -56,8 +56,6 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		return nil, err
 	}
 
-	fmt.Println(conf)
-
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
 		return nil, err
@@ -118,6 +116,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 	ctfdConf := ctfd.Config{
 		Name:  conf.Name,
 		Flags: hub.Flags(),
+		Teams: ef.GetTeams(),
 	}
 
 	ctf, err := ctfd.New(ctfdConf)

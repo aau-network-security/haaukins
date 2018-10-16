@@ -481,7 +481,5 @@ func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 		return nil, err
 	}
 
-	fmt.Println(len(events))
-
 	return events, nil
 }

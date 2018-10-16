@@ -160,7 +160,7 @@ func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, 
 		return
 	}
 
-	matches := chalPathRegex.FindStringSubmatch(r.URL.Path)
+	matches := chalPathRegex.FindStringSubmatch("/" + r.URL.Path)
 	chalNumStr := matches[1]
 	chalNum, _ := strconv.Atoi(chalNumStr)
 
