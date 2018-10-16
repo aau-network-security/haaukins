@@ -103,7 +103,7 @@ type event struct {
 	guacUserStore *guacamole.GuacUserStore
 }
 
-func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, error) {
+func NewEvent(conf store.Event, hub lab.Hub, es store.EventStore) (Event, error) {
 	ctfdConf := ctfd.Config{
 		Name:  conf.Name,
 		Flags: hub.Flags(),
@@ -120,7 +120,7 @@ func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, err
 	}
 
 	ev := &event{
-		store:         store,
+		store:         es,
 		labhub:        hub,
 		ctfd:          ctf,
 		guac:          guac,
