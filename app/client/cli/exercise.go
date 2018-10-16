@@ -50,7 +50,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 				Teams:       teams,
 			})
 			if err != nil {
-				PrintError(err.Error())
+				PrintError(err)
 				return
 			}
 

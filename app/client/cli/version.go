@@ -3,12 +3,58 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
-	"time"
 )
 
 var version string
+
+type IncorrectVersonFmt struct {
+	src string
+	fmt string
+}
+
+func (ivf *IncorrectVersonFmt) Error() string {
+	return fmt.Sprintf("Unexpected version format (version: \"%s\") from %s", ivf.fmt, ivf.src)
+}
+
+func isClientVersionLessThan(srv string) (bool, error) {
+	if version == "" {
+		return false, nil
+	}
+
+	cliParts := strings.Split(version, ".")
+	srvParts := strings.Split(srv, ".")
+
+	if len(cliParts) < 2 {
+		return false, &IncorrectVersonFmt{src: "client", fmt: version}
+	}
+
+	if len(srvParts) < 2 {
+		fmt.Println("parts")
+		return false, &IncorrectVersonFmt{src: "daemon", fmt: srv}
+	}
+
+	intCliV, err := strconv.Atoi(strings.Join(cliParts[0:2], ""))
+	if err != nil {
+		return false, &IncorrectVersonFmt{src: "client", fmt: version}
+	}
+
+	intSrvV, err := strconv.Atoi(strings.Join(srvParts[0:2], ""))
+	if err != nil {
+		return false, &IncorrectVersonFmt{src: "daemon", fmt: version}
+	}
+
+	if intSrvV > intCliV {
+		return true, nil
+	}
+
+	return false, nil
+}
 
 func (c *Client) CmdVersion() *cobra.Command {
 	cmd := &cobra.Command{
@@ -48,7 +94,7 @@ func (c *Client) CmdVersionDaemon() *cobra.Command {
 
 			resp, err := c.rpcClient.Version(ctx, &pb.Empty{})
 			if err != nil {
-				PrintError(err.Error())
+				PrintError(err)
 				return
 			}
 			if resp.Version == "" {

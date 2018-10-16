@@ -2,12 +2,17 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
+)
+
+var (
+	UnableCreateEListErr = errors.New("Failed to create event list")
 )
 
 func (c *Client) CmdEvent() *cobra.Command {
@@ -54,7 +59,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Buffer:    int32(buffer),
 			})
 			if err != nil {
-				PrintError(err.Error())
+				PrintError(err)
 				return
 			}
 
@@ -65,7 +70,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				}
 
 				if err != nil {
-					PrintError(err.Error())
+					PrintError(err)
 					return
 				}
 			}
@@ -97,7 +102,7 @@ func (c *Client) CmdEventStop() *cobra.Command {
 				Tag: tag,
 			})
 			if err != nil {
-				PrintError(err.Error())
+				PrintError(err)
 				return
 			}
 
@@ -108,7 +113,7 @@ func (c *Client) CmdEventStop() *cobra.Command {
 				}
 
 				if err != nil {
-					PrintError(err.Error())
+					PrintError(err)
 					return
 				}
 			}
@@ -126,7 +131,7 @@ func (c *Client) CmdEventList() *cobra.Command {
 			defer cancel()
 			r, err := c.rpcClient.ListEvents(ctx, &pb.ListEventsRequest{})
 			if err != nil {
-				PrintError(err.Error())
+				PrintError(err)
 				return
 			}
 
@@ -142,7 +147,7 @@ func (c *Client) CmdEventList() *cobra.Command {
 
 			table, err := f.AsTable(elements)
 			if err != nil {
-				PrintError("Failed to create event list")
+				PrintError(UnableCreateEListErr)
 				return
 			}
 			fmt.Printf(table)
@@ -165,7 +170,7 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 			})
 
 			if err != nil {
-				PrintError(err.Error())
+				PrintError(err)
 				return
 			}
 
@@ -181,7 +186,7 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 
 			table, err := f.AsTable(elements)
 			if err != nil {
-				PrintError("Failed to create event list")
+				PrintError(UnableCreateEListErr)
 				return
 			}
 			fmt.Printf(table)
@@ -206,7 +211,7 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 				LabTag:   labTag,
 			})
 			if err != nil {
-				PrintError(err.Error())
+				PrintError(err)
 				return
 			}
 
@@ -217,7 +222,7 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 				}
 
 				if err != nil {
-					PrintError(err.Error())
+					PrintError(err)
 					return
 				}
 			}
