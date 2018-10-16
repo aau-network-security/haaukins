@@ -16,6 +16,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"net/url"
 )
 
 var (
@@ -82,7 +83,7 @@ type Auth struct {
 type Event interface {
 	Start(context.Context) error
 	Close()
-	Register(store.Team) error
+	AssignLab(store.Team) error
 	Connect(*mux.Router)
 
 	GetConfig() store.Event
@@ -168,7 +169,7 @@ func (ev *event) Close() {
 	ev.store.Finish(now)
 }
 
-func (ev *event) Register(t store.Team) error {
+func (ev *event) AssignLab(t store.Team) error {
 	lab, err := ev.labhub.Get()
 	if err != nil {
 		return err
@@ -218,10 +219,6 @@ func (ev *event) Register(t store.Team) error {
 
 	ev.labs[t.Id] = lab
 
-	if err := ev.store.CreateTeam(t); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -236,7 +233,15 @@ func (ev *event) Connect(r *mux.Router) {
 	}
 
 	posthooks := []func(t store.Team) error{
-		ev.Register,
+		ev.AssignLab,
+	}
+
+	loginFunc := func(u string, p string) (string, error) {
+		content, err := ev.guac.RawLogin(u, p)
+		if err != nil {
+			return "", err
+		}
+		return url.QueryEscape(string(content)), nil
 	}
 
 	defaultTasks := []store.Task{}
@@ -248,7 +253,7 @@ func (ev *event) Connect(r *mux.Router) {
 		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks, defaultTasks...),
 		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.FlagMap()),
 		ctfd.NewLoginInterceptor(ev.store),
-		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, ev.guac.Login),
+		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, loginFunc),
 	}
 	r.Use(interceptors.Intercept)
 	r.HandleFunc("/guacamole{rest:.*}", handler(ev.guac.ProxyHandler()))

@@ -3,7 +3,6 @@ package guacamole
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/store"
@@ -104,7 +103,7 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			return
 		}
 
-		authC := http.Cookie{Name: "GUAC_AUTH", Value: url.QueryEscape(token), Path: "/guacamole/"}
+		authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
 		http.SetCookie(w, &authC)
 		http.Redirect(w, r, "/guacamole", http.StatusFound)
 	})
