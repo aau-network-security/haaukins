@@ -29,3 +29,9 @@ The file should look like:
   "serveraddress": "<registry address>"
 }
 ```
+
+### Compiling proto
+
+```
+protoc -I proto/ proto/daemon.proto --go_out=plugins=grpc:proto
+```

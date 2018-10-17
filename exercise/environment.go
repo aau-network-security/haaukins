@@ -1,22 +1,25 @@
 package exercise
 
 import (
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-)
+	)
 
 type Environment interface {
-	Add(conf Config, updateDNS bool) error
+	Add(conf store.Exercise, updateDNS bool) error
 	ResetByTag(t string) error
 	Interface() string
 	Start() error
+	Stop() error
 	Close() error
+	Restart() error
 }
 
 type environment struct {
-	tags      map[string]*exercise
+	tags      map[store.Tag]*exercise
 	exercises []*exercise
 
 	network    docker.Network
@@ -27,9 +30,9 @@ type environment struct {
 	lib vbox.Library
 }
 
-func NewEnvironment(lib vbox.Library, exercises ...Config) (Environment, error) {
+func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment, error) {
 	ee := &environment{
-		tags: make(map[string]*exercise),
+		tags: make(map[store.Tag]*exercise),
 		lib:  lib,
 	}
 
@@ -67,7 +70,7 @@ func NewEnvironment(lib vbox.Library, exercises ...Config) (Environment, error) 
 	return ee, nil
 }
 
-func (ee *environment) Add(conf Config, updateDNS bool) error {
+func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
 	if len(conf.Tags) == 0 {
 		return MissingTagsErr
 	}
@@ -104,19 +107,6 @@ func (ee *environment) Add(conf Config, updateDNS bool) error {
 	return nil
 }
 
-func (ee *environment) ResetByTag(t string) error {
-	e, ok := ee.tags[t]
-	if !ok {
-		return UnknownTagErr
-	}
-
-	if err := e.Reset(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (ee *environment) Interface() string {
 	return ee.network.Interface()
 }
@@ -139,6 +129,35 @@ func (ee *environment) Start() error {
 	return nil
 }
 
+func (ee *environment) Stop() error {
+	if err := ee.dnsServer.Stop(); err != nil {
+		return err
+	}
+
+	if err := ee.dhcpServer.Stop(); err != nil {
+		return err
+	}
+
+	for _, e := range ee.exercises {
+		if err := e.Stop(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ee *environment) Restart() error {
+	if err := ee.Stop(); err != nil {
+		return err
+	}
+	if err := ee.Start(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (ee *environment) Close() error {
 	if err := ee.dnsServer.Close(); err != nil {
 		return err
@@ -155,6 +174,24 @@ func (ee *environment) Close() error {
 	}
 
 	if err := ee.network.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ee *environment) ResetByTag(s string) error {
+	t, err := store.NewTag(s)
+	if err != nil {
+		return err
+	}
+
+	e, ok := ee.tags[t]
+	if !ok {
+		return UnknownTagErr
+	}
+
+	if err := e.Reset(); err != nil {
 		return err
 	}
 

@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+service Daemon {
+  rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {}
+  rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {}
+  rpc InviteUser (InviteUserRequest) returns (InviteUserResponse) {}
+
+  rpc CreateEvent (CreateEventRequest) returns (stream EventStatus) {}
+  rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
+  rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
+  rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
+  rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
+
+  rpc ResetExercise (ResetExerciseRequest) returns (stream ResetExerciseStatus) {}
+
+  rpc Version (Empty) returns (VersionResponse) {}
+}
+
+message LoginUserRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginUserResponse {
+  string token = 1;
+  string error = 2;
+}
+
+message SignupUserRequest {
+  string key = 1;
+  string username = 2;
+  string password = 3;
+}
+
+message InviteUserRequest {}
+message InviteUserResponse {
+  string key = 1;
+  string error = 2;
+}
+
+message CreateEventRequest {
+  string name = 1;
+  string tag = 2;
+  repeated string frontends = 3;
+  repeated string exercises = 4;
+  int32 available = 5;
+  int32 capacity = 6;
+}
+
+message ListEventsRequest {}
+message ListEventsResponse {
+  message Events {
+    string tag = 1;
+    string name = 2;
+    int32 teamCount = 3;
+    int32 exerciseCount = 4;
+    int32 capacity = 5;
+  }
+
+  repeated Events events = 1;
+}
+
+message ListEventTeamsRequest {
+  string tag = 1;
+}
+message ListEventTeamsResponse {
+  message Teams {
+    string Id = 1;
+    string Name = 2;
+    string Email = 3;
+  }
+  repeated Teams teams = 1;
+}
+
+message RestartTeamLabRequest {
+  string eventTag = 1;
+  string labTag = 2;
+}
+
+message ResetExerciseRequest {
+    message Team {
+        string Id = 1;
+    }
+    string exerciseTag = 1;
+    string eventTag = 2;
+    repeated Team teams = 3;
+}
+
+message ResetExerciseStatus {
+    string teamId = 1;
+}
+
+message StopEventRequest {
+  string tag = 1;
+}
+
+message EventStatus {
+  string entity = 1;
+  string status = 2;
+}
+
+message Empty {}
+
+message VersionResponse {
+    string version = 1;
+}
+

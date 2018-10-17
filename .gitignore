@@ -16,3 +16,7 @@ auth.yml
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+app/daemon/*.yml
+build/
+app/daemon/events/

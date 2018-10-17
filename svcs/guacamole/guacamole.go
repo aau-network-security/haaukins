@@ -6,17 +6,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/svcs/revproxy"
+	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -28,22 +32,22 @@ var (
 	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
 
 	DefaultAdminUser = "guacadmin"
-	DefaultAdminPAss = "guacadmin"
+	DefaultAdminPass = "guacadmin"
 )
 
 type Guacamole interface {
 	docker.Identifier
-	revproxy.Connector
+	svcs.ProxyConnector
 	Start(context.Context) error
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
+	GetAdminPass() string
 	Close()
+	RawLogin(username, password string) ([]byte, error)
 }
 
 type Config struct {
 	AdminPass string `yaml:"admin_pass"`
-	Host      string `yaml:"host"`
-	Port      uint   `yaml:"port"`
 }
 
 func New(conf Config) (Guacamole, error) {
@@ -56,12 +60,13 @@ func New(conf Config) (Guacamole, error) {
 		Jar: jar,
 	}
 
-	if conf.Host == "" {
-		conf.Host = "localhost"
-	}
+	if conf.AdminPass == "" {
+		pass := uuid.New().String()
+		log.Info().
+			Str("password", pass).
+			Msg("setting new default password for guacamole")
 
-	if conf.Port == 0 {
-		conf.Port = 8080
+		conf.AdminPass = pass
 	}
 
 	guac := &guacamole{
@@ -81,6 +86,7 @@ type guacamole struct {
 	token      string
 	client     *http.Client
 	web        docker.Container
+	webPort    uint
 	containers []docker.Container
 }
 
@@ -94,8 +100,11 @@ func (guac *guacamole) Close() {
 	}
 }
 
+func (guac *guacamole) GetAdminPass() string {
+	return guac.conf.AdminPass
+}
+
 func (guac *guacamole) create() error {
-	// Guacd
 	guacd, err := docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd",
 		UseBridge: true,
@@ -110,14 +119,12 @@ func (guac *guacamole) create() error {
 		return err
 	}
 
-	// Database
 	dbEnv := map[string]string{
 		"MYSQL_ROOT_PASSWORD": uuid.New().String(),
 		"MYSQL_DATABASE":      "guacamole_db",
 		"MYSQL_USER":          "guacamole_user",
 		"MYSQL_PASSWORD":      uuid.New().String(),
 	}
-
 	db, err := docker.NewContainer(docker.ContainerConfig{
 		Image:   "registry.sec-aau.dk/aau/guacamole-mysql",
 		EnvVars: dbEnv,
@@ -132,7 +139,6 @@ func (guac *guacamole) create() error {
 		return err
 	}
 
-	// Web Init
 	webEnv := map[string]string{
 		"MYSQL_DATABASE": "guacamole_db",
 		"MYSQL_USER":     "guacamole_user",
@@ -141,61 +147,41 @@ func (guac *guacamole) create() error {
 		"MYSQL_HOSTNAME": "db",
 	}
 
-	webBaseConf := &docker.ContainerConfig{
+	guac.webPort = virtual.GetAvailablePort()
+	webConf := docker.ContainerConfig{
 		Image:   "registry.sec-aau.dk/aau/guacamole",
 		EnvVars: webEnv,
+		PortBindings: map[string]string{
+			"8080/tcp": fmt.Sprintf("127.0.0.1:%d", guac.webPort),
+		},
+		UseBridge: true,
 	}
 
-	webInitConf := *webBaseConf
-	webInitPort := virtual.GetAvailablePort()
-	webInitConf.PortBindings = map[string]string{
-		"8080/tcp": fmt.Sprintf("127.0.0.1:%d", webInitPort),
-	}
-	webInitConf.UseBridge = true
-
-	initWeb, err := docker.NewContainer(webInitConf)
+	web, err := docker.NewContainer(webConf)
 	if err != nil {
 		return err
 	}
 
-	if err = initWeb.Link(db, "db"); err != nil {
+	if err = web.Link(db, "db"); err != nil {
 		return err
 	}
 
-	if err = initWeb.Link(guacd, "guacd"); err != nil {
+	if err = web.Link(guacd, "guacd"); err != nil {
 		return err
 	}
 
-	err = initWeb.Start()
+	err = web.Start()
 	if err != nil {
 		return err
 	}
 
-	err = guac.configureInstance(webInitPort)
+	err = guac.configureInstance()
 	if err != nil {
 		return err
 	}
 
-	err = initWeb.Close()
-	if err != nil {
-		return err
-	}
-
-	webFinalConf := *webBaseConf
-	finalWeb, err := docker.NewContainer(webFinalConf)
-	if err != nil {
-		return err
-	}
-	guac.containers = append(guac.containers, finalWeb)
-	guac.web = finalWeb
-
-	if err = finalWeb.Link(db, "db"); err != nil {
-		return err
-	}
-
-	if err = finalWeb.Link(guacd, "guacd"); err != nil {
-		return err
-	}
+	guac.containers = append(guac.containers, web)
+	guac.web = web
 
 	guac.stop()
 
@@ -221,31 +207,36 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ConnectProxy() (docker.Identifier, string) {
-	conf := `location /guacamole/ {
-        proxy_pass http://{{.Host}}:8080/guacamole/;
-        proxy_buffering off;
-        proxy_http_version 1.1;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $http_connection;
-        # proxy_cookie_path /guacamole/ /;
-        access_log off;
-    }`
-	return guac, conf
+func (guac *guacamole) ProxyHandler() http.Handler {
+	origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
+	host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
+
+	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
+		req.Header.Add("X-Forwarded-Host", req.Host)
+		req.URL.Scheme = "http"
+		req.URL.Host = origin.Host
+		req.URL.Path = "/guacamole" + req.URL.Path
+	}}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if IsWebSocket(r) {
+			websocketProxy(host).ServeHTTP(w, r)
+			return
+		}
+
+		proxy.ServeHTTP(w, r)
+	})
 }
 
-func (guac *guacamole) configureInstance(port uint) error {
+func (guac *guacamole) configureInstance() error {
 	temp := &guacamole{
-		client: guac.client,
-		conf: Config{
-			AdminPass: DefaultAdminPAss,
-			Host:      "127.0.0.1",
-			Port:      port,
-		}}
+		client:  guac.client,
+		conf:    Config{AdminPass: DefaultAdminPass},
+		webPort: guac.webPort,
+	}
 
 	for i := 0; i < 15; i++ {
-		_, err := temp.login(DefaultAdminUser, DefaultAdminPAss)
+		_, err := temp.login(DefaultAdminUser, DefaultAdminPass)
 		if err == nil {
 			break
 		}
@@ -261,34 +252,21 @@ func (guac *guacamole) configureInstance(port uint) error {
 }
 
 func (guac *guacamole) baseUrl() string {
-	return fmt.Sprintf("http://%s:%d", guac.conf.Host, guac.conf.Port)
+	return fmt.Sprintf("http://127.0.0.1:%d", guac.webPort)
 }
 
 func (guac *guacamole) login(username, password string) (string, error) {
-	form := url.Values{
-		"username": {username},
-		"password": {password},
-	}
-
-	endpoint := guac.baseUrl() + "/guacamole/api/tokens"
-	req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
+	content, err := guac.RawLogin(username, password)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := guac.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
 
 	var output struct {
 		Message   *string `json:"message"`
 		AuthToken *string `json:"authToken"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&output); err != nil {
+	if err := json.Unmarshal(content, &output); err != nil {
 		return "", err
 	}
 
@@ -301,6 +279,28 @@ func (guac *guacamole) login(username, password string) (string, error) {
 	}
 
 	return *output.AuthToken, nil
+}
+
+func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
+	form := url.Values{
+		"username": {username},
+		"password": {password},
+	}
+
+	endpoint := guac.baseUrl() + "/guacamole/api/tokens"
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := guac.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
@@ -632,4 +632,56 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	}
 
 	return nil
+}
+
+func websocketProxy(target string) http.Handler {
+	origin := fmt.Sprintf("http://%s", target)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = "/guacamole" + r.URL.Path
+		r.Header.Set("Origin", origin)
+		r.Header.Add("X-Forwarded-Host", r.Host)
+		r.Host = target
+
+		d, err := net.Dial("tcp", target)
+		if err != nil {
+			log.Printf("Error dialing websocket backend %s: %v", target, err)
+			return
+		}
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		nc, _, err := hj.Hijack()
+		if err != nil {
+			log.Printf("Hijack error: %v", err)
+			return
+		}
+		defer nc.Close()
+		defer d.Close()
+
+		err = r.Write(d)
+		if err != nil {
+			log.Printf("Error copying request to target: %v", err)
+			return
+		}
+
+		errc := make(chan error, 2)
+		cp := func(dst io.Writer, src io.Reader) {
+			_, err := io.Copy(dst, src)
+			errc <- err
+		}
+		go cp(d, nc)
+		go cp(nc, d)
+
+		<-errc
+	})
+}
+
+func IsWebSocket(req *http.Request) bool {
+	if upgrade := req.Header.Get("Upgrade"); upgrade != "" {
+		return upgrade == "websocket" || upgrade == "Websocket"
+	}
+
+	return false
 }

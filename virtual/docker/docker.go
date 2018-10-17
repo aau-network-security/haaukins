@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"net"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/google/uuid"
@@ -42,6 +43,48 @@ func init() {
 	}
 
 	rand.Seed(time.Now().Unix())
+}
+
+type Host interface {
+	GetDockerHostIP() (string, error)
+}
+
+func NewHost() Host {
+	return &host{}
+}
+
+type host struct{}
+
+func (h *host) GetDockerHostIP() (string, error) {
+	return getDockerHostIP()
+}
+
+func getDockerHostIP() (string, error) {
+	i, err := net.InterfaceByName("docker0")
+	if err != nil {
+		return "", err
+	}
+
+	addrs, err := i.Addrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range addrs {
+		switch addr.(type) {
+		case *net.IPNet:
+			rawIP, _ := addr.(*net.IPNet)
+			ip, _, err := net.ParseCIDR(rawIP.String())
+			if err != nil {
+				return "", err
+			}
+			if ip.To4() != nil {
+				return ip.String(), nil
+			}
+		}
+	}
+
+	return "", nil
 }
 
 type Identifier interface {
@@ -139,7 +182,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	}
 
-	hostIP, err := GetDockerHostIP()
+	hostIP, err := getDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
@@ -225,15 +268,39 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}, nil
 }
 
-func digestRemoteImg(img Image, reg docker.AuthConfiguration) (string, error) {
-	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", reg.ServerAddress, img.Repo, img.Tag)
+func pullImage(img Image, reg docker.AuthConfiguration) error {
+
+	log.Debug().
+		Str("image", img.String()).
+		Msg("Attempting to pull image")
+
+	if err := DefaultClient.PullImage(docker.PullImageOptions{
+		Repository: img.NameWithReg(),
+		Tag:        img.Tag,
+	}, reg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type digester interface {
+	getDigest(img Image) (string, error)
+}
+
+type dockerDigester struct {
+	auth docker.AuthConfiguration
+}
+
+func (dd dockerDigester) getDigest(img Image) (string, error) {
+	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", dd.auth.ServerAddress, img.Repo, img.Tag)
 
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	req.SetBasicAuth(reg.Username, reg.Password)
+	req.SetBasicAuth(dd.auth.Username, dd.auth.Password)
 
 	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
 	defer cancel()
@@ -259,28 +326,11 @@ func digestRemoteImg(img Image, reg docker.AuthConfiguration) (string, error) {
 	return hash, nil
 }
 
-func pullImage(img Image, reg docker.AuthConfiguration) error {
-
-	log.Debug().
-		Str("image", img.String()).
-		Msg("Attempting to pull image")
-
-	if err := DefaultClient.PullImage(docker.PullImageOptions{
-		Repository: img.NameWithReg(),
-		Tag:        img.Tag,
-	}, reg); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func ensureImage(imgStr string) error {
 	img := parseImage(imgStr)
 
 	dImg, err := DefaultClient.InspectImage(img.String())
 	foundLocal := dImg != nil && err != docker.ErrNoSuchImage
-
 	if img.IsPublic() {
 		if !foundLocal {
 			return pullImage(img, docker.AuthConfiguration{})
@@ -293,45 +343,57 @@ func ensureImage(imgStr string) error {
 		return nil
 	}
 
-	creds, hasCreds := Registries[img.Registry]
-	var rdig string
-	for i := 0; i < 3 && hasCreds && rdig == ""; i++ {
-		rdig, err = digestRemoteImg(img, creds)
-		if err != nil {
-			continue
-		}
-	}
-
-	var newVersion bool
-	if rdig != "" && foundLocal {
-		ldig := dImg.RepoDigests[0]
-		if strings.Contains(ldig, "@") {
-			ldig = strings.Split(ldig, "@")[1]
-		}
-
-		if rdig == ldig {
-			newVersion = true
-		}
-	}
-
-	if newVersion {
-		// newVersion is only set if a local image exists AND a new digest has been observed
-		if err := pullImage(img, creds); err != nil {
-			log.Warn().
-				Err(err).
-				Str("image", img.String()).
-				Msg("Attempted to update version but failed")
-		}
-
-		return nil
-	}
-
 	if !foundLocal {
-		if !hasCreds {
+		creds, ok := Registries[img.Registry]
+		if !ok {
 			return fmt.Errorf("No credentials for registry: %s", img.Registry)
 		}
 
 		return pullImage(img, creds)
+	}
+
+	creds, ok := Registries[img.Registry]
+	if !ok {
+		log.Warn().
+			Err(err).
+			Str("image", img.String()).
+			Msg("Unknown credentials for registry of image")
+
+		return nil
+	}
+
+	dig := dockerDigester{creds}
+	var rdig string
+	for i := 0; i < 3 && rdig == ""; i++ {
+		rdig, err = dig.getDigest(img)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("image", img.String()).
+			Msg("Failed to get remote digest")
+
+		return nil
+	}
+
+	ldig := dImg.RepoDigests[0]
+	if strings.Contains(ldig, "@") {
+		ldig = strings.Split(ldig, "@")[1]
+	}
+
+	if rdig != ldig {
+		err := pullImage(img, creds)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("image", img.String()).
+				Msg("Attempted to pull new version but failed")
+		}
+
+		return nil
 	}
 
 	return nil
@@ -395,12 +457,9 @@ func (c *container) ID() string {
 func (c *container) Close() error {
 	if c.network != nil {
 		for _, cont := range append(c.linked, c) {
-			if err := DefaultClient.DisconnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
+			DefaultClient.DisconnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
 				Container: cont.ID(),
-			}); err != nil {
-				log.Warn().Msgf("Failed to disconnect container %s from network %s", c.id, c.network.ID)
-				continue
-			}
+			})
 		}
 
 		if err := DefaultClient.RemoveNetwork(c.network.ID); err != nil {
@@ -605,7 +664,7 @@ func (n *network) Connect(c Container, ip ...int) (int, error) {
 			IPAMConfig: &docker.EndpointIPAMConfig{
 				IPv4Address: ipAddr,
 			},
-			IPAddress:  ipAddr,
+			IPAddress: ipAddr,
 		},
 	})
 	if err != nil {
@@ -619,34 +678,6 @@ func (n *network) Connect(c Container, ip ...int) (int, error) {
 	n.connected = append(n.connected, c)
 
 	return lastDigit, nil
-}
-
-func GetDockerHostIP() (string, error) {
-	i, err := net.InterfaceByName("docker0")
-	if err != nil {
-		return "", err
-	}
-
-	addrs, err := i.Addrs()
-	if err != nil {
-		return "", err
-	}
-
-	for _, addr := range addrs {
-		switch addr.(type) {
-		case *net.IPNet:
-			rawIP, _ := addr.(*net.IPNet)
-			ip, _, err := net.ParseCIDR(rawIP.String())
-			if err != nil {
-				return "", err
-			}
-			if ip.To4() != nil {
-				return ip.String(), nil
-			}
-		}
-	}
-
-	return "", nil
 }
 
 var (

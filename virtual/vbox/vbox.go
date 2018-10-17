@@ -14,9 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"math"
 )
 
 const (
@@ -113,7 +115,7 @@ func (vm *vm) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	_, err = VBoxCmdContext(ctx, "unregistervm", vm.id, "--delete")
+	_, err = VBoxCmdContext(ctx, vboxUnregisterVM, vm.id, "--delete")
 	if err != nil {
 		return err
 	}
@@ -282,7 +284,8 @@ func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 }
 
 type Library interface {
-	GetCopy(string, ...VMOpt) (VM, error)
+	GetCopy(store.InstanceConfig, ...VMOpt) (VM, error)
+	IsAvailable(string) bool
 }
 
 type vBoxLibrary struct {
@@ -300,8 +303,20 @@ func NewLibrary(pwd string) Library {
 	}
 }
 
-func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
-	path = filepath.Join(lib.pwd, path)
+func (lib *vBoxLibrary) getPathFromFile(file string) string {
+	if !strings.HasPrefix(file, lib.pwd) {
+		file = filepath.Join(lib.pwd, file)
+	}
+
+	if !strings.HasSuffix(file, ".ova") {
+		file += ".ova"
+	}
+
+	return file
+}
+
+func (lib *vBoxLibrary) GetCopy(conf store.InstanceConfig, vmOpts ...VMOpt) (VM, error) {
+	path := lib.getPathFromFile(conf.Image)
 
 	lib.m.Lock()
 
@@ -351,7 +366,28 @@ func (lib *vBoxLibrary) GetCopy(path string, vmOpts ...VMOpt) (VM, error) {
 	lib.known[path] = vm
 	lib.m.Unlock()
 
-	return vm.LinkedClone("origin", vmOpts...)
+	instance, err := vm.LinkedClone("origin", vmOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	if conf.CPU != 0 {
+		instance.SetCPU(uint(math.Ceil(conf.CPU)))
+	}
+	if conf.MemoryMB != 0 {
+		instance.SetRAM(conf.MemoryMB)
+	}
+
+	return instance, nil
+}
+
+func (lib *vBoxLibrary) IsAvailable(file string) bool {
+	path := lib.getPathFromFile(file)
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+
+	return false
 }
 
 func checksumOfFile(filepath string) (string, error) {

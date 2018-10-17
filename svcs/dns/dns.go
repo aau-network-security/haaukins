@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-)
+	)
 
 const (
 	PreferedIP      = 3
@@ -122,5 +122,5 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) Stop() error {
-	return s.cont.Close()
+	return s.cont.Stop()
 }

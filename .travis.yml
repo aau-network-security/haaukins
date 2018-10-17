@@ -1,0 +1,43 @@
+sudo: required
+dist: trusty
+
+language: go
+go:
+- '1.11'
+
+services:
+- docker
+
+cache:
+  directories:
+  - "$HOME/.cache/go-build"
+
+env:
+  global:
+    GIT_TAG=$(git describe --tags)
+    GOCACHE=off
+
+install:
+- go get -t ./...
+- go get github.com/Microsoft/go-winio
+- go get github.com/inconshreveable/mousetrap
+
+script:
+- go test -v ./...
+
+before_deploy:
+- go run ./scripts/build_binaries.go
+
+deploy:
+  provider: releases
+  api_key:
+    secure: eRNgqr7ugxm+ofsFLoyIYRD2mQv3WWCDYi5dxITZvOhQFD71sAN8eG1f+6OpcgW1VaaCJGFGD7LYgTG8/cGTxJqPiXOQEbGXfJW4GqphZpwnzs0GqXCEEI985GOi3HEkplxvcd7Kf7nrJBJ6j5XXg0i7QqHCqkGuacMWzTFpcJGfHmFVFZxARf5AISBM6WuJhzdGkFgT1C8SRWVx6iiMI+X/g9ssVDXcWRAn55tzNGMbDB27COoSIHezKty1JFVTYyKEyvdBY6gthV4hsDvS+XekUntVnBiJM0IDhubZZWaWWLKNXFdzS/2ggELX+8hcKsUrbjoU8EgtB3flc0niBFuCs3gy6zroTkJwQKNDz2dcL6bd0G3pl5OXZdwbqjaiADlG7WHvihCCF9sWTSdbDJPCLSjH3/tUiftTEegsvBG5vXKbkREtpW+KSQkppHDuG7upqfHI564XCf1mMak09BlqfJS+moE9Q9J8fP58Ciw3uNAWC19hNvxNlYooVk1X6OgTTZYzKPEWYPgPGmfHmpXcnvUqaX9P6zpgWeHK+5cGAKfiUIU2+lxs/AdFFsvFSea71dSfSF6rJBTmkYpXWAK2wX2ub+El+rgHpatHJwatlG2QjWTdJHc8sIF6QlahqORtnhZ1S8dfWP2iKvZNe/OggWKHn/KBhl4LIEXDsVk=
+  file_glob: true
+  file: "./build/*"
+  skip_cleanup: true
+  on:
+    repo: aau-network-security/go-ntp
+    tags: true
+notifications:
+  slack:
+    secure: pbJLqnA2ilvWp9REuHrWqf/Pl/hSGkENBvjBPQyW6TvJytUHiObwP/aCQxyL31i8ZzItc1r+9db1tk12BFE5eObxyb4DHmHbaQ1/pwA7Bzf2SsM5J68Pyr9w/kXk44PUqfifeBLH/xhjCNtm+f8ZIkJiKfOZxgn9ddYt/vG4Nt8w6s43ZODDO+Caql1AH1iZ4xsJ6X/VPyvWfh9FaZpYnDQBI10fcsg4kGMZ6+p4pZ2wvRyo8LQJoIUcDGXATr7+kr3wB04r3BRAACydg0bDWPpuRBn6svIar6J12lHR05n0K+rtl+VYLLGJZuNPn3Tqh7tdt0ifrPTE0W1fM24mlOikLlYWhZ5Olf23DVxbxqeegu/x4E4ctT9ua/0UbBfZHVlb9pzFf+OoSYwX/N7dE9Dt7zuoeMebL3ECYXxyEvP1qHLNvxmeVydFFHKy2pu1pSQP/paz+1ShqgjbMOHFrz52HVvy/7b1qCMKDFnpYp6lc9adPgWJpsxGAY2dMw83iBJno+A9LF3LJzhv2TdRC+w1fQTUBdzW/wUkDLa9diHNdolN/2gFsAK8iJtLc2cz6hAh/2U4mRdrBjCULqZcGwBRS5jPA79zDZpMwhbET2j3vrqUx6iicAI8MI6Nptkt3g193trwS7oljXOkpdqBkXdh/ZpRYoiK/3nOc/LKfnI=
