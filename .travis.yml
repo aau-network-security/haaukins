@@ -15,6 +15,7 @@ cache:
 env:
   global:
     GIT_TAG=$(git describe --tags)
+    GOCACHE=off
 
 install:
 - go get -t ./...
