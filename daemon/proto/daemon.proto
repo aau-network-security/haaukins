@@ -43,7 +43,7 @@ message CreateEventRequest {
   string tag = 2;
   repeated string frontends = 3;
   repeated string exercises = 4;
-  int32 buffer = 5;
+  int32 initialSize = 5;
   int32 capacity = 6;
 }
 

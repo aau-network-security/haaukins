@@ -35,7 +35,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 func (c *Client) CmdEventCreate() *cobra.Command {
 	var (
 		name      string
-		buffer    int
+		initial   int
 		capacity  int
 		frontends []string
 		exercises []string
@@ -51,12 +51,12 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:      name,
-				Tag:       tag,
-				Frontends: frontends,
-				Exercises: exercises,
-				Capacity:  int32(capacity),
-				Buffer:    int32(buffer),
+				Name:        name,
+				Tag:         tag,
+				Frontends:   frontends,
+				Exercises:   exercises,
+				Capacity:    int32(capacity),
+				InitialSize: int32(initial),
 			})
 			if err != nil {
 				PrintError(err)
@@ -79,7 +79,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&name, "name", "n", "", "the event name")
-	cmd.Flags().IntVarP(&buffer, "buffer", "b", 2, "amount of lab hubs to buffer")
+	cmd.Flags().IntVarP(&initial, "initial_size", "i", 5, "amount of labs to start with")
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "capacity of total amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")

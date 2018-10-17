@@ -3,6 +3,7 @@ package lab
 import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"testing"
+	"time"
 )
 
 type testLabHost struct {
@@ -83,19 +84,51 @@ func TestHub_addLab(t *testing.T) {
 
 func TestHub_Get(t *testing.T) {
 	tt := []struct {
-		name        string
-		labcount    int
+		name              string
+		cap               int
+		start             int
+		getCount          int
+		expectedAvailable int32
+		expectedErr       error
 	}{
 		{
-			name:     "Normal",
-			labcount: 3,
+			name:              "Normal",
+			cap:               5,
+			start:             5,
+			getCount:          5,
+			expectedAvailable: 0,
+			expectedErr:       MaximumLabsErr,
+		},
+		{
+			name:              "Buffer works",
+			cap:               15,
+			start:             10,
+			getCount:          4,
+			expectedAvailable: 6,
+			expectedErr:       nil,
+		},
+		{
+			name:              "Capacity hit",
+			cap:               12,
+			start:             10,
+			getCount:          10,
+			expectedAvailable: 2,
+			expectedErr:       nil,
+		},
+		{
+			name:              "Buffer larger than initial size",
+			cap:               10,
+			start:             3,
+			getCount:          1,
+			expectedAvailable: 3,
+			expectedErr:       nil,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			ms := newSemaphore(tc.labcount)
-			cs := newSemaphore(tc.labcount)
+			ms := newSemaphore(tc.cap)
+			cs := newSemaphore(tc.cap)
 			lh := testLabHost{
 				lab: &testLab{},
 			}
@@ -103,21 +136,28 @@ func TestHub_Get(t *testing.T) {
 				maximumSema: ms,
 				createSema:  cs,
 				labHost:     &lh,
-				buffer:      make(chan Lab, tc.labcount),
+				buffer:      make(chan Lab, tc.start),
 			}
-			for i := 0; i < tc.labcount; i++ {
+			for i := 0; i < tc.start; i++ {
 				hub.addLab()
 			}
 
-			for i := 0; i < tc.labcount; i++ {
+			for i := 0; i < tc.getCount; i++ {
 				if _, err := hub.Get(); err != nil {
 					t.Fatalf("Unexpected error: %s", err)
 				}
 			}
 
-			if _, err := hub.Get(); err != MaximumLabsErr {
-				t.Fatalf("Expected error '%s', but got '%s'", MaximumLabsErr, err)
+			time.Sleep(1 * time.Millisecond)
+
+			if hub.Available() != tc.expectedAvailable {
+				t.Fatalf("Expected %d labs available, but go %d", tc.expectedAvailable, hub.Available())
 			}
+
+			if _, err := hub.Get(); err != tc.expectedErr {
+				t.Fatalf("Expected error '%s', but got '%s'", tc.expectedErr, err)
+			}
+
 		})
 	}
 }

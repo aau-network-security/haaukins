@@ -302,7 +302,7 @@ func (d *daemon) createEvent(ev event.Event) error {
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
-		Int("Buffer", conf.Buffer).
+		Int("Initial size", conf.InitialSize).
 		Int("Capacity", conf.Capacity).
 		Strs("Frontends", conf.Lab.Frontends).
 		Msg("Creating event")
@@ -330,10 +330,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 	evtag, _ := store.NewTag(req.Tag)
 	conf := store.EventConfig{
-		Name:     req.Name,
-		Tag:      evtag,
-		Buffer:   int(req.Buffer),
-		Capacity: int(req.Capacity),
+		Name:        req.Name,
+		Tag:         evtag,
+		InitialSize: int(req.InitialSize),
+		Capacity:    int(req.Capacity),
 		Lab: store.Lab{
 			Frontends: req.Frontends,
 			Exercises: tags,
@@ -349,8 +349,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return DuplicateEventErr
 	}
 
-	if conf.Buffer == 0 {
-		conf.Buffer = 2
+	if conf.InitialSize == 0 {
+		conf.InitialSize = 5
 	}
 
 	if conf.Capacity == 0 {

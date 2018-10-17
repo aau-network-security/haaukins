@@ -11,10 +11,12 @@ import (
 )
 
 var (
-	BufferMaxRatioErr  = errors.New("Buffer cannot be larger than maximum")
+	InitialSizeErr     = errors.New("Initial size cannot be larger than maximum")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
 )
+
+const BUFFERSIZE = 5
 
 type Hub interface {
 	Get() (Lab, error)
@@ -39,9 +41,9 @@ type hub struct {
 	numbLabs int32
 }
 
-func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
-	if buf > cap {
-		return nil, BufferMaxRatioErr
+func NewHub(conf Config, vboxLib vbox.Library, initial int, cap int) (Hub, error) {
+	if initial > cap {
+		return nil, InitialSizeErr
 	}
 
 	createLimit := 3
@@ -50,13 +52,13 @@ func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
 		conf:        conf,
 		createSema:  newSemaphore(createLimit),
 		maximumSema: newSemaphore(cap),
-		buffer:      make(chan Lab, buf),
+		buffer:      make(chan Lab, initial),
 		vboxLib:     vboxLib,
 		labHost:     &labHost{},
 	}
 
-	log.Debug().Msgf("Instantiating %d lab(s)", buf)
-	for i := 0; i < buf; i++ {
+	log.Debug().Msgf("Instantiating %d lab(s)", initial)
+	for i := 0; i < initial; i++ {
 		go h.addLab()
 	}
 
@@ -97,7 +99,9 @@ func (h *hub) Get() (Lab, error) {
 	select {
 	case lab := <-h.buffer:
 		atomic.AddInt32(&h.numbLabs, -1)
-		go h.addLab()
+		if atomic.LoadInt32(&h.numbLabs) < BUFFERSIZE {
+			go h.addLab()
+		}
 		h.labs = append(h.labs, lab)
 		return lab, nil
 	default:
