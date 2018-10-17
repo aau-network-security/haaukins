@@ -23,7 +23,7 @@ install:
 - go get github.com/inconshreveable/mousetrap
 
 script:
-- go test -v -race ./...
+- go test -v ./...
 
 before_deploy:
 - go run ./scripts/build_binaries.go
