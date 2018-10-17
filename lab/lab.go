@@ -30,26 +30,13 @@ func (conf Config) Flags() []store.FlagConfig {
 	return res
 }
 
-type Lab interface {
-	Start() error
-	Stop() error
-	Restart() error
-	Close()
-	GetEnvironment() exercise.Environment
-	RdpConnPorts() []uint
-	GetTag() string
+type LabHost interface {
+	NewLab(lib vbox.Library, config Config) (Lab, error)
 }
 
-type lab struct {
-	tag          string
-	lib          vbox.Library
-	environment  exercise.Environment
-	frontends    []vbox.VM
-	rdpConnPorts []uint
-	dockerHost   docker.Host
-}
+type labHost struct{}
 
-func NewLab(lib vbox.Library, config Config) (Lab, error) {
+func (lh *labHost) NewLab(lib vbox.Library, config Config) (Lab, error) {
 	environ, err := newEnvironment(lib, config.Exercises...)
 	if err != nil {
 		return nil, err
@@ -73,6 +60,25 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 	}
 
 	return l, nil
+}
+
+type Lab interface {
+	Start() error
+	Stop() error
+	Restart() error
+	Close()
+	GetEnvironment() exercise.Environment
+	RdpConnPorts() []uint
+	GetTag() string
+}
+
+type lab struct {
+	tag          string
+	lib          vbox.Library
+	environment  exercise.Environment
+	frontends    []vbox.VM
+	rdpConnPorts []uint
+	dockerHost   docker.Host
 }
 
 func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {

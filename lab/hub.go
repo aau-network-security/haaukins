@@ -14,8 +14,6 @@ var (
 	BufferMaxRatioErr  = errors.New("Buffer cannot be larger than maximum")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
-
-	vboxNewLibrary = vbox.NewLibrary
 )
 
 type Hub interface {
@@ -25,12 +23,12 @@ type Hub interface {
 	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
-	//Config() []store.Exercise
 }
 
 type hub struct {
 	vboxLib vbox.Library
 	conf    Config
+	labHost LabHost
 
 	m           sync.Mutex
 	createSema  *semaphore
@@ -50,10 +48,11 @@ func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
 	h := &hub{
 		labs:        []Lab{},
 		conf:        conf,
-		createSema:  NewSemaphore(createLimit),
-		maximumSema: NewSemaphore(cap),
+		createSema:  newSemaphore(createLimit),
+		maximumSema: newSemaphore(cap),
 		buffer:      make(chan Lab, buf),
 		vboxLib:     vboxLib,
+		labHost:     &labHost{},
 	}
 
 	log.Debug().Msgf("Instantiating %d lab(s)", buf)
@@ -65,15 +64,15 @@ func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
 }
 
 func (h *hub) addLab() error {
-	if h.maximumSema.Available() == 0 {
+	if h.maximumSema.available() == 0 {
 		return MaximumLabsErr
 	}
 
-	h.maximumSema.Claim()
-	h.createSema.Claim()
-	defer h.createSema.Release()
+	h.maximumSema.claim()
+	h.createSema.claim()
+	defer h.createSema.release()
 
-	lab, err := NewLab(h.vboxLib, h.conf)
+	lab, err := h.labHost.NewLab(h.vboxLib, h.conf)
 	if err != nil {
 		log.Debug().Msgf("Error while creating new lab: %s", err)
 		return err
@@ -139,7 +138,7 @@ type semaphore struct {
 	r chan rsrc
 }
 
-func NewSemaphore(n int) *semaphore {
+func newSemaphore(n int) *semaphore {
 	c := make(chan rsrc, n)
 	for i := 0; i < n; i++ {
 		c <- rsrc{}
@@ -150,14 +149,14 @@ func NewSemaphore(n int) *semaphore {
 	}
 }
 
-func (s *semaphore) Claim() rsrc {
+func (s *semaphore) claim() rsrc {
 	return <-s.r
 }
 
-func (s *semaphore) Available() int {
+func (s *semaphore) available() int {
 	return len(s.r)
 }
 
-func (s *semaphore) Release() {
+func (s *semaphore) release() {
 	s.r <- rsrc{}
 }
