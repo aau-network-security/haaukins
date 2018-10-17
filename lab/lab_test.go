@@ -1,35 +1,55 @@
-// +build ignore
-
-package lab_test
+package lab
 
 import (
-	"fmt"
-	"github.com/aau-network-security/go-ntp/exercise"
-	"github.com/aau-network-security/go-ntp/lab"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"testing"
+	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/aau-network-security/go-ntp/exercise"
 )
 
-func TestLab(t *testing.T) {
-	lib := vbox.NewLibrary("/scratch/events")
+type testDockerHost struct {
+	docker.Host
+}
 
-	exeConf := lab.Config{
-		Exercises: []exercise.Config{{
-			Name: "SQL",
-			Tags: []string{"sql"},
-			DockerConfs: []exercise.DockerConfig{
-				{
-					Image: "aau/sql-server",
-					Records: []exercise.RecordConfig{
-						{
-							Name: "netsec-forum.dk",
-							Type: "A",
-						},
-					},
-				},
-			},
-		}},
+func (dh *testDockerHost) GetDockerHostIP() (string, error) {
+	return "1.2.3.4", nil
+}
+
+type testVboxLibrary struct {
+	vm vbox.VM
+	vbox.Library
+}
+
+func (vl *testVboxLibrary) GetCopy(store.InstanceConfig, ...vbox.VMOpt) (vbox.VM, error) {
+	return vl.vm, nil
+}
+
+type testVM struct {
+	vbox.VM
+}
+
+type testEnvironment struct {
+	exercise.Environment
+}
+
+func (ee *testEnvironment) Interface() string {
+	return ""
+}
+
+func TestAddFrontend(t *testing.T) {
+	lab := lab{
+		dockerHost: &testDockerHost{},
+		lib: &testVboxLibrary{
+			vm: &testVM{},
+		},
+		environment: &testEnvironment{},
 	}
+	conf := store.InstanceConfig{}
 
-	fmt.Println(lab.NewLab(lib, exeConf))
+	lab.addFrontend(conf)
+
+	if len(lab.frontends) != 1 {
+		t.Fatalf("Expected %d frontend, but is %d", len(lab.frontends), 1)
+	}
 }
