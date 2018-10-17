@@ -46,6 +46,7 @@ type lab struct {
 	environment  exercise.Environment
 	frontends    []vbox.VM
 	rdpConnPorts []uint
+	dockerHost   docker.Host
 }
 
 func NewLab(lib vbox.Library, config Config) (Lab, error) {
@@ -54,10 +55,13 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 		return nil, err
 	}
 
+	dockerHost := docker.NewHost()
+
 	l := &lab{
 		tag:         generateTag(),
 		lib:         lib,
 		environment: environ,
+		dockerHost:  dockerHost,
 	}
 
 	for _, f := range config.Frontends {
@@ -72,7 +76,7 @@ func NewLab(lib vbox.Library, config Config) (Lab, error) {
 }
 
 func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
-	hostIp, err := docker.GetDockerHostIP()
+	hostIp, err := l.dockerHost.GetDockerHostIP()
 
 	if err != nil {
 		return nil, err

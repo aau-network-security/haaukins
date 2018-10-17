@@ -27,8 +27,6 @@ var (
 	StartingRevErr  = errors.New("error while starting reverse proxy")
 	EmptyNameErr    = errors.New("event requires a name")
 	EmptyTagErr     = errors.New("event requires a tag")
-
-	getDockerHostIp = docker.GetDockerHostIP
 )
 
 type Host interface {
@@ -109,6 +107,7 @@ type event struct {
 	store store.EventFile
 
 	guacUserStore *guacamole.GuacUserStore
+	dockerHost    docker.Host
 }
 
 func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
@@ -129,6 +128,8 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		return nil, err
 	}
 
+	dockerHost := docker.NewHost()
+
 	ev := &event{
 		store:         ef,
 		labhub:        hub,
@@ -136,6 +137,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
+		dockerHost:    dockerHost,
 	}
 
 	return ev, nil
@@ -206,7 +208,7 @@ func (ev *event) AssignLab(t store.Team) error {
 
 	ev.guacUserStore.CreateUserForTeam(t.Id, u)
 
-	hostIp, err := getDockerHostIp()
+	hostIp, err := ev.dockerHost.GetDockerHostIP()
 	if err != nil {
 		return err
 	}
