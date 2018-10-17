@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"net"
 )
 
 var (
@@ -42,6 +42,48 @@ func init() {
 	}
 
 	rand.Seed(time.Now().Unix())
+}
+
+type Host interface {
+	GetDockerHostIP() (string, error)
+}
+
+func NewHost() Host {
+	return &host{}
+}
+
+type host struct{}
+
+func (h *host) GetDockerHostIP() (string, error) {
+	return getDockerHostIP()
+}
+
+func getDockerHostIP() (string, error) {
+	i, err := net.InterfaceByName("docker0")
+	if err != nil {
+		return "", err
+	}
+
+	addrs, err := i.Addrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range addrs {
+		switch addr.(type) {
+		case *net.IPNet:
+			rawIP, _ := addr.(*net.IPNet)
+			ip, _, err := net.ParseCIDR(rawIP.String())
+			if err != nil {
+				return "", err
+			}
+			if ip.To4() != nil {
+				return ip.String(), nil
+			}
+		}
+	}
+
+	return "", nil
 }
 
 type Identifier interface {
@@ -139,7 +181,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 
 	}
 
-	hostIP, err := GetDockerHostIP()
+	hostIP, err := getDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
@@ -616,34 +658,6 @@ func (n *network) Connect(c Container, ip ...int) (int, error) {
 	n.connected = append(n.connected, c)
 
 	return lastDigit, nil
-}
-
-func GetDockerHostIP() (string, error) {
-	i, err := net.InterfaceByName("docker0")
-	if err != nil {
-		return "", err
-	}
-
-	addrs, err := i.Addrs()
-	if err != nil {
-		return "", err
-	}
-
-	for _, addr := range addrs {
-		switch addr.(type) {
-		case *net.IPNet:
-			rawIP, _ := addr.(*net.IPNet)
-			ip, _, err := net.ParseCIDR(rawIP.String())
-			if err != nil {
-				return "", err
-			}
-			if ip.To4() != nil {
-				return ip.String(), nil
-			}
-		}
-	}
-
-	return "", nil
 }
 
 var (
