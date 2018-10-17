@@ -451,7 +451,12 @@ func (esh *eventfilehub) CreateEventFile(conf EventConfig) (EventFile, error) {
 		return nil, err
 	}
 
-	return NewEventFile(filename, RawEventFile{EventConfig: conf}), nil
+	ef := NewEventFile(filename, RawEventFile{EventConfig: conf})
+	if err := ef.save(); err != nil {
+		return nil, err
+	}
+
+	return ef, nil
 }
 
 func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
