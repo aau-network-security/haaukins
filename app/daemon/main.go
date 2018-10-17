@@ -1,7 +1,7 @@
 package main
 
 import (
-		"flag"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -38,7 +38,6 @@ func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
 	crt := c.Management.TLS.CertFile
 	key := c.Management.TLS.KeyFile
 	if crt != "" && key != "" {
-		fmt.Printf("Starting server with crt=%s and key=%s\n", crt, key)
 		creds, err := credentials.NewServerTLSFromFile(crt, key)
 		if err != nil {
 			return nil, err

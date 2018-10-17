@@ -130,7 +130,6 @@ func (c *Client) CheckVersionSync() error {
 	defer cancel()
 
 	resp, err := c.rpcClient.Version(ctx, &pb.Empty{})
-	fmt.Println(err)
 	if err != nil {
 		err = TranslateRPCErr(err)
 		switch err {
@@ -181,7 +180,6 @@ func TranslateRPCErr(err error) error {
 }
 
 func PrintError(err error) {
-	fmt.Printf("%+v", err)
 	err = TranslateRPCErr(err)
 	fmt.Printf("%s %s\n", color.Red("<!>"), color.Red(err.Error()))
 }
