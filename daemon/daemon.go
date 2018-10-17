@@ -228,7 +228,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		grpc.StreamInterceptor(streamInterceptor),
 		grpc.UnaryInterceptor(unaryInterceptor),
 	}, opts...)
-
+	fmt.Printf("Server options: %s\n", opts)
 	return grpc.NewServer(opts...)
 }
 
