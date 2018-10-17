@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -352,6 +353,7 @@ func (eh fakeEventHost) CreateEventFromEventFile(store.EventFile) (event.Event, 
 }
 
 type fakeEvent struct {
+	m         sync.Mutex
 	connected int
 	started   int
 	close     int
@@ -364,32 +366,53 @@ type fakeEvent struct {
 }
 
 func (fe *fakeEvent) Start(context.Context) error {
+	fe.m.Lock()
+	defer fe.m.Unlock()
+
 	fe.started += 1
 	return nil
 }
 
 func (fe *fakeEvent) Connect(*mux.Router) {
+	fe.m.Lock()
+	defer fe.m.Unlock()
+
 	fe.connected += 1
 }
 
 func (fe *fakeEvent) Close() {
+	fe.m.Lock()
+	defer fe.m.Unlock()
+
 	fe.close += 1
 }
 
 func (fe *fakeEvent) Finish() {
+	fe.m.Lock()
+	defer fe.m.Unlock()
+
 	fe.finished += 1
 }
 
 func (fe *fakeEvent) Register(store.Team) error {
+	fe.m.Lock()
+	defer fe.m.Unlock()
+
 	fe.register += 1
 	return nil
 }
 
 func (fe *fakeEvent) GetConfig() store.EventConfig {
+	fe.m.Lock()
+	defer fe.m.Unlock()
+
 	return fe.conf
 }
 
 func (fe *fakeEvent) GetTeams() []store.Team {
+	fe.m.Lock()
+	defer fe.m.Unlock()
+
 	return fe.teams
 }
 
