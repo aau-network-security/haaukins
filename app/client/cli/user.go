@@ -96,6 +96,11 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 				return
 			}
 
+			if r.Error != "" {
+				PrintError(fmt.Errorf(r.Error))
+				return
+			}
+
 			c.Token = r.Token
 			if err := c.SaveToken(); err != nil {
 				PrintError(err)
