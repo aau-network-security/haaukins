@@ -13,10 +13,10 @@ events-directory: "/vms"             # optional, defaults to './vbox'
 users-file: "/users.yml"             # optional, defaults to './users.yml'
 exercises-file: "/exercises.yml"     # optional, defaults to './exercises.yml'
 management:
-	sign-key: "some_secret"          # required,  used for signing JSON Web Token (make it long and random)
-	tls:
-		cert-file: "cert.crt"        # optional, cert file for enabling TLS on management interface
-		key-file: "key.key"          # optional, cert file for enabling TLS on management interface
+  sign-key: "some_secret"          # required,  used for signing JSON Web Token (make it long and random)
+  tls:
+    cert-file: "cert.crt"        # optional, cert file for enabling TLS on management interface
+    key-file: "key.key"          # optional, cert file for enabling TLS on management interface
 docker-repositories:                 # optional, credentials for docker repositories
     - username: SomeUser
       password: SomePass
