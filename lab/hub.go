@@ -4,17 +4,20 @@ import (
 	"errors"
 	"sync"
 
+	"sync/atomic"
+
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"sync/atomic"
 )
 
 var (
-	BufferMaxRatioErr  = errors.New("Buffer cannot be larger than maximum")
+	AvailableSizeErr   = errors.New("Available cannot be larger than capacity")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
 )
+
+const BUFFERSIZE = 5
 
 type Hub interface {
 	Get() (Lab, error)
@@ -39,9 +42,9 @@ type hub struct {
 	numbLabs int32
 }
 
-func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
-	if buf > cap {
-		return nil, BufferMaxRatioErr
+func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
+	if available > cap {
+		return nil, AvailableSizeErr
 	}
 
 	createLimit := 3
@@ -50,13 +53,13 @@ func NewHub(conf Config, vboxLib vbox.Library, cap int, buf int) (Hub, error) {
 		conf:        conf,
 		createSema:  newSemaphore(createLimit),
 		maximumSema: newSemaphore(cap),
-		buffer:      make(chan Lab, buf),
+		buffer:      make(chan Lab, available),
 		vboxLib:     vboxLib,
 		labHost:     &labHost{},
 	}
 
-	log.Debug().Msgf("Instantiating %d lab(s)", buf)
-	for i := 0; i < buf; i++ {
+	log.Debug().Msgf("Instantiating %d lab(s)", available)
+	for i := 0; i < available; i++ {
 		go h.addLab()
 	}
 
@@ -97,7 +100,9 @@ func (h *hub) Get() (Lab, error) {
 	select {
 	case lab := <-h.buffer:
 		atomic.AddInt32(&h.numbLabs, -1)
-		go h.addLab()
+		if atomic.LoadInt32(&h.numbLabs) < BUFFERSIZE {
+			go h.addLab()
+		}
 		h.labs = append(h.labs, lab)
 		return lab, nil
 	default:

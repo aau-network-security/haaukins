@@ -63,7 +63,7 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		Exercises: exer,
 		Frontends: conf.Lab.Frontends,
 	}
-	hub, err := lab.NewHub(labConf, eh.vlib, conf.Capacity, conf.Buffer)
+	hub, err := lab.NewHub(labConf, eh.vlib, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
 	}

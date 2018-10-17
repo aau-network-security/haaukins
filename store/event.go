@@ -33,7 +33,7 @@ var (
 type EventConfig struct {
 	Name       string     `yaml:"name"`
 	Tag        Tag        `yaml:"tag"`
-	Buffer     int        `yaml:"buffer"`
+	Available  int        `yaml:"available"`
 	Capacity   int        `yaml:"capacity"`
 	Lab        Lab        `yaml:"lab"`
 	StartedAt  *time.Time `yaml:"started-at,omitempty"`
