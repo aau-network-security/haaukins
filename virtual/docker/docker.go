@@ -268,9 +268,6 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 	}, nil
 }
 
-func digestRemoteImg(img Image, reg docker.AuthConfiguration) (string, error) {
-}
-
 func pullImage(img Image, reg docker.AuthConfiguration) error {
 
 	log.Debug().
