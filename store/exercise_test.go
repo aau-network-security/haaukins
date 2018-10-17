@@ -1,5 +1,3 @@
-// +build ignore
-
 package store_test
 
 import (
@@ -11,7 +9,7 @@ import (
 
 type exer struct {
 	name string
-	tags []string
+	tags []store.Tag
 }
 
 func TestNewExerciseStore(t *testing.T) {
@@ -20,17 +18,17 @@ func TestNewExerciseStore(t *testing.T) {
 		in   []exer
 		err  string
 	}{
-		{name: "Normal", in: []exer{{name: "Test", tags: []string{"tst"}}}},
-		{name: "Multiple tags", in: []exer{{name: "Test", tags: []string{"tst", "tst2"}}}},
+		{name: "Normal", in: []exer{{name: "Test", tags: []store.Tag{"tst"}}}},
+		{name: "Multiple tags", in: []exer{{name: "Test", tags: []store.Tag{"tst", "tst2"}}}},
 		{name: "Identical tags", in: []exer{
-			{name: "Test", tags: []string{"tst"}},
-			{name: "Test 2", tags: []string{"tst"}},
-		}, err: "Exercise tag already exists: tst"}}
+			{name: "Test", tags: []store.Tag{"tst"}},
+			{name: "Test 2", tags: []store.Tag{"tst"}},
+		}, err: "Tag already exists: tst"}}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			var exers []store.Exercise
-			var tags []string
+			var tags []store.Tag
 			for _, e := range tc.in {
 				exers = append(exers, store.Exercise{
 					Name: e.name,
@@ -61,7 +59,7 @@ func TestNewExerciseStore(t *testing.T) {
 				t.Fatalf("unexpected amount of exercises, expected: %d, got: %d", len(exers), n)
 			}
 
-			exercises, err := es.GetExercisesByTags(tags[0], tags[1:]...)
+			exercises, err := es.GetExercisesByTags(tags...)
 			if err != nil {
 				t.Fatalf("unexpected error when looking up tags")
 			}
@@ -80,8 +78,8 @@ func TestCreateExercise(t *testing.T) {
 		in   exer
 		err  bool
 	}{
-		{name: "Normal", in: exer{name: "Test", tags: []string{"tst"}}},
-		{name: "Invalid tag exercise", in: exer{name: "Test", tags: []string{"tst tst"}}, err: true},
+		{name: "Normal", in: exer{name: "Test", tags: []store.Tag{"tst"}}},
+		{name: "Invalid tag exercise", in: exer{name: "Test", tags: []store.Tag{"tst tst"}}, err: true},
 	}
 
 	for _, tc := range tt {
@@ -147,19 +145,19 @@ func TestGetExercises(t *testing.T) {
 	tt := []struct {
 		name    string
 		in      []exer
-		lookups []string
+		lookups []store.Tag
 		err     string
 	}{
 		{name: "Normal", in: []exer{
-			exer{name: "Test", tags: []string{"tst"}},
-		}, lookups: []string{"tst"}},
+			exer{name: "Test", tags: []store.Tag{"tst"}},
+		}, lookups: []store.Tag{"tst"}},
 		{name: "Normal (pool of two)", in: []exer{
-			exer{name: "Test", tags: []string{"tst"}},
-			exer{name: "Test2", tags: []string{"tst2"}},
-		}, lookups: []string{"tst"}},
+			exer{name: "Test", tags: []store.Tag{"tst"}},
+			exer{name: "Test2", tags: []store.Tag{"tst2"}},
+		}, lookups: []store.Tag{"tst"}},
 		{name: "Unknown exercise", in: []exer{},
 			err:     "Unknown exercise tag: tst",
-			lookups: []string{"tst"}},
+			lookups: []store.Tag{"tst"}},
 	}
 
 	for _, tc := range tt {
@@ -177,7 +175,7 @@ func TestGetExercises(t *testing.T) {
 				t.Fatalf("received error when creating exercise store, but expected none: %s", err)
 			}
 
-			exercises, err := es.GetExercisesByTags(tc.lookups[0], tc.lookups[1:]...)
+			exercises, err := es.GetExercisesByTags(tc.lookups...)
 			if err != nil {
 				if tc.err != "" {
 					if tc.err != err.Error() {
@@ -205,17 +203,17 @@ func TestDeleteExercise(t *testing.T) {
 	tt := []struct {
 		name      string
 		in        exer
-		deleteTag string
+		deleteTag store.Tag
 		err       string
 	}{
-		{name: "Normal", in: exer{name: "Test", tags: []string{"tst"}}, deleteTag: "tst"},
-		{name: "Unknown exercise", in: exer{name: "Test", tags: []string{"tst"}}, deleteTag: "not-test", err: "Unknown exercise tag: not-test"},
+		{name: "Normal", in: exer{name: "Test", tags: []store.Tag{"tst"}}, deleteTag: "tst"},
+		{name: "Unknown exercise", in: exer{name: "Test", tags: []store.Tag{"tst"}}, deleteTag: "not-test", err: "Unknown exercise tag: not-test"},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			es, err := store.NewExerciseStore([]store.Exercise{
-				store.Exercise{
+				{
 					Name: tc.in.name,
 					Tags: tc.in.tags,
 				}})

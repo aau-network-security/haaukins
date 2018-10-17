@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"net/url"
+
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
@@ -16,7 +18,6 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
-	"net/url"
 )
 
 var (
@@ -31,24 +32,26 @@ var (
 )
 
 type Host interface {
-	CreateEvent(store.Event) (Event, error)
+	CreateEventFromConfig(store.EventConfig) (Event, error)
+	CreateEventFromEventFile(store.EventFile) (Event, error)
 }
 
-func NewHost(vlib vbox.Library, elib store.ExerciseStore, esh store.EventStoreHub) Host {
+func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
 	return &eventHost{
-		esh:  esh,
+		efh:  efh,
 		vlib: vlib,
 		elib: elib,
 	}
 }
 
 type eventHost struct {
-	esh  store.EventStoreHub
+	efh  store.EventFileHub
 	vlib vbox.Library
 	elib store.ExerciseStore
 }
 
-func (eh *eventHost) CreateEvent(conf store.Event) (Event, error) {
+func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error) {
+	conf := ef.Read()
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
@@ -67,12 +70,16 @@ func (eh *eventHost) CreateEvent(conf store.Event) (Event, error) {
 		return nil, err
 	}
 
-	es, err := eh.esh.CreateEventStore(conf)
+	return NewEvent(ef, hub)
+}
+
+func (eh *eventHost) CreateEventFromConfig(conf store.EventConfig) (Event, error) {
+	ef, err := eh.efh.CreateEventFile(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewEvent(conf, hub, es)
+	return eh.CreateEventFromEventFile(ef)
 }
 
 type Auth struct {
@@ -83,10 +90,11 @@ type Auth struct {
 type Event interface {
 	Start(context.Context) error
 	Close()
+	Finish()
 	AssignLab(store.Team) error
 	Connect(*mux.Router)
 
-	GetConfig() store.Event
+	GetConfig() store.EventConfig
 	GetTeams() []store.Team
 	GetHub() lab.Hub
 	GetLabByTeam(teamId string) (lab.Lab, bool)
@@ -98,15 +106,17 @@ type event struct {
 	labhub lab.Hub
 
 	labs  map[string]lab.Lab
-	store store.EventStore
+	store store.EventFile
 
 	guacUserStore *guacamole.GuacUserStore
 }
 
-func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, error) {
+func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
+	conf := ef.Read()
 	ctfdConf := ctfd.Config{
 		Name:  conf.Name,
 		Flags: hub.Flags(),
+		Teams: ef.GetTeams(),
 	}
 
 	ctf, err := ctfd.New(ctfdConf)
@@ -120,7 +130,7 @@ func NewEvent(conf store.Event, hub lab.Hub, store store.EventStore) (Event, err
 	}
 
 	ev := &event{
-		store:         store,
+		store:         ef,
 		labhub:        hub,
 		ctfd:          ctf,
 		guac:          guac,
@@ -154,8 +164,6 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 func (ev *event) Close() {
-	now := time.Now()
-
 	if ev.guac != nil {
 		ev.guac.Close()
 	}
@@ -165,7 +173,10 @@ func (ev *event) Close() {
 	if ev.labhub != nil {
 		ev.labhub.Close()
 	}
+}
 
+func (ev *event) Finish() {
+	now := time.Now()
 	ev.store.Finish(now)
 }
 
@@ -251,7 +262,7 @@ func (ev *event) Connect(r *mux.Router) {
 
 	interceptors := svcs.Interceptors{
 		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks, defaultTasks...),
-		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.FlagMap()),
+		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.ChalMap()),
 		ctfd.NewLoginInterceptor(ev.store),
 		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, loginFunc),
 	}
@@ -271,7 +282,7 @@ func (ev *event) GetHub() lab.Hub {
 	return ev.labhub
 }
 
-func (ev *event) GetConfig() store.Event {
+func (ev *event) GetConfig() store.EventConfig {
 	return ev.store.Read()
 }
 

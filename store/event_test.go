@@ -1,5 +1,3 @@
-// +build ignore
-
 package store_test
 
 import (
@@ -11,10 +9,7 @@ import (
 
 func TestNewTeam(t *testing.T) {
 	password := "some_password"
-	team, err := store.NewTeam("some name", "some@email.com", password, []store.Task{})
-	if err != nil {
-		t.Fatalf("expected no error when creating team")
-	}
+	team := store.NewTeam("some name", "some@email.com", password)
 
 	if team.HashedPassword == password {
 		t.Fatalf("expected password to be hashed")
@@ -22,13 +17,13 @@ func TestNewTeam(t *testing.T) {
 }
 
 func TestTeamSolveTask(t *testing.T) {
-	etag := "abc"
-	team, err := store.NewTeam("some name", "some@email.com", "some_password", []store.Task{
-		store.Task{FlagTag: etag},
-	})
+	etag, err := store.NewTag("abc")
 	if err != nil {
-		t.Fatalf("expected no error when creating team")
+		t.Fatalf("invalid tag: %s", err)
 	}
+	team := store.NewTeam("some name", "some@email.com", "some_password", []store.Task{
+		{FlagTag: store.Tag(etag)},
+	}...)
 
 	if err := team.SolveTaskByTag(etag); err != nil {
 		t.Fatalf("expected no error when solving task for team: %s", err)
@@ -57,17 +52,17 @@ func TestCreateToken(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			es := store.NewEventStore()
+			ts := store.NewTeamStore()
 
 			var team store.Team
 			if tc.team != nil {
 				team = *tc.team
-				if err := es.CreateTeam(team); err != nil {
+				if err := ts.CreateTeam(team); err != nil {
 					t.Fatalf("expected no error when creating team")
 				}
 			}
 
-			err := es.CreateTokenForTeam(tc.token, team)
+			err := ts.CreateTokenForTeam(tc.token, team)
 			if err != nil {
 				if tc.err != "" {
 					if tc.err != err.Error() {
@@ -89,17 +84,17 @@ func TestCreateToken(t *testing.T) {
 }
 
 func TestGetTokenForTeam(t *testing.T) {
-	es := store.NewEventStore()
+	ts := store.NewTeamStore()
 	team := store.Team{
 		Name:  "Test team",
 		Email: "tkp@tkp.dk",
 	}
-	if err := es.CreateTeam(team); err != nil {
+	if err := ts.CreateTeam(team); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}
 
 	token := "token-to-test"
-	err := es.CreateTokenForTeam(token, team)
+	err := ts.CreateTokenForTeam(token, team)
 	if err != nil {
 		t.Fatalf("expected no error when creating token")
 	}
@@ -116,7 +111,7 @@ func TestGetTokenForTeam(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			team, err := es.GetTeamByToken(tc.token)
+			team, err := ts.GetTeamByToken(tc.token)
 			if err != nil {
 				if tc.err != "" {
 					if tc.err != err.Error() {
@@ -154,21 +149,21 @@ func TestDeleteToken(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			es := store.NewEventStore()
+			ts := store.NewTeamStore()
 			team := store.Team{
 				Name:  "Test team",
 				Email: "tkp@tkp.dk",
 			}
-			if err := es.CreateTeam(team); err != nil {
+			if err := ts.CreateTeam(team); err != nil {
 				t.Fatalf("expected no error when creating team")
 			}
 
-			err := es.CreateTokenForTeam(tc.inputToken, team)
+			err := ts.CreateTokenForTeam(tc.inputToken, team)
 			if err != nil {
 				t.Fatalf("expected no error when creating token")
 			}
 
-			err = es.DeleteToken(tc.deleteToken)
+			err = ts.DeleteToken(tc.deleteToken)
 			if err != nil {
 				if tc.err != "" {
 					if tc.err != err.Error() {

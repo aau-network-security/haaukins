@@ -98,7 +98,7 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 				if err := h(t); err != nil {
 					log.Warn().
 						Err(err).
-						Msgf("Unable to run post hook for %s", t.Name)
+						Msgf("Unable to run post hook %s for %s", h, t.Name)
 				}
 			}
 		}
@@ -160,7 +160,7 @@ func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, 
 		return
 	}
 
-	matches := chalPathRegex.FindStringSubmatch(r.URL.Path)
+	matches := chalPathRegex.FindStringSubmatch("/" + r.URL.Path)
 	chalNumStr := matches[1]
 	chalNum, _ := strconv.Atoi(chalNumStr)
 

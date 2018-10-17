@@ -339,16 +339,16 @@ func TestLoginUser(t *testing.T) {
 	}
 }
 
-type eventCreator struct {
-	calls int
-	conf  store.Event
-	event *fakeEvent
+type fakeEventHost struct {
+	event event.Event
 }
 
-func (ec *eventCreator) CreateEvent(conf store.Event) (event.Event, error) {
-	ec.conf = conf
-	ec.calls += 1
-	return ec.event, nil
+func (eh fakeEventHost) CreateEventFromConfig(store.EventConfig) (event.Event, error) {
+	return eh.event, nil
+}
+
+func (eh fakeEventHost) CreateEventFromEventFile(store.EventFile) (event.Event, error) {
+	return eh.event, nil
 }
 
 type fakeEvent struct {
@@ -356,8 +356,10 @@ type fakeEvent struct {
 	started   int
 	close     int
 	register  int
+	finished  int
 	teams     []store.Team
 	lab       fakeLab
+	conf      store.EventConfig
 	event.Event
 }
 
@@ -374,13 +376,17 @@ func (fe *fakeEvent) Close() {
 	fe.close += 1
 }
 
+func (fe *fakeEvent) Finish() {
+	fe.finished += 1
+}
+
 func (fe *fakeEvent) Register(store.Team) error {
 	fe.register += 1
 	return nil
 }
 
-func (fe *fakeEvent) GetConfig() store.Event {
-	return store.Event{}
+func (fe *fakeEvent) GetConfig() store.EventConfig {
+	return fe.conf
 }
 
 func (fe *fakeEvent) GetTeams() []store.Team {
@@ -428,9 +434,6 @@ func TestCreateEvent(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := fakeEvent{}
-			ec := &eventCreator{
-				event: &ev,
-			}
 
 			ctx := context.Background()
 			events := map[store.Tag]event.Event{}
@@ -440,8 +443,10 @@ func TestCreateEvent(t *testing.T) {
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux:   mux.NewRouter(),
-				ehost: ec,
+				mux: mux.NewRouter(),
+				ehost: &fakeEventHost{
+					event: &ev,
+				},
 			}
 
 			dialer, close := getServer(d)
@@ -505,15 +510,6 @@ func TestCreateEvent(t *testing.T) {
 				t.Fatalf("expected one event to have been created")
 			}
 
-			if tc.event.Name != ec.conf.Name {
-				t.Fatalf("name is set incorrectly (expected: %s) received: %s", tc.event.Name, ec.conf.Name)
-			}
-
-			evtag, _ := store.NewTag(tc.event.Tag)
-			if evtag != ec.conf.Tag {
-				t.Fatalf("tag is set incorrectly (expected: %s) received: %s", evtag, ec.conf.Tag)
-			}
-
 			if ev.started != 1 {
 				t.Fatalf("expected event to have been started once")
 			}
@@ -525,13 +521,11 @@ func TestCreateEvent(t *testing.T) {
 			if ev.close != 0 {
 				t.Fatalf("expected event to not have been closed")
 			}
-
 		})
 	}
 }
 
 func TestStopEvent(t *testing.T) {
-	dummyEvent := store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []store.Tag{"hb"}, Frontends: []string{"kali"}}}
 	tt := []struct {
 		name         string
 		unauthorized bool
@@ -547,9 +541,10 @@ func TestStopEvent(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			ev := fakeEvent{}
-			ec := &eventCreator{
-				event: &ev,
+			ev := fakeEvent{
+				conf: store.EventConfig{
+					Tag: store.Tag("tst"),
+				},
 			}
 
 			ctx := context.Background()
@@ -560,11 +555,13 @@ func TestStopEvent(t *testing.T) {
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux:   mux.NewRouter(),
-				ehost: ec,
+				mux: mux.NewRouter(),
+				ehost: &fakeEventHost{
+					event: &ev,
+				},
 			}
 
-			if err := d.createEvent(dummyEvent); err != nil {
+			if err := d.createEvent(&ev); err != nil {
 				t.Fatalf("expected no error when adding event")
 			}
 
@@ -640,7 +637,6 @@ func TestStopEvent(t *testing.T) {
 }
 
 func TestListEvents(t *testing.T) {
-	dummyEvent := &store.Event{Name: "Test", Tag: "tst", Lab: store.Lab{Exercises: []store.Tag{"hb"}, Frontends: []string{"kali"}}}
 	tt := []struct {
 		name         string
 		unauthorized bool
@@ -654,10 +650,7 @@ func TestListEvents(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			ev := fakeEvent{}
-			ec := &eventCreator{
-				event: &ev,
-			}
+			ev := &fakeEvent{}
 
 			ctx := context.Background()
 			events := map[store.Tag]event.Event{}
@@ -667,15 +660,16 @@ func TestListEvents(t *testing.T) {
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux:   mux.NewRouter(),
-				ehost: ec,
+				mux: mux.NewRouter(),
+				ehost: &fakeEventHost{
+					event: ev,
+				},
 			}
 
 			for i := 1; i <= tc.count; i++ {
-				tempEvent := *dummyEvent
-				tempEvent.Tag, _ = store.NewTag(fmt.Sprintf("tst-%d", i))
-
-				if err := d.createEvent(tempEvent); err != nil {
+				tempEvent := *ev
+				tempEvent.conf = store.EventConfig{Tag: store.Tag(fmt.Sprintf("tst-%d", i))}
+				if err := d.createEvent(&tempEvent); err != nil {
 					t.Fatalf("expected no error when adding event")
 				}
 			}

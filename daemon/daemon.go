@@ -148,7 +148,7 @@ func New(conf *Config) (*daemon, error) {
 		}
 	}
 
-	esh, err := store.NewEventStoreHub(conf.EventsDir)
+	efh, err := store.NewEventFileHub(conf.EventsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -161,16 +161,16 @@ func New(conf *Config) (*daemon, error) {
 		events:          make(map[store.Tag]event.Event),
 		frontendLibrary: vlib,
 		mux:             m,
-		ehost:           event.NewHost(vlib, ef, esh),
+		ehost:           event.NewHost(vlib, ef, efh),
 	}
 
-	events, err := esh.GetUnfinishedEvents()
+	eventFiles, err := efh.GetUnfinishedEvents()
 	if err != nil {
 		return nil, err
 	}
 
-	for _, ev := range events {
-		err := d.createEvent(ev)
+	for _, ef := range eventFiles {
+		err := d.createEventFromEventFile(ef)
 		if err != nil {
 			return nil, err
 		}
@@ -276,7 +276,28 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}, nil
 }
 
-func (d *daemon) createEvent(conf store.Event) error {
+func (d *daemon) createEventFromEventFile(ef store.EventFile) error {
+	ev, err := d.ehost.CreateEventFromEventFile(ef)
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating event")
+		return err
+	}
+
+	return d.createEvent(ev)
+}
+
+func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
+	ev, err := d.ehost.CreateEventFromConfig(conf)
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating event")
+		return err
+	}
+
+	return d.createEvent(ev)
+}
+
+func (d *daemon) createEvent(ev event.Event) error {
+	conf := ev.GetConfig()
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
@@ -284,12 +305,6 @@ func (d *daemon) createEvent(conf store.Event) error {
 		Int("Capacity", conf.Capacity).
 		Strs("Frontends", conf.Lab.Frontends).
 		Msg("Creating event")
-
-	ev, err := d.ehost.CreateEvent(conf)
-	if err != nil {
-		log.Error().Err(err).Msg("Error creating event")
-		return err
-	}
 
 	go ev.Start(context.TODO())
 
@@ -313,7 +328,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	evtag, _ := store.NewTag(req.Tag)
-	conf := store.Event{
+	conf := store.EventConfig{
 		Name:     req.Name,
 		Tag:      evtag,
 		Buffer:   int(req.Buffer),
@@ -341,7 +356,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	return d.createEvent(conf)
+	return d.createEventFromConfig(conf)
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
@@ -358,6 +373,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	delete(d.events, evtag)
 
 	ev.Close()
+	ev.Finish()
 	return nil
 }
 
