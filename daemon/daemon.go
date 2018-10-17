@@ -48,7 +48,7 @@ type Config struct {
 		TLS        struct {
 			CertFile string `yaml:"cert-file"`
 			KeyFile  string `yaml:"key-file"`
-		} `yaml:"TLS"`
+		} `yaml:"tls"`
 	} `yaml:"management,omitempty"`
 }
 
