@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"flag"
 	"fmt"
 	"net"
@@ -15,7 +14,9 @@ import (
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-)
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	)
 
 const (
 	mngtPort          = ":5454"
@@ -33,21 +34,17 @@ func handleCancel(clean func()) {
 	}()
 }
 
-func listenerFromConf(c *daemon.Config, port string) (net.Listener, error) {
-	if c.Management.TLS.CertFile != "" && c.Management.TLS.KeyFile != "" {
-		cer, err := tls.LoadX509KeyPair(
-			c.Management.TLS.CertFile,
-			c.Management.TLS.KeyFile,
-		)
+func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
+	crt := c.Management.TLS.CertFile
+	key := c.Management.TLS.KeyFile
+	if crt != "" && key != "" {
+		creds, err := credentials.NewServerTLSFromFile(crt, key)
 		if err != nil {
 			return nil, err
 		}
-
-		config := &tls.Config{Certificates: []tls.Certificate{cer}}
-		return tls.Listen("tcp", port, config)
+		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
-
-	return net.Listen("tcp", port)
+	return []grpc.ServerOption{}, nil
 }
 
 func main() {
@@ -61,7 +58,7 @@ func main() {
 		return
 	}
 
-	lis, err := listenerFromConf(c, mngtPort)
+	lis, err := net.Listen("tcp", mngtPort)
 	if err != nil {
 		log.Fatal().
 			Err(err).
@@ -80,7 +77,14 @@ func main() {
 	})
 	log.Info().Msgf("Started daemon")
 
-	s := d.GetServer()
+	opts, err := optsFromConf(c)
+	if err != nil {
+		log.Fatal().
+			Err(err).
+			Msg("failed to retrieve server options")
+	}
+
+	s := d.GetServer(opts...)
 	pb.RegisterDaemonServer(s, d)
 
 	reflection.Register(s)

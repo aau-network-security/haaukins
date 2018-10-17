@@ -48,7 +48,7 @@ type Config struct {
 		TLS        struct {
 			CertFile string `yaml:"cert-file"`
 			KeyFile  string `yaml:"key-file"`
-		} `yaml:"TLS"`
+		} `yaml:"tls"`
 	} `yaml:"management,omitempty"`
 }
 
@@ -193,7 +193,7 @@ func (d *daemon) authorize(ctx context.Context) error {
 	return nil
 }
 
-func (d *daemon) GetServer() *grpc.Server {
+func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	nonAuth := []string{"LoginUser", "SignupUser"}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -224,10 +224,11 @@ func (d *daemon) GetServer() *grpc.Server {
 		return handler(ctx, req)
 	}
 
-	return grpc.NewServer(
+	opts = append([]grpc.ServerOption{
 		grpc.StreamInterceptor(streamInterceptor),
 		grpc.UnaryInterceptor(unaryInterceptor),
-	)
+	}, opts...)
+	return grpc.NewServer(opts...)
 }
 
 func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.LoginUserResponse, error) {
