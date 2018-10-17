@@ -20,6 +20,19 @@ func (ite *InvalidTagSyntaxErr) Error() string {
 	return fmt.Sprintf("Invalid syntax for tag \"%s\", allowed syntax: %s", ite.tag, tagRawRegexp)
 }
 
+type EmptyVarErr struct {
+	Var  string
+	Type string
+}
+
+func (eve *EmptyVarErr) Error() string {
+	if eve.Type == "" {
+		return fmt.Sprintf("%s cannot be empty", eve.Var)
+	}
+
+	return fmt.Sprintf("%s cannot be empty for %s", eve.Var, eve.Type)
+}
+
 type Tag string
 
 func NewTag(s string) (Tag, error) {

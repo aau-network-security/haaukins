@@ -42,11 +42,23 @@ type Exercise struct {
 
 func (e Exercise) Validate() error {
 	if len(e.Tags) == 0 {
-		return EmptyExTags
+		return &EmptyVarErr{Var: "Tags", Type: "Exercise"}
 	}
 
 	for _, t := range e.Tags {
 		if err := t.Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, d := range e.DockerConfs {
+		if err := d.Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, v := range e.VboxConfs {
+		if err := v.Validate(); err != nil {
 			return err
 		}
 	}
@@ -99,9 +111,25 @@ type Flag struct {
 }
 
 type RecordConfig struct {
-	Type  string `yaml:"record"`
+	Type  string `yaml:"type"`
 	Name  string `yaml:"name"`
 	RData string `yaml:"rdata"`
+}
+
+func (rc RecordConfig) Validate() error {
+	if rc.Type == "" {
+		return &EmptyVarErr{Var: "Type", Type: "Record config"}
+	}
+
+	if rc.Name == "" {
+		return &EmptyVarErr{Var: "Name", Type: "Record config"}
+	}
+
+	if rc.RData == "" {
+		return &EmptyVarErr{Var: "RData", Type: "Record config"}
+	}
+
+	return nil
 }
 
 func (rc RecordConfig) Format(ip string) string {
@@ -116,14 +144,56 @@ type FlagConfig struct {
 	Points  uint   `yaml:"points"`
 }
 
+func (fc FlagConfig) Validate() error {
+	if err := fc.Tag.Validate(); err != nil {
+		return err
+	}
+
+	if fc.Name == "" {
+		return &EmptyVarErr{Var: "Name", Type: "Flag Config"}
+	}
+
+	if fc.Default == "" {
+		return &EmptyVarErr{Var: "Default", Type: "Flag Config"}
+	}
+
+	if fc.Points == 0 {
+		return &EmptyVarErr{Var: "Points", Type: "Flag Config"}
+	}
+
+	return nil
+}
+
 type EnvVarConfig struct {
 	EnvVar string `yaml:"env"`
 	Value  string `yaml:"value"`
 }
 
+func (evc EnvVarConfig) Validate() error {
+	if evc.EnvVar == "" {
+		return &EmptyVarErr{Var: "Env", Type: "Environment Variable"}
+	}
+
+	if evc.Value == "" {
+		return &EmptyVarErr{Var: "Value", Type: "Environment Variable"}
+	}
+
+	return nil
+}
+
 type DockerConfig struct {
 	Envs                   []EnvVarConfig `yaml:"env"`
 	ExerciseInstanceConfig `yaml:",inline"`
+}
+
+func (df DockerConfig) Validate() error {
+	for _, e := range df.Envs {
+		if err := e.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return df.ExerciseInstanceConfig.Validate()
 }
 
 type VboxConfig struct {
@@ -146,10 +216,34 @@ type ExerciseInstanceConfig struct {
 	InstanceConfig `yaml:",inline"`
 }
 
+func (eic ExerciseInstanceConfig) Validate() error {
+	for _, f := range eic.Flags {
+		if err := f.Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, r := range eic.Records {
+		if err := r.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return eic.InstanceConfig.Validate()
+}
+
 type InstanceConfig struct {
 	Image    string  `yaml:"image"`
 	MemoryMB uint    `yaml:"memoryMB"`
 	CPU      float64 `yaml:"cpu"`
+}
+
+func (ic InstanceConfig) Validate() error {
+	if ic.Image == "" {
+		return &EmptyVarErr{Var: "Image", Type: "Instance Config"}
+	}
+
+	return nil
 }
 
 type exercisestore struct {
@@ -295,10 +389,8 @@ func NewExerciseFile(path string) (ExerciseStore, error) {
 		}
 
 		for _, ex := range conf.Exercises {
-			for _, vboxConf := range ex.VboxConfs {
-				if err := vboxConf.Validate(); err != nil {
-					return nil, err
-				}
+			if err := ex.Validate(); err != nil {
+				return nil, err
 			}
 		}
 	}
