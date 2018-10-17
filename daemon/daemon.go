@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/aau-network-security/go-ntp/store"
@@ -15,6 +16,8 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
 	"google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
 	yaml "gopkg.in/yaml.v2"
@@ -501,6 +504,38 @@ func (d *daemon) Close() {
 	for t, ev := range d.events {
 		ev.Close()
 		delete(d.events, t)
+	}
+}
+
+func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
+	for {
+		var cpuErr string
+		var cpuPercent float32
+		cpus, err := cpu.Percent(time.Second, false)
+		if err != nil {
+			cpuErr = err.Error()
+		}
+		if len(cpus) == 1 {
+			cpuPercent = float32(cpus[0])
+		}
+
+		var memErr string
+		v, err := mem.VirtualMemory()
+		if err != nil {
+			memErr = err.Error()
+		}
+
+		// we should send io at some point
+		// io, _ := net.IOCounters(true)
+
+		if err := stream.Send(&pb.MonitorHostReponse{
+			CPUPercent:      cpuPercent,
+			CPUReadError:    cpuErr,
+			MemoryPercent:   float32(v.UsedPercent),
+			MemoryReadError: memErr,
+		}); err != nil {
+			return err
+		}
 	}
 }
 

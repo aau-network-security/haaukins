@@ -215,7 +215,9 @@ func Execute() {
 		c.CmdVersion(),
 		c.CmdUser(),
 		c.CmdEvent(),
-		c.CmdExercise())
+		c.CmdExercise(),
+		c.CmdHost(),
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

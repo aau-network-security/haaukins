@@ -14,6 +14,7 @@ service Daemon {
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetExerciseStatus) {}
 
+  rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
 }
 
@@ -109,6 +110,13 @@ message StopEventRequest {
 message EventStatus {
   string entity = 1;
   string status = 2;
+}
+
+message MonitorHostResponse {
+  float MemoryPercent = 1;
+  string MemoryReadError = 2;
+  float CPUPercent = 3;
+  string CPUReadError = 4;
 }
 
 message Empty {}
