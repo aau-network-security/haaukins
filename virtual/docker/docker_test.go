@@ -17,8 +17,6 @@ import (
 var dockerClient, dockerErr = fdocker.NewClient("unix:///var/run/docker.sock")
 
 func init() {
-	fmt.Println("Init function!")
-
 	if dockerErr != nil {
 		log.Fatal().Err(dockerErr)
 	}

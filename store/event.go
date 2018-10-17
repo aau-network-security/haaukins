@@ -31,13 +31,13 @@ var (
 )
 
 type EventConfig struct {
-	Name        string     `yaml:"name"`
-	Tag         Tag        `yaml:"tag"`
-	InitialSize int        `yaml:"initial-size"`
-	Capacity    int        `yaml:"capacity"`
-	Lab         Lab        `yaml:"lab"`
-	StartedAt   *time.Time `yaml:"started-at,omitempty"`
-	FinishedAt  *time.Time `yaml:"finished-at,omitempty"`
+	Name       string     `yaml:"name"`
+	Tag        Tag        `yaml:"tag"`
+	Available  int        `yaml:"available"`
+	Capacity   int        `yaml:"capacity"`
+	Lab        Lab        `yaml:"lab"`
+	StartedAt  *time.Time `yaml:"started-at,omitempty"`
+	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
 }
 
 type RawEventFile struct {

@@ -4,14 +4,15 @@ import (
 	"errors"
 	"sync"
 
+	"sync/atomic"
+
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"sync/atomic"
 )
 
 var (
-	InitialSizeErr     = errors.New("Initial size cannot be larger than maximum")
+	AvailableSizeErr   = errors.New("Available cannot be larger than capacity")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
 )
@@ -41,9 +42,9 @@ type hub struct {
 	numbLabs int32
 }
 
-func NewHub(conf Config, vboxLib vbox.Library, initial int, cap int) (Hub, error) {
-	if initial > cap {
-		return nil, InitialSizeErr
+func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
+	if available > cap {
+		return nil, AvailableSizeErr
 	}
 
 	createLimit := 3
@@ -52,13 +53,13 @@ func NewHub(conf Config, vboxLib vbox.Library, initial int, cap int) (Hub, error
 		conf:        conf,
 		createSema:  newSemaphore(createLimit),
 		maximumSema: newSemaphore(cap),
-		buffer:      make(chan Lab, initial),
+		buffer:      make(chan Lab, available),
 		vboxLib:     vboxLib,
 		labHost:     &labHost{},
 	}
 
-	log.Debug().Msgf("Instantiating %d lab(s)", initial)
-	for i := 0; i < initial; i++ {
+	log.Debug().Msgf("Instantiating %d lab(s)", available)
+	for i := 0; i < available; i++ {
 		go h.addLab()
 	}
 
