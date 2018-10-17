@@ -43,7 +43,7 @@ type CTFd interface {
 	Close() error
 	Stop() error
 	Flags() []store.FlagConfig
-	FlagMap() map[int]store.Tag
+	ChalMap() map[int]store.Tag
 }
 
 type Config struct {
@@ -59,12 +59,10 @@ type ctfd struct {
 	conf       Config
 	cont       docker.Container
 	confDir    string
-	port       uint
-	httpclient *http.Client
+	nc         nonceClient
 	users      []*user
 	relation   map[string]*user
 	challenges map[store.Tag]int
-	flags      map[store.Tag]string
 }
 
 type user struct {
@@ -81,6 +79,10 @@ func New(conf Config) (CTFd, error) {
 
 	hc := &http.Client{
 		Jar: jar,
+	}
+	nc := nonceClient{
+		client: hc,
+		port:   virtual.GetAvailablePort(),
 	}
 
 	if conf.Name == "" {
@@ -106,11 +108,9 @@ func New(conf Config) (CTFd, error) {
 
 	ctf := &ctfd{
 		conf:       conf,
-		httpclient: hc,
-		port:       virtual.GetAvailablePort(),
+		nc:         nc,
 		relation:   make(map[string]*user),
 		challenges: make(map[store.Tag]int),
-		flags:      make(map[store.Tag]string),
 	}
 
 	confDir, err := ioutil.TempDir("", "ctfd")
@@ -126,7 +126,7 @@ func New(conf Config) (CTFd, error) {
 			fmt.Sprintf("%s/:/opt/CTFd/CTFd/data", confDir),
 		},
 		PortBindings: map[string]string{
-			"8000/tcp": fmt.Sprintf("127.0.0.1:%d", ctf.port),
+			"8000/tcp": fmt.Sprintf("127.0.0.1:%d", ctf.nc.port),
 		},
 		UseBridge: true,
 	}
@@ -186,11 +186,11 @@ func (ctf *ctfd) ID() string {
 }
 
 func (ctf *ctfd) ProxyHandler() http.Handler {
-	origin, _ := url.Parse(ctf.baseUrl())
+	origin, _ := url.Parse(ctf.nc.baseUrl())
 	return httputil.NewSingleHostReverseProxy(origin)
 }
 
-func (ctf *ctfd) FlagMap() map[int]store.Tag {
+func (ctf *ctfd) ChalMap() map[int]store.Tag {
 	res := make(map[int]store.Tag)
 	for k, v := range ctf.challenges {
 		res[v] = k
@@ -198,12 +198,93 @@ func (ctf *ctfd) FlagMap() map[int]store.Tag {
 	return res
 }
 
-func (ctf *ctfd) baseUrl() string {
-	return fmt.Sprintf("http://127.0.0.1:%d", ctf.port)
+func (ctf *ctfd) configureInstance() error {
+	endpoint := ctf.nc.baseUrl() + "/setup"
+
+	if err := waitForServer(endpoint); err != nil {
+		return err
+	}
+
+	nonce, err := ctf.nc.getNonce(endpoint)
+	if err != nil {
+		return err
+	}
+
+	form := url.Values{
+		"ctf_name": {ctf.conf.Name},
+		"name":     {ctf.conf.AdminUser},
+		"password": {ctf.conf.AdminPass},
+		"email":    {ctf.conf.AdminEmail},
+		"nonce":    {nonce},
+	}
+
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := ctf.nc.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	flags := make(map[store.Tag]string)
+
+	for id, flag := range ctf.conf.Flags {
+		if err := ctf.createFlag(flag.Name, flag.Default, flag.Points); err != nil {
+			return err
+		}
+		ctf.challenges[flag.Tag] = id + 1
+		flags[flag.Tag] = flag.Default
+
+		log.Debug().
+			Str("name", flag.Name).
+			Str("flag", flag.Default).
+			Uint("points", flag.Points).
+			Msg("Flag created")
+	}
+
+	for _, tt := range ctf.conf.Teams {
+		jar, err := cookiejar.New(nil)
+		if err != nil {
+			return err
+		}
+
+		hc := &http.Client{
+			Jar: jar,
+		}
+
+		t := team{
+			nc: nonceClient{
+				port:   ctf.nc.port,
+				client: hc,
+			},
+			conf:       tt,
+			flags:      flags,
+			challenges: ctf.challenges,
+		}
+
+		if err := t.create(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func getNonce(client *http.Client, path string) (string, error) {
-	resp, err := client.Get(path)
+type nonceClient struct {
+	port   uint
+	client *http.Client
+}
+
+func (nc *nonceClient) baseUrl() string {
+	return fmt.Sprintf("http://127.0.0.1:%d", nc.port)
+}
+
+func (nc *nonceClient) getNonce(path string) (string, error) {
+	resp, err := nc.client.Get(path)
 	if err != nil {
 		return "", err
 	}
@@ -223,9 +304,9 @@ func getNonce(client *http.Client, path string) (string, error) {
 }
 
 func (ctf *ctfd) createFlag(name, flag string, points uint) error {
-	endpoint := ctf.baseUrl() + "/admin/chal/new"
+	endpoint := ctf.nc.baseUrl() + "/admin/chal/new"
 
-	nonce, err := getNonce(ctf.httpclient, endpoint)
+	nonce, err := ctf.nc.getNonce(endpoint)
 	if err != nil {
 		return err
 	}
@@ -258,7 +339,7 @@ func (ctf *ctfd) createFlag(name, flag string, points uint) error {
 	}
 	req.Header.Add("Content-Type", w.FormDataContentType())
 
-	resp, err := ctf.httpclient.Do(req)
+	resp, err := ctf.nc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -268,10 +349,17 @@ func (ctf *ctfd) createFlag(name, flag string, points uint) error {
 	return nil
 }
 
-func (ctf *ctfd) createTeam(client *http.Client, team store.Team) error {
-	endpoint := ctf.baseUrl() + "/register"
+type team struct {
+	nc         nonceClient
+	conf       store.Team
+	challenges map[store.Tag]int
+	flags      map[store.Tag]string
+}
 
-	nonce, err := getNonce(client, endpoint)
+func (t *team) create() error {
+	endpoint := t.nc.baseUrl() + "/register"
+
+	nonce, err := t.nc.getNonce(endpoint)
 	if err != nil {
 		return err
 	}
@@ -280,9 +368,9 @@ func (ctf *ctfd) createTeam(client *http.Client, team store.Team) error {
 	w := multipart.NewWriter(body)
 
 	values := map[string]string{
-		"name":     team.Name,
-		"email":    team.Email,
-		"password": team.HashedPassword,
+		"name":     t.conf.Name,
+		"email":    t.conf.Email,
+		"password": t.conf.HashedPassword,
 		"nonce":    nonce,
 	}
 
@@ -300,29 +388,35 @@ func (ctf *ctfd) createTeam(client *http.Client, team store.Team) error {
 	}
 	req.Header.Add("Content-Type", w.FormDataContentType())
 
-	resp, err := client.Do(req)
+	resp, err := t.nc.client.Do(req)
 	if err != nil {
 		return err
 	}
 
 	defer resp.Body.Close()
 
+	for _, task := range t.conf.Tasks {
+		if err := t.solve(task.FlagTag); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (ctf *ctfd) solve(client *http.Client, tag store.Tag, team store.Team) error {
-	id, ok := ctf.challenges[tag]
+func (t *team) solve(tag store.Tag) error {
+	id, ok := t.challenges[tag]
 	if !ok {
 		return ChallengeNotFoundErr
 	}
-	flagval, ok := ctf.flags[tag]
+	flagval, ok := t.flags[tag]
 	if !ok {
 		return FlagNotFoundErr
 	}
 
-	endpoint := fmt.Sprintf("%s/chal/%d", ctf.baseUrl(), id)
+	endpoint := fmt.Sprintf("%s/chal/%d", t.nc.baseUrl(), id)
 
-	nonce, err := getNonce(client, endpoint)
+	nonce, err := t.nc.getNonce(endpoint)
 	if err != nil {
 		return err
 	}
@@ -349,83 +443,12 @@ func (ctf *ctfd) solve(client *http.Client, tag store.Tag, team store.Team) erro
 	}
 	req.Header.Add("Content-Type", w.FormDataContentType())
 
-	resp, err := client.Do(req)
+	resp, err := t.nc.client.Do(req)
 	if err != nil {
 		return err
 	}
 
 	defer resp.Body.Close()
-
-	return nil
-}
-
-func (ctf *ctfd) configureInstance() error {
-	endpoint := ctf.baseUrl() + "/setup"
-
-	if err := waitForServer(endpoint); err != nil {
-		return err
-	}
-
-	nonce, err := getNonce(ctf.httpclient, endpoint)
-	if err != nil {
-		return err
-	}
-
-	form := url.Values{
-		"ctf_name": {ctf.conf.Name},
-		"name":     {ctf.conf.AdminUser},
-		"password": {ctf.conf.AdminPass},
-		"email":    {ctf.conf.AdminEmail},
-		"nonce":    {nonce},
-	}
-
-	req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := ctf.httpclient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	for id, flag := range ctf.conf.Flags {
-		err := ctf.createFlag(flag.Name, flag.Default, flag.Points)
-		if err != nil {
-			return err
-		}
-		ctf.challenges[flag.Tag] = id + 1
-		ctf.flags[flag.Tag] = flag.Default
-
-		log.Debug().
-			Str("name", flag.Name).
-			Str("flag", flag.Default).
-			Uint("points", flag.Points).
-			Msg("Flag created")
-	}
-
-	for _, team := range ctf.conf.Teams {
-		jar, err := cookiejar.New(nil)
-		if err != nil {
-			return err
-		}
-
-		hc := &http.Client{
-			Jar: jar,
-		}
-
-		if err := ctf.createTeam(hc, team); err != nil {
-			return err
-		}
-
-		for _, task := range team.Tasks {
-			if err := ctf.solve(hc, task.FlagTag, team); err != nil {
-				return err
-			}
-		}
-	}
 
 	return nil
 }

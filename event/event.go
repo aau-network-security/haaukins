@@ -262,7 +262,7 @@ func (ev *event) Connect(r *mux.Router) {
 
 	interceptors := svcs.Interceptors{
 		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks, defaultTasks...),
-		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.FlagMap()),
+		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.ChalMap()),
 		ctfd.NewLoginInterceptor(ev.store),
 		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, loginFunc),
 	}
