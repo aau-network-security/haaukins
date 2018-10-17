@@ -195,7 +195,7 @@ func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
 	defer es.m.Unlock()
 
 	if token == "" {
-		return &EmptyVarErr{"Token"}
+		return &EmptyVarErr{Var: "Token"}
 	}
 
 	t, ok := es.teams[in.Id]

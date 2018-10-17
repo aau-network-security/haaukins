@@ -125,10 +125,6 @@ func (rc RecordConfig) Validate() error {
 		return &EmptyVarErr{Var: "Name", Type: "Record config"}
 	}
 
-	if rc.RData == "" {
-		return &EmptyVarErr{Var: "RData", Type: "Record config"}
-	}
-
 	return nil
 }
 
