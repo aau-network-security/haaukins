@@ -124,6 +124,7 @@ func New(conf *Config) (*daemon, error) {
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
 	m := mux.NewRouter()
+	m.NotFoundHandler = notFoundHandler()
 	go func() {
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), m); err != nil {
 			fmt.Println("Serving error", err)
