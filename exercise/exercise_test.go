@@ -1,14 +1,22 @@
-// +build ignore
-
 package exercise
 
 import (
-	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"testing"
+
+	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 )
 
+func dconfFromRecords(records []store.RecordConfig) store.DockerConfig {
+	return store.DockerConfig{
+		ExerciseInstanceConfig: store.ExerciseInstanceConfig{
+			Records: records,
+		},
+	}
+}
+
 func TestContainerOpts(t *testing.T) {
-	records := []RecordConfig{
+	records := []store.RecordConfig{
 		{
 			Name:  "example.org",
 			Type:  "MX",
@@ -20,10 +28,8 @@ func TestContainerOpts(t *testing.T) {
 			RData: "",
 		},
 	}
-	dockerConfs := []DockerConfig{
-		{Records: records, Image: "aau/test-image"},
-	}
-	conf := Config{
+	dockerConfs := []store.DockerConfig{dconfFromRecords(records)}
+	conf := store.Exercise{
 		DockerConfs: dockerConfs,
 	}
 	containerConfigs, recordConfigs := conf.ContainerOpts()
@@ -60,7 +66,7 @@ func (tn testNetwork) FormatIP(num int) string {
 }
 
 func TestExerciseCreate(t *testing.T) {
-	firstRecords := []RecordConfig{
+	firstRecords := []store.RecordConfig{
 		{
 			Name: "example.org",
 			Type: "A",
@@ -71,18 +77,18 @@ func TestExerciseCreate(t *testing.T) {
 			RData: "10 mx.example.org",
 		},
 	}
-	secondRecords := []RecordConfig{
+	secondRecords := []store.RecordConfig{
 		{
 			Name:  "mx.example.org",
 			Type:  "A",
 			RData: "",
 		},
 	}
-	dockerConfs := []DockerConfig{
-		{Records: firstRecords, Image: "aau/test-image"},
-		{Records: secondRecords, Image: "aau/test-image"},
+	dockerConfs := []store.DockerConfig{
+		dconfFromRecords(firstRecords),
+		dconfFromRecords(secondRecords),
 	}
-	conf := Config{
+	conf := store.Exercise{
 		DockerConfs: dockerConfs,
 	}
 	e := exercise{
