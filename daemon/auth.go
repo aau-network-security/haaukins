@@ -9,6 +9,7 @@ import (
 
 	"github.com/aau-network-security/go-ntp/store"
 	jwt "github.com/dgrijalva/jwt-go"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -28,7 +29,7 @@ var (
 
 type Authenticator interface {
 	TokenForUser(username, password string) (string, error)
-	AuthenticateUserByToken(context.Context, string) (context.Context, error)
+	AuthenticateContext(context.Context) (context.Context, error)
 }
 
 type auth struct {
@@ -36,7 +37,6 @@ type auth struct {
 	key string
 }
 
-type su struct{}
 type us struct{}
 
 func NewAuthenticator(us store.UserStore, key string) Authenticator {
@@ -80,10 +80,24 @@ func (a *auth) TokenForUser(username, password string) (string, error) {
 	return tokenString, nil
 }
 
-func (a *auth) AuthenticateUserByToken(ctx context.Context, t string) (context.Context, error) {
-	token, err := jwt.Parse(t, func(token *jwt.Token) (interface{}, error) {
+func (a *auth) AuthenticateContext(ctx context.Context) (context.Context, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ctx, MissingTokenErr
+	}
+
+	if len(md["token"]) == 0 {
+		return ctx, MissingTokenErr
+	}
+
+	token := md["token"][0]
+	if token == "" {
+		return ctx, MissingTokenErr
+	}
+
+	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return ctx, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
 
 		return []byte(a.key), nil
@@ -92,31 +106,31 @@ func (a *auth) AuthenticateUserByToken(ctx context.Context, t string) (context.C
 		return ctx, err
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		username, ok := claims[USERNAME_KEY].(string)
-		if !ok {
-			return ctx, InvalidTokenFormatErr
-		}
-
-		u, err := a.us.GetUserByUsername(username)
-		if err != nil {
-			return ctx, UnknownUserErr
-		}
-
-		validUntil, ok := claims[VALID_UNTIL_KEY].(float64)
-		if !ok {
-			return ctx, InvalidTokenFormatErr
-		}
-
-		if int64(validUntil) < time.Now().Unix() {
-			return ctx, TokenExpiredErr
-		}
-
-		ctx = context.WithValue(ctx, su{}, u.SuperUser)
-		ctx = context.WithValue(ctx, us{}, u.Username)
-
-		return ctx, nil
+	claims, ok := jwtToken.Claims.(jwt.MapClaims)
+	if !ok || !jwtToken.Valid {
+		return ctx, InvalidTokenFormatErr
 	}
 
-	return ctx, err
+	username, ok := claims[USERNAME_KEY].(string)
+	if !ok {
+		return ctx, InvalidTokenFormatErr
+	}
+
+	u, err := a.us.GetUserByUsername(username)
+	if err != nil {
+		return ctx, UnknownUserErr
+	}
+
+	validUntil, ok := claims[VALID_UNTIL_KEY].(float64)
+	if !ok {
+		return ctx, InvalidTokenFormatErr
+	}
+
+	if int64(validUntil) < time.Now().Unix() {
+		return ctx, TokenExpiredErr
+	}
+
+	ctx = context.WithValue(ctx, us{}, u)
+
+	return ctx, nil
 }
