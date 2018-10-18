@@ -11,6 +11,7 @@ service Daemon {
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
 
+  rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetExerciseStatus) {}
 
   rpc Version (Empty) returns (VersionResponse) {}
@@ -84,6 +85,17 @@ message ResetExerciseRequest {
     string exerciseTag = 1;
     string eventTag = 2;
     repeated Team teams = 3;
+}
+
+message ListExercisesResponse {
+  message Exercise {
+    repeated string tags = 1;
+    string name = 2;
+    int32 dockerImageCount = 3;
+    int32 vboxImageCount = 4;
+  }
+
+  repeated Exercise exercises = 1;
 }
 
 message ResetExerciseStatus {

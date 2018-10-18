@@ -402,6 +402,26 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	return nil
 }
 
+func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
+	var exercises []*pb.ListExercisesResponse_Exercise
+
+	for _, e := range d.exercises.ListExercises() {
+		var tags []string
+		for _, t := range e.Tags {
+			tags = append(tags, string(t))
+		}
+
+		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
+			Name:             e.Name,
+			Tags:             tags,
+			DockerImageCount: int32(len(e.DockerConfs)),
+			VboxImageCount:   int32(len(e.VboxConfs)),
+		})
+	}
+
+	return &pb.ListExercisesResponse{Exercises: exercises}, nil
+}
+
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_ResetExerciseServer) error {
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
