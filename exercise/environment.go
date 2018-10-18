@@ -6,7 +6,8 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	)
+	"io"
+)
 
 type Environment interface {
 	Add(conf store.Exercise, updateDNS bool) error
@@ -14,8 +15,8 @@ type Environment interface {
 	Interface() string
 	Start() error
 	Stop() error
-	Close() error
 	Restart() error
+	io.Closer
 }
 
 type environment struct {
@@ -27,7 +28,8 @@ type environment struct {
 	dhcpServer *dhcp.Server
 	dnsIP      string
 
-	lib vbox.Library
+	lib     vbox.Library
+	closers []io.Closer
 }
 
 func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment, error) {
@@ -46,6 +48,7 @@ func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment,
 	if err != nil {
 		return nil, err
 	}
+	ee.closers = append(ee.closers, ee.dhcpServer)
 
 	if _, err := ee.network.Connect(ee.dhcpServer.Container(), 2); err != nil {
 		return nil, err
@@ -65,7 +68,9 @@ func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment,
 		if err := ee.updateDNS(); err != nil {
 			return nil, err
 		}
+		ee.closers = append(ee.closers, ee.dnsServer)
 	}
+	ee.closers = append(ee.closers, ee.network)
 
 	return ee, nil
 }
@@ -103,6 +108,7 @@ func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
 		ee.tags[t] = e
 	}
 	ee.exercises = append(ee.exercises, e)
+	ee.closers = append(ee.closers, e)
 
 	return nil
 }
@@ -159,25 +165,14 @@ func (ee *environment) Restart() error {
 }
 
 func (ee *environment) Close() error {
-	if err := ee.dnsServer.Close(); err != nil {
-		return err
-	}
-
-	if err := ee.dhcpServer.Close(); err != nil {
-		return err
-	}
-
-	for _, e := range ee.exercises {
-		if err := e.Close(); err != nil {
-			return err
+	var ec ErrorCollection
+	for _, closer := range ee.closers {
+		if err := closer.Close(); err != nil {
+			ec.Add(err)
 		}
 	}
 
-	if err := ee.network.Close(); err != nil {
-		return err
-	}
-
-	return nil
+	return &ec
 }
 
 func (ee *environment) ResetByTag(s string) error {

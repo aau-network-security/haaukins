@@ -18,6 +18,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"io"
 )
 
 var (
@@ -87,7 +88,6 @@ type Auth struct {
 
 type Event interface {
 	Start(context.Context) error
-	Close()
 	Finish()
 	AssignLab(store.Team) error
 	Connect(*mux.Router)
@@ -108,6 +108,8 @@ type event struct {
 
 	guacUserStore *guacamole.GuacUserStore
 	dockerHost    docker.Host
+
+	closers []io.Closer
 }
 
 func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
@@ -139,6 +141,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guacUserStore: guacamole.NewGuacUserStore(),
 		dockerHost:    dockerHost,
 	}
+	ev.closers = append(ev.closers, ctf, guac, hub)
 
 	return ev, nil
 }
@@ -166,14 +169,10 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 func (ev *event) Close() {
-	if ev.guac != nil {
-		ev.guac.Close()
-	}
-	if ev.ctfd != nil {
-		ev.ctfd.Close()
-	}
-	if ev.labhub != nil {
-		ev.labhub.Close()
+	for _, closer := range ev.closers {
+		if err := closer.Close(); err != nil {
+			log.Warn().Msgf("error while closing event %s: %s", ev.GetConfig().Name, err)
+		}
 	}
 }
 

@@ -1,6 +1,7 @@
 package virtual
 
 import (
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -9,7 +10,7 @@ import (
 type Instance interface {
 	Start() error
 	Stop() error
-	Close() error
+	io.Closer
 }
 
 type ResourceResizer interface {

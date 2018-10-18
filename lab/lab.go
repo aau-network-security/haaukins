@@ -11,6 +11,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
+	"io"
 )
 
 var (
@@ -66,10 +67,10 @@ type Lab interface {
 	Start() error
 	Stop() error
 	Restart() error
-	Close()
 	GetEnvironment() exercise.Environment
 	RdpConnPorts() []uint
 	GetTag() string
+	io.Closer
 }
 
 type lab struct {
@@ -79,6 +80,8 @@ type lab struct {
 	frontends    []vbox.VM
 	rdpConnPorts []uint
 	dockerHost   docker.Host
+
+	closers []io.Closer
 }
 
 func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
@@ -150,12 +153,14 @@ func (l *lab) Restart() error {
 	return nil
 }
 
-func (l *lab) Close() {
-	for _, frontend := range l.frontends {
-		frontend.Close()
+func (l *lab) Close() error {
+	var ec exercise.ErrorCollection
+	for _, closer := range l.closers {
+		if err := closer.Close(); err != nil {
+			ec.Add(err)
+		}
 	}
-
-	l.environment.Close()
+	return &ec
 }
 
 func (l *lab) RdpConnPorts() []uint {

@@ -8,6 +8,8 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"io"
+	"strings"
 )
 
 var (
@@ -18,6 +20,20 @@ var (
 	tagRawRegexp = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
 	tagRegex     = regexp.MustCompile(tagRawRegexp)
 )
+
+type ErrorCollection []error
+
+func (ec *ErrorCollection) Add(e error) {
+	*ec = append(*ec, e)
+}
+
+func (ec *ErrorCollection) Error() string {
+	var errStrs []string
+	for _, err := range *ec {
+		errStrs = append(errStrs, err.Error())
+	}
+	return strings.Join(errStrs, "\n")
+}
 
 type DockerHost interface {
 	CreateContainer(conf docker.ContainerConfig) (docker.Container, error)
@@ -39,6 +55,7 @@ type exercise struct {
 	dnsRecords []store.RecordConfig
 	dockerHost DockerHost
 	lib        vbox.Library
+	io.Closer
 }
 
 func (e *exercise) Create() error {
@@ -126,13 +143,14 @@ func (e *exercise) Stop() error {
 }
 
 func (e *exercise) Close() error {
+	var ec ErrorCollection
 	for _, m := range e.machines {
 		if err := m.Close(); err != nil {
-			return err
+			ec.Add(err)
 		}
 	}
 	e.machines = nil
-	return nil
+	return &ec
 }
 
 func (e *exercise) Restart() error {

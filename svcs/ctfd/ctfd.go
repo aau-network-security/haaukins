@@ -24,6 +24,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"io"
 )
 
 var (
@@ -39,8 +40,8 @@ var (
 type CTFd interface {
 	docker.Identifier
 	svcs.ProxyConnector
+	io.Closer
 	Start() error
-	Close() error
 	Stop() error
 	Flags() []store.FlagConfig
 	ChalMap() map[int]store.Tag

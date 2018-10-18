@@ -16,9 +16,11 @@ import (
 
 	"net"
 
+	"github.com/aau-network-security/go-ntp/virtual"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"io"
 )
 
 var (
@@ -93,9 +95,7 @@ type Identifier interface {
 
 type Container interface {
 	Identifier
-	Start() error
-	Stop() error
-	Close() error
+	virtual.Instance
 	Link(Identifier, string) error
 }
 
@@ -555,10 +555,10 @@ type network struct {
 }
 
 type Network interface {
-	Close() error
 	FormatIP(num int) string
 	Interface() string
 	Connect(c Container, ip ...int) (int, error)
+	io.Closer
 }
 
 func NewNetwork() (Network, error) {

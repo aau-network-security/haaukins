@@ -6,9 +6,11 @@ import (
 
 	"sync/atomic"
 
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"io"
 )
 
 var (
@@ -21,11 +23,11 @@ const BUFFERSIZE = 5
 
 type Hub interface {
 	Get() (Lab, error)
-	Close()
 	Available() int32
 	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
+	io.Closer
 }
 
 type hub struct {
@@ -110,14 +112,20 @@ func (h *hub) Get() (Lab, error) {
 	}
 }
 
-func (h *hub) Close() {
+func (h *hub) Close() error {
+	var ec exercise.ErrorCollection
 	for _, v := range h.labs {
-		v.Close()
+		if err := v.Close(); err != nil {
+			ec.Add(err)
+		}
 	}
 	close(h.buffer)
 	for v := range h.buffer {
-		v.Close()
+		if err := v.Close(); err != nil {
+			ec.Add(err)
+		}
 	}
+	return &ec
 }
 
 func (h *hub) Flags() []store.FlagConfig {

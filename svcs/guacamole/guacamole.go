@@ -37,12 +37,12 @@ var (
 
 type Guacamole interface {
 	docker.Identifier
+	io.Closer
 	svcs.ProxyConnector
 	Start(context.Context) error
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
-	Close()
 	RawLogin(username, password string) ([]byte, error)
 }
 
@@ -94,10 +94,11 @@ func (guac *guacamole) ID() string {
 	return guac.web.ID()
 }
 
-func (guac *guacamole) Close() {
+func (guac *guacamole) Close() error {
 	for _, c := range guac.containers {
 		c.Close()
 	}
+	return nil
 }
 
 func (guac *guacamole) GetAdminPass() string {

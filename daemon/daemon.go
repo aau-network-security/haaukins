@@ -26,6 +26,7 @@ import (
 	dockerclient "github.com/fsouza/go-dockerclient"
 
 	"github.com/rs/zerolog/log"
+	"sync"
 )
 
 var (
@@ -83,6 +84,8 @@ type daemon struct {
 	frontendLibrary vbox.Library
 	mux             *mux.Router
 	ehost           event.Host
+
+	m sync.Mutex
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -301,6 +304,9 @@ func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
 }
 
 func (d *daemon) createEvent(ev event.Event) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+
 	conf := ev.GetConfig()
 	log.Info().
 		Str("Name", conf.Name).
@@ -501,9 +507,22 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 }
 
 func (d *daemon) Close() {
+	d.m.Lock()
+	defer d.m.Unlock()
+
+	done := make(chan bool)
+	defer func() {
+		for i := 0; i < len(d.events); i++ {
+			<-done
+		}
+	}()
+
 	for t, ev := range d.events {
-		ev.Close()
-		delete(d.events, t)
+		go func() {
+			ev.Close()
+			delete(d.events, t)
+			done <- true
+		}()
 	}
 }
 

@@ -5,8 +5,10 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-	)
+	"io"
+)
 
 const (
 	PreferedIP      = 3
@@ -32,6 +34,7 @@ const (
 type Server struct {
 	cont     docker.Container
 	confFile string
+	io.Closer
 }
 
 type RR struct {
@@ -110,15 +113,16 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Close() error {
+	var ec exercise.ErrorCollection
 	if err := os.Remove(s.confFile); err != nil {
-		return err
+		ec.Add(err)
 	}
 
 	if err := s.cont.Close(); err != nil {
-		return err
+		ec.Add(err)
 	}
 
-	return nil
+	return &ec
 }
 
 func (s *Server) Stop() error {
