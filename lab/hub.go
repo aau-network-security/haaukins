@@ -2,7 +2,6 @@ package lab
 
 import (
 	"errors"
-	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
@@ -115,20 +114,18 @@ func (h *hub) Get() (Lab, error) {
 }
 
 func (h *hub) Close() error {
-	h.createSema.claim()
-	defer h.createSema.claim()
-
+	log.Debug().Msg("Closing labhub")
 	close(h.buffer)
 
-	var ec ntpErrors.ErrorCollection
 	var wg sync.WaitGroup
 
 	for _, l := range h.labs {
 		wg.Add(1)
 		go func() {
 			if err := l.Close(); err != nil {
-				ec.Add(err)
+				log.Warn().Msgf("error while closing hub: %s", err)
 			}
+			log.Debug().Msg("Closed lab")
 			wg.Done()
 		}()
 	}
@@ -136,13 +133,14 @@ func (h *hub) Close() error {
 		wg.Add(1)
 		go func() {
 			if err := l.Close(); err != nil {
-				ec.Add(err)
+				log.Warn().Msgf("error while closing hub: %s", err)
 			}
+			log.Debug().Msg("Closed lab")
 			wg.Done()
 		}()
 	}
 	wg.Wait()
-	return &ec
+	return nil
 }
 
 func (h *hub) Flags() []store.FlagConfig {

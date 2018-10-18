@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"io"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -113,16 +113,15 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Close() error {
-	var ec ntpErrors.ErrorCollection
 	if err := os.Remove(s.confFile); err != nil {
-		ec.Add(err)
+		log.Warn().Msgf("error while removing DNS configuration file: %s", err)
 	}
 
 	if err := s.cont.Close(); err != nil {
-		ec.Add(err)
+		log.Warn().Msgf("error while closing DNS container: %s", err)
 	}
 
-	return &ec
+	return nil
 }
 
 func (s *Server) Stop() error {

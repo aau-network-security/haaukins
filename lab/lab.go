@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	"time"
 
-	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
@@ -62,6 +61,8 @@ func (lh *labHost) NewLab(lib vbox.Library, config Config) (Lab, error) {
 		}
 	}
 
+	l.closers = append(l.closers, environ)
+
 	return l, nil
 }
 
@@ -103,6 +104,7 @@ func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
 	}
 	l.frontends = append(l.frontends, vm)
 	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
+	l.closers = append(l.closers, vm)
 
 	log.Debug().Msgf("Created lab frontend on port %d", rdpPort)
 
@@ -156,21 +158,20 @@ func (l *lab) Restart() error {
 }
 
 func (l *lab) Close() error {
-	var ec ntpErrors.ErrorCollection
 	var wg sync.WaitGroup
 
 	for _, closer := range l.closers {
 		wg.Add(1)
 		go func() {
 			if err := closer.Close(); err != nil {
-				ec.Add(err)
+				log.Warn().Msgf("error while closing lab: %s", err)
 			}
 			wg.Done()
 		}()
 	}
 	wg.Wait()
 
-	return &ec
+	return nil
 }
 
 func (l *lab) RdpConnPorts() []uint {

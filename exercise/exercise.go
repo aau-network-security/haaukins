@@ -4,13 +4,13 @@ import (
 	"errors"
 	"regexp"
 
-	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"io"
 	"sync"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -130,22 +130,22 @@ func (e *exercise) Stop() error {
 }
 
 func (e *exercise) Close() error {
-	var ec ntpErrors.ErrorCollection
 	var wg sync.WaitGroup
 
 	for _, m := range e.machines {
 		wg.Add(1)
 		go func() {
 			if err := m.Close(); err != nil {
-				ec.Add(err)
+				log.Warn().Msgf("error while closing exercise: %s", err)
 			}
 			wg.Done()
 		}()
 
 	}
 	wg.Wait()
+
 	e.machines = nil
-	return &ec
+	return nil
 }
 
 func (e *exercise) Restart() error {

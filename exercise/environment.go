@@ -1,7 +1,6 @@
 package exercise
 
 import (
-	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
@@ -9,6 +8,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"io"
 	"sync"
+	"github.com/rs/zerolog/log"
 )
 
 type Environment interface {
@@ -50,7 +50,6 @@ func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment,
 	if err != nil {
 		return nil, err
 	}
-	ee.closers = append(ee.closers, ee.dhcpServer)
 
 	if _, err := ee.network.Connect(ee.dhcpServer.Container(), 2); err != nil {
 		return nil, err
@@ -70,9 +69,8 @@ func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment,
 		if err := ee.updateDNS(); err != nil {
 			return nil, err
 		}
-		ee.closers = append(ee.closers, ee.dnsServer)
 	}
-	ee.closers = append(ee.closers, ee.network)
+	ee.closers = append(ee.closers, ee.dnsServer, ee.dhcpServer)
 
 	return ee, nil
 }
@@ -167,14 +165,13 @@ func (ee *environment) Restart() error {
 }
 
 func (ee *environment) Close() error {
-	var ec ntpErrors.ErrorCollection
 	var wg sync.WaitGroup
 
 	for _, closer := range ee.closers {
 		wg.Add(1)
 		go func() {
 			if err := closer.Close(); err != nil {
-				ec.Add(err)
+				log.Warn().Msgf("error while closing environment: %s", err)
 			}
 			wg.Done()
 		}()
@@ -182,7 +179,11 @@ func (ee *environment) Close() error {
 	}
 	wg.Wait()
 
-	return &ec
+	if err := ee.network.Close(); err != nil {
+		log.Warn().Msgf("error while closing environment: %s", err)
+	}
+
+	return nil
 }
 
 func (ee *environment) ResetByTag(s string) error {
