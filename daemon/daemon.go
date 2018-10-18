@@ -136,6 +136,8 @@ func New(conf *Config) (*daemon, error) {
 
 	if len(uf.ListUsers()) == 0 && len(uf.ListSignupKeys()) == 0 {
 		k := store.NewSignupKey()
+		k.WillBeSuperUser = true
+
 		if err := uf.CreateSignupKey(k); err != nil {
 			return nil, err
 		}
@@ -147,7 +149,7 @@ func New(conf *Config) (*daemon, error) {
 	if len(uf.ListUsers()) == 0 && len(keys) > 0 {
 		log.Info().Msg("No users found, printing keys")
 		for _, k := range keys {
-			log.Info().Str("key", string(k)).Msg("Found key")
+			log.Info().Str("key", k.String()).Msg("Found key")
 		}
 	}
 
@@ -182,7 +184,7 @@ func New(conf *Config) (*daemon, error) {
 	return d, nil
 }
 
-func (d *daemon) authorize(ctx context.Context) error {
+func authorizeContext(ctx context.Context) (context.Context, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if len(md["token"]) > 0 {
 			token := md["token"][0]
@@ -190,10 +192,10 @@ func (d *daemon) authorize(ctx context.Context) error {
 			return d.auth.AuthenticateUserByToken(token)
 		}
 
-		return MissingTokenErr
+		return ctx, MissingTokenErr
 	}
 
-	return nil
+	return ctx, MissingTokenErr
 }
 
 func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
@@ -249,12 +251,19 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
-	k := store.SignupKey(req.Key)
-	if err := d.users.DeleteSignupKey(k); err != nil {
+	k, err := d.users.GetSignupKey(req.Key)
+	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+	if k.WillBeSuperUser {
+		u.SuperUser = true
 	}
 
 	if err := d.users.CreateUser(u); err != nil {
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+
+	if err := d.users.DeleteSignupKey(k); err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
@@ -268,6 +277,9 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 
 func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
 	k := store.NewSignupKey()
+	if req.SuperUser {
+		k.WillBeSuperUser = true
+	}
 
 	if err := d.users.CreateSignupKey(k); err != nil {
 		return &pb.InviteUserResponse{
@@ -276,7 +288,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}
 
 	return &pb.InviteUserResponse{
-		Key: string(k),
+		Key: k.String(),
 	}, nil
 }
 

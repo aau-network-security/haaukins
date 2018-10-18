@@ -10,6 +10,10 @@ import (
 
 	"context"
 
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
@@ -21,9 +25,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 func init() {
@@ -199,7 +200,7 @@ func TestSignupUser(t *testing.T) {
 
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.SignupUser(ctx, &pb.SignupUserRequest{
-				Key:      string(key),
+				Key:      key.String(),
 				Username: tc.user,
 				Password: tc.pass,
 			})

@@ -35,7 +35,10 @@ message SignupUserRequest {
   string password = 3;
 }
 
-message InviteUserRequest {}
+message InviteUserRequest {
+  bool super_user = 1;
+}
+
 message InviteUserResponse {
   string key = 1;
   string error = 2;
