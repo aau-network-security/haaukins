@@ -500,6 +500,31 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
 
+func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
+	var respList []*pb.ListFrontendsResponse_Frontend
+
+	err := filepath.Walk(d.conf.OvaDir, func(path string, info os.FileInfo, err error) error {
+		if filepath.Ext(path) == ".ova" {
+			relativePath, err := filepath.Rel(d.conf.OvaDir, path)
+			if err != nil {
+				return err
+			}
+			parts := strings.Split(relativePath, ".")
+			image := filepath.Join(parts[:len(parts)-1]...)
+			respList = append(respList, &pb.ListFrontendsResponse_Frontend{
+				Image: image,
+				Size:  info.Size(),
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ListFrontendsResponse{Frontends: respList}, nil
+}
+
 func (d *daemon) Close() {
 	for t, ev := range d.events {
 		ev.Close()
