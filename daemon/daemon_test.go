@@ -42,12 +42,12 @@ func (a *noAuth) TokenForUser(username, password string) (string, error) {
 	return respToken, nil
 }
 
-func (a *noAuth) AuthenticateUserByToken(t string) error {
+func (a *noAuth) AuthenticateUserByToken(t string) (*store.User, error) {
 	if a.allowed {
-		return nil
+		return nil, nil
 	}
 
-	return fmt.Errorf("unauthorized")
+	return nil, fmt.Errorf("unauthorized")
 }
 
 func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func() error) {
@@ -336,7 +336,7 @@ func TestLoginUser(t *testing.T) {
 				t.Fatalf("expected token to be non-empty")
 			}
 
-			if err := auth.AuthenticateUserByToken(resp.Token); err != nil {
+			if _, err := auth.AuthenticateUserByToken(resp.Token); err != nil {
 				t.Fatalf("expected to be able to authenticate with token")
 			}
 		})
@@ -383,11 +383,13 @@ func (fe *fakeEvent) Connect(*mux.Router) {
 	fe.connected += 1
 }
 
-func (fe *fakeEvent) Close() {
+func (fe *fakeEvent) Close() error {
 	fe.m.Lock()
 	defer fe.m.Unlock()
 
 	fe.close += 1
+
+	return nil
 }
 
 func (fe *fakeEvent) Finish() {

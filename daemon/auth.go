@@ -26,7 +26,7 @@ var (
 
 type Authenticator interface {
 	TokenForUser(username, password string) (string, error)
-	AuthenticateUserByToken(t string) error
+	AuthenticateUserByToken(t string) (*store.User, error)
 }
 
 type auth struct {
@@ -74,7 +74,7 @@ func (a *auth) TokenForUser(username, password string) (string, error) {
 	return tokenString, nil
 }
 
-func (a *auth) AuthenticateUserByToken(t string) error {
+func (a *auth) AuthenticateUserByToken(t string) (*store.User, error) {
 	token, err := jwt.Parse(t, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
@@ -83,30 +83,31 @@ func (a *auth) AuthenticateUserByToken(t string) error {
 		return []byte(a.key), nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		username, ok := claims[USERNAME_KEY].(string)
 		if !ok {
-			return InvalidTokenFormatErr
+			return nil, InvalidTokenFormatErr
 		}
 
-		if _, err := a.us.GetUserByUsername(username); err != nil {
-			return UnknownUserErr
+		u, err := a.us.GetUserByUsername(username)
+		if err != nil {
+			return nil, UnknownUserErr
 		}
 
 		validUntil, ok := claims[VALID_UNTIL_KEY].(float64)
 		if !ok {
-			return InvalidTokenFormatErr
+			return nil, InvalidTokenFormatErr
 		}
 
 		if int64(validUntil) < time.Now().Unix() {
-			return TokenExpiredErr
+			return nil, TokenExpiredErr
 		}
 
-		return nil
+		return &u, nil
 	}
 
-	return err
+	return nil, err
 }

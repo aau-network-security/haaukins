@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -25,6 +26,7 @@ import (
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	dockerclient "github.com/fsouza/go-dockerclient"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -44,6 +46,7 @@ type Config struct {
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	OvaDir             string                           `yaml:"ova-directory,omitempty"`
+	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
 	Management         struct {
@@ -83,6 +86,8 @@ type daemon struct {
 	frontendLibrary vbox.Library
 	mux             *mux.Router
 	ehost           event.Host
+	logPool         LogPool
+	closers         []io.Closer
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -101,6 +106,11 @@ func New(conf *Config) (*daemon, error) {
 	if conf.OvaDir == "" {
 		dir, _ := os.Getwd()
 		conf.OvaDir = filepath.Join(dir, "vbox")
+	}
+
+	if conf.LogDir == "" {
+		dir, _ := os.Getwd()
+		conf.LogDir = filepath.Join(dir, "logs")
 	}
 
 	if conf.UsersFile == "" {
@@ -156,6 +166,11 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
+	logPool, err := NewLogPool(conf.LogDir)
+	if err != nil {
+		return nil, err
+	}
+
 	d := &daemon{
 		conf:            conf,
 		auth:            NewAuthenticator(uf, conf.Management.SigningKey),
@@ -165,6 +180,8 @@ func New(conf *Config) (*daemon, error) {
 		frontendLibrary: vlib,
 		mux:             m,
 		ehost:           event.NewHost(vlib, ef, efh),
+		logPool:         logPool,
+		closers:         []io.Closer{logPool},
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -182,7 +199,7 @@ func New(conf *Config) (*daemon, error) {
 	return d, nil
 }
 
-func (d *daemon) authorize(ctx context.Context) error {
+func (d *daemon) authorize(ctx context.Context) (*store.User, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if len(md["token"]) > 0 {
 			token := md["token"][0]
@@ -190,24 +207,55 @@ func (d *daemon) authorize(ctx context.Context) error {
 			return d.auth.AuthenticateUserByToken(token)
 		}
 
-		return MissingTokenErr
+		return nil, MissingTokenErr
 	}
 
-	return nil
+	return nil, MissingTokenErr
+}
+
+type auditStream struct {
+	grpc.ServerStream
+	logger   *zerolog.Logger
+	username string
+}
+
+func (s *auditStream) Context() context.Context {
+	ctx := s.ServerStream.Context()
+
+	logger := s.logger
+	if s.username != "" {
+		loggerStruct := s.logger.With().Str("user", s.username).Logger()
+		logger = &loggerStruct
+	}
+
+	return logger.WithContext(ctx)
 }
 
 func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	nonAuth := []string{"LoginUser", "SignupUser"}
+	var logger *zerolog.Logger
+	if d.logPool != nil {
+		logger, _ = d.logPool.GetLogger("audit")
+	}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
+				if logger != nil {
+					stream = &auditStream{ServerStream: stream, logger: logger}
+				}
+
 				return handler(srv, stream)
 			}
 		}
 
-		if err := d.authorize(stream.Context()); err != nil {
+		u, err := d.authorize(stream.Context())
+		if err != nil {
 			return err
+		}
+
+		if logger != nil {
+			stream = &auditStream{stream, logger, u.Username}
 		}
 
 		return handler(srv, stream)
@@ -216,12 +264,22 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
+				if logger != nil {
+					ctx = logger.WithContext(ctx)
+				}
+
 				return handler(ctx, req)
 			}
 		}
-
-		if err := d.authorize(ctx); err != nil {
+		u, err := d.authorize(ctx)
+		if err != nil {
 			return nil, err
+		}
+
+		if logger != nil {
+			structLogger := logger.With().Str("user", u.Username).Logger()
+			logger = &structLogger
+			ctx = logger.WithContext(ctx)
 		}
 
 		return handler(ctx, req)
@@ -235,6 +293,11 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 }
 
 func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.LoginUserResponse, error) {
+	log.Ctx(ctx).
+		Info().
+		Str("username", req.Username).
+		Msg("login user")
+
 	token, err := d.auth.TokenForUser(req.Username, req.Password)
 	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
@@ -244,6 +307,11 @@ func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.L
 }
 
 func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb.LoginUserResponse, error) {
+	log.Ctx(ctx).
+		Info().
+		Str("username", req.Username).
+		Msg("signup user")
+
 	u, err := store.NewUser(req.Username, req.Password)
 	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
@@ -267,6 +335,8 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 }
 
 func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
+	log.Ctx(ctx).Info().Msg("invite user")
+
 	k := store.NewSignupKey()
 
 	if err := d.users.CreateSignupKey(k); err != nil {
@@ -316,12 +386,23 @@ func (d *daemon) createEvent(ev event.Event) error {
 	eventRoute := d.mux.Host(host).Subrouter()
 	ev.Connect(eventRoute)
 
+	d.closers = append(d.closers, ev)
 	d.events[conf.Tag] = ev
 
 	return nil
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+	log.Ctx(resp.Context()).
+		Info().
+		Str("tag", req.Tag).
+		Str("name", req.Name).
+		Int32("available", req.Available).
+		Int32("capacity", req.Capacity).
+		Strs("frontends", req.Frontends).
+		Strs("exercises", req.Exercises).
+		Msg("create event")
+
 	tags := make([]store.Tag, len(req.Exercises))
 	for i, s := range req.Exercises {
 		t, err := store.NewTag(s)
@@ -364,6 +445,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
+	log.Ctx(resp.Context()).
+		Info().
+		Str("tag", req.Tag).
+		Msg("stop event")
+
 	evtag, err := store.NewTag(req.Tag)
 	if err != nil {
 		return err
@@ -382,6 +468,12 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 }
 
 func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_RestartTeamLabServer) error {
+	log.Ctx(resp.Context()).
+		Info().
+		Str("event", req.EventTag).
+		Str("lab", req.LabTag).
+		Msg("restart lab")
+
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
 		return err
@@ -406,6 +498,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 }
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
+
 	var exercises []*pb.ListExercisesResponse_Exercise
 
 	for _, e := range d.exercises.ListExercises() {
@@ -426,6 +519,11 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 }
 
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_ResetExerciseServer) error {
+	log.Ctx(resp.Context()).Info().
+		Str("evtag", req.EventTag).
+		Str("extag", req.ExerciseTag).
+		Msg("reset exercise")
+
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
 		return err
@@ -500,6 +598,17 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
 
+func (d *daemon) Close() error {
+	var errs error
+	for _, c := range d.closers {
+		if err := c.Close(); err != nil && errs == nil {
+			errs = err
+		}
+
+	}
+	return errs
+}
+
 func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
 	var respList []*pb.ListFrontendsResponse_Frontend
 
@@ -523,13 +632,6 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 	}
 
 	return &pb.ListFrontendsResponse{Frontends: respList}, nil
-}
-
-func (d *daemon) Close() {
-	for t, ev := range d.events {
-		ev.Close()
-		delete(d.events, t)
-	}
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
