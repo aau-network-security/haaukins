@@ -507,23 +507,16 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 }
 
 func (d *daemon) Close() {
-	d.m.Lock()
-	defer d.m.Unlock()
-
-	done := make(chan bool)
-	defer func() {
-		for i := 0; i < len(d.events); i++ {
-			<-done
-		}
-	}()
-
+	var wg sync.WaitGroup
 	for t, ev := range d.events {
+		wg.Add(1)
 		go func() {
 			ev.Close()
 			delete(d.events, t)
-			done <- true
+			wg.Done()
 		}()
 	}
+	wg.Wait()
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {

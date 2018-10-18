@@ -47,8 +47,9 @@ func (guac *testGuac) Start(ctx context.Context) error {
 	return nil
 }
 
-func (guac *testGuac) Close() {
+func (guac *testGuac) Close() error {
 	guac.status = CLOSED
+	return nil
 }
 
 func (guac *testGuac) CreateUser(username string, password string) error {
@@ -80,8 +81,9 @@ func (hub *testLabHub) Get() (lab.Lab, error) {
 	return hub.lab, hub.err
 }
 
-func (hub *testLabHub) Close() {
+func (hub *testLabHub) Close() error {
 	hub.status = CLOSED
+	return nil
 }
 
 type testDockerHost struct {

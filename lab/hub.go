@@ -2,15 +2,13 @@ package lab
 
 import (
 	"errors"
-	"sync"
-
-	"sync/atomic"
-
-	"github.com/aau-network-security/go-ntp/exercise"
+	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
 	"io"
+	"sync"
+	"sync/atomic"
 )
 
 var (
@@ -62,7 +60,11 @@ func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, err
 
 	log.Debug().Msgf("Instantiating %d lab(s)", available)
 	for i := 0; i < available; i++ {
-		go h.addLab()
+		go func() {
+			if err := h.addLab(); err != nil {
+				log.Warn().Msgf("error while adding lab: %s", err)
+			}
+		}()
 	}
 
 	return h, nil
@@ -113,18 +115,33 @@ func (h *hub) Get() (Lab, error) {
 }
 
 func (h *hub) Close() error {
-	var ec exercise.ErrorCollection
-	for _, v := range h.labs {
-		if err := v.Close(); err != nil {
-			ec.Add(err)
-		}
-	}
+	h.createSema.claim()
+	defer h.createSema.claim()
+
 	close(h.buffer)
-	for v := range h.buffer {
-		if err := v.Close(); err != nil {
-			ec.Add(err)
-		}
+
+	var ec ntpErrors.ErrorCollection
+	var wg sync.WaitGroup
+
+	for _, l := range h.labs {
+		wg.Add(1)
+		go func() {
+			if err := l.Close(); err != nil {
+				ec.Add(err)
+			}
+			wg.Done()
+		}()
 	}
+	for l := range h.buffer {
+		wg.Add(1)
+		go func() {
+			if err := l.Close(); err != nil {
+				ec.Add(err)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 	return &ec
 }
 

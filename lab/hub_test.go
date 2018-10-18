@@ -26,8 +26,9 @@ func (lab *testLab) Start() error {
 	return nil
 }
 
-func (lab *testLab) Close() {
+func (lab *testLab) Close() error {
 	lab.closed = true
+	return nil
 }
 
 func TestHub_addLab(t *testing.T) {

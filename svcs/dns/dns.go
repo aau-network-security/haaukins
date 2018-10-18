@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/aau-network-security/go-ntp/exercise"
+	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"io"
 )
@@ -113,7 +113,7 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Close() error {
-	var ec exercise.ErrorCollection
+	var ec ntpErrors.ErrorCollection
 	if err := os.Remove(s.confFile); err != nil {
 		ec.Add(err)
 	}

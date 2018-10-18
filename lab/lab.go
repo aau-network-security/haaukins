@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"time"
 
+	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
@@ -12,6 +13,7 @@ import (
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
 	"io"
+	"sync"
 )
 
 var (
@@ -154,12 +156,20 @@ func (l *lab) Restart() error {
 }
 
 func (l *lab) Close() error {
-	var ec exercise.ErrorCollection
+	var ec ntpErrors.ErrorCollection
+	var wg sync.WaitGroup
+
 	for _, closer := range l.closers {
-		if err := closer.Close(); err != nil {
-			ec.Add(err)
-		}
+		wg.Add(1)
+		go func() {
+			if err := closer.Close(); err != nil {
+				ec.Add(err)
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
+
 	return &ec
 }
 

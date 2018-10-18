@@ -88,6 +88,7 @@ type Auth struct {
 
 type Event interface {
 	Start(context.Context) error
+	Close()
 	Finish()
 	AssignLab(store.Team) error
 	Connect(*mux.Router)

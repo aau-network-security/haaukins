@@ -1,12 +1,14 @@
 package exercise
 
 import (
+	ntpErrors "github.com/aau-network-security/go-ntp/errors"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"io"
+	"sync"
 )
 
 type Environment interface {
@@ -165,12 +167,20 @@ func (ee *environment) Restart() error {
 }
 
 func (ee *environment) Close() error {
-	var ec ErrorCollection
+	var ec ntpErrors.ErrorCollection
+	var wg sync.WaitGroup
+
 	for _, closer := range ee.closers {
-		if err := closer.Close(); err != nil {
-			ec.Add(err)
-		}
+		wg.Add(1)
+		go func() {
+			if err := closer.Close(); err != nil {
+				ec.Add(err)
+			}
+			wg.Done()
+		}()
+
 	}
+	wg.Wait()
 
 	return &ec
 }
