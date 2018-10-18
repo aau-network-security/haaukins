@@ -162,12 +162,12 @@ func (l *lab) Close() error {
 
 	for _, closer := range l.closers {
 		wg.Add(1)
-		go func() {
-			if err := closer.Close(); err != nil {
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil {
 				log.Warn().Msgf("error while closing lab: %s", err)
 			}
 			wg.Done()
-		}()
+		}(closer)
 	}
 	wg.Wait()
 

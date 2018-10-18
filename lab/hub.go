@@ -114,7 +114,6 @@ func (h *hub) Get() (Lab, error) {
 }
 
 func (h *hub) Close() error {
-	log.Debug().Msg("Closing labhub")
 	close(h.buffer)
 
 	var wg sync.WaitGroup
@@ -125,7 +124,6 @@ func (h *hub) Close() error {
 			if err := l.Close(); err != nil {
 				log.Warn().Msgf("error while closing hub: %s", err)
 			}
-			log.Debug().Msg("Closed lab")
 			wg.Done()
 		}()
 	}
@@ -135,7 +133,6 @@ func (h *hub) Close() error {
 			if err := l.Close(); err != nil {
 				log.Warn().Msgf("error while closing hub: %s", err)
 			}
-			log.Debug().Msg("Closed lab")
 			wg.Done()
 		}()
 	}

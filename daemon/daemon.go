@@ -510,11 +510,11 @@ func (d *daemon) Close() {
 	var wg sync.WaitGroup
 	for t, ev := range d.events {
 		wg.Add(1)
-		go func() {
+		go func(ev event.Event) {
 			ev.Close()
 			delete(d.events, t)
 			wg.Done()
-		}()
+		}(ev)
 	}
 	wg.Wait()
 }

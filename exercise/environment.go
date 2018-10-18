@@ -6,9 +6,9 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/rs/zerolog/log"
 	"io"
 	"sync"
-	"github.com/rs/zerolog/log"
 )
 
 type Environment interface {
@@ -169,12 +169,12 @@ func (ee *environment) Close() error {
 
 	for _, closer := range ee.closers {
 		wg.Add(1)
-		go func() {
-			if err := closer.Close(); err != nil {
-				log.Warn().Msgf("error while closing environment: %s", err)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil {
+				log.Warn().Msgf("error while closing environment (%s): %s", &closer, err)
 			}
 			wg.Done()
-		}()
+		}(closer)
 
 	}
 	wg.Wait()

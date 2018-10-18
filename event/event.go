@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"io"
+	"sync"
 )
 
 var (
@@ -170,11 +171,19 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 func (ev *event) Close() {
+	var wg sync.WaitGroup
+
 	for _, closer := range ev.closers {
-		if err := closer.Close(); err != nil {
-			log.Warn().Msgf("error while closing event %s: %s", ev.GetConfig().Name, err)
-		}
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil {
+				log.Warn().Msgf("error while closing event %s: %s", ev.GetConfig().Name, err)
+			}
+			wg.Done()
+		}(closer)
+
 	}
+	wg.Wait()
 }
 
 func (ev *event) Finish() {
