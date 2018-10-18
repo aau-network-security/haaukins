@@ -528,7 +528,7 @@ func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) 
 		// we should send io at some point
 		// io, _ := net.IOCounters(true)
 
-		if err := stream.Send(&pb.MonitorHostReponse{
+		if err := stream.Send(&pb.MonitorHostResponse{
 			CPUPercent:      cpuPercent,
 			CPUReadError:    cpuErr,
 			MemoryPercent:   float32(v.UsedPercent),
