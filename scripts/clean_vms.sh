@@ -1,11 +1,10 @@
 #!/bin/bash
 
-VMS=$(vboxmanage list vms)
+VMS=$(vboxmanage list vms | awk '{ print $1 }' | sed -n -e 's/"\([a-z0-9]\{32\}\)"/\1/p')
 
 while read -r line; do
-    line=$(echo $line | cut -d ' ' -f 2)
-    vms_id=$(echo $line | awk -F[{}] '{print $2}')
-    echo $vms_id
-    vboxmanage controlvm $vms_id poweroff
-    vboxmanage unregistervm $vms_id --delete
+    vm=$(echo $line | cut -d ' ' -f 2)
+    echo $vm
+    vboxmanage controlvm $vm poweroff
+    vboxmanage unregistervm $vm --delete
 done <<< "$VMS"
