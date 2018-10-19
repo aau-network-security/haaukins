@@ -182,6 +182,7 @@ func (ev *event) Close() error {
 			wg.Done()
 		}(closer)
 	}
+	wg.Wait()
 
 	return nil
 }
