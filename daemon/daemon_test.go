@@ -10,6 +10,10 @@ import (
 
 	"context"
 
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
@@ -32,19 +36,20 @@ const (
 )
 
 type noAuth struct {
-	allowed bool
+	allowed   bool
+	superuser bool
 }
 
 func (a *noAuth) TokenForUser(username, password string) (string, error) {
 	return respToken, nil
 }
 
-func (a *noAuth) AuthenticateUserByToken(t string) error {
+func (a *noAuth) AuthenticateContext(ctx context.Context) (context.Context, error) {
 	if a.allowed {
-		return nil
+		return context.WithValue(ctx, us{}, store.User{Username: "some_user", SuperUser: a.superuser}), nil
 	}
 
-	return fmt.Errorf("unauthorized")
+	return ctx, fmt.Errorf("unauthorized")
 }
 
 func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func() error) {
@@ -66,12 +71,14 @@ func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func()
 
 func TestInviteUser(t *testing.T) {
 	tt := []struct {
-		name    string
-		token   string
-		allowed bool
-		err     string
+		name      string
+		token     string
+		allowed   bool
+		superuser bool
+		err       string
 	}{
-		{name: "Normal with auth", allowed: true},
+		{name: "Normal with auth and super", allowed: true, superuser: true},
+		{name: "No super with auth", allowed: true, err: "This action requires super user permissions"},
 		{name: "Unauthorized", allowed: false, err: "unauthorized"},
 	}
 
@@ -82,7 +89,8 @@ func TestInviteUser(t *testing.T) {
 			ctx := context.Background()
 			d := &daemon{
 				auth: &noAuth{
-					allowed: tc.allowed,
+					allowed:   tc.allowed,
+					superuser: tc.superuser,
 				},
 				users: struct {
 					store.SignupKeyStore
@@ -109,6 +117,10 @@ func TestInviteUser(t *testing.T) {
 
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.InviteUser(ctx, &pb.InviteUserRequest{})
+			if resp != nil && resp.Error != "" {
+				err = fmt.Errorf(resp.Error)
+			}
+
 			if err != nil {
 				st, ok := status.FromError(err)
 				if ok {
@@ -196,7 +208,7 @@ func TestSignupUser(t *testing.T) {
 
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.SignupUser(ctx, &pb.SignupUserRequest{
-				Key:      string(key),
+				Key:      key.String(),
 				Username: tc.user,
 				Password: tc.pass,
 			})
@@ -332,10 +344,6 @@ func TestLoginUser(t *testing.T) {
 			if resp.Token == "" {
 				t.Fatalf("expected token to be non-empty")
 			}
-
-			if err := auth.AuthenticateUserByToken(resp.Token); err != nil {
-				t.Fatalf("expected to be able to authenticate with token")
-			}
 		})
 	}
 }
@@ -380,11 +388,13 @@ func (fe *fakeEvent) Connect(*mux.Router) {
 	fe.connected += 1
 }
 
-func (fe *fakeEvent) Close() {
+func (fe *fakeEvent) Close() error {
 	fe.m.Lock()
 	defer fe.m.Unlock()
 
 	fe.close += 1
+
+	return nil
 }
 
 func (fe *fakeEvent) Finish() {
@@ -921,6 +931,108 @@ func TestResetExercise(t *testing.T) {
 
 			if count != tc.expected {
 				t.Fatalf("Expected %d resets, but observed %d", tc.expected, count)
+			}
+		})
+	}
+}
+
+func TestListFrontends(t *testing.T) {
+	tt := []struct {
+		name           string
+		unauthorized   bool
+		err            string
+		expectedImages []string
+	}{
+		{
+			name:           "Normal",
+			expectedImages: []string{"1/1", "2/2"},
+		},
+		{
+			name:         "Unauthorized",
+			unauthorized: true,
+			err:          "unauthorized",
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir, err := ioutil.TempDir("", "")
+			fmt.Println(tmpDir)
+			if err != nil {
+				t.Fatalf("failed to create temporary directory")
+			}
+			defer os.RemoveAll(tmpDir)
+			for _, dir := range []string{"1", "2"} {
+				if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755); err != nil {
+					t.Fatalf("failed to created subdirectories")
+				}
+			}
+
+			data := "content of file"
+			filenames := []string{
+				filepath.Join(tmpDir, "1", "1.ova"),
+				filepath.Join(tmpDir, "1", "1.txt"),
+				filepath.Join(tmpDir, "2", "2.ova"),
+			}
+			for _, fn := range filenames {
+				f, err := os.Create(fn)
+				if err != nil {
+					t.Fatalf("failed to create '%s': %s", fn, err)
+				}
+				defer f.Close()
+				if _, err := f.WriteString(data); err != nil {
+					t.Fatalf("failed to write to '%s': %s", fn, err)
+				}
+			}
+
+			ctx := context.Background()
+
+			d := &daemon{
+				conf: &Config{
+					OvaDir: tmpDir,
+				},
+				events: map[store.Tag]event.Event{},
+				auth: &noAuth{
+					allowed: !tc.unauthorized,
+				},
+				mux: mux.NewRouter(),
+			}
+
+			dialer, close := getServer(d)
+			defer close()
+
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			resp, err := client.ListFrontends(ctx, &pb.Empty{})
+
+			if err != nil && err != io.EOF {
+				st, ok := status.FromError(err)
+				if ok {
+					err = fmt.Errorf(st.Message())
+				}
+				if tc.err != "" && err.Error() != tc.err {
+					t.Fatalf("expected error '%s', but got '%s'", tc.err, err.Error())
+				}
+				return
+			}
+
+			if len(resp.Frontends) != len(tc.expectedImages) {
+				t.Fatalf("expected %d frontends, but got %d", len(tc.expectedImages), len(resp.Frontends))
+			}
+
+			for i, f := range resp.Frontends {
+				if f.Image != tc.expectedImages[i] {
+					t.Fatalf("expected image '%s', but got '%s'", tc.expectedImages[i], f.Image)
+				}
 			}
 		})
 	}

@@ -89,7 +89,7 @@ type Auth struct {
 
 type Event interface {
 	Start(context.Context) error
-	Close()
+	Close() error
 	Finish()
 	AssignLab(store.Team) error
 	Connect(*mux.Router)
@@ -170,7 +170,7 @@ func (ev *event) Start(ctx context.Context) error {
 	return nil
 }
 
-func (ev *event) Close() {
+func (ev *event) Close() error {
 	var wg sync.WaitGroup
 
 	for _, closer := range ev.closers {
@@ -181,9 +181,9 @@ func (ev *event) Close() {
 			}
 			wg.Done()
 		}(closer)
-
 	}
-	wg.Wait()
+
+	return nil
 }
 
 func (ev *event) Finish() {

@@ -26,6 +26,7 @@ var (
 type User struct {
 	Username       string    `yaml:"username"`
 	HashedPassword string    `yaml:"hashed-password"`
+	SuperUser      bool      `yaml:"super-user"`
 	CreatedAt      time.Time `yaml:"created-at"`
 }
 
@@ -146,56 +147,75 @@ func (us *userstore) RunHooks() error {
 	return nil
 }
 
-type SignupKey string
+type SignupKey struct {
+	WillBeSuperUser bool   `yaml:"super-user,omitempty"`
+	Value           string `yaml:"value,omitempty"`
+}
+
+func (sk SignupKey) String() string {
+	return sk.Value
+}
 
 func NewSignupKey() SignupKey {
-	return SignupKey(uuid.New().String())
+	return SignupKey{
+		Value: uuid.New().String(),
+	}
 }
 
 type SignupKeyStore interface {
 	CreateSignupKey(SignupKey) error
+	GetSignupKey(string) (SignupKey, error)
 	DeleteSignupKey(SignupKey) error
 	ListSignupKeys() []SignupKey
 }
 
 type signupkeystore struct {
 	m      sync.Mutex
-	keyMap map[SignupKey]struct{}
+	keyMap map[string]SignupKey
 	hooks  []func([]SignupKey) error
 }
 
 func NewSignupKeyStore(keys []SignupKey, hooks ...func([]SignupKey) error) SignupKeyStore {
 	s := signupkeystore{
-		keyMap: map[SignupKey]struct{}{},
+		keyMap: map[string]SignupKey{},
 		hooks:  hooks,
 	}
 
 	for _, k := range keys {
-		s.keyMap[k] = struct{}{}
+		s.keyMap[k.String()] = k
 	}
 
 	return &s
 }
 
 func (ss *signupkeystore) CreateSignupKey(k SignupKey) error {
-	_, ok := ss.keyMap[k]
+	_, ok := ss.keyMap[k.String()]
 	if ok {
 		return SignupKeyExistsErr
 	}
 
-	ss.keyMap[k] = struct{}{}
+	ss.keyMap[k.String()] = k
 
 	list := ss.ListSignupKeys()
 	return ss.RunHooks(list)
 }
 
+func (ss *signupkeystore) GetSignupKey(s string) (SignupKey, error) {
+	k, ok := ss.keyMap[s]
+	if !ok {
+		return SignupKey{}, SignupKeyNotFoundErr
+	}
+
+	return k, nil
+}
+
 func (ss *signupkeystore) DeleteSignupKey(k SignupKey) error {
-	_, ok := ss.keyMap[k]
+	_, ok := ss.keyMap[k.String()]
 	if !ok {
 		return SignupKeyNotFoundErr
 	}
 
-	delete(ss.keyMap, k)
+	delete(ss.keyMap, k.String())
 
 	list := ss.ListSignupKeys()
 	return ss.RunHooks(list)
@@ -205,7 +225,7 @@ func (ss *signupkeystore) ListSignupKeys() []SignupKey {
 	keys := make([]SignupKey, len(ss.keyMap))
 
 	var i int
-	for k, _ := range ss.keyMap {
+	for _, k := range ss.keyMap {
 		keys[i] = k
 		i++
 	}
