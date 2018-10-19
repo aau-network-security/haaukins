@@ -3,11 +3,13 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aau-network-security/go-ntp/event"
 	"github.com/aau-network-security/go-ntp/store"
@@ -15,14 +17,17 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
 	"google.golang.org/grpc"
-	metadata "google.golang.org/grpc/metadata"
 	yaml "gopkg.in/yaml.v2"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	dockerclient "github.com/fsouza/go-dockerclient"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"sync"
 )
 
 var (
@@ -41,6 +46,7 @@ type Config struct {
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	OvaDir             string                           `yaml:"ova-directory,omitempty"`
+	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
 	Management         struct {
@@ -80,6 +86,8 @@ type daemon struct {
 	frontendLibrary vbox.Library
 	mux             *mux.Router
 	ehost           event.Host
+	logPool         LogPool
+	closers         []io.Closer
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -98,6 +106,11 @@ func New(conf *Config) (*daemon, error) {
 	if conf.OvaDir == "" {
 		dir, _ := os.Getwd()
 		conf.OvaDir = filepath.Join(dir, "vbox")
+	}
+
+	if conf.LogDir == "" {
+		dir, _ := os.Getwd()
+		conf.LogDir = filepath.Join(dir, "logs")
 	}
 
 	if conf.UsersFile == "" {
@@ -133,6 +146,8 @@ func New(conf *Config) (*daemon, error) {
 
 	if len(uf.ListUsers()) == 0 && len(uf.ListSignupKeys()) == 0 {
 		k := store.NewSignupKey()
+		k.WillBeSuperUser = true
+
 		if err := uf.CreateSignupKey(k); err != nil {
 			return nil, err
 		}
@@ -144,11 +159,16 @@ func New(conf *Config) (*daemon, error) {
 	if len(uf.ListUsers()) == 0 && len(keys) > 0 {
 		log.Info().Msg("No users found, printing keys")
 		for _, k := range keys {
-			log.Info().Str("key", string(k)).Msg("Found key")
+			log.Info().Str("key", k.String()).Msg("Found key")
 		}
 	}
 
 	efh, err := store.NewEventFileHub(conf.EventsDir)
+	if err != nil {
+		return nil, err
+	}
+
+	logPool, err := NewLogPool(conf.LogDir)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +182,8 @@ func New(conf *Config) (*daemon, error) {
 		frontendLibrary: vlib,
 		mux:             m,
 		ehost:           event.NewHost(vlib, ef, efh),
+		logPool:         logPool,
+		closers:         []io.Closer{logPool},
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -179,46 +201,71 @@ func New(conf *Config) (*daemon, error) {
 	return d, nil
 }
 
-func (d *daemon) authorize(ctx context.Context) error {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if len(md["token"]) > 0 {
-			token := md["token"][0]
+type contextStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
 
-			return d.auth.AuthenticateUserByToken(token)
-		}
+func (s *contextStream) Context() context.Context {
+	return s.ctx
+}
 
-		return MissingTokenErr
+func withAuditLogger(ctx context.Context, logger *zerolog.Logger) context.Context {
+	if logger == nil {
+		return ctx
 	}
 
-	return nil
+	u, ok := ctx.Value(us{}).(store.User)
+	if !ok {
+		return logger.WithContext(ctx)
+	}
+
+	ls := logger.With().
+		Str("user", u.Username).
+		Bool("is-super-user", u.SuperUser).
+		Logger()
+	logger = &ls
+
+	return logger.WithContext(ctx)
 }
 
 func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	nonAuth := []string{"LoginUser", "SignupUser"}
+	var logger *zerolog.Logger
+	if d.logPool != nil {
+		logger, _ = d.logPool.GetLogger("audit")
+	}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx, authErr := d.auth.AuthenticateContext(stream.Context())
+		ctx = withAuditLogger(ctx, logger)
+		stream = &contextStream{stream, ctx}
+
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
 				return handler(srv, stream)
 			}
 		}
 
-		if err := d.authorize(stream.Context()); err != nil {
-			return err
+		if authErr != nil {
+			return authErr
 		}
 
 		return handler(srv, stream)
 	}
 
 	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		ctx, authErr := d.auth.AuthenticateContext(ctx)
+		ctx = withAuditLogger(ctx, logger)
+
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
 				return handler(ctx, req)
 			}
 		}
 
-		if err := d.authorize(ctx); err != nil {
-			return nil, err
+		if authErr != nil {
+			return nil, authErr
 		}
 
 		return handler(ctx, req)
@@ -232,6 +279,11 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 }
 
 func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.LoginUserResponse, error) {
+	log.Ctx(ctx).
+		Info().
+		Str("username", req.Username).
+		Msg("login user")
+
 	token, err := d.auth.TokenForUser(req.Username, req.Password)
 	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
@@ -241,17 +293,29 @@ func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.L
 }
 
 func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb.LoginUserResponse, error) {
+	log.Ctx(ctx).
+		Info().
+		Str("username", req.Username).
+		Msg("signup user")
+
 	u, err := store.NewUser(req.Username, req.Password)
 	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
-	k := store.SignupKey(req.Key)
-	if err := d.users.DeleteSignupKey(k); err != nil {
+	k, err := d.users.GetSignupKey(req.Key)
+	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+	if k.WillBeSuperUser {
+		u.SuperUser = true
 	}
 
 	if err := d.users.CreateUser(u); err != nil {
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+
+	if err := d.users.DeleteSignupKey(k); err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
@@ -264,7 +328,19 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 }
 
 func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
+	log.Ctx(ctx).Info().Msg("invite user")
+
+	u, _ := ctx.Value(us{}).(store.User)
+	if !u.SuperUser {
+		return &pb.InviteUserResponse{
+			Error: "This action requires super user permissions",
+		}, nil
+	}
+
 	k := store.NewSignupKey()
+	if req.SuperUser {
+		k.WillBeSuperUser = true
+	}
 
 	if err := d.users.CreateSignupKey(k); err != nil {
 		return &pb.InviteUserResponse{
@@ -273,7 +349,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}
 
 	return &pb.InviteUserResponse{
-		Key: string(k),
+		Key: k.String(),
 	}, nil
 }
 
@@ -313,12 +389,23 @@ func (d *daemon) createEvent(ev event.Event) error {
 	eventRoute := d.mux.Host(host).Subrouter()
 	ev.Connect(eventRoute)
 
+	d.closers = append(d.closers, ev)
 	d.events[conf.Tag] = ev
 
 	return nil
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+	log.Ctx(resp.Context()).
+		Info().
+		Str("tag", req.Tag).
+		Str("name", req.Name).
+		Int32("available", req.Available).
+		Int32("capacity", req.Capacity).
+		Strs("frontends", req.Frontends).
+		Strs("exercises", req.Exercises).
+		Msg("create event")
+
 	tags := make([]store.Tag, len(req.Exercises))
 	for i, s := range req.Exercises {
 		t, err := store.NewTag(s)
@@ -361,6 +448,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
+	log.Ctx(resp.Context()).
+		Info().
+		Str("tag", req.Tag).
+		Msg("stop event")
+
 	evtag, err := store.NewTag(req.Tag)
 	if err != nil {
 		return err
@@ -379,6 +471,12 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 }
 
 func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_RestartTeamLabServer) error {
+	log.Ctx(resp.Context()).
+		Info().
+		Str("event", req.EventTag).
+		Str("lab", req.LabTag).
+		Msg("restart lab")
+
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
 		return err
@@ -402,7 +500,33 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	return nil
 }
 
+func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
+
+	var exercises []*pb.ListExercisesResponse_Exercise
+
+	for _, e := range d.exercises.ListExercises() {
+		var tags []string
+		for _, t := range e.Tags {
+			tags = append(tags, string(t))
+		}
+
+		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
+			Name:             e.Name,
+			Tags:             tags,
+			DockerImageCount: int32(len(e.DockerConfs)),
+			VboxImageCount:   int32(len(e.VboxConfs)),
+		})
+	}
+
+	return &pb.ListExercisesResponse{Exercises: exercises}, nil
+}
+
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_ResetExerciseServer) error {
+	log.Ctx(resp.Context()).Info().
+		Str("evtag", req.EventTag).
+		Str("extag", req.ExerciseTag).
+		Msg("reset exercise")
+
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
 		return err
@@ -477,10 +601,77 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
 
-func (d *daemon) Close() {
-	for t, ev := range d.events {
-		ev.Close()
-		delete(d.events, t)
+func (d *daemon) Close() error {
+	var errs error
+	var wg sync.WaitGroup
+	for _, c := range d.closers {
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil && errs == nil {
+				errs = err
+			}
+			wg.Done()
+		}(c)
+	}
+	wg.Wait()
+
+	return errs
+}
+
+func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
+	var respList []*pb.ListFrontendsResponse_Frontend
+
+	err := filepath.Walk(d.conf.OvaDir, func(path string, info os.FileInfo, err error) error {
+		if filepath.Ext(path) == ".ova" {
+			relativePath, err := filepath.Rel(d.conf.OvaDir, path)
+			if err != nil {
+				return err
+			}
+			parts := strings.Split(relativePath, ".")
+			image := filepath.Join(parts[:len(parts)-1]...)
+			respList = append(respList, &pb.ListFrontendsResponse_Frontend{
+				Image: image,
+				Size:  info.Size(),
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ListFrontendsResponse{Frontends: respList}, nil
+}
+
+func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
+	for {
+		var cpuErr string
+		var cpuPercent float32
+		cpus, err := cpu.Percent(time.Second, false)
+		if err != nil {
+			cpuErr = err.Error()
+		}
+		if len(cpus) == 1 {
+			cpuPercent = float32(cpus[0])
+		}
+
+		var memErr string
+		v, err := mem.VirtualMemory()
+		if err != nil {
+			memErr = err.Error()
+		}
+
+		// we should send io at some point
+		// io, _ := net.IOCounters(true)
+
+		if err := stream.Send(&pb.MonitorHostResponse{
+			CPUPercent:      cpuPercent,
+			CPUReadError:    cpuErr,
+			MemoryPercent:   float32(v.UsedPercent),
+			MemoryReadError: memErr,
+		}); err != nil {
+			return err
+		}
 	}
 }
 

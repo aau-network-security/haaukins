@@ -8,6 +8,9 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
 )
 
 var (
@@ -39,6 +42,7 @@ type exercise struct {
 	dnsRecords []store.RecordConfig
 	dockerHost DockerHost
 	lib        vbox.Library
+	io.Closer
 }
 
 func (e *exercise) Create() error {
@@ -107,12 +111,19 @@ func (e *exercise) Create() error {
 }
 
 func (e *exercise) Start() error {
+	var res error
+	var wg sync.WaitGroup
 	for _, m := range e.machines {
-		if err := m.Start(); err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func(m virtual.Instance) {
+			if err := m.Start(); err != nil && res == nil {
+				res = err
+			}
+		}(m)
+		wg.Done()
 	}
-	return nil
+	wg.Wait()
+	return res
 }
 
 func (e *exercise) Stop() error {
@@ -126,11 +137,20 @@ func (e *exercise) Stop() error {
 }
 
 func (e *exercise) Close() error {
+	var wg sync.WaitGroup
+
 	for _, m := range e.machines {
-		if err := m.Close(); err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func(i virtual.Instance) {
+			if err := i.Close(); err != nil {
+				log.Warn().Msgf("error while closing exercise: %s", err)
+			}
+			wg.Done()
+		}(m)
+
 	}
+	wg.Wait()
+
 	e.machines = nil
 	return nil
 }

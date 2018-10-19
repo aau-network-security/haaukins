@@ -6,7 +6,9 @@ import (
 	"os"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-	)
+	"io"
+	"github.com/rs/zerolog/log"
+)
 
 const (
 	PreferedIP      = 3
@@ -32,6 +34,7 @@ const (
 type Server struct {
 	cont     docker.Container
 	confFile string
+	io.Closer
 }
 
 type RR struct {
@@ -111,11 +114,11 @@ func (s *Server) Start() error {
 
 func (s *Server) Close() error {
 	if err := os.Remove(s.confFile); err != nil {
-		return err
+		log.Warn().Msgf("error while removing DNS configuration file: %s", err)
 	}
 
 	if err := s.cont.Close(); err != nil {
-		return err
+		log.Warn().Msgf("error while closing DNS container: %s", err)
 	}
 
 	return nil

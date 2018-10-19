@@ -3,11 +3,13 @@ package cli
 import (
 	"context"
 	"fmt"
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
-	"github.com/spf13/cobra"
 	"io"
 	"log"
+	"strings"
 	"time"
+
+	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/spf13/cobra"
 )
 
 func (c *Client) CmdExercise() *cobra.Command {
@@ -18,9 +20,54 @@ func (c *Client) CmdExercise() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		c.CmdExerciseReset())
+		c.CmdExerciseList(),
+		c.CmdExerciseReset(),
+	)
 
 	return cmd
+}
+
+func (c *Client) CmdExerciseList() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List exercises",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			r, err := c.rpcClient.ListExercises(ctx, &pb.Empty{})
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			f := formatter{
+				header: []string{"NAME", "TAGS", "# DOCKER IMAGES", "# VBOX IMAGES"},
+				fields: []string{"Name", "Tags", "DockerImageCount", "VboxImageCount"},
+			}
+
+			var elements []formatElement
+			for _, e := range r.Exercises {
+				elements = append(elements, struct {
+					Name             string
+					Tags             string
+					DockerImageCount int32
+					VboxImageCount   int32
+				}{
+					Name:             e.Name,
+					Tags:             strings.Join(e.Tags, ","),
+					DockerImageCount: e.DockerImageCount,
+					VboxImageCount:   e.VboxImageCount,
+				})
+			}
+
+			table, err := f.AsTable(elements)
+			if err != nil {
+				PrintError(UnableCreateEListErr)
+				return
+			}
+			fmt.Printf(table)
+		},
+	}
 }
 
 func (c *Client) CmdExerciseReset() *cobra.Command {

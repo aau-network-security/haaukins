@@ -7,6 +7,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"io"
 	"testing"
 )
 
@@ -47,8 +48,9 @@ func (guac *testGuac) Start(ctx context.Context) error {
 	return nil
 }
 
-func (guac *testGuac) Close() {
+func (guac *testGuac) Close() error {
 	guac.status = CLOSED
+	return nil
 }
 
 func (guac *testGuac) CreateUser(username string, password string) error {
@@ -80,8 +82,9 @@ func (hub *testLabHub) Get() (lab.Lab, error) {
 	return hub.lab, hub.err
 }
 
-func (hub *testLabHub) Close() {
+func (hub *testLabHub) Close() error {
 	hub.status = CLOSED
+	return nil
 }
 
 type testDockerHost struct {
@@ -106,9 +109,10 @@ func TestEvent_StartAndClose(t *testing.T) {
 			hub := testLabHub{}
 
 			ev := event{
-				ctfd:   &ctfd,
-				guac:   &guac,
-				labhub: &hub,
+				ctfd:    &ctfd,
+				guac:    &guac,
+				labhub:  &hub,
+				closers: []io.Closer{&ctfd, &guac, &hub},
 			}
 
 			ev.Start(context.Background())

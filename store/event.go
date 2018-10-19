@@ -17,12 +17,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type EmptyVarErr struct {
-	Variable string
-}
-
-func (eve *EmptyVarErr) Error() string { return fmt.Sprintf("%s cannot be empty", eve.Variable) }
-
 var (
 	TeamExistsErr   = errors.New("Team already exists")
 	UnknownTeamErr  = errors.New("Unknown team")
@@ -47,19 +41,19 @@ type RawEventFile struct {
 
 func (e EventConfig) Validate() error {
 	if e.Name == "" {
-		return &EmptyVarErr{"Name"}
+		return &EmptyVarErr{Var: "Name", Type: "Event"}
 	}
 
 	if e.Tag == "" {
-		return &EmptyVarErr{"Tag"}
+		return &EmptyVarErr{Var: "Tag", Type: "Event"}
 	}
 
 	if len(e.Lab.Exercises) == 0 {
-		return &EmptyVarErr{"Exercises"}
+		return &EmptyVarErr{Var: "Exercises", Type: "Event"}
 	}
 
 	if len(e.Lab.Frontends) == 0 {
-		return &EmptyVarErr{"Frontends"}
+		return &EmptyVarErr{Var: "Frontends", Type: "Event"}
 	}
 
 	return nil
@@ -201,7 +195,7 @@ func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
 	defer es.m.Unlock()
 
 	if token == "" {
-		return &EmptyVarErr{"Token"}
+		return &EmptyVarErr{Var: "Token"}
 	}
 
 	t, ok := es.teams[in.Id]

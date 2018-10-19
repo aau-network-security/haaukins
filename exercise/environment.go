@@ -6,7 +6,10 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	)
+	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
+)
 
 type Environment interface {
 	Add(conf store.Exercise, updateDNS bool) error
@@ -14,8 +17,8 @@ type Environment interface {
 	Interface() string
 	Start() error
 	Stop() error
-	Close() error
 	Restart() error
+	io.Closer
 }
 
 type environment struct {
@@ -27,7 +30,8 @@ type environment struct {
 	dhcpServer *dhcp.Server
 	dnsIP      string
 
-	lib vbox.Library
+	lib     vbox.Library
+	closers []io.Closer
 }
 
 func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment, error) {
@@ -66,6 +70,7 @@ func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment,
 			return nil, err
 		}
 	}
+	ee.closers = append(ee.closers, ee.dnsServer, ee.dhcpServer)
 
 	return ee, nil
 }
@@ -103,6 +108,7 @@ func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
 		ee.tags[t] = e
 	}
 	ee.exercises = append(ee.exercises, e)
+	ee.closers = append(ee.closers, e)
 
 	return nil
 }
@@ -120,13 +126,20 @@ func (ee *environment) Start() error {
 		return err
 	}
 
-	for _, e := range ee.exercises {
-		if err := e.Start(); err != nil {
-			return err
-		}
+	var res error
+	var wg sync.WaitGroup
+	for _, ex := range ee.exercises {
+		wg.Add(1)
+		go func(e *exercise) {
+			if err := e.Start(); err != nil && res == nil {
+				res = err
+			}
+			wg.Done()
+		}(ex)
 	}
+	wg.Wait()
 
-	return nil
+	return res
 }
 
 func (ee *environment) Stop() error {
@@ -159,22 +172,22 @@ func (ee *environment) Restart() error {
 }
 
 func (ee *environment) Close() error {
-	if err := ee.dnsServer.Close(); err != nil {
-		return err
-	}
+	var wg sync.WaitGroup
 
-	if err := ee.dhcpServer.Close(); err != nil {
-		return err
-	}
+	for _, closer := range ee.closers {
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil {
+				log.Warn().Msgf("error while closing environment: %s", err)
+			}
+			wg.Done()
+		}(closer)
 
-	for _, e := range ee.exercises {
-		if err := e.Close(); err != nil {
-			return err
-		}
 	}
+	wg.Wait()
 
 	if err := ee.network.Close(); err != nil {
-		return err
+		log.Warn().Msgf("error while closing environment: %s", err)
 	}
 
 	return nil
