@@ -5,12 +5,12 @@ import (
 
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/rs/zerolog"
+	"github.com/fsouza/go-dockerclient"
+	"time"
 )
 
 func init() {
-	zerolog.SetGlobalLevel(zerolog.Disabled)
+	//zerolog.SetGlobalLevel(zerolog.Disabled)
 }
 
 func TestBasicEnvironment(t *testing.T) {
@@ -62,17 +62,26 @@ func TestBasicEnvironment(t *testing.T) {
 		t.Fatalf("unable to list containers: %s", err)
 	}
 	postStartContCount := len(containers)
+	for i := 0; i < 3 && preContCount+3 != postStartContCount; i++ {
+		time.Sleep(500 * time.Millisecond)
+
+		// dhcp + dns + exercise container = 3
+		containers, err = dclient.ListContainers(docker.ListContainersOptions{})
+		if err != nil {
+			t.Fatalf("unable to list containers: %s", err)
+		}
+		postStartContCount = len(containers)
+	}
+
+	if preContCount+3 != postStartContCount {
+		t.Fatalf("expected three containers to be started (%d + 3 != %d)", preContCount, postStartContCount)
+	}
 
 	networks, err = dclient.ListNetworks()
 	if err != nil {
 		t.Fatalf("unable to list networks: %s", err)
 	}
 	postStartNetCount := len(networks)
-
-	// dhcp + dns + exercise container = 3
-	if preContCount+3 != postStartContCount {
-		t.Fatalf("expected three containers to be started")
-	}
 
 	if preNetCount+1 != postStartNetCount {
 		t.Fatalf("expected one docker network to be started")

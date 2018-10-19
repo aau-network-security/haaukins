@@ -128,13 +128,14 @@ func (ee *environment) Start() error {
 
 	var res error
 	var wg sync.WaitGroup
-	for _, e := range ee.exercises {
+	for _, ex := range ee.exercises {
 		wg.Add(1)
 		go func(e *exercise) {
 			if err := e.Start(); err != nil && res == nil {
 				res = err
 			}
-		}(e)
+			wg.Done()
+		}(ex)
 	}
 	wg.Wait()
 

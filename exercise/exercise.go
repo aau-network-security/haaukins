@@ -120,6 +120,7 @@ func (e *exercise) Start() error {
 				res = err
 			}
 		}(m)
+		wg.Done()
 	}
 	wg.Wait()
 	return res
