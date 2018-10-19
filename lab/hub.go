@@ -85,7 +85,12 @@ func (h *hub) addLab() error {
 	}
 
 	if err := lab.Start(); err != nil {
-		log.Debug().Msgf("Error while starting lab: %s", err)
+		log.Warn().Msgf("Error while starting lab: %s", err)
+		go func(lab Lab) {
+			if err := lab.Close(); err != nil {
+				log.Warn().Msgf("Error while closing lab: %s", err)
+			}
+		}(lab)
 		return err
 	}
 
@@ -104,7 +109,11 @@ func (h *hub) Get() (Lab, error) {
 	case lab := <-h.buffer:
 		atomic.AddInt32(&h.numbLabs, -1)
 		if atomic.LoadInt32(&h.numbLabs) < BUFFERSIZE {
-			go h.addLab()
+			go func() {
+				if err := h.addLab(); err != nil {
+					log.Warn().Msgf("Error while add lab: %s", err)
+				}
+			}()
 		}
 		h.labs = append(h.labs, lab)
 		return lab, nil
@@ -120,21 +129,21 @@ func (h *hub) Close() error {
 
 	for _, l := range h.labs {
 		wg.Add(1)
-		go func() {
+		go func(l Lab) {
 			if err := l.Close(); err != nil {
 				log.Warn().Msgf("error while closing hub: %s", err)
 			}
 			wg.Done()
-		}()
+		}(l)
 	}
 	for l := range h.buffer {
 		wg.Add(1)
-		go func() {
+		go func(l Lab) {
 			if err := l.Close(); err != nil {
 				log.Warn().Msgf("error while closing hub: %s", err)
 			}
 			wg.Done()
-		}()
+		}(l)
 	}
 	wg.Wait()
 	return nil
