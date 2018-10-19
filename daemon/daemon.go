@@ -182,6 +182,7 @@ func New(conf *Config) (*daemon, error) {
 		mux:             m,
 		ehost:           event.NewHost(vlib, ef, efh),
 		logPool:         logPool,
+		closers:         []io.Closer{logPool},
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -387,6 +388,7 @@ func (d *daemon) createEvent(ev event.Event) error {
 	eventRoute := d.mux.Host(host).Subrouter()
 	ev.Connect(eventRoute)
 
+	d.closers = append(d.closers, ev)
 	d.events[conf.Tag] = ev
 
 	return nil
@@ -598,6 +600,17 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
 
+func (d *daemon) Close() error {
+	var errs error
+	for _, c := range d.closers {
+		if err := c.Close(); err != nil && errs == nil {
+			errs = err
+		}
+
+	}
+	return errs
+}
+
 func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
 	var respList []*pb.ListFrontendsResponse_Frontend
 
@@ -621,13 +634,6 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 	}
 
 	return &pb.ListFrontendsResponse{Frontends: respList}, nil
-}
-
-func (d *daemon) Close() {
-	for t, ev := range d.events {
-		ev.Close()
-		delete(d.events, t)
-	}
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {

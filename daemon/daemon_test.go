@@ -388,11 +388,13 @@ func (fe *fakeEvent) Connect(*mux.Router) {
 	fe.connected += 1
 }
 
-func (fe *fakeEvent) Close() {
+func (fe *fakeEvent) Close() error {
 	fe.m.Lock()
 	defer fe.m.Unlock()
 
 	fe.close += 1
+
+	return nil
 }
 
 func (fe *fakeEvent) Finish() {
