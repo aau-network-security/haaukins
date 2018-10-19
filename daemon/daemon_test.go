@@ -10,6 +10,10 @@ import (
 
 	"context"
 
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/aau-network-security/go-ntp/app/client/cli"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/aau-network-security/go-ntp/event"
@@ -21,9 +25,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 func init() {
@@ -35,19 +36,20 @@ const (
 )
 
 type noAuth struct {
-	allowed bool
+	allowed   bool
+	superuser bool
 }
 
 func (a *noAuth) TokenForUser(username, password string) (string, error) {
 	return respToken, nil
 }
 
-func (a *noAuth) AuthenticateUserByToken(t string) (*store.User, error) {
+func (a *noAuth) AuthenticateContext(ctx context.Context) (context.Context, error) {
 	if a.allowed {
-		return nil, nil
+		return context.WithValue(ctx, us{}, store.User{Username: "some_user", SuperUser: a.superuser}), nil
 	}
 
-	return nil, fmt.Errorf("unauthorized")
+	return ctx, fmt.Errorf("unauthorized")
 }
 
 func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func() error) {
@@ -69,12 +71,14 @@ func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func()
 
 func TestInviteUser(t *testing.T) {
 	tt := []struct {
-		name    string
-		token   string
-		allowed bool
-		err     string
+		name      string
+		token     string
+		allowed   bool
+		superuser bool
+		err       string
 	}{
-		{name: "Normal with auth", allowed: true},
+		{name: "Normal with auth and super", allowed: true, superuser: true},
+		{name: "No super with auth", allowed: true, err: "This action requires super user permissions"},
 		{name: "Unauthorized", allowed: false, err: "unauthorized"},
 	}
 
@@ -85,7 +89,8 @@ func TestInviteUser(t *testing.T) {
 			ctx := context.Background()
 			d := &daemon{
 				auth: &noAuth{
-					allowed: tc.allowed,
+					allowed:   tc.allowed,
+					superuser: tc.superuser,
 				},
 				users: struct {
 					store.SignupKeyStore
@@ -112,6 +117,10 @@ func TestInviteUser(t *testing.T) {
 
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.InviteUser(ctx, &pb.InviteUserRequest{})
+			if resp != nil && resp.Error != "" {
+				err = fmt.Errorf(resp.Error)
+			}
+
 			if err != nil {
 				st, ok := status.FromError(err)
 				if ok {
@@ -199,7 +208,7 @@ func TestSignupUser(t *testing.T) {
 
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.SignupUser(ctx, &pb.SignupUserRequest{
-				Key:      string(key),
+				Key:      key.String(),
 				Username: tc.user,
 				Password: tc.pass,
 			})
@@ -334,10 +343,6 @@ func TestLoginUser(t *testing.T) {
 
 			if resp.Token == "" {
 				t.Fatalf("expected token to be non-empty")
-			}
-
-			if _, err := auth.AuthenticateUserByToken(resp.Token); err != nil {
-				t.Fatalf("expected to be able to authenticate with token")
 			}
 		})
 	}

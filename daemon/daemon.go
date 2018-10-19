@@ -20,7 +20,6 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"google.golang.org/grpc"
-	metadata "google.golang.org/grpc/metadata"
 	yaml "gopkg.in/yaml.v2"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -146,6 +145,8 @@ func New(conf *Config) (*daemon, error) {
 
 	if len(uf.ListUsers()) == 0 && len(uf.ListSignupKeys()) == 0 {
 		k := store.NewSignupKey()
+		k.WillBeSuperUser = true
+
 		if err := uf.CreateSignupKey(k); err != nil {
 			return nil, err
 		}
@@ -157,7 +158,7 @@ func New(conf *Config) (*daemon, error) {
 	if len(uf.ListUsers()) == 0 && len(keys) > 0 {
 		log.Info().Msg("No users found, printing keys")
 		for _, k := range keys {
-			log.Info().Str("key", string(k)).Msg("Found key")
+			log.Info().Str("key", k.String()).Msg("Found key")
 		}
 	}
 
@@ -199,34 +200,30 @@ func New(conf *Config) (*daemon, error) {
 	return d, nil
 }
 
-func (d *daemon) authorize(ctx context.Context) (*store.User, error) {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if len(md["token"]) > 0 {
-			token := md["token"][0]
-
-			return d.auth.AuthenticateUserByToken(token)
-		}
-
-		return nil, MissingTokenErr
-	}
-
-	return nil, MissingTokenErr
-}
-
-type auditStream struct {
+type contextStream struct {
 	grpc.ServerStream
-	logger   *zerolog.Logger
-	username string
+	ctx context.Context
 }
 
-func (s *auditStream) Context() context.Context {
-	ctx := s.ServerStream.Context()
+func (s *contextStream) Context() context.Context {
+	return s.ctx
+}
 
-	logger := s.logger
-	if s.username != "" {
-		loggerStruct := s.logger.With().Str("user", s.username).Logger()
-		logger = &loggerStruct
+func withAuditLogger(ctx context.Context, logger *zerolog.Logger) context.Context {
+	if logger == nil {
+		return ctx
 	}
+
+	u, ok := ctx.Value(us{}).(store.User)
+	if !ok {
+		return logger.WithContext(ctx)
+	}
+
+	ls := logger.With().
+		Str("user", u.Username).
+		Bool("is-super-user", u.SuperUser).
+		Logger()
+	logger = &ls
 
 	return logger.WithContext(ctx)
 }
@@ -239,47 +236,35 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx, authErr := d.auth.AuthenticateContext(stream.Context())
+		ctx = withAuditLogger(ctx, logger)
+		stream = &contextStream{stream, ctx}
+
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
-				if logger != nil {
-					stream = &auditStream{ServerStream: stream, logger: logger}
-				}
-
 				return handler(srv, stream)
 			}
 		}
 
-		u, err := d.authorize(stream.Context())
-		if err != nil {
-			return err
-		}
-
-		if logger != nil {
-			stream = &auditStream{stream, logger, u.Username}
+		if authErr != nil {
+			return authErr
 		}
 
 		return handler(srv, stream)
 	}
 
 	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		ctx, authErr := d.auth.AuthenticateContext(ctx)
+		ctx = withAuditLogger(ctx, logger)
+
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
-				if logger != nil {
-					ctx = logger.WithContext(ctx)
-				}
-
 				return handler(ctx, req)
 			}
 		}
-		u, err := d.authorize(ctx)
-		if err != nil {
-			return nil, err
-		}
 
-		if logger != nil {
-			structLogger := logger.With().Str("user", u.Username).Logger()
-			logger = &structLogger
-			ctx = logger.WithContext(ctx)
+		if authErr != nil {
+			return nil, authErr
 		}
 
 		return handler(ctx, req)
@@ -317,12 +302,19 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
-	k := store.SignupKey(req.Key)
-	if err := d.users.DeleteSignupKey(k); err != nil {
+	k, err := d.users.GetSignupKey(req.Key)
+	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+	if k.WillBeSuperUser {
+		u.SuperUser = true
 	}
 
 	if err := d.users.CreateUser(u); err != nil {
+		return &pb.LoginUserResponse{Error: err.Error()}, nil
+	}
+
+	if err := d.users.DeleteSignupKey(k); err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
 
@@ -337,7 +329,17 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
 	log.Ctx(ctx).Info().Msg("invite user")
 
+	u, _ := ctx.Value(us{}).(store.User)
+	if !u.SuperUser {
+		return &pb.InviteUserResponse{
+			Error: "This action requires super user permissions",
+		}, nil
+	}
+
 	k := store.NewSignupKey()
+	if req.SuperUser {
+		k.WillBeSuperUser = true
+	}
 
 	if err := d.users.CreateSignupKey(k); err != nil {
 		return &pb.InviteUserResponse{
@@ -346,7 +348,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}
 
 	return &pb.InviteUserResponse{
-		Key: string(k),
+		Key: k.String(),
 	}, nil
 }
 
