@@ -18,6 +18,8 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
 )
 
 var (
@@ -108,6 +110,8 @@ type event struct {
 
 	guacUserStore *guacamole.GuacUserStore
 	dockerHost    docker.Host
+
+	closers []io.Closer
 }
 
 func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
@@ -139,6 +143,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guacUserStore: guacamole.NewGuacUserStore(),
 		dockerHost:    dockerHost,
 	}
+	ev.closers = append(ev.closers, ctf, guac, hub)
 
 	return ev, nil
 }
@@ -166,14 +171,16 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 func (ev *event) Close() error {
-	if ev.guac != nil {
-		ev.guac.Close()
-	}
-	if ev.ctfd != nil {
-		ev.ctfd.Close()
-	}
-	if ev.labhub != nil {
-		ev.labhub.Close()
+	var wg sync.WaitGroup
+
+	for _, closer := range ev.closers {
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil {
+				log.Warn().Msgf("error while closing event '%s': %s", ev.GetConfig().Name, err)
+			}
+			wg.Done()
+		}(closer)
 	}
 
 	return nil

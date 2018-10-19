@@ -2,13 +2,12 @@ package lab
 
 import (
 	"errors"
-	"sync"
-
-	"sync/atomic"
-
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
+	"sync/atomic"
 )
 
 var (
@@ -21,11 +20,11 @@ const BUFFERSIZE = 5
 
 type Hub interface {
 	Get() (Lab, error)
-	Close()
 	Available() int32
 	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
+	io.Closer
 }
 
 type hub struct {
@@ -60,7 +59,11 @@ func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, err
 
 	log.Debug().Msgf("Instantiating %d lab(s)", available)
 	for i := 0; i < available; i++ {
-		go h.addLab()
+		go func() {
+			if err := h.addLab(); err != nil {
+				log.Warn().Msgf("error while adding lab: %s", err)
+			}
+		}()
 	}
 
 	return h, nil
@@ -82,7 +85,12 @@ func (h *hub) addLab() error {
 	}
 
 	if err := lab.Start(); err != nil {
-		log.Debug().Msgf("Error while starting lab: %s", err)
+		log.Warn().Msgf("Error while starting lab: %s", err)
+		go func(lab Lab) {
+			if err := lab.Close(); err != nil {
+				log.Warn().Msgf("Error while closing lab: %s", err)
+			}
+		}(lab)
 		return err
 	}
 
@@ -101,7 +109,11 @@ func (h *hub) Get() (Lab, error) {
 	case lab := <-h.buffer:
 		atomic.AddInt32(&h.numbLabs, -1)
 		if atomic.LoadInt32(&h.numbLabs) < BUFFERSIZE {
-			go h.addLab()
+			go func() {
+				if err := h.addLab(); err != nil {
+					log.Warn().Msgf("Error while add lab: %s", err)
+				}
+			}()
 		}
 		h.labs = append(h.labs, lab)
 		return lab, nil
@@ -110,14 +122,31 @@ func (h *hub) Get() (Lab, error) {
 	}
 }
 
-func (h *hub) Close() {
-	for _, v := range h.labs {
-		v.Close()
-	}
+func (h *hub) Close() error {
 	close(h.buffer)
-	for v := range h.buffer {
-		v.Close()
+
+	var wg sync.WaitGroup
+
+	for _, l := range h.labs {
+		wg.Add(1)
+		go func(l Lab) {
+			if err := l.Close(); err != nil {
+				log.Warn().Msgf("error while closing hub: %s", err)
+			}
+			wg.Done()
+		}(l)
 	}
+	for l := range h.buffer {
+		wg.Add(1)
+		go func(l Lab) {
+			if err := l.Close(); err != nil {
+				log.Warn().Msgf("error while closing hub: %s", err)
+			}
+			wg.Done()
+		}(l)
+	}
+	wg.Wait()
+	return nil
 }
 
 func (h *hub) Flags() []store.FlagConfig {

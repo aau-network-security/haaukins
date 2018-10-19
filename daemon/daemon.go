@@ -27,6 +27,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"sync"
 )
 
 var (
@@ -602,12 +603,18 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 
 func (d *daemon) Close() error {
 	var errs error
+	var wg sync.WaitGroup
 	for _, c := range d.closers {
-		if err := c.Close(); err != nil && errs == nil {
-			errs = err
-		}
-
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil && errs == nil {
+				errs = err
+			}
+			wg.Done()
+		}(c)
 	}
+	wg.Wait()
+
 	return errs
 }
 

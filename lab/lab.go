@@ -11,6 +11,8 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
 )
 
 var (
@@ -59,6 +61,8 @@ func (lh *labHost) NewLab(lib vbox.Library, config Config) (Lab, error) {
 		}
 	}
 
+	l.closers = append(l.closers, environ)
+
 	return l, nil
 }
 
@@ -66,10 +70,10 @@ type Lab interface {
 	Start() error
 	Stop() error
 	Restart() error
-	Close()
 	GetEnvironment() exercise.Environment
 	RdpConnPorts() []uint
 	GetTag() string
+	io.Closer
 }
 
 type lab struct {
@@ -79,6 +83,8 @@ type lab struct {
 	frontends    []vbox.VM
 	rdpConnPorts []uint
 	dockerHost   docker.Host
+
+	closers []io.Closer
 }
 
 func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
@@ -98,6 +104,7 @@ func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
 	}
 	l.frontends = append(l.frontends, vm)
 	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
+	l.closers = append(l.closers, vm)
 
 	log.Debug().Msgf("Created lab frontend on port %d", rdpPort)
 
@@ -150,12 +157,21 @@ func (l *lab) Restart() error {
 	return nil
 }
 
-func (l *lab) Close() {
-	for _, frontend := range l.frontends {
-		frontend.Close()
-	}
+func (l *lab) Close() error {
+	var wg sync.WaitGroup
 
-	l.environment.Close()
+	for _, closer := range l.closers {
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil {
+				log.Warn().Msgf("error while closing lab: %s", err)
+			}
+			wg.Done()
+		}(closer)
+	}
+	wg.Wait()
+
+	return nil
 }
 
 func (l *lab) RdpConnPorts() []uint {
