@@ -20,3 +20,4 @@ auth.yml
 app/daemon/*.yml
 build/
 app/daemon/events/
+travis_deploy_key
