@@ -21,3 +21,4 @@ app/daemon/*.yml
 app/daemon/logs/
 build/
 app/daemon/events/
+travis_deploy_key
