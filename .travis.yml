@@ -41,7 +41,8 @@ deploy:
   on:
     tags: true
 - provider: script
-  script: "./deploy/deploy.sh"
+  script: "bash ./scripts/deploy.sh"
+  skip_cleanup: true
   on:
     all_branches: true
 
