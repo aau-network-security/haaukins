@@ -171,7 +171,7 @@ func (ee *environment) Close() error {
 		wg.Add(1)
 		go func(c io.Closer) {
 			if err := c.Close(); err != nil {
-				log.Warn().Msgf("error while closing environment (%s): %s", &closer, err)
+				log.Warn().Msgf("error while closing environment: %s", err)
 			}
 			wg.Done()
 		}(closer)

@@ -7,6 +7,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"io"
 	"testing"
 )
 
@@ -108,9 +109,10 @@ func TestEvent_StartAndClose(t *testing.T) {
 			hub := testLabHub{}
 
 			ev := event{
-				ctfd:   &ctfd,
-				guac:   &guac,
-				labhub: &hub,
+				ctfd:    &ctfd,
+				guac:    &guac,
+				labhub:  &hub,
+				closers: []io.Closer{&ctfd, &guac, &hub},
 			}
 
 			ev.Start(context.Background())

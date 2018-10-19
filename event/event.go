@@ -177,7 +177,7 @@ func (ev *event) Close() {
 		wg.Add(1)
 		go func(c io.Closer) {
 			if err := c.Close(); err != nil {
-				log.Warn().Msgf("error while closing event %s: %s", ev.GetConfig().Name, err)
+				log.Warn().Msgf("error while closing event '%s': %s", ev.GetConfig().Name, err)
 			}
 			wg.Done()
 		}(closer)

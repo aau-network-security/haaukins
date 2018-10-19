@@ -84,8 +84,6 @@ type daemon struct {
 	frontendLibrary vbox.Library
 	mux             *mux.Router
 	ehost           event.Host
-
-	m sync.Mutex
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -304,9 +302,6 @@ func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
 }
 
 func (d *daemon) createEvent(ev event.Event) error {
-	d.m.Lock()
-	defer d.m.Unlock()
-
 	conf := ev.GetConfig()
 	log.Info().
 		Str("Name", conf.Name).
