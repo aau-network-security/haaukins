@@ -44,7 +44,7 @@ deploy:
   script: "bash ./scripts/deploy.sh"
   skip_cleanup: true
   on:
-    all_branches: true
+    tags: true
 
 notifications:
   slack:
