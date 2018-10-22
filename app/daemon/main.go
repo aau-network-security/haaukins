@@ -33,6 +33,7 @@ func handleCancel(clean func() error) {
 			log.Error().Msgf("Error while shutting down: %s", err)
 			os.Exit(1)
 		}
+		log.Info().Msgf("Closed daemon")
 		os.Exit(0)
 	}()
 }
