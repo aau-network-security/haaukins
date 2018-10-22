@@ -23,14 +23,17 @@ const (
 	defaultConfigFile = "config.yml"
 )
 
-func handleCancel(clean func()) {
+func handleCancel(clean func() error) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
 		log.Info().Msgf("Shutting down gracefully...")
-		clean()
-		os.Exit(1)
+		if err := clean(); err != nil {
+			log.Error().Msgf("Error while shutting down: %s", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}()
 }
 
@@ -71,9 +74,8 @@ func main() {
 		return
 	}
 
-	handleCancel(func() {
-		d.Close()
-		log.Info().Msgf("Closed daemon")
+	handleCancel(func() error {
+		return d.Close()
 	})
 	log.Info().Msgf("Started daemon")
 
