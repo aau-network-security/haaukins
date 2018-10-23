@@ -1,37 +1,35 @@
 # go-ntp
-The component responsible for managing the NTP.
+The virtualisation platform for training of digital security.
+`go-ntp` consists of two major components:
+- [client](app/client/readme.md)
+- [daemon](app/daemon/readme.md)
 
-## How to run
+Not here for development, but just for controlling the platform? Visit the [Wiki](https://github.com/aau-network-security/go-ntp/wiki/Getting-started). 
+
+## Running
 First, install dependencies (requiring `go 1.7` or higher):
-```
+```bash
 go get ./...
 ```
 
-Then, run the following to setup a complete event (i.e. the complete set of components, including CTFd, Guacamole, and a set of labs),
-```
-go run app/app.go
-```
-
-### Customizing an event
-The full configuration of an event is specified in `app/config.yml`
-
-### Registry authentication
-We run a private Docker repository where most of the images needed for the exercises reside.
-In order to pull new images and newer versions from this repository, `app.go` needs credentials to login.
-
-As of now, running `app/app.go` requires the existence of an `auth.json` file in the root of the project,
-containing the authentication needed for pulling Docker images from a private repository.
-The file should look like:
-```
-{
-  "username": "<username>",
-  "password": "<password",
-  "serveraddress": "<registry address>"
-}
+To run the client (visit the [readme](app/client/readme.md) for a description of the configuration):
+```bash
+go run app/client/main.go
 ```
 
-### Compiling proto
-
+To run the daemon (visit the [readme](app/daemon/readme.md) for a description of the configuration):
+```bash
+go run app/daemon/main.go
 ```
+
+## Testing 
+```bash
+go test -v -short ./... 
+```
+
+## Compiling proto
+After updating the protocol buffer specification (i.e. `daemon/proto/daemon.proto`), corresponding golang code generation is done by doing the following:
+```bash
+cd daemon
 protoc -I proto/ proto/daemon.proto --go_out=plugins=grpc:proto
 ```
