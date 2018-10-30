@@ -47,6 +47,11 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 				return
 			}
 
+			if r.Error != "" {
+				PrintError(fmt.Errorf(r.Error))
+				return
+			}
+
 			fmt.Println(r.Key)
 		},
 	}
