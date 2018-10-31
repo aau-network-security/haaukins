@@ -33,8 +33,9 @@ func (c *Client) CmdUser() *cobra.Command {
 func (c *Client) CmdInviteUser() *cobra.Command {
 	var superUser bool
 	cmd := &cobra.Command{
-		Use:   "invite",
-		Short: "Create key for inviting other users (superuser only)",
+		Use:     "invite",
+		Short:   "Create key for inviting other users (superuser only)",
+		Example: `  ntp user invite --superuser`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -60,8 +61,9 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 
 func (c *Client) CmdSignupUser() *cobra.Command {
 	return &cobra.Command{
-		Use:   "signup",
-		Short: "Signup as user",
+		Use:     "signup",
+		Short:   "Signup as user",
+		Example: `  ntp user signup`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				username  string
@@ -116,8 +118,9 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 
 func (c *Client) CmdLoginUser() *cobra.Command {
 	return &cobra.Command{
-		Use:   "login",
-		Short: "Login user",
+		Use:     "login",
+		Short:   "Login as user",
+		Example: `  ntp user login`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var username string
 			fmt.Print("Username: ")

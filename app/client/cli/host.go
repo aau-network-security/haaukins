@@ -72,8 +72,9 @@ func (c *Client) CmdHostMonitor() *cobra.Command {
 	var simple bool
 
 	cmd := &cobra.Command{
-		Use:   "monitor [flags...]",
-		Short: "Monitor host resources",
+		Use:     "monitor",
+		Short:   "Monitor host resources",
+		Example: `  ntp host monitor`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			stream, err := c.rpcClient.MonitorHost(ctx, &pb.Empty{})
