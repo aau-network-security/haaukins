@@ -469,6 +469,13 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
+	// remove from our closers and then delete event
+	for i, evcloser := range d.closers {
+		if evcloser == ev {
+			d.closers = append(d.closers[:i], d.closers[i+1:]...)
+			break
+		}
+	}
 	delete(d.events, evtag)
 
 	ev.Close()
