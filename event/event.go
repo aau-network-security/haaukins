@@ -16,7 +16,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/gorilla/mux"
+	"github.com/aau-network-security/mux"
 	"github.com/rs/zerolog/log"
 	"io"
 	"sync"

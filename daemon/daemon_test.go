@@ -20,7 +20,7 @@ import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
-	"github.com/gorilla/mux"
+	"github.com/aau-network-security/mux"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
