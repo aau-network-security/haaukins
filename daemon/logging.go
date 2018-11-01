@@ -62,7 +62,7 @@ func (lp *logPool) GetLogger(name string, opts ...loggingOpts) (*zerolog.Logger,
 	}
 
 	lp.files = append(lp.files, f)
-	logger := zerolog.New(w)
+	logger := zerolog.New(w).With().Timestamp().Logger()
 
 	lp.logs[name] = &logger
 
