@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"syscall"
 	"time"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
@@ -35,8 +33,9 @@ func (c *Client) CmdUser() *cobra.Command {
 func (c *Client) CmdInviteUser() *cobra.Command {
 	var superUser bool
 	cmd := &cobra.Command{
-		Use:   "invite",
-		Short: "Create key for inviting other users",
+		Use:     "invite",
+		Short:   "Create key for inviting other users (superuser only)",
+		Example: `  ntp user invite --superuser`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -57,8 +56,9 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 
 func (c *Client) CmdSignupUser() *cobra.Command {
 	return &cobra.Command{
-		Use:   "signup",
-		Short: "Signup as user",
+		Use:     "signup",
+		Short:   "Signup as user",
+		Example: `  ntp user signup`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				username  string
@@ -71,20 +71,17 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 			fmt.Print("Username: ")
 			fmt.Scanln(&username)
 
-			password, err := ReadPassword()
+			password, err := ReadSecret("Password: ")
 			if err != nil {
 				log.Fatal("Unable to read password")
 			}
 
-			fmt.Printf("Password (again): ")
-			bytePass2, err := terminal.ReadPassword(int(syscall.Stdin))
+			password2, err := ReadSecret("Password (again): ")
 			if err != nil {
 				log.Fatal("Unable to read password")
 			}
-			fmt.Printf("\n")
 
-			pass2 := string(bytePass2)
-			if password != pass2 {
+			if password != password2 {
 				PrintError(PasswordsNoMatchErr)
 				return
 			}
@@ -116,14 +113,15 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 
 func (c *Client) CmdLoginUser() *cobra.Command {
 	return &cobra.Command{
-		Use:   "login",
-		Short: "Login user",
+		Use:     "login",
+		Short:   "Login as user",
+		Example: `  ntp user login`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var username string
 			fmt.Print("Username: ")
 			fmt.Scanln(&username)
 
-			password, err := ReadPassword()
+			password, err := ReadSecret("Password: ")
 			if err != nil {
 				log.Fatal("Unable to read password")
 			}

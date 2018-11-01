@@ -24,8 +24,9 @@ func (c *Client) CmdFrontend() *cobra.Command {
 
 func (c *Client) CmdFrontendList() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List available frontends",
+		Use:     "list",
+		Short:   "List available frontends",
+		Example: `  ntp frontend list`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
