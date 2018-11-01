@@ -86,8 +86,8 @@ func NewClient() (*Client, error) {
 	authCreds := Creds{Token: c.Token}
 	dialOpts := []grpc.DialOption{}
 
-	ssl := os.Getenv("NTP_SSL_OFF")
-	if strings.ToLower(ssl) == "true" {
+	ssl := os.Getenv("NTP_SSL")
+	if strings.ToLower(ssl) == "false" {
 		authCreds.Insecure = true
 		dialOpts = append(dialOpts,
 			grpc.WithInsecure(),
