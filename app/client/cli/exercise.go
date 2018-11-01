@@ -14,7 +14,7 @@ import (
 
 func (c *Client) CmdExercise() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "exercise",
+		Use:   "exercises",
 		Short: "Actions to perform on exercises",
 		Args:  cobra.MinimumNArgs(1),
 	}

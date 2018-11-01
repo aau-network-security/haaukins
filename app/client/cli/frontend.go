@@ -11,7 +11,7 @@ import (
 
 func (c *Client) CmdFrontend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "frontend",
+		Use:   "frontends",
 		Short: "Actions to perform on frontends",
 		Args:  cobra.MinimumNArgs(1),
 	}

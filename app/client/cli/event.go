@@ -17,7 +17,7 @@ var (
 
 func (c *Client) CmdEvent() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "event",
+		Use:   "events",
 		Short: "Actions to perform on events",
 		Args:  cobra.MinimumNArgs(1),
 	}
