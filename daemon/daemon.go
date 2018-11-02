@@ -389,7 +389,6 @@ func (d *daemon) createEvent(ev event.Event) error {
 	eventRoute := d.mux.Host(host).Subrouter()
 	ev.Connect(eventRoute)
 
-	d.closers = append(d.closers, ev)
 	d.events[conf.Tag] = ev
 
 	return nil
@@ -604,7 +603,18 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 func (d *daemon) Close() error {
 	var errs error
 	var wg sync.WaitGroup
+	// daemon closers
 	for _, c := range d.closers {
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil && errs == nil {
+				errs = err
+			}
+			wg.Done()
+		}(c)
+	}
+	// event closers
+	for _, c := range d.events {
 		wg.Add(1)
 		go func(c io.Closer) {
 			if err := c.Close(); err != nil && errs == nil {
