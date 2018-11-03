@@ -424,7 +424,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	_, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
+	if err == nil {
 		return DuplicateEventErr
 	}
 

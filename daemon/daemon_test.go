@@ -784,7 +784,7 @@ func TestListEventTeams(t *testing.T) {
 				},
 			}
 
-			ev := fakeEvent{teams: []store.Team{}, lab: fakeLab{environment: &fakeEnvironment{}}}
+			ev := fakeEvent{conf: store.EventConfig{Tag: store.Tag(tc.tag)}, teams: []store.Team{}, lab: fakeLab{environment: &fakeEnvironment{}}}
 			for i := 0; i < tc.nExpectedTeams; i++ {
 				g := store.Team{}
 				ev.teams = append(ev.teams, g)
@@ -877,12 +877,12 @@ func TestResetExercise(t *testing.T) {
 				},
 			}
 
-			ev := fakeEvent{lab: fakeLab{environment: &fakeEnvironment{}}}
+			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: fakeLab{environment: &fakeEnvironment{}}}
 			for i := 1; i <= 2; i++ {
 				g := store.Team{Id: fmt.Sprintf("team-%d", i)}
 				ev.teams = append(ev.teams, g)
 			}
-			eventPool.AddEvent(&ev)
+			eventPool.AddEvent(ev)
 
 			dialer, close := getServer(d)
 			defer close()
