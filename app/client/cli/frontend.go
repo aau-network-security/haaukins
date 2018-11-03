@@ -1,14 +1,12 @@
 package cli
 
 import (
-	"github.com/spf13/cobra"
-	"time"
-
 	"context"
 	"fmt"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
-	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"strconv"
+	"time"
 )
 
 func (c *Client) CmdFrontend() *cobra.Command {
@@ -112,13 +110,8 @@ func (c *Client) CmdFrontendSetMemory() *cobra.Command {
 				MemoryMB: int64(memoryMB),
 			}
 
-			resp, err := c.rpcClient.SetFrontendMemory(ctx, req)
-			if err != nil {
+			if _, err := c.rpcClient.SetFrontendMemory(ctx, req); err != nil {
 				PrintError(err)
-				return
-			}
-			if resp.Message != "" {
-				PrintError(errors.New(resp.Message))
 				return
 			}
 		},
@@ -148,13 +141,8 @@ func (c *Client) CmdFrontendSetCpu() *cobra.Command {
 				Cpu:   float32(cpu),
 			}
 
-			resp, err := c.rpcClient.SetFrontendCpu(ctx, req)
-			if err != nil {
+			if _, err := c.rpcClient.SetFrontendCpu(ctx, req); err != nil {
 				PrintError(err)
-				return
-			}
-			if resp.Message != "" {
-				PrintError(errors.New(resp.Message))
 				return
 			}
 		},

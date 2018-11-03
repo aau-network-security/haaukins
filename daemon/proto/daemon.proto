@@ -15,8 +15,8 @@ service Daemon {
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetExerciseStatus) {}
 
   rpc ListFrontends (Empty) returns (ListFrontendsResponse) {}
-  rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Error) {}
-  rpc SetFrontendCpu (SetFrontendCpuRequest) returns (Error) {}
+  rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Empty) {}
+  rpc SetFrontendCpu (SetFrontendCpuRequest) returns (Empty) {}
 
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
@@ -150,8 +150,4 @@ message SetFrontendMemoryRequest {
 message SetFrontendCpuRequest{
     string image = 1;
     float cpu =2 ;
-}
-
-message Error {
-    string message = 1;
 }
