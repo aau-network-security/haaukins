@@ -14,7 +14,7 @@ import (
 
 func (c *Client) CmdExercise() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "exercise",
+		Use:   "exercises",
 		Short: "Actions to perform on exercises",
 		Args:  cobra.MinimumNArgs(1),
 	}
@@ -29,8 +29,9 @@ func (c *Client) CmdExercise() *cobra.Command {
 
 func (c *Client) CmdExercises() *cobra.Command {
 	return &cobra.Command{
-		Use:   "exercises",
-		Short: "List exercises",
+		Use:     "exercises",
+		Short:   "List exercises",
+		Example: `  ntp exercise list`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -85,10 +86,11 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "reset [extag]",
-		Short: "Reset an exercise",
-		Long:  "Reset an exercise. When no team ids are provided, the exercise is reset for all teams.",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "reset [extag]",
+		Short:   "Reset exercise",
+		Long:    "Reset exercise. When no team ids are provided, the exercise is reset for all teams.",
+		Example: `  ntp reset sql -e esboot -t d11eb89b`,
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
@@ -103,6 +105,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 				EventTag:    evTag,
 				Teams:       teams,
 			})
+
 			if err != nil {
 				PrintError(err)
 				return
@@ -117,13 +120,14 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 				if err != nil {
 					log.Fatalf(err.Error())
 				}
+
 				fmt.Printf("\u2713 %s\n", status.TeamId)
 			}
 		},
 	}
 
 	cmd.Flags().StringVarP(&evTag, "evtag", "e", "", "the event name")
-	cmd.Flags().StringSliceVarP(&teamIds, "teams", "t", nil, "list of teams for which to reset the exercise")
+	cmd.Flags().StringSliceVarP(&teamIds, "teams", "t", nil, "list of team ids for which to reset the exercise")
 	cmd.MarkFlagRequired("evtag")
 
 	return cmd

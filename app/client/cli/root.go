@@ -116,8 +116,8 @@ func NewClient() (*Client, error) {
 	authCreds := Creds{Token: c.Token}
 	dialOpts := []grpc.DialOption{}
 
-	ssl := os.Getenv("NTP_SSL_OFF")
-	if strings.ToLower(ssl) == "true" {
+	ssl := os.Getenv("NTP_SSL")
+	if strings.ToLower(ssl) == "false" {
 		authCreds.Insecure = true
 		dialOpts = append(dialOpts,
 			grpc.WithInsecure(),
@@ -218,8 +218,8 @@ func PrintWarning(s string) {
 	fmt.Printf("%s %s\n", color.Brown("<?>"), color.Brown(s))
 }
 
-func ReadPassword() (string, error) {
-	fmt.Printf("Password: ")
+func ReadSecret(inputHint string) (string, error) {
+	fmt.Printf(inputHint)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	fmt.Printf("\n")
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 
 func (c *Client) CmdFrontend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "frontend",
+		Use:   "frontends",
 		Short: "Actions to perform on frontends",
 		Args:  cobra.MinimumNArgs(1),
 	}
@@ -24,8 +24,9 @@ func (c *Client) CmdFrontend() *cobra.Command {
 
 func (c *Client) CmdFrontends() *cobra.Command {
 	return &cobra.Command{
-		Use:   "frontends",
-		Short: "List available frontends",
+		Use:     "frontends",
+		Short:   "List available frontends",
+		Example: `  ntp frontend list`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()

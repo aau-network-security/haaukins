@@ -17,7 +17,7 @@ var (
 
 func (c *Client) CmdEvent() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "event",
+		Use:   "events",
 		Short: "Actions to perform on events",
 		Args:  cobra.MinimumNArgs(1),
 	}
@@ -43,9 +43,10 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create [tag]",
-		Short: "Create event",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "create [event tag]",
+		Short:   "Create event",
+		Example: `  ntp event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali`,
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
@@ -59,6 +60,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Capacity:  int32(capacity),
 				Available: int32(available),
 			})
+
 			if err != nil {
 				PrintError(err)
 				return
@@ -80,8 +82,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&name, "name", "n", "", "the event name")
-	cmd.Flags().IntVarP(&available, "available", "a", 5, "amount of labs to available initially of an event")
-	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "capacity of total amount of labs")
+	cmd.Flags().IntVarP(&available, "available", "a", 5, "amount of labs to make available initially for the event")
+	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximuim amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
 	cmd.MarkFlagRequired("name")
@@ -91,9 +93,10 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 
 func (c *Client) CmdEventStop() *cobra.Command {
 	return &cobra.Command{
-		Use:   "stop [tag]",
-		Short: "Stop event",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "stop [event tag]",
+		Short:   "Stop event",
+		Example: `  ntp event stop esboot`,
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -102,6 +105,7 @@ func (c *Client) CmdEventStop() *cobra.Command {
 			stream, err := c.rpcClient.StopEvent(ctx, &pb.StopEventRequest{
 				Tag: tag,
 			})
+
 			if err != nil {
 				PrintError(err)
 				return
@@ -125,11 +129,13 @@ func (c *Client) CmdEventStop() *cobra.Command {
 
 func (c *Client) CmdEvents() *cobra.Command {
 	return &cobra.Command{
-		Use:   "events",
-		Short: "List events",
+		Use:     "events",
+		Short:   "List events",
+		Example: `  ntp event list`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
+
 			r, err := c.rpcClient.ListEvents(ctx, &pb.ListEventsRequest{})
 			if err != nil {
 				PrintError(err)
@@ -165,9 +171,10 @@ func (c *Client) CmdEventList() *cobra.Command {
 
 func (c *Client) CmdEventTeams() *cobra.Command {
 	return &cobra.Command{
-		Use:   "teams [event tag]",
-		Short: "Get teams for a event",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "teams [event tag]",
+		Short:   "Get teams for a event",
+		Example: `  ntp event teams esboot`,
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -204,9 +211,10 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 
 func (c *Client) CmdEventTeamRestart() *cobra.Command {
 	return &cobra.Command{
-		Use:   "restart [event tag] [team lab tag]",
-		Short: "Restart lab for a team",
-		Args:  cobra.MinimumNArgs(2),
+		Use:     "restart [event tag] [team id]",
+		Short:   "Restart lab for a team",
+		Example: `  ntp event restart esboot d11eb89b`,
+		Args:    cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
@@ -218,6 +226,7 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 				EventTag: eventTag,
 				LabTag:   labTag,
 			})
+
 			if err != nil {
 				PrintError(err)
 				return

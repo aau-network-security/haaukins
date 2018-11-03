@@ -15,7 +15,7 @@ import (
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/gorilla/mux"
+	"github.com/aau-network-security/mux"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
@@ -463,6 +463,19 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return UnknownEventErr
 	}
 
+	eventHost := fmt.Sprintf("%s.%s", evtag, d.conf.Host)
+	err = d.mux.RemoveHostRoute(eventHost)
+	if err != nil {
+		return err
+	}
+
+	// remove from our closers and then delete event
+	for i, evcloser := range d.closers {
+		if evcloser == ev {
+			d.closers = append(d.closers[:i], d.closers[i+1:]...)
+			break
+		}
+	}
 	delete(d.events, evtag)
 
 	ev.Close()
