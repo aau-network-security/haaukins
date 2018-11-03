@@ -133,6 +133,8 @@ message ListFrontendsResponse {
     message Frontend {
         string image = 1;
         int64 size = 2;
+        int64 memoryMB = 3;
+        float cpu = 4;
     }
     repeated Frontend frontends = 1;
 }

@@ -37,18 +37,30 @@ func (c *Client) CmdFrontendList() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"IMAGE NAME", "SIZE"},
-				fields: []string{"Image", "Size"},
+				header: []string{"IMAGE NAME", "SIZE", "MEMORY (MB)", "CPU"},
+				fields: []string{"Image", "Size", "MemoryMB", "Cpu"},
 			}
 
 			var elements []formatElement
 			for _, f := range r.Frontends {
+				memoryStr := fmt.Sprintf("%d", f.MemoryMB)
+				if f.MemoryMB == 0 {
+					memoryStr = "-"
+				}
+				cpuStr := fmt.Sprintf("%f", f.Cpu)
+				if f.Cpu == 0 {
+					cpuStr = "-"
+				}
 				elements = append(elements, struct {
-					Image string
-					Size  int64
+					Image    string
+					Size     int64
+					MemoryMB string
+					Cpu      string
 				}{
-					Image: f.Image,
-					Size:  f.Size,
+					Image:    f.Image,
+					Size:     f.Size,
+					MemoryMB: memoryStr,
+					Cpu:      cpuStr,
 				})
 			}
 
