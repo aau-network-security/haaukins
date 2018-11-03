@@ -188,8 +188,8 @@ func PrintWarning(s string) {
 	fmt.Printf("%s %s\n", color.Brown("<?>"), color.Brown(s))
 }
 
-func ReadPassword() (string, error) {
-	fmt.Printf("Password: ")
+func ReadSecret(inputHint string) (string, error) {
+	fmt.Printf(inputHint)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	fmt.Printf("\n")
 	if err != nil {
