@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/pkg/errors"
+	"strconv"
 )
 
 func (c *Client) CmdFrontend() *cobra.Command {
@@ -17,7 +19,8 @@ func (c *Client) CmdFrontend() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		c.CmdFrontendList())
+		c.CmdFrontendList(),
+		c.CmdFrontendSet())
 
 	return cmd
 }
@@ -72,4 +75,90 @@ func (c *Client) CmdFrontendList() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+}
+
+func (c *Client) CmdFrontendSet() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "set",
+		Short: "Set a default property of a frontend",
+		Args:  cobra.MinimumNArgs(1),
+	}
+
+	cmd.AddCommand(
+		c.CmdFrontendSetMemory(),
+		c.CmdFrontendSetCpu())
+
+	return cmd
+}
+
+func (c *Client) CmdFrontendSetMemory() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "memory [image] [memory mb]",
+		Short: "Set the default RAM (in MB) of a frontend",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			image := args[0]
+			memoryMB, err := strconv.Atoi(args[1])
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			req := &pb.SetFrontendMemoryRequest{
+				Image:    image,
+				MemoryMB: int64(memoryMB),
+			}
+
+			resp, err := c.rpcClient.SetFrontendMemory(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+			if resp.Message != "" {
+				PrintError(errors.New(resp.Message))
+				return
+			}
+		},
+	}
+
+	return cmd
+}
+
+func (c *Client) CmdFrontendSetCpu() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cpu [image] [cpu count]",
+		Short: "Set the default CPU count of a frontend",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			image := args[0]
+			cpu, err := strconv.ParseFloat(args[1], 64)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			req := &pb.SetFrontendCpuRequest{
+				Image: image,
+				Cpu:   float32(cpu),
+			}
+
+			resp, err := c.rpcClient.SetFrontendCpu(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+			if resp.Message != "" {
+				PrintError(errors.New(resp.Message))
+				return
+			}
+		},
+	}
+
+	return cmd
 }

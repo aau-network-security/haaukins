@@ -9,8 +9,8 @@ import (
 
 type FrontendStore interface {
 	GetFrontends(...string) []InstanceConfig
-	SetMemoryMB(string, uint)
-	SetCpu(string, float64)
+	SetMemoryMB(string, uint) error
+	SetCpu(string, float64) error
 	runHooks() error
 }
 
@@ -33,7 +33,7 @@ func NewFrontendsFile(path string) (FrontendStore, error) {
 	}
 
 	// file exists
-	var frontends map[string]InstanceConfig
+	frontends := make(map[string]InstanceConfig)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		f, err := ioutil.ReadFile(path)
 		if err != nil {
@@ -81,7 +81,7 @@ func (fs *frontendstore) GetFrontends(names ...string) []InstanceConfig {
 	return res
 }
 
-func (fs *frontendstore) SetMemoryMB(f string, memoryMB uint) {
+func (fs *frontendstore) SetMemoryMB(f string, memoryMB uint) error {
 	ic, ok := fs.frontends[f]
 	if !ok {
 		ic = InstanceConfig{
@@ -89,12 +89,16 @@ func (fs *frontendstore) SetMemoryMB(f string, memoryMB uint) {
 		}
 	}
 	ic.MemoryMB = memoryMB
+	if err := ic.Validate(); err != nil {
+		return err
+	}
 	fs.frontends[f] = ic
 
 	fs.runHooks()
+	return nil
 }
 
-func (fs *frontendstore) SetCpu(f string, cpu float64) {
+func (fs *frontendstore) SetCpu(f string, cpu float64) error {
 	ic, ok := fs.frontends[f]
 	if !ok {
 		ic = InstanceConfig{
@@ -102,9 +106,13 @@ func (fs *frontendstore) SetCpu(f string, cpu float64) {
 		}
 	}
 	ic.CPU = cpu
+	if err := ic.Validate(); err != nil {
+		return err
+	}
 	fs.frontends[f] = ic
 
 	fs.runHooks()
+	return nil
 }
 
 func (fs *frontendstore) runHooks() error {

@@ -662,6 +662,16 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 	return &pb.ListFrontendsResponse{Frontends: respList}, nil
 }
 
+func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemoryRequest) (*pb.Error, error) {
+	err := d.frontends.SetMemoryMB(in.Image, uint(in.MemoryMB))
+	return &pb.Error{Message: err.Error()}, nil
+}
+
+func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuRequest) (*pb.Error, error) {
+	err := d.frontends.SetCpu(in.Image, float64(in.Cpu))
+	return &pb.Error{Message: err.Error()}, nil
+}
+
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
 	for {
 		var cpuErr string

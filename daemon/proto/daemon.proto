@@ -13,7 +13,10 @@ service Daemon {
 
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetExerciseStatus) {}
+
   rpc ListFrontends (Empty) returns (ListFrontendsResponse) {}
+  rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Error) {}
+  rpc SetFrontendCpu (SetFrontendCpuRequest) returns (Error) {}
 
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
@@ -137,4 +140,18 @@ message ListFrontendsResponse {
         float cpu = 4;
     }
     repeated Frontend frontends = 1;
+}
+
+message SetFrontendMemoryRequest {
+    string image = 1;
+    int64 memoryMB =2 ;
+}
+
+message SetFrontendCpuRequest{
+    string image = 1;
+    float cpu =2 ;
+}
+
+message Error {
+    string message = 1;
 }
