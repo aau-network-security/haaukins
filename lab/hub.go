@@ -2,12 +2,13 @@ package lab
 
 import (
 	"errors"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/rs/zerolog/log"
 	"io"
 	"sync"
 	"sync/atomic"
+
+	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -94,8 +95,12 @@ func (h *hub) addLab() error {
 		return err
 	}
 
-	h.buffer <- lab
-	atomic.AddInt32(&h.numbLabs, 1)
+	select {
+	case h.buffer <- lab:
+		atomic.AddInt32(&h.numbLabs, 1)
+	default:
+		// sending on closed channel
+	}
 
 	return nil
 }

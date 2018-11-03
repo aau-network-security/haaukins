@@ -15,7 +15,6 @@ import (
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/aau-network-security/mux"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
@@ -25,9 +24,10 @@ import (
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	dockerclient "github.com/fsouza/go-dockerclient"
 
+	"sync"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 var (
@@ -45,6 +45,7 @@ type Config struct {
 	Port               uint                             `yaml:"port,omitempty"`
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
+	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
 	OvaDir             string                           `yaml:"ova-directory,omitempty"`
 	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
@@ -78,16 +79,15 @@ func NewConfigFromFile(path string) (*Config, error) {
 }
 
 type daemon struct {
-	conf            *Config
-	auth            Authenticator
-	users           store.UsersFile
-	exercises       store.ExerciseStore
-	events          map[store.Tag]event.Event
-	frontendLibrary vbox.Library
-	mux             *mux.Router
-	ehost           event.Host
-	logPool         LogPool
-	closers         []io.Closer
+	conf      *Config
+	auth      Authenticator
+	users     store.UsersFile
+	exercises store.ExerciseStore
+	eventPool *eventPool
+	frontends store.FrontendStore
+	ehost     event.Host
+	logPool   LogPool
+	closers   []io.Closer
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -121,6 +121,10 @@ func New(conf *Config) (*daemon, error) {
 		conf.ExercisesFile = "exercises.yml"
 	}
 
+	if conf.FrontendsFile == "" {
+		conf.FrontendsFile = "frontends.yml"
+	}
+
 	if conf.EventsDir == "" {
 		conf.EventsDir = "events"
 	}
@@ -135,11 +139,15 @@ func New(conf *Config) (*daemon, error) {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
 	}
 
+	ff, err := store.NewFrontendsFile(conf.FrontendsFile)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
+	}
+
 	vlib := vbox.NewLibrary(conf.OvaDir)
-	m := mux.NewRouter()
-	m.NotFoundHandler = notFoundHandler()
+	eventPool := NewEventPool(conf.Host)
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), m); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), eventPool); err != nil {
 			fmt.Println("Serving error", err)
 		}
 	}()
@@ -174,16 +182,15 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	d := &daemon{
-		conf:            conf,
-		auth:            NewAuthenticator(uf, conf.Management.SigningKey),
-		users:           uf,
-		exercises:       ef,
-		events:          make(map[store.Tag]event.Event),
-		frontendLibrary: vlib,
-		mux:             m,
-		ehost:           event.NewHost(vlib, ef, efh),
-		logPool:         logPool,
-		closers:         []io.Closer{logPool},
+		conf:      conf,
+		auth:      NewAuthenticator(uf, conf.Management.SigningKey),
+		users:     uf,
+		exercises: ef,
+		eventPool: eventPool,
+		frontends: ff,
+		ehost:     event.NewHost(vlib, ef, efh),
+		logPool:   logPool,
+		closers:   []io.Closer{logPool, eventPool},
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -375,22 +382,22 @@ func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
 
 func (d *daemon) createEvent(ev event.Event) error {
 	conf := ev.GetConfig()
+
+	var frontendNames []string
+	for _, f := range conf.Lab.Frontends {
+		frontendNames = append(frontendNames, f.Image)
+	}
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
 		Int("Available", conf.Available).
 		Int("Capacity", conf.Capacity).
-		Strs("Frontends", conf.Lab.Frontends).
+		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
 	go ev.Start(context.TODO())
 
-	host := fmt.Sprintf("%s.%s", conf.Tag, d.conf.Host)
-	eventRoute := d.mux.Host(host).Subrouter()
-	ev.Connect(eventRoute)
-
-	d.closers = append(d.closers, ev)
-	d.events[conf.Tag] = ev
+	d.eventPool.AddEvent(ev)
 
 	return nil
 }
@@ -422,7 +429,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Available: int(req.Available),
 		Capacity:  int(req.Capacity),
 		Lab: store.Lab{
-			Frontends: req.Frontends,
+			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
 	}
@@ -431,8 +438,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return err
 	}
 
-	_, ok := d.events[evtag]
-	if ok {
+	_, err := d.eventPool.GetEvent(evtag)
+	if err == nil {
 		return DuplicateEventErr
 	}
 
@@ -458,25 +465,14 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
-	ev, ok := d.events[evtag]
-	if !ok {
-		return UnknownEventErr
-	}
-
-	eventHost := fmt.Sprintf("%s.%s", evtag, d.conf.Host)
-	err = d.mux.RemoveHostRoute(eventHost)
+	ev, err := d.eventPool.GetEvent(evtag)
 	if err != nil {
 		return err
 	}
 
-	// remove from our closers and then delete event
-	for i, evcloser := range d.closers {
-		if evcloser == ev {
-			d.closers = append(d.closers[:i], d.closers[i+1:]...)
-			break
-		}
+	if err := d.eventPool.RemoveEvent(evtag); err != nil {
+		return err
 	}
-	delete(d.events, evtag)
 
 	ev.Close()
 	ev.Finish()
@@ -495,9 +491,9 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	ev, ok := d.events[evtag]
-	if !ok {
-		return UnknownEventErr
+	ev, err := d.eventPool.GetEvent(evtag)
+	if err != nil {
+		return err
 	}
 
 	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
@@ -544,9 +540,10 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 	if err != nil {
 		return err
 	}
-	ev, ok := d.events[evtag]
-	if !ok {
-		return UnknownEventErr
+
+	ev, err := d.eventPool.GetEvent(evtag)
+	if err != nil {
+		return err
 	}
 
 	if req.Teams != nil {
@@ -575,7 +572,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
 
-	for _, event := range d.events {
+	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
 
 		events = append(events, &pb.ListEventsResponse_Events{
@@ -596,9 +593,9 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	if err != nil {
 		return nil, err
 	}
-	ev, ok := d.events[evtag]
-	if !ok {
-		return nil, UnknownEventErr
+	ev, err := d.eventPool.GetEvent(evtag)
+	if err != nil {
+		return nil, err
 	}
 
 	teams := ev.GetTeams()
@@ -617,6 +614,7 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 func (d *daemon) Close() error {
 	var errs error
 	var wg sync.WaitGroup
+
 	for _, c := range d.closers {
 		wg.Add(1)
 		go func(c io.Closer) {
@@ -626,6 +624,7 @@ func (d *daemon) Close() error {
 			wg.Done()
 		}(c)
 	}
+
 	wg.Wait()
 
 	return errs
@@ -642,9 +641,13 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 			}
 			parts := strings.Split(relativePath, ".")
 			image := filepath.Join(parts[:len(parts)-1]...)
+
+			ic := d.frontends.GetFrontends(image)[0]
 			respList = append(respList, &pb.ListFrontendsResponse_Frontend{
-				Image: image,
-				Size:  info.Size(),
+				Image:    image,
+				Size:     info.Size(),
+				MemoryMB: int64(ic.MemoryMB),
+				Cpu:      float32(ic.CPU),
 			})
 		}
 		return nil
@@ -654,6 +657,16 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 	}
 
 	return &pb.ListFrontendsResponse{Frontends: respList}, nil
+}
+
+func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemoryRequest) (*pb.Empty, error) {
+	err := d.frontends.SetMemoryMB(in.Image, uint(in.MemoryMB))
+	return &pb.Empty{}, err
+}
+
+func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuRequest) (*pb.Empty, error) {
+	err := d.frontends.SetCpu(in.Image, float64(in.Cpu))
+	return &pb.Empty{}, err
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {

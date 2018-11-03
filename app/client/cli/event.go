@@ -83,7 +83,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 
 	cmd.Flags().StringVarP(&name, "name", "n", "", "the event name")
 	cmd.Flags().IntVarP(&available, "available", "a", 5, "amount of labs to make available initially for the event")
-	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximuim amount of labs")
+	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximum amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
 	cmd.MarkFlagRequired("name")

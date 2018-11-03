@@ -9,6 +9,9 @@ import (
 
 	"net/url"
 
+	"io"
+	"sync"
+
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
@@ -16,10 +19,7 @@ import (
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/aau-network-security/mux"
 	"github.com/rs/zerolog/log"
-	"io"
-	"sync"
 )
 
 var (
@@ -92,7 +92,7 @@ type Event interface {
 	Close() error
 	Finish()
 	AssignLab(store.Team) error
-	Connect(*mux.Router)
+	Handler() http.Handler
 
 	GetConfig() store.EventConfig
 	GetTeams() []store.Team
@@ -245,7 +245,7 @@ func (ev *event) AssignLab(t store.Team) error {
 	return nil
 }
 
-func (ev *event) Connect(r *mux.Router) {
+func (ev *event) Handler() http.Handler {
 	prehooks := []func() error{
 		func() error {
 			if ev.labhub.Available() == 0 {
@@ -278,16 +278,12 @@ func (ev *event) Connect(r *mux.Router) {
 		ctfd.NewLoginInterceptor(ev.store),
 		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, loginFunc),
 	}
-	r.Use(interceptors.Intercept)
-	r.HandleFunc("/guacamole{rest:.*}", handler(ev.guac.ProxyHandler()))
-	r.HandleFunc("/{rest:.*}", handler(ev.ctfd.ProxyHandler()))
-}
 
-func handler(h http.Handler) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = mux.Vars(r)["rest"]
-		h.ServeHTTP(w, r)
-	}
+	m := http.NewServeMux()
+	m.Handle("/guacamole", interceptors.Intercept(ev.guac.ProxyHandler()))
+	m.Handle("/", interceptors.Intercept(ev.ctfd.ProxyHandler()))
+
+	return m
 }
 
 func (ev *event) GetHub() lab.Hub {
