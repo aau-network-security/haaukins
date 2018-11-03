@@ -4,6 +4,9 @@ import (
 	"math/rand"
 	"time"
 
+	"io"
+	"sync"
+
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
@@ -11,8 +14,6 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
-	"io"
-	"sync"
 )
 
 var (
@@ -22,14 +23,6 @@ var (
 type Config struct {
 	Frontends []string         `yaml:"frontends"`
 	Exercises []store.Exercise `yaml:"exercises"`
-}
-
-func (conf Config) Flags() []store.FlagConfig {
-	var res []store.FlagConfig
-	for _, exercise := range conf.Exercises {
-		res = append(res, exercise.Flags()...)
-	}
-	return res
 }
 
 type LabHost interface {
@@ -96,7 +89,7 @@ func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
 
 	rdpPort := virtual.GetAvailablePort()
 	vm, err := l.lib.GetCopy(conf,
-		vbox.SetBridge(l.environment.Interface()),
+		vbox.SetBridge(l.environment.NetworkInterface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
 	)
 	if err != nil {

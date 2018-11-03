@@ -1,20 +1,22 @@
 package exercise
 
 import (
+	"io"
+	"sync"
+
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"io"
-	"sync"
 )
 
 type Environment interface {
 	Add(conf store.Exercise, updateDNS bool) error
 	ResetByTag(t string) error
-	Interface() string
+	NetworkInterface() string
+	ActiveFlags() map[store.Tag]string
 	Start() error
 	Stop() error
 	Restart() error
@@ -113,7 +115,7 @@ func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
 	return nil
 }
 
-func (ee *environment) Interface() string {
+func (ee *environment) NetworkInterface() string {
 	return ee.network.Interface()
 }
 
@@ -209,6 +211,20 @@ func (ee *environment) ResetByTag(s string) error {
 	}
 
 	return nil
+}
+
+func (ee *environment) ActiveFlags() map[store.Tag]string {
+	flags := map[store.Tag]string{}
+
+	for _, e := range ee.exercises {
+		m := e.conf.ActiveFlags()
+
+		for t, v := range m {
+			flags[t] = v
+		}
+	}
+
+	return flags
 }
 
 func (ee *environment) updateDNS() error {

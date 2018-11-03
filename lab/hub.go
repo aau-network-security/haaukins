@@ -6,7 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
 )
@@ -22,7 +21,6 @@ const BUFFERSIZE = 5
 type Hub interface {
 	Get() (Lab, error)
 	Available() int32
-	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
 	io.Closer
@@ -152,10 +150,6 @@ func (h *hub) Close() error {
 	}
 	wg.Wait()
 	return nil
-}
-
-func (h *hub) Flags() []store.FlagConfig {
-	return h.conf.Flags()
 }
 
 func (h *hub) GetLabs() []Lab {

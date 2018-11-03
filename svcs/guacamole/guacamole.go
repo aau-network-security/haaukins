@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -38,12 +39,12 @@ var (
 type Guacamole interface {
 	docker.Identifier
 	io.Closer
-	svcs.ProxyConnector
 	Start(context.Context) error
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	RawLogin(username, password string) ([]byte, error)
+	ProxyHandler() svcs.ProxyConnector
 }
 
 type Config struct {
@@ -208,25 +209,27 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ProxyHandler() http.Handler {
-	origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
-	host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
+func (guac *guacamole) ProxyHandler() svcs.ProxyConnector {
+	return func(ef store.EventFile) http.Handler {
+		origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
+		host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
 
-	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
-		req.Header.Add("X-Forwarded-Host", req.Host)
-		req.URL.Scheme = "http"
-		req.URL.Host = origin.Host
-		req.URL.Path = "/guacamole" + req.URL.Path
-	}}
+		proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
+			req.Header.Add("X-Forwarded-Host", req.Host)
+			req.URL.Scheme = "http"
+			req.URL.Host = origin.Host
+			req.URL.Path = "/guacamole" + req.URL.Path
+		}}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if IsWebSocket(r) {
-			websocketProxy(host).ServeHTTP(w, r)
-			return
-		}
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if IsWebSocket(r) {
+				websocketProxy(host).ServeHTTP(w, r)
+				return
+			}
 
-		proxy.ServeHTTP(w, r)
-	})
+			proxy.ServeHTTP(w, r)
+		})
+	}
 }
 
 func (guac *guacamole) configureInstance() error {

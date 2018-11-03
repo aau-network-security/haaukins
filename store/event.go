@@ -18,10 +18,12 @@ import (
 )
 
 var (
-	TeamExistsErr   = errors.New("Team already exists")
-	UnknownTeamErr  = errors.New("Unknown team")
-	UnknownTokenErr = errors.New("Unknown token")
-	NoFrontendErr   = errors.New("lab requires at least one frontend")
+	TeamExistsErr       = errors.New("Team already exists")
+	UnknownTeamErr      = errors.New("Unknown team")
+	UnknownTokenErr     = errors.New("Unknown token")
+	NoFrontendErr       = errors.New("lab requires at least one frontend")
+	InvalidFlagValueErr = errors.New("Incorrect value for flag")
+	UnknownChallengeErr = errors.New("Unknown challenge")
 )
 
 type EventConfig struct {
@@ -64,21 +66,22 @@ type Lab struct {
 	Exercises []Tag    `yaml:"exercises"`
 }
 
-type Task struct {
+type Challenge struct {
 	OwnerID     string     `yaml:"-"`
-	FlagTag     Tag        `yaml:"tag,omitempty"`
+	FlagTag     Tag        `yaml:"-"`
+	FlagValue   string     `ỳaml:"-"`
 	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
 }
 
 type Team struct {
-	Id             string `yaml:"id"`
-	Email          string `yaml:"email"`
-	Name           string `yaml:"name"`
-	HashedPassword string `yaml:"hashed-password"`
-	Tasks          []Task `yaml:"tasks,omitempty"`
+	Id             string            `yaml:"id"`
+	Email          string            `yaml:"email"`
+	Name           string            `yaml:"name"`
+	HashedPassword string            `yaml:"hashed-password"`
+	Challenges     map[Tag]Challenge `yaml:"challenges,omitempty"`
 }
 
-func NewTeam(email, name, password string, tasks ...Task) Team {
+func NewTeam(email, name, password string) Team {
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 
 	email = strings.ToLower(email)
@@ -87,24 +90,33 @@ func NewTeam(email, name, password string, tasks ...Task) Team {
 		Email:          email,
 		Name:           name,
 		HashedPassword: hashedPassword,
-		Tasks:          tasks,
+		Challenges:     map[Tag]Challenge{},
 	}
 }
 
-func (t Team) SolveTaskByTag(tag Tag) error {
-	var task *Task
-	for i, ta := range t.Tasks {
-		if ta.FlagTag == tag {
-			task = &t.Tasks[i]
-		}
+func (t Team) IsCorrectFlag(tag Tag, v string) error {
+	c, ok := t.Challenges[tag]
+	if !ok {
+		return UnknownChallengeErr
 	}
 
-	if task == nil {
-		return &UnknownExerTagErr{tag}
+	if c.FlagValue != v {
+		return InvalidFlagValueErr
 	}
 
+	return nil
+}
+
+func (t Team) SolveChallenge(tag Tag, v string) error {
 	now := time.Now()
-	task.CompletedAt = &now
+
+	if err := t.IsCorrectFlag(tag, v); err != nil {
+		return err
+	}
+
+	c := t.Challenges[tag]
+	c.CompletedAt = &now
+	t.Challenges[tag] = c
 
 	return nil
 }

@@ -4,13 +4,14 @@ import (
 	"errors"
 	"regexp"
 
+	"io"
+	"sync"
+
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"io"
-	"sync"
 )
 
 var (
@@ -35,7 +36,6 @@ func (dockerHost) CreateContainer(conf docker.ContainerConfig) (docker.Container
 type exercise struct {
 	conf       *store.Exercise
 	net        docker.Network
-	flags      []store.Flag
 	machines   []virtual.Instance
 	ips        []int
 	dnsIP      string

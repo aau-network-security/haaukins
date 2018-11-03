@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/google/uuid"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -38,6 +39,7 @@ type Exercise struct {
 	Tags        []Tag          `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
 	VboxConfs   []VboxConfig   `yaml:"vbox"`
+	activeFlags map[Tag]string
 }
 
 func (e Exercise) Validate() error {
@@ -66,24 +68,30 @@ func (e Exercise) Validate() error {
 	return nil
 }
 
-func (e Exercise) Flags() []FlagConfig {
-	var res []FlagConfig
-
-	for _, dockerConf := range e.DockerConfs {
-		res = append(res, dockerConf.Flags...)
-	}
-	return res
+func (e Exercise) ActiveFlags() map[Tag]string {
+	return e.ActiveFlags()
 }
 
 func (e Exercise) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	var contSpecs []docker.ContainerConfig
 	var contRecords [][]RecordConfig
 
+	// make sure active flags is initialized
+	if e.activeFlags == nil {
+		e.activeFlags = map[Tag]string{}
+	}
+
 	for _, conf := range e.DockerConfs {
 		envVars := make(map[string]string)
 
 		for _, flag := range conf.Flags {
-			envVars[flag.EnvVar] = flag.Default
+			value := flag.Static
+			if value == "" {
+				value = uuid.New().String()
+				e.activeFlags[flag.Tag] = value
+			}
+
+			envVars[flag.EnvVar] = value
 		}
 
 		for _, env := range conf.Envs {
@@ -105,9 +113,6 @@ func (e Exercise) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 	}
 
 	return contSpecs, contRecords
-}
-
-type Flag struct {
 }
 
 type RecordConfig struct {
@@ -133,11 +138,11 @@ func (rc RecordConfig) Format(ip string) string {
 }
 
 type FlagConfig struct {
-	Tag     Tag    `yaml:"tag"`
-	Name    string `yaml:"name"`
-	EnvVar  string `yaml:"env"`
-	Default string `yaml:"default"`
-	Points  uint   `yaml:"points"`
+	Tag    Tag    `yaml:"tag"`
+	Name   string `yaml:"name"`
+	EnvVar string `yaml:"env"`
+	Static string `yaml:"static"`
+	Points uint   `yaml:"points"`
 }
 
 func (fc FlagConfig) Validate() error {
@@ -149,8 +154,8 @@ func (fc FlagConfig) Validate() error {
 		return &EmptyVarErr{Var: "Name", Type: "Flag Config"}
 	}
 
-	if fc.Default == "" {
-		return &EmptyVarErr{Var: "Default", Type: "Flag Config"}
+	if fc.Static == "" && fc.EnvVar == "" {
+		return &EmptyVarErr{Var: "Static or Env", Type: "Flag Config"}
 	}
 
 	if fc.Points == 0 {
