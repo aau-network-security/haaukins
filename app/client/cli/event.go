@@ -17,7 +17,7 @@ var (
 
 func (c *Client) CmdEvent() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "events",
+		Use:   "event",
 		Short: "Actions to perform on events",
 		Args:  cobra.MinimumNArgs(1),
 	}
@@ -27,7 +27,8 @@ func (c *Client) CmdEvent() *cobra.Command {
 		c.CmdEventStop(),
 		c.CmdEventList(),
 		c.CmdEventTeams(),
-		c.CmdEventTeamRestart())
+		c.CmdEventTeamRestart(),
+	)
 
 	return cmd
 }
@@ -122,9 +123,9 @@ func (c *Client) CmdEventStop() *cobra.Command {
 	}
 }
 
-func (c *Client) CmdEventList() *cobra.Command {
+func (c *Client) CmdEvents() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
+		Use:   "events",
 		Short: "List events",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -153,6 +154,13 @@ func (c *Client) CmdEventList() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+}
+
+func (c *Client) CmdEventList() *cobra.Command {
+	cmd := *c.CmdEvents()
+	cmd.Use = "ls"
+	cmd.Aliases = []string{"ls", "list"}
+	return &cmd
 }
 
 func (c *Client) CmdEventTeams() *cobra.Command {

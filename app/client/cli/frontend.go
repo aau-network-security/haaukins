@@ -11,7 +11,7 @@ import (
 
 func (c *Client) CmdFrontend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "frontends",
+		Use:   "frontend",
 		Short: "Actions to perform on frontends",
 		Args:  cobra.MinimumNArgs(1),
 	}
@@ -22,9 +22,9 @@ func (c *Client) CmdFrontend() *cobra.Command {
 	return cmd
 }
 
-func (c *Client) CmdFrontendList() *cobra.Command {
+func (c *Client) CmdFrontends() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
+		Use:   "frontends",
 		Short: "List available frontends",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -60,4 +60,11 @@ func (c *Client) CmdFrontendList() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+}
+
+func (c *Client) CmdFrontendList() *cobra.Command {
+	cmd := *c.CmdFrontends()
+	cmd.Use = "ls"
+	cmd.Aliases = []string{"ls", "list"}
+	return &cmd
 }

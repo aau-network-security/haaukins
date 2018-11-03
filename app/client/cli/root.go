@@ -39,6 +39,36 @@ type Creds struct {
 	Insecure bool
 }
 
+func Execute() {
+	c, err := NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+
+	if err := c.CheckVersionSync(); err != nil {
+		PrintWarning(err.Error())
+	}
+
+	var rootCmd = &cobra.Command{Use: "ntp"}
+	rootCmd.AddCommand(
+		c.CmdVersion(),
+		c.CmdUser(),
+		c.CmdEvent(),
+		c.CmdEvents(),
+		c.CmdExercise(),
+		c.CmdExercises(),
+		c.CmdFrontend(),
+		c.CmdFrontends(),
+		c.CmdHost(),
+	)
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
 func (c Creds) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
 	return map[string]string{
 		"token": string(c.Token),
@@ -197,31 +227,4 @@ func ReadPassword() (string, error) {
 	}
 
 	return string(bytePassword), nil
-}
-
-func Execute() {
-	c, err := NewClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
-
-	if err := c.CheckVersionSync(); err != nil {
-		PrintWarning(err.Error())
-	}
-
-	var rootCmd = &cobra.Command{Use: "ntp"}
-	rootCmd.AddCommand(
-		c.CmdVersion(),
-		c.CmdUser(),
-		c.CmdEvent(),
-		c.CmdExercise(),
-		c.CmdHost(),
-		c.CmdFrontend(),
-	)
-
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 }
