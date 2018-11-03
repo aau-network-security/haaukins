@@ -79,7 +79,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "reset [extag]",
+		Use:     "reset [exercise tag]",
 		Short:   "Reset exercise",
 		Long:    "Reset exercise. When no team ids are provided, the exercise is reset for all teams.",
 		Example: `  ntp reset sql -e esboot -t d11eb89b`,
