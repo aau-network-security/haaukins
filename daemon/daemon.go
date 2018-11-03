@@ -45,6 +45,7 @@ type Config struct {
 	Port               uint                             `yaml:"port,omitempty"`
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
+	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
 	OvaDir             string                           `yaml:"ova-directory,omitempty"`
 	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
@@ -78,15 +79,15 @@ func NewConfigFromFile(path string) (*Config, error) {
 }
 
 type daemon struct {
-	conf            *Config
-	auth            Authenticator
-	users           store.UsersFile
-	exercises       store.ExerciseStore
-	eventPool       *eventPool
-	frontendLibrary vbox.Library
-	ehost           event.Host
-	logPool         LogPool
-	closers         []io.Closer
+	conf      *Config
+	auth      Authenticator
+	users     store.UsersFile
+	exercises store.ExerciseStore
+	eventPool *eventPool
+	frontends store.FrontendStore
+	ehost     event.Host
+	logPool   LogPool
+	closers   []io.Closer
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -120,6 +121,10 @@ func New(conf *Config) (*daemon, error) {
 		conf.ExercisesFile = "exercises.yml"
 	}
 
+	if conf.FrontendsFile == "" {
+		conf.FrontendsFile = "frontends.yml"
+	}
+
 	if conf.EventsDir == "" {
 		conf.EventsDir = "events"
 	}
@@ -132,6 +137,11 @@ func New(conf *Config) (*daemon, error) {
 	ef, err := store.NewExerciseFile(conf.ExercisesFile)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
+	}
+
+	ff, err := store.NewFrontendsFile(conf.FrontendsFile)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
 	}
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
@@ -172,15 +182,15 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	d := &daemon{
-		conf:            conf,
-		auth:            NewAuthenticator(uf, conf.Management.SigningKey),
-		users:           uf,
-		exercises:       ef,
-		eventPool:       eventPool,
-		frontendLibrary: vlib,
-		ehost:           event.NewHost(vlib, ef, efh),
-		logPool:         logPool,
-		closers:         []io.Closer{logPool, eventPool},
+		conf:      conf,
+		auth:      NewAuthenticator(uf, conf.Management.SigningKey),
+		users:     uf,
+		exercises: ef,
+		eventPool: eventPool,
+		frontends: ff,
+		ehost:     event.NewHost(vlib, ef, efh),
+		logPool:   logPool,
+		closers:   []io.Closer{logPool, eventPool},
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -372,12 +382,17 @@ func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
 
 func (d *daemon) createEvent(ev event.Event) error {
 	conf := ev.GetConfig()
+
+	var frontendNames []string
+	for _, f := range conf.Lab.Frontends {
+		frontendNames = append(frontendNames, f.Image)
+	}
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
 		Int("Available", conf.Available).
 		Int("Capacity", conf.Capacity).
-		Strs("Frontends", conf.Lab.Frontends).
+		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
 	go ev.Start(context.TODO())
@@ -414,7 +429,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Available: int(req.Available),
 		Capacity:  int(req.Capacity),
 		Lab: store.Lab{
-			Frontends: req.Frontends,
+			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
 	}
@@ -626,9 +641,13 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 			}
 			parts := strings.Split(relativePath, ".")
 			image := filepath.Join(parts[:len(parts)-1]...)
+
+			ic := d.frontends.GetFrontends(image)[0]
 			respList = append(respList, &pb.ListFrontendsResponse_Frontend{
-				Image: image,
-				Size:  info.Size(),
+				Image:    image,
+				Size:     info.Size(),
+				MemoryMB: int64(ic.MemoryMB),
+				Cpu:      float32(ic.CPU),
 			})
 		}
 		return nil
@@ -638,6 +657,16 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 	}
 
 	return &pb.ListFrontendsResponse{Frontends: respList}, nil
+}
+
+func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemoryRequest) (*pb.Empty, error) {
+	err := d.frontends.SetMemoryMB(in.Image, uint(in.MemoryMB))
+	return &pb.Empty{}, err
+}
+
+func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuRequest) (*pb.Empty, error) {
+	err := d.frontends.SetCpu(in.Image, float64(in.Cpu))
+	return &pb.Empty{}, err
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
