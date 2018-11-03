@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
-	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -381,11 +381,14 @@ func (fe *fakeEvent) Start(context.Context) error {
 	return nil
 }
 
-func (fe *fakeEvent) Connect(*mux.Router) {
+func (fe *fakeEvent) Handler() http.Handler {
 	fe.m.Lock()
 	defer fe.m.Unlock()
 
 	fe.connected += 1
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 }
 
 func (fe *fakeEvent) Close() error {
@@ -469,14 +472,13 @@ func TestCreateEvent(t *testing.T) {
 			ev := fakeEvent{}
 
 			ctx := context.Background()
-			events := map[store.Tag]event.Event{}
+			eventPool := NewEventPool("")
 			d := &daemon{
-				conf:   &Config{},
-				events: events,
+				conf:      &Config{},
+				eventPool: eventPool,
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux: mux.NewRouter(),
 				ehost: &fakeEventHost{
 					event: &ev,
 				},
@@ -539,7 +541,7 @@ func TestCreateEvent(t *testing.T) {
 				t.Fatalf("expected error, but received none")
 			}
 
-			if len(events) != 1 {
+			if len(eventPool.GetAllEvents()) != 1 {
 				t.Fatalf("expected one event to have been created")
 			}
 
@@ -581,14 +583,13 @@ func TestStopEvent(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			events := map[store.Tag]event.Event{}
+			eventPool := NewEventPool("")
 			d := &daemon{
-				conf:   &Config{},
-				events: events,
+				conf:      &Config{},
+				eventPool: eventPool,
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux: mux.NewRouter(),
 				ehost: &fakeEventHost{
 					event: &ev,
 				},
@@ -657,7 +658,7 @@ func TestStopEvent(t *testing.T) {
 				t.Fatalf("expected error, but received none")
 			}
 
-			if len(events) != 0 {
+			if len(eventPool.GetAllEvents()) != 0 {
 				t.Fatalf("expected one event to have been stopped")
 			}
 
@@ -686,14 +687,13 @@ func TestListEvents(t *testing.T) {
 			ev := &fakeEvent{}
 
 			ctx := context.Background()
-			events := map[store.Tag]event.Event{}
+			eventPool := NewEventPool("")
 			d := &daemon{
-				conf:   &Config{},
-				events: events,
+				conf:      &Config{},
+				eventPool: eventPool,
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux: mux.NewRouter(),
 				ehost: &fakeEventHost{
 					event: ev,
 				},
@@ -774,15 +774,14 @@ func TestListEventTeams(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			events := map[store.Tag]event.Event{}
+			eventPool := NewEventPool("")
 
 			d := &daemon{
-				conf:   &Config{},
-				events: events,
+				conf:      &Config{},
+				eventPool: eventPool,
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux: mux.NewRouter(),
 			}
 
 			ev := fakeEvent{teams: []store.Team{}, lab: fakeLab{environment: &fakeEnvironment{}}}
@@ -790,7 +789,7 @@ func TestListEventTeams(t *testing.T) {
 				g := store.Team{}
 				ev.teams = append(ev.teams, g)
 			}
-			d.events["tst"] = &ev
+			eventPool.AddEvent(&ev)
 
 			dialer, close := getServer(d)
 			defer close()
@@ -869,13 +868,13 @@ func TestResetExercise(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 
+			eventPool := NewEventPool("")
 			d := &daemon{
-				conf:   &Config{},
-				events: map[store.Tag]event.Event{},
+				conf:      &Config{},
+				eventPool: eventPool,
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux: mux.NewRouter(),
 			}
 
 			ev := fakeEvent{lab: fakeLab{environment: &fakeEnvironment{}}}
@@ -883,7 +882,7 @@ func TestResetExercise(t *testing.T) {
 				g := store.Team{Id: fmt.Sprintf("team-%d", i)}
 				ev.teams = append(ev.teams, g)
 			}
-			d.events["tst"] = &ev
+			eventPool.AddEvent(&ev)
 
 			dialer, close := getServer(d)
 			defer close()
@@ -990,11 +989,10 @@ func TestListFrontends(t *testing.T) {
 				conf: &Config{
 					OvaDir: tmpDir,
 				},
-				events: map[store.Tag]event.Event{},
+				eventPool: NewEventPool(""),
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
-				mux: mux.NewRouter(),
 			}
 
 			dialer, close := getServer(d)
