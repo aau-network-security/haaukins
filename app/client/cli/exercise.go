@@ -27,9 +27,9 @@ func (c *Client) CmdExercise() *cobra.Command {
 	return cmd
 }
 
-func (c *Client) CmdExerciseList() *cobra.Command {
+func (c *Client) CmdExercises() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
+		Use:     "exercises",
 		Short:   "List exercises",
 		Example: `  ntp exercise list`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -69,6 +69,13 @@ func (c *Client) CmdExerciseList() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+}
+
+func (c *Client) CmdExerciseList() *cobra.Command {
+	cmd := *c.CmdExercises()
+	cmd.Use = "ls"
+	cmd.Aliases = []string{"ls", "list"}
+	return &cmd
 }
 
 func (c *Client) CmdExerciseReset() *cobra.Command {
