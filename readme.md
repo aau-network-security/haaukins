@@ -35,11 +35,11 @@ protoc -I proto/ proto/daemon.proto --go_out=plugins=grpc:proto
 ```
 
 ## Version release
-In order to release a new version, run the `script/release.go` script as follows (choose depending on type of release):
+In order to release a new version, run the `script/release/release.go` script as follows (choose depending on type of release):
 ```bash
-$ go run script/release.go major 
-$ go run script/release.go minor 
-$ go run script/release.go patch 
+$ go run script/release/release.go major 
+$ go run script/release/release.go minor 
+$ go run script/release/release.go patch 
 ```
 The script will do the following:
 

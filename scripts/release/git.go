@@ -1,4 +1,4 @@
-package git
+package main
 
 import (
 	"fmt"
@@ -22,22 +22,22 @@ var (
 	}
 )
 
-type Repo struct {
-	Repo git.Repository
+type repo struct {
+	repo git.Repository
 }
 
-func NewRepo(path string) (*Repo, error) {
-	repo, err := git.PlainOpen(path)
+func newRepo(path string) (*repo, error) {
+	r, err := git.PlainOpen(path)
 	if err != nil {
 		return nil, err
 	}
-	return &Repo{
-		Repo: *repo,
+	return &repo{
+		repo: *r,
 	}, nil
 }
 
-func (r Repo) CommitVersionUpdate(version *semver.Version, files ...string) error {
-	wt, err := r.Repo.Worktree()
+func (r repo) commitVersionUpdate(version *semver.Version, files ...string) error {
+	wt, err := r.repo.Worktree()
 	if err != nil {
 		return err
 	}
@@ -56,8 +56,8 @@ func (r Repo) CommitVersionUpdate(version *semver.Version, files ...string) erro
 	return nil
 }
 
-func (r Repo) Tag(version *semver.Version) error {
-	headRef, err := r.Repo.Head()
+func (r repo) tag(version *semver.Version) error {
+	headRef, err := r.repo.Head()
 	if err != nil {
 		return err
 	}
@@ -66,20 +66,20 @@ func (r Repo) Tag(version *semver.Version) error {
 		Message: version.String(),
 		Tagger:  sig,
 	}
-	_, err = r.Repo.CreateTag(version.String(), headRef.Hash(), cto)
+	_, err = r.repo.CreateTag(version.String(), headRef.Hash(), cto)
 	return err
 }
 
-func (r Repo) CreateBranch(version *semver.Version) error {
-	headRef, err := r.Repo.Head()
+func (r repo) createBranch(version *semver.Version) error {
+	headRef, err := r.repo.Head()
 	if err != nil {
 		return err
 	}
 	ref := plumbing.NewHashReference(branchReferenceName(version), headRef.Hash())
-	return r.Repo.Storer.SetReference(ref)
+	return r.repo.Storer.SetReference(ref)
 }
 
-func (r Repo) Push(branches []*semver.Version, tags []*semver.Version) error {
+func (r repo) push(branches []*semver.Version, tags []*semver.Version) error {
 	var refSpecs []config.RefSpec
 	spec, err := r.refSpec(nil, "head")
 	if err != nil {
@@ -120,10 +120,10 @@ func (r Repo) Push(branches []*semver.Version, tags []*semver.Version) error {
 		Auth:       auth,
 		RefSpecs:   refSpecs,
 	}
-	return r.Repo.Push(po)
+	return r.repo.Push(po)
 }
 
-func (r Repo) refSpec(version *semver.Version, entityType string) (config.RefSpec, error) {
+func (r repo) refSpec(version *semver.Version, entityType string) (config.RefSpec, error) {
 	var referenceName plumbing.ReferenceName
 	switch entityType {
 	case "branch":
@@ -134,7 +134,7 @@ func (r Repo) refSpec(version *semver.Version, entityType string) (config.RefSpe
 		referenceName = plumbing.ReferenceName("HEAD")
 	}
 
-	ref, err := r.Repo.Reference(referenceName, true)
+	ref, err := r.repo.Reference(referenceName, true)
 	if err != nil {
 		return "", err
 	}
