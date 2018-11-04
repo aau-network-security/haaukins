@@ -36,7 +36,7 @@ func NewRepo(path string) (*Repo, error) {
 	}, nil
 }
 
-func (r Repo) Commit(version *semver.Version, files ...string) error {
+func (r Repo) CommitVersionUpdate(version *semver.Version, files ...string) error {
 	wt, err := r.Repo.Worktree()
 	if err != nil {
 		return err
@@ -133,8 +133,6 @@ func (r Repo) refSpec(version *semver.Version, entityType string) (config.RefSpe
 	case "head":
 		referenceName = plumbing.ReferenceName("HEAD")
 	}
-
-	fmt.Printf("Reference name: %s\n", referenceName)
 
 	ref, err := r.Repo.Reference(referenceName, true)
 	if err != nil {

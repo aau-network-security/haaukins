@@ -53,8 +53,8 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 
 	fmt.Printf("Releasing version %s (from %s)\n", newVer.String(), curVer.String())
 
-	if err := repo.Commit(newVer, versionFile); err != nil {
-		return errors.Wrap(err, "failed to commit version")
+	if err := repo.CommitVersionUpdate(newVer, versionFile); err != nil {
+		return errors.Wrap(err, "failed to commit version update")
 	}
 
 	if err := repo.Tag(newVer); err != nil {
