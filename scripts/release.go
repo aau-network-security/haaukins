@@ -69,7 +69,7 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 		}
 	}
 
-	return nil
+	return repo.Push()
 }
 
 func major() *cobra.Command {

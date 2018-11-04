@@ -74,6 +74,11 @@ func (r Repo) CreateBranch(version *semver.Version) error {
 	return r.Repo.Storer.SetReference(ref)
 }
 
+func (r Repo) Push() error {
+	po := &git.PushOptions{}
+	return r.Repo.Push(po)
+}
+
 func referenceName(branch string) plumbing.ReferenceName {
 	return plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch))
 }
