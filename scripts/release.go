@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/aau-network-security/go-ntp/scripts/git"
 	"github.com/giantswarm/semver-bump/bump"
 	"github.com/giantswarm/semver-bump/storage"
 	"github.com/spf13/cobra"
@@ -41,6 +42,12 @@ func patch() *cobra.Command {
 				return
 			}
 			fmt.Printf("Releasing version %s (from %s)", curVer.String(), newVer.String())
+
+			gr, err := git.NewRepo(".")
+			if err := gr.Commit(newVer, versionFile); err != nil {
+				fmt.Printf("Failed to commit version: %s", err)
+				return
+			}
 		},
 	}
 }
