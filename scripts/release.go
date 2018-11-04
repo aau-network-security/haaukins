@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/aau-network-security/go-ntp/scripts/git"
+	"github.com/coreos/go-semver/semver"
 	"github.com/giantswarm/semver-bump/bump"
 	"github.com/giantswarm/semver-bump/storage"
 	"github.com/spf13/cobra"
@@ -41,7 +42,7 @@ func patch() *cobra.Command {
 				fmt.Printf("Failed to bump version: %s", err)
 				return
 			}
-			fmt.Printf("Releasing version %s (from %s)", curVer.String(), newVer.String())
+			fmt.Printf("Releasing version %s (from %s)\n", curVer.String(), newVer.String())
 
 			repo, err := git.NewRepo(".")
 			if err := repo.Commit(newVer, versionFile); err != nil {
@@ -51,6 +52,18 @@ func patch() *cobra.Command {
 
 			if err := repo.Tag(newVer); err != nil {
 				fmt.Printf("Failed to create tag: %s", err)
+				return
+			}
+
+			newBranchVer, err := semver.NewVersion(newVer.String())
+			if err != nil {
+				fmt.Printf("Failed to copy version: %s", err)
+				return
+			}
+
+			newBranchVer.BumpPatch()
+			if err := repo.CreateBranch(newBranchVer); err != nil {
+				fmt.Printf("Failed to create branch: %s", err)
 				return
 			}
 		},

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/coreos/go-semver/semver"
 	"gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 	"time"
 )
@@ -62,4 +63,17 @@ func (r Repo) Tag(version *semver.Version) error {
 	}
 	_, err = r.Repo.CreateTag(version.String(), headRef.Hash(), cto)
 	return err
+}
+
+func (r Repo) CreateBranch(version *semver.Version) error {
+	headRef, err := r.Repo.Head()
+	if err != nil {
+		return err
+	}
+	ref := plumbing.NewHashReference(referenceName(version.String()), headRef.Hash())
+	return r.Repo.Storer.SetReference(ref)
+}
+
+func referenceName(branch string) plumbing.ReferenceName {
+	return plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch))
 }
