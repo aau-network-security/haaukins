@@ -45,9 +45,14 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 	if err != nil {
 		return errors.Wrap(err, "failed to bump version")
 	}
-	fmt.Printf("Releasing version %s (from %s)\n", newVer.String(), curVer.String())
 
 	repo, err := git.NewRepo(".")
+	if err != nil {
+		return errors.Wrap(err, "failed to find git repo")
+	}
+
+	fmt.Printf("Releasing version %s (from %s)\n", newVer.String(), curVer.String())
+
 	if err := repo.Commit(newVer, versionFile); err != nil {
 		return errors.Wrap(err, "failed to commit version")
 	}
@@ -67,6 +72,9 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 		if err := repo.CreateBranch(newBranchVer); err != nil {
 			return errors.Wrap(err, "failed to create branch")
 		}
+	}
+	if err := repo.PushBranch(); err != nil {
+		return errors.Wrap(err, "failed to push branch")
 	}
 
 	return nil
