@@ -6,12 +6,22 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/giantswarm/semver-bump/bump"
 	"github.com/giantswarm/semver-bump/storage"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"os"
 )
 
 var (
 	versionFile = "VERSION"
+	bumpMajor   = func(version *semver.Version) {
+		version.BumpMajor()
+	}
+	bumpMinor = func(version *semver.Version) {
+		version.BumpMinor()
+	}
+	bumpPatch = func(version *semver.Version) {
+		version.BumpPatch()
+	}
 )
 
 func newSemverBumper() (*bump.SemverBumper, error) {
@@ -22,49 +32,89 @@ func newSemverBumper() (*bump.SemverBumper, error) {
 	return bump.NewSemverBumper(vs, versionFile), nil
 }
 
+func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), branchFuncs ...func(*semver.Version)) error {
+	sb, err := newSemverBumper()
+	if err != nil {
+		return errors.Wrap(err, "failed to create semver bumper")
+	}
+	curVer, err := sb.GetCurrentVersion()
+	if err != nil {
+		return errors.Wrap(err, "failed to get current version")
+	}
+	newVer, err := bumpFunc(sb)
+	if err != nil {
+		return errors.Wrap(err, "failed to bump version")
+	}
+	fmt.Printf("Releasing version %s (from %s)\n", newVer.String(), curVer.String())
+
+	repo, err := git.NewRepo(".")
+	if err := repo.Commit(newVer, versionFile); err != nil {
+		return errors.Wrap(err, "failed to commit version")
+	}
+
+	if err := repo.Tag(newVer); err != nil {
+		return errors.Wrap(err, "failed to create tag")
+	}
+
+	for _, bf := range branchFuncs {
+		newBranchVer, err := semver.NewVersion(newVer.String())
+		if err != nil {
+			return errors.Wrap(err, "failed to copy version")
+		}
+
+		bf(newBranchVer)
+		fmt.Printf("Creating new branch '%s'\n", newBranchVer.String())
+		if err := repo.CreateBranch(newBranchVer); err != nil {
+			return errors.Wrap(err, "failed to create branch")
+		}
+	}
+
+	return nil
+}
+
+func major() *cobra.Command {
+	return &cobra.Command{
+		Use:   "major",
+		Short: "Release a major version",
+		Run: func(cmd *cobra.Command, args []string) {
+			bumpFunc := func(sb *bump.SemverBumper) (*semver.Version, error) {
+				return sb.BumpMajorVersion("", "")
+			}
+
+			if err := bumpVersion(bumpFunc, bumpMajor, bumpMinor, bumpPatch); err != nil {
+				fmt.Printf("Error while bumping version: %s", err)
+			}
+		},
+	}
+}
+
+func minor() *cobra.Command {
+	return &cobra.Command{
+		Use:   "minor",
+		Short: "Release a minor version",
+		Run: func(cmd *cobra.Command, args []string) {
+			bumpFunc := func(sb *bump.SemverBumper) (*semver.Version, error) {
+				return sb.BumpMinorVersion("", "")
+			}
+
+			if err := bumpVersion(bumpFunc, bumpMinor, bumpPatch); err != nil {
+				fmt.Printf("Error while bumping version: %s", err)
+			}
+		},
+	}
+}
+
 func patch() *cobra.Command {
 	return &cobra.Command{
 		Use:   "patch",
 		Short: "Release a patch version",
 		Run: func(cmd *cobra.Command, args []string) {
-			sb, err := newSemverBumper()
-			if err != nil {
-				fmt.Printf("Failed to create semver bumper: %s", err)
-				return
-			}
-			curVer, err := sb.GetCurrentVersion()
-			if err != nil {
-				fmt.Printf("Failed to get current version: %s", err)
-				return
-			}
-			newVer, err := sb.BumpPatchVersion("", "")
-			if err != nil {
-				fmt.Printf("Failed to bump version: %s", err)
-				return
-			}
-			fmt.Printf("Releasing version %s (from %s)\n", curVer.String(), newVer.String())
-
-			repo, err := git.NewRepo(".")
-			if err := repo.Commit(newVer, versionFile); err != nil {
-				fmt.Printf("Failed to commit version: %s", err)
-				return
+			bumpFunc := func(sb *bump.SemverBumper) (*semver.Version, error) {
+				return sb.BumpPatchVersion("", "")
 			}
 
-			if err := repo.Tag(newVer); err != nil {
-				fmt.Printf("Failed to create tag: %s", err)
-				return
-			}
-
-			newBranchVer, err := semver.NewVersion(newVer.String())
-			if err != nil {
-				fmt.Printf("Failed to copy version: %s", err)
-				return
-			}
-
-			newBranchVer.BumpPatch()
-			if err := repo.CreateBranch(newBranchVer); err != nil {
-				fmt.Printf("Failed to create branch: %s", err)
-				return
+			if err := bumpVersion(bumpFunc, bumpPatch); err != nil {
+				fmt.Printf("Error while bumping version: %s", err)
 			}
 		},
 	}
@@ -73,6 +123,8 @@ func patch() *cobra.Command {
 func main() {
 	var rootCmd = &cobra.Command{Use: "release"}
 	rootCmd.AddCommand(
+		major(),
+		minor(),
 		patch(),
 	)
 
