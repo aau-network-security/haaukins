@@ -43,9 +43,14 @@ func patch() *cobra.Command {
 			}
 			fmt.Printf("Releasing version %s (from %s)", curVer.String(), newVer.String())
 
-			gr, err := git.NewRepo(".")
-			if err := gr.Commit(newVer, versionFile); err != nil {
+			repo, err := git.NewRepo(".")
+			if err := repo.Commit(newVer, versionFile); err != nil {
 				fmt.Printf("Failed to commit version: %s", err)
+				return
+			}
+
+			if err := repo.Tag(newVer); err != nil {
+				fmt.Printf("Failed to create tag: %s", err)
 				return
 			}
 		},
