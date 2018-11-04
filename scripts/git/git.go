@@ -75,14 +75,30 @@ func (r Repo) CreateBranch(version *semver.Version) error {
 	if err != nil {
 		return err
 	}
-	ref := plumbing.NewHashReference(referenceName(version), headRef.Hash())
+	ref := plumbing.NewHashReference(branchReferenceName(version), headRef.Hash())
 	return r.Repo.Storer.SetReference(ref)
 }
 
-func (r Repo) PushBranch() error {
-	refSpec, err := r.headRefSpec()
+func (r Repo) Push(branches []*semver.Version, tags []*semver.Version) error {
+	var refSpecs []config.RefSpec
+	spec, err := r.refSpec(nil, "head")
 	if err != nil {
 		return err
+	}
+	refSpecs = append(refSpecs, spec)
+	for _, b := range branches {
+		spec, err := r.refSpec(b, "branch")
+		if err != nil {
+			return err
+		}
+		refSpecs = append(refSpecs, spec)
+	}
+	for _, t := range tags {
+		spec, err := r.refSpec(t, "tag")
+		if err != nil {
+			return err
+		}
+		refSpecs = append(refSpecs, spec)
 	}
 
 	keyFile := os.Getenv("NTP_RELEASE_PEMFILE")
@@ -102,27 +118,42 @@ func (r Repo) PushBranch() error {
 	po := &git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
-		RefSpecs: []config.RefSpec{
-			refSpec,
-		},
+		RefSpecs:   refSpecs,
 	}
 	return r.Repo.Push(po)
 }
 
-func (r Repo) headRefSpec() (config.RefSpec, error) {
-	headRef, err := r.Repo.Head()
+func (r Repo) refSpec(version *semver.Version, entityType string) (config.RefSpec, error) {
+	var referenceName plumbing.ReferenceName
+	switch entityType {
+	case "branch":
+		referenceName = branchReferenceName(version)
+	case "tag":
+		referenceName = tagReferenceName(version)
+	case "head":
+		referenceName = plumbing.ReferenceName("HEAD")
+	}
+
+	fmt.Printf("Reference name: %s\n", referenceName)
+
+	ref, err := r.Repo.Reference(referenceName, true)
 	if err != nil {
 		return "", err
 	}
 
-	remote := headRef.Target()
+	remote := ref.Target()
 	if remote == "" {
-		remote = headRef.Name()
+		remote = ref.Name()
 	}
 
-	return config.RefSpec(fmt.Sprintf("%s:%s", headRef.Name(), remote)), nil
+	return config.RefSpec(fmt.Sprintf("%s:%s", ref.Name(), remote)), nil
+
 }
 
-func referenceName(version *semver.Version) plumbing.ReferenceName {
+func branchReferenceName(version *semver.Version) plumbing.ReferenceName {
 	return plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", version.String()))
+}
+
+func tagReferenceName(version *semver.Version) plumbing.ReferenceName {
+	return plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", version.String()))
 }

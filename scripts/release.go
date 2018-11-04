@@ -61,6 +61,7 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 		return errors.Wrap(err, "failed to create tag")
 	}
 
+	var branches []*semver.Version
 	for _, bf := range branchFuncs {
 		newBranchVer, err := semver.NewVersion(newVer.String())
 		if err != nil {
@@ -68,12 +69,16 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 		}
 
 		bf(newBranchVer)
+		branches = append(branches, newBranchVer)
 		fmt.Printf("Creating new branch '%s'\n", newBranchVer.String())
 		if err := repo.CreateBranch(newBranchVer); err != nil {
 			return errors.Wrap(err, "failed to create branch")
 		}
 	}
-	if err := repo.PushBranch(); err != nil {
+
+	tags := []*semver.Version{newVer}
+
+	if err := repo.Push(branches, tags); err != nil {
 		return errors.Wrap(err, "failed to push branch")
 	}
 
