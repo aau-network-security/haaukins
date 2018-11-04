@@ -126,9 +126,9 @@ func (c *Client) CmdEventStop() *cobra.Command {
 	}
 }
 
-func (c *Client) CmdEventList() *cobra.Command {
+func (c *Client) CmdEvents() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
+		Use:     "events",
 		Short:   "List events",
 		Example: `  ntp event list`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -159,6 +159,13 @@ func (c *Client) CmdEventList() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+}
+
+func (c *Client) CmdEventList() *cobra.Command {
+	cmd := *c.CmdEvents()
+	cmd.Use = "ls"
+	cmd.Aliases = []string{"ls", "list"}
+	return &cmd
 }
 
 func (c *Client) CmdEventTeams() *cobra.Command {

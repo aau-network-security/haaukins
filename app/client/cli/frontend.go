@@ -23,9 +23,9 @@ func (c *Client) CmdFrontend() *cobra.Command {
 	return cmd
 }
 
-func (c *Client) CmdFrontendList() *cobra.Command {
+func (c *Client) CmdFrontends() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
+		Use:     "frontends",
 		Short:   "List available frontends",
 		Example: `  ntp frontend list`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -74,6 +74,13 @@ func (c *Client) CmdFrontendList() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+}
+
+func (c *Client) CmdFrontendList() *cobra.Command {
+	cmd := *c.CmdFrontends()
+	cmd.Use = "ls"
+	cmd.Aliases = []string{"ls", "list"}
+	return &cmd
 }
 
 func (c *Client) CmdFrontendSet() *cobra.Command {
