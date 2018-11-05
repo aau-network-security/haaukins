@@ -238,6 +238,12 @@ func (ic InstanceConfig) Validate() error {
 	if ic.Image == "" {
 		return &EmptyVarErr{Var: "Image", Type: "Instance Config"}
 	}
+	if ic.MemoryMB < 0 {
+		return errors.New("memory cannot be negative")
+	}
+	if ic.CPU < 0 {
+		return errors.New("cpu cannot be negative")
+	}
 
 	return nil
 }

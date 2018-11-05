@@ -20,8 +20,8 @@ var (
 )
 
 type Config struct {
-	Frontends []string         `yaml:"frontends"`
-	Exercises []store.Exercise `yaml:"exercises"`
+	Frontends []store.InstanceConfig
+	Exercises []store.Exercise
 }
 
 func (conf Config) Flags() []store.FlagConfig {
@@ -54,8 +54,7 @@ func (lh *labHost) NewLab(lib vbox.Library, config Config) (Lab, error) {
 	}
 
 	for _, f := range config.Frontends {
-		vboxConfig := store.InstanceConfig{Image: f}
-		_, err = l.addFrontend(vboxConfig)
+		_, err = l.addFrontend(f)
 		if err != nil {
 			return nil, err
 		}
