@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/store"
+	"github.com/google/uuid"
 )
 
 type flagPool struct {
@@ -25,14 +26,21 @@ func NewFlagPool() *flagPool {
 	}
 }
 
-func (fp *flagPool) AddFlag(conf store.FlagConfig, cid int, value string) {
+func (fp *flagPool) AddFlag(flag store.FlagConfig, cid int) string {
 	fp.m.Lock()
 	defer fp.m.Unlock()
 
-	fconf := activeFlagConfig{value, cid, conf}
+	value := flag.Static
+	if value == "" {
+		value = uuid.New().String()
+	}
 
-	fp.tags[conf.Tag] = &fconf
+	fconf := activeFlagConfig{value, cid, flag}
+
+	fp.tags[flag.Tag] = &fconf
 	fp.ids[cid] = &fconf
+
+	return value
 }
 
 func (fp *flagPool) GetIdentifierByTag(t store.Tag) (int, error) {
@@ -78,10 +86,6 @@ func (fp *flagPool) TranslateFlagForTeam(t store.Team, cid int, value string) st
 	chal, ok := fp.ids[cid]
 	if !ok {
 		return ""
-	}
-
-	if static := chal.Static != ""; static {
-		return value
 	}
 
 	if err := t.IsCorrectFlag(chal.Tag, value); err != nil {

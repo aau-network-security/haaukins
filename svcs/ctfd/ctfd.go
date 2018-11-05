@@ -223,8 +223,8 @@ func (ctf *ctfd) configureInstance() error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := ctf.nc.client.Do(req)
 	if err != nil {
 		return err
@@ -232,16 +232,11 @@ func (ctf *ctfd) configureInstance() error {
 	defer resp.Body.Close()
 
 	for id, flag := range ctf.conf.Flags {
-		value := flag.Static
-		if value == "" {
-			value = uuid.New().String()
-		}
+		value := ctf.flagPool.AddFlag(flag, id+1)
 
 		if err := ctf.createFlag(flag.Name, value, flag.Points); err != nil {
 			return err
 		}
-
-		ctf.flagPool.AddFlag(flag, id+1, value)
 
 		log.Debug().
 			Str("name", flag.Name).

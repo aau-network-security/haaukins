@@ -150,7 +150,6 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 
 		value := cfi.flagPool.TranslateFlagForTeam(t, cid, flagValue)
 
-		fmt.Printf("Value before (%s) after (%s)\n", flagValue, value)
 		r.Form.Set("key", value)
 
 		// update body and content-length
@@ -178,11 +177,13 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 				return
 			}
 
-			err = t.SolveChallenge(tag, value)
+			err = t.SolveChallenge(tag, flagValue)
 			if err != nil {
 				log.Warn().
 					Err(err).
+					Str("tag", string(tag)).
 					Str("team-id", t.Id).
+					Str("value", value).
 					Msg("Unable to solve challenge for team")
 				return
 			}

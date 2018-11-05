@@ -260,8 +260,11 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
+	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore)(ev.store)
+
 	m := http.NewServeMux()
-	m.Handle("/guacamole", ev.guac.ProxyHandler(ev.guacUserStore)(ev.store))
+	m.Handle("/guacamole", guacHandler)
+	m.Handle("/guacamole/", guacHandler)
 	m.Handle("/", ev.ctfd.ProxyHandler(reghook)(ev.store))
 
 	return m

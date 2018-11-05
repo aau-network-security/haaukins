@@ -5,7 +5,9 @@ import (
 	"io"
 	"testing"
 
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -61,6 +63,14 @@ func (guac *testGuac) CreateRDPConn(opts guacamole.CreateRDPConnOpts) error {
 	return nil
 }
 
+type testEnvironment struct {
+	exercise.Environment
+}
+
+func (te *testEnvironment) Challenges() []store.Challenge {
+	return nil
+}
+
 type testLab struct {
 	status   int
 	rdpPorts []uint
@@ -69,6 +79,10 @@ type testLab struct {
 
 func (lab *testLab) RdpConnPorts() []uint {
 	return lab.rdpPorts
+}
+
+func (lab *testLab) GetEnvironment() exercise.Environment {
+	return &testEnvironment{}
 }
 
 type testLabHub struct {
@@ -166,7 +180,7 @@ func TestEvent_AssignLab(t *testing.T) {
 			}
 			ev.Start(context.Background())
 
-			team := NewTeam("test", "passworder")
+			team := store.NewTeam("what@ever.com", "test", "passworder")
 			if err := ev.AssignLab(&team); err != tc.expectedErr {
 				t.Fatalf("Unexpected error %s, expected %s", err, tc.expectedErr)
 			}

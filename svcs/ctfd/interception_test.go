@@ -109,7 +109,6 @@ func TestRegisterInterception(t *testing.T) {
 				if c.Name == "session" {
 					session = c.Value
 				}
-
 			}
 
 			if session == "" {
@@ -131,60 +130,72 @@ func TestRegisterInterception(t *testing.T) {
 
 func TestCheckFlagInterceptor(t *testing.T) {
 	host := "http://sec02.lab.es.aau.dk"
-	flag := "some_flag_here"
 	knownSession := "known_session"
 	email := "some@email.com"
+	nonce := "some_nonce"
 
-	ts := store.NewTeamStore()
-	team := store.NewTeam(email, "name_goes_here", "passhere")
-	if err := ts.CreateTeam(team); err != nil {
-		t.Fatalf("expected to be able to create team")
-	}
+	// ts := store.NewTeamStore()
+	// team := store.NewTeam(email, "name_goes_here", "passhere")
+	// if err := ts.CreateTeam(team); err != nil {
+	// 	t.Fatalf("expected to be able to create team")
+	// }
 
-	if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
-		t.Fatalf("expected to be able to create token for team")
-	}
+	// if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
+	// 	t.Fatalf("expected to be able to create token for team")
+	// }
 
-	validForm := url.Values{
-		"key":   {flag},
-		"nonce": {"random_string"},
-	}
+	// validForm := url.Values{
+	// 	"key":   {flag},
+	// 	"nonce": {"random_string"},
+	// }
 
 	tt := []struct {
 		name      string
 		path      string
 		method    string
-		form      *url.Values
-		tagMap    map[int]store.Tag
-		session   string
-		chal      *store.Challenge
+		sendFlag  string
+		value     string
+		flag      *store.FlagConfig
+		solve     bool
 		intercept bool
 	}{
-		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, chal: &store.Challenge{OwnerID: team.Id, FlagTag: "hb"}, session: knownSession, intercept: true},
+		{name: "Static (correct)", path: "/chal/1", method: "POST", sendFlag: "abc", value: "abc", flag: &store.FlagConfig{Tag: "tst", Static: "abcde"}, solve: true, intercept: true},
+		{name: "Static (incorrect)", path: "/chal/1", method: "POST", sendFlag: "incorrect", value: "abc", flag: &store.FlagConfig{Tag: "tst", Static: "abcde"}, intercept: true},
+		{name: "Dynamic (incorrect)", path: "/chal/1", method: "POST", sendFlag: "incorrect", value: "abc", flag: &store.FlagConfig{Tag: "tst", EnvVar: "flag"}, intercept: true},
+		{name: "Dynamic (correct)", path: "/chal/1", method: "POST", sendFlag: "abc", value: "abc", flag: &store.FlagConfig{Tag: "tst", EnvVar: "flag"}, solve: true, intercept: true},
 		{name: "Index", path: "/", method: "GET", intercept: false},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-
 			req := httptest.NewRequest(tc.method, host+tc.path, nil)
-			if tc.form != nil {
-				f := *tc.form
+			if tc.sendFlag != "" {
+				f := url.Values{
+					"key":   {tc.sendFlag},
+					"nonce": {nonce},
+				}
 				req = httptest.NewRequest(tc.method, host+tc.path, strings.NewReader(f.Encode()))
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			}
 
-			if tc.session != "" {
-				cookie := http.Cookie{Name: "session", Value: tc.session}
-				req.AddCookie(&cookie)
-			}
-
+			ts := store.NewTeamStore()
 			fp := ctfd.NewFlagPool()
-			if tc.chal != nil {
-				fp.AddFlag(store.FlagConfig{
-					Tag:    tc.chal.FlagTag,
-					Static: flag,
-				}, 1, "")
+
+			var ctfdValue string
+			if tc.flag != nil {
+				ctfdValue = fp.AddFlag(*tc.flag, 1)
+
+				team := store.NewTeam(email, "name_goes_here", "passhere", store.Challenge{FlagTag: tc.flag.Tag, FlagValue: tc.value})
+				if err := ts.CreateTeam(team); err != nil {
+					t.Fatalf("expected to be able to create team")
+				}
+
+				if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
+					t.Fatalf("expected to be able to create token for team")
+				}
+
+				cookie := http.Cookie{Name: "session", Value: knownSession}
+				req.AddCookie(&cookie)
 			}
 
 			interceptor := ctfd.NewCheckFlagInterceptor(ts, fp)
@@ -198,9 +209,12 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			}
 
 			var key string
+			var readNonce string
 			output := `{"message":"Correct", "status": 1}`
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				key = r.FormValue("key")
+				readNonce = r.FormValue("nonce")
+
 				w.Write([]byte(output))
 				return
 			})
@@ -221,28 +235,31 @@ func TestCheckFlagInterceptor(t *testing.T) {
 				t.Fatalf("response does not match expectation")
 			}
 
-			f := *tc.form
-			if key != f.Get("key") {
-				t.Fatalf("expect key to pass through interception")
+			if readNonce != nonce {
+				t.Fatalf("expected nonce (value: %s) to be parsed on, but received: %s", nonce, readNonce)
 			}
 
 			team, _ := ts.GetTeamByEmail(email)
-			chal := team.Challenges[tc.chal.FlagTag]
+			chal := team.Challenges[tc.flag.Tag]
+			if !tc.solve {
+				if chal.CompletedAt != nil {
+					t.Fatalf("expected no completion of challenge")
+				}
+
+				if key != "" {
+					t.Fatalf("expected key to be empty")
+				}
+
+				return
+			}
+
+			if key != ctfdValue {
+				t.Fatalf("expect key to pass through interception")
+			}
 
 			if chal.CompletedAt == nil {
 				t.Fatalf("expected that completion date of the exercise has been added")
 			}
-
-			if tc.chal != nil {
-				if tc.chal.FlagTag != chal.FlagTag {
-					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.chal.FlagTag, chal.FlagTag)
-				}
-
-				if tc.chal.OwnerID != chal.OwnerID {
-					t.Fatalf("mismatch across owner id (expected: %s), received: %s", tc.chal.OwnerID, chal.OwnerID)
-				}
-			}
-
 		})
 	}
 

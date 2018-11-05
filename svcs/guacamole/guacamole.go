@@ -654,7 +654,6 @@ func websocketProxy(target string) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = "/guacamole" + r.URL.Path
 		r.Header.Set("Origin", origin)
 		r.Header.Add("X-Forwarded-Host", r.Host)
 		r.Host = target
