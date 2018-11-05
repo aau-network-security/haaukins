@@ -15,6 +15,7 @@ import (
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
@@ -24,10 +25,9 @@ import (
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	dockerclient "github.com/fsouza/go-dockerclient"
 
-	"sync"
-
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"sync"
 )
 
 var (
@@ -79,15 +79,16 @@ func NewConfigFromFile(path string) (*Config, error) {
 }
 
 type daemon struct {
-	conf      *Config
-	auth      Authenticator
-	users     store.UsersFile
-	exercises store.ExerciseStore
-	eventPool *eventPool
+	conf            *Config
+	auth            Authenticator
+	users           store.UsersFile
+	exercises       store.ExerciseStore
+	events          map[store.Tag]event.Event
 	frontends store.FrontendStore
-	ehost     event.Host
-	logPool   LogPool
-	closers   []io.Closer
+	mux             *mux.Router
+	ehost           event.Host
+	logPool         LogPool
+	closers         []io.Closer
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -145,9 +146,10 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
-	eventPool := NewEventPool(conf.Host)
+	m := mux.NewRouter()
+	m.NotFoundHandler = notFoundHandler()
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), eventPool); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), m); err != nil {
 			fmt.Println("Serving error", err)
 		}
 	}()
@@ -182,15 +184,16 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	d := &daemon{
-		conf:      conf,
-		auth:      NewAuthenticator(uf, conf.Management.SigningKey),
-		users:     uf,
-		exercises: ef,
-		eventPool: eventPool,
+		conf:            conf,
+		auth:            NewAuthenticator(uf, conf.Management.SigningKey),
+		users:           uf,
+		exercises:       ef,
+		events:          make(map[store.Tag]event.Event),
 		frontends: ff,
-		ehost:     event.NewHost(vlib, ef, efh),
-		logPool:   logPool,
-		closers:   []io.Closer{logPool, eventPool},
+		mux:             m,
+		ehost:           event.NewHost(vlib, ef, efh),
+		logPool:         logPool,
+		closers:         []io.Closer{logPool},
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -397,7 +400,11 @@ func (d *daemon) createEvent(ev event.Event) error {
 
 	go ev.Start(context.TODO())
 
-	d.eventPool.AddEvent(ev)
+	host := fmt.Sprintf("%s.%s", conf.Tag, d.conf.Host)
+	eventRoute := d.mux.Host(host).Subrouter()
+	ev.Connect(eventRoute)
+
+	d.events[conf.Tag] = ev
 
 	return nil
 }
@@ -438,8 +445,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return err
 	}
 
-	_, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
+	_, ok := d.events[evtag]
+	if ok {
 		return DuplicateEventErr
 	}
 
@@ -465,14 +472,12 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
-	ev, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
-		return err
+	ev, ok := d.events[evtag]
+	if !ok {
+		return UnknownEventErr
 	}
 
-	if err := d.eventPool.RemoveEvent(evtag); err != nil {
-		return err
-	}
+	delete(d.events, evtag)
 
 	ev.Close()
 	ev.Finish()
@@ -491,9 +496,9 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	ev, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
-		return err
+	ev, ok := d.events[evtag]
+	if !ok {
+		return UnknownEventErr
 	}
 
 	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
@@ -540,10 +545,9 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 	if err != nil {
 		return err
 	}
-
-	ev, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
-		return err
+	ev, ok := d.events[evtag]
+	if !ok {
+		return UnknownEventErr
 	}
 
 	if req.Teams != nil {
@@ -572,7 +576,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
 
-	for _, event := range d.eventPool.GetAllEvents() {
+	for _, event := range d.events {
 		conf := event.GetConfig()
 
 		events = append(events, &pb.ListEventsResponse_Events{
@@ -593,9 +597,9 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	if err != nil {
 		return nil, err
 	}
-	ev, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
-		return nil, err
+	ev, ok := d.events[evtag]
+	if !ok {
+		return nil, UnknownEventErr
 	}
 
 	teams := ev.GetTeams()
@@ -614,7 +618,7 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 func (d *daemon) Close() error {
 	var errs error
 	var wg sync.WaitGroup
-
+	// daemon closers
 	for _, c := range d.closers {
 		wg.Add(1)
 		go func(c io.Closer) {
@@ -624,7 +628,16 @@ func (d *daemon) Close() error {
 			wg.Done()
 		}(c)
 	}
-
+	// event closers
+	for _, c := range d.events {
+		wg.Add(1)
+		go func(c io.Closer) {
+			if err := c.Close(); err != nil && errs == nil {
+				errs = err
+			}
+			wg.Done()
+		}(c)
+	}
 	wg.Wait()
 
 	return errs
