@@ -7,14 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"net/url"
-
 	"io"
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -91,7 +88,7 @@ type Event interface {
 	Start(context.Context) error
 	Close() error
 	Finish()
-	AssignLab(store.Team) error
+	AssignLab(*store.Team) error
 	Handler() http.Handler
 
 	GetConfig() store.EventConfig
@@ -192,7 +189,7 @@ func (ev *event) Finish() {
 	ev.store.Finish(now)
 }
 
-func (ev *event) AssignLab(t store.Team) error {
+func (ev *event) AssignLab(t *store.Team) error {
 	lab, err := ev.labhub.Get()
 	if err != nil {
 		return err
@@ -242,46 +239,30 @@ func (ev *event) AssignLab(t store.Team) error {
 
 	ev.labs[t.Id] = lab
 
+	chals := lab.GetEnvironment().Challenges()
+	for _, chal := range chals {
+		t.Challenges[chal.FlagTag] = chal
+	}
+
 	return nil
 }
 
 func (ev *event) Handler() http.Handler {
-	prehooks := []func() error{
-		func() error {
-			if ev.labhub.Available() == 0 {
-				return lab.CouldNotFindLabErr
-			}
-			return nil
-		},
-	}
-
-	posthooks := []func(t store.Team) error{
-		ev.AssignLab,
-	}
-
-	loginFunc := func(u string, p string) (string, error) {
-		content, err := ev.guac.RawLogin(u, p)
-		if err != nil {
-			return "", err
+	reghook := func(t *store.Team) error {
+		if ev.labhub.Available() == 0 {
+			return lab.CouldNotFindLabErr
 		}
-		return url.QueryEscape(string(content)), nil
-	}
 
-	defaultTasks := []store.Task{}
-	for _, f := range ev.labhub.Flags() {
-		defaultTasks = append(defaultTasks, store.Task{FlagTag: f.Tag})
-	}
+		if err := ev.AssignLab(t); err != nil {
+			return nil
+		}
 
-	interceptors := svcs.Interceptors{
-		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks, defaultTasks...),
-		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.ChalMap()),
-		ctfd.NewLoginInterceptor(ev.store),
-		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, loginFunc),
+		return nil
 	}
 
 	m := http.NewServeMux()
-	m.Handle("/guacamole", interceptors.Intercept(ev.guac.ProxyHandler()))
-	m.Handle("/", interceptors.Intercept(ev.ctfd.ProxyHandler()))
+	m.Handle("/guacamole", ev.guac.ProxyHandler(ev.guacUserStore)(ev.store))
+	m.Handle("/", ev.ctfd.ProxyHandler(reghook)(ev.store))
 
 	return m
 }

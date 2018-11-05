@@ -41,7 +41,7 @@ var (
 type CTFd interface {
 	docker.Identifier
 	io.Closer
-	ProxyHandler(prehooks []func(*store.Team) error, posthooks []func(store.Team) error) svcs.ProxyConnector
+	ProxyHandler(...func(*store.Team) error) svcs.ProxyConnector
 	Start() error
 	Stop() error
 	Flags() []store.FlagConfig
@@ -185,12 +185,12 @@ func (ctf *ctfd) ID() string {
 	return ctf.cont.ID()
 }
 
-func (ctf *ctfd) ProxyHandler(prehooks []func(*store.Team) error, posthooks []func(store.Team) error) svcs.ProxyConnector {
+func (ctf *ctfd) ProxyHandler(hooks ...func(*store.Team) error) svcs.ProxyConnector {
 	origin, _ := url.Parse(ctf.nc.baseUrl())
 
 	return func(es store.EventFile) http.Handler {
 		itc := svcs.Interceptors{
-			NewRegisterInterception(es, WithPreRegisterHooks(prehooks...), WithPostRegisterHooks(posthooks...)),
+			NewRegisterInterception(es, WithRegisterHooks(hooks...)),
 			NewCheckFlagInterceptor(es, ctf.flagPool),
 			NewLoginInterceptor(es),
 		}

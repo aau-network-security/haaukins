@@ -32,12 +32,12 @@ func TestContainerOpts(t *testing.T) {
 	conf := store.Exercise{
 		DockerConfs: dockerConfs,
 	}
-	containerConfigs, recordConfigs := conf.ContainerOpts()
-	if len(containerConfigs) != 1 || len(recordConfigs) != 1 {
-		t.Fatalf("Expected 1 configs, but got %d", len(containerConfigs))
+	containerOptions := conf.ContainerOpts()
+	if len(containerOptions) != 1 {
+		t.Fatalf("Expected 1 configs, but got %d", len(containerOptions))
 	}
-	if len(recordConfigs[0]) != 2 {
-		t.Fatalf("Expected 2 records, but got %d", len(recordConfigs[0]))
+	if len(containerOptions[0].Records) != 2 {
+		t.Fatalf("Expected 2 records, but got %d", len(containerOptions[0].Records))
 	}
 }
 
@@ -91,11 +91,7 @@ func TestExerciseCreate(t *testing.T) {
 	conf := store.Exercise{
 		DockerConfs: dockerConfs,
 	}
-	e := exercise{
-		conf:       &conf,
-		dockerHost: testDockerHost{},
-		net:        &testNetwork{},
-	}
+	e := NewExercise(conf, testDockerHost{}, nil, &testNetwork{}, "")
 	if err := e.Create(); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

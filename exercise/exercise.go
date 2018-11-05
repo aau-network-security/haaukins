@@ -4,7 +4,6 @@ import (
 	"errors"
 	"regexp"
 
-	"io"
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/store"
@@ -34,26 +33,46 @@ func (dockerHost) CreateContainer(conf docker.ContainerConfig) (docker.Container
 }
 
 type exercise struct {
-	conf       *store.Exercise
-	net        docker.Network
-	machines   []virtual.Instance
-	ips        []int
-	dnsIP      string
+	containerOpts []store.ContainerOptions
+	vboxOpts      []store.ExerciseInstanceConfig
+
+	dhost DockerHost
+	vlib  vbox.Library
+	net   docker.Network
+
+	dnsAddr    string
 	dnsRecords []store.RecordConfig
-	dockerHost DockerHost
-	lib        vbox.Library
-	io.Closer
+
+	ips      []int
+	machines []virtual.Instance
+}
+
+func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net docker.Network, dnsAddr string) *exercise {
+	containerOpts := conf.ContainerOpts()
+
+	var vboxOpts []store.ExerciseInstanceConfig
+	for _, vboxConf := range conf.VboxConfs {
+		vboxOpts = append(vboxOpts, vboxConf.ExerciseInstanceConfig)
+	}
+
+	return &exercise{
+		containerOpts: containerOpts,
+		vboxOpts:      vboxOpts,
+
+		dhost:   dhost,
+		vlib:    vlib,
+		net:     net,
+		dnsAddr: dnsAddr,
+	}
 }
 
 func (e *exercise) Create() error {
-	containers, records := e.conf.ContainerOpts()
-
 	var machines []virtual.Instance
 	var newIps []int
-	for i, spec := range containers {
-		spec.DNS = []string{e.dnsIP}
+	for i, opt := range e.containerOpts {
+		opt.DockerConf.DNS = []string{e.dnsAddr}
 
-		c, err := e.dockerHost.CreateContainer(spec)
+		c, err := e.dhost.CreateContainer(opt.DockerConf)
 		if err != nil {
 			return err
 		}
@@ -80,7 +99,7 @@ func (e *exercise) Create() error {
 		ipaddr := e.net.FormatIP(lastDigit)
 		// Example: 172.16.5.216
 
-		for _, record := range records[i] {
+		for _, record := range opt.Records {
 			if record.RData == "" {
 				record.RData = ipaddr
 			}
@@ -90,9 +109,9 @@ func (e *exercise) Create() error {
 		machines = append(machines, c)
 	}
 
-	for _, vboxConfig := range e.conf.VboxConfs {
-		vm, err := e.lib.GetCopy(
-			vboxConfig.InstanceConfig,
+	for _, vboxConf := range e.vboxOpts {
+		vm, err := e.vlib.GetCopy(
+			vboxConf.InstanceConfig,
 			vbox.SetBridge(e.net.Interface()),
 		)
 		if err != nil {
@@ -181,4 +200,23 @@ func (e *exercise) Reset() error {
 	}
 
 	return nil
+}
+
+func (e *exercise) Challenges() []store.Challenge {
+	var challenges []store.Challenge
+
+	for _, opt := range e.containerOpts {
+		challenges = append(challenges, opt.Challenges...)
+	}
+
+	for _, opt := range e.vboxOpts {
+		for _, f := range opt.Flags {
+			challenges = append(challenges, store.Challenge{
+				FlagTag:   f.Tag,
+				FlagValue: f.Static,
+			})
+		}
+	}
+
+	return challenges
 }

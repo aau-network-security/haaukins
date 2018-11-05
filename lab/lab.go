@@ -25,6 +25,14 @@ type Config struct {
 	Exercises []store.Exercise `yaml:"exercises"`
 }
 
+func (conf Config) Flags() []store.FlagConfig {
+	var res []store.FlagConfig
+	for _, exercise := range conf.Exercises {
+		res = append(res, exercise.Flags()...)
+	}
+	return res
+}
+
 type LabHost interface {
 	NewLab(lib vbox.Library, config Config) (Lab, error)
 }

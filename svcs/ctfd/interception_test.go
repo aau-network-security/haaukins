@@ -45,9 +45,9 @@ func TestRegisterInterception(t *testing.T) {
 
 			ts := store.NewTeamStore()
 			var ranPreHook bool
-			pre := func() error { ranPreHook = true; return nil }
+			pre := func(*store.Team) error { ranPreHook = true; return nil }
 
-			interceptor := ctfd.NewRegisterInterception(ts, []func() error{pre}, []func(store.Team) error{})
+			interceptor := ctfd.NewRegisterInterception(ts, ctfd.WithRegisterHooks(pre))
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -157,10 +157,10 @@ func TestCheckFlagInterceptor(t *testing.T) {
 		form      *url.Values
 		tagMap    map[int]store.Tag
 		session   string
-		task      *store.Task
+		chal      *store.Challenge
 		intercept bool
 	}{
-		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, task: &store.Task{OwnerID: team.Id, FlagTag: "hb"}, session: knownSession, intercept: true},
+		{name: "Normal", path: "/chal/1", method: "POST", form: &validForm, tagMap: map[int]store.Tag{1: "hb"}, chal: &store.Challenge{OwnerID: team.Id, FlagTag: "hb"}, session: knownSession, intercept: true},
 		{name: "Index", path: "/", method: "GET", intercept: false},
 	}
 
@@ -179,10 +179,15 @@ func TestCheckFlagInterceptor(t *testing.T) {
 				req.AddCookie(&cookie)
 			}
 
-			var task *store.Task
-			post := func(t store.Task) error { task = &t; return nil }
+			fp := ctfd.NewFlagPool()
+			if tc.chal != nil {
+				fp.AddFlag(store.FlagConfig{
+					Tag:    tc.chal.FlagTag,
+					Static: flag,
+				}, 1, "")
+			}
 
-			interceptor := ctfd.NewCheckFlagInterceptor(ts, tc.tagMap, post)
+			interceptor := ctfd.NewCheckFlagInterceptor(ts, fp)
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
@@ -221,21 +226,20 @@ func TestCheckFlagInterceptor(t *testing.T) {
 				t.Fatalf("expect key to pass through interception")
 			}
 
-			if task == nil {
-				t.Fatalf("expected post hook to have been run")
-			}
+			team, _ := ts.GetTeamByEmail(email)
+			chal := team.Challenges[tc.chal.FlagTag]
 
-			if task.CompletedAt == nil {
+			if chal.CompletedAt == nil {
 				t.Fatalf("expected that completion date of the exercise has been added")
 			}
 
-			if tc.task != nil {
-				if tc.task.FlagTag != task.FlagTag {
-					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.task.FlagTag, task.FlagTag)
+			if tc.chal != nil {
+				if tc.chal.FlagTag != chal.FlagTag {
+					t.Fatalf("mismatch across exercise tag (expected: %s), received: %s", tc.chal.FlagTag, chal.FlagTag)
 				}
 
-				if tc.task.OwnerID != task.OwnerID {
-					t.Fatalf("mismatch across owner id (expected: %s), received: %s", tc.task.OwnerID, task.OwnerID)
+				if tc.chal.OwnerID != chal.OwnerID {
+					t.Fatalf("mismatch across owner id (expected: %s), received: %s", tc.chal.OwnerID, chal.OwnerID)
 				}
 			}
 

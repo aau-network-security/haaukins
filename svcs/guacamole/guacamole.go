@@ -44,7 +44,7 @@ type Guacamole interface {
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	RawLogin(username, password string) ([]byte, error)
-	ProxyHandler() svcs.ProxyConnector
+	ProxyHandler(us *GuacUserStore) svcs.ProxyConnector
 }
 
 type Config struct {
@@ -209,10 +209,22 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ProxyHandler() svcs.ProxyConnector {
+func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
+	loginFunc := func(u string, p string) (string, error) {
+		content, err := guac.RawLogin(u, p)
+		if err != nil {
+			return "", err
+		}
+		return url.QueryEscape(string(content)), nil
+	}
+
 	return func(ef store.EventFile) http.Handler {
 		origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
 		host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
+
+		interceptors := svcs.Interceptors{
+			NewGuacTokenLoginEndpoint(us, ef, loginFunc),
+		}
 
 		proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
 			req.Header.Add("X-Forwarded-Host", req.Host)
@@ -221,14 +233,14 @@ func (guac *guacamole) ProxyHandler() svcs.ProxyConnector {
 			req.URL.Path = "/guacamole" + req.URL.Path
 		}}
 
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if IsWebSocket(r) {
 				websocketProxy(host).ServeHTTP(w, r)
 				return
 			}
 
 			proxy.ServeHTTP(w, r)
-		})
+		}))
 	}
 }
 

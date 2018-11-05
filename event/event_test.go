@@ -2,13 +2,13 @@ package event
 
 import (
 	"context"
+	"io"
+	"testing"
+
 	"github.com/aau-network-security/go-ntp/lab"
-	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"io"
-	"testing"
 )
 
 const (
@@ -166,9 +166,8 @@ func TestEvent_AssignLab(t *testing.T) {
 			}
 			ev.Start(context.Background())
 
-			team := store.Team{}
-
-			if err := ev.AssignLab(team); err != tc.expectedErr {
+			team := NewTeam("test", "passworder")
+			if err := ev.AssignLab(&team); err != tc.expectedErr {
 				t.Fatalf("Unexpected error %s, expected %s", err, tc.expectedErr)
 			}
 

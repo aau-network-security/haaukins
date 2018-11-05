@@ -81,16 +81,21 @@ type Team struct {
 	Challenges     map[Tag]Challenge `yaml:"challenges,omitempty"`
 }
 
-func NewTeam(email, name, password string) Team {
+func NewTeam(email, name, password string, chals ...Challenge) Team {
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
-
 	email = strings.ToLower(email)
+
+	chalMap := map[Tag]Challenge{}
+	for _, chal := range chals {
+		chalMap[chal.FlagTag] = chal
+	}
+
 	return Team{
 		Id:             uuid.New().String()[0:8],
 		Email:          email,
 		Name:           name,
 		HashedPassword: hashedPassword,
-		Challenges:     map[Tag]Challenge{},
+		Challenges:     chalMap,
 	}
 }
 

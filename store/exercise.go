@@ -39,7 +39,15 @@ type Exercise struct {
 	Tags        []Tag          `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
 	VboxConfs   []VboxConfig   `yaml:"vbox"`
-	activeFlags map[Tag]string
+}
+
+func (e Exercise) Flags() []FlagConfig {
+	var res []FlagConfig
+
+	for _, dockerConf := range e.DockerConfs {
+		res = append(res, dockerConf.Flags...)
+	}
+	return res
 }
 
 func (e Exercise) Validate() error {
@@ -68,29 +76,30 @@ func (e Exercise) Validate() error {
 	return nil
 }
 
-func (e Exercise) ActiveFlags() map[Tag]string {
-	return e.ActiveFlags()
+type ContainerOptions struct {
+	DockerConf docker.ContainerConfig
+	Records    []RecordConfig
+	Challenges []Challenge
 }
 
-func (e Exercise) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
-	var contSpecs []docker.ContainerConfig
-	var contRecords [][]RecordConfig
-
-	// make sure active flags is initialized
-	if e.activeFlags == nil {
-		e.activeFlags = map[Tag]string{}
-	}
+func (e Exercise) ContainerOpts() []ContainerOptions {
+	var opts []ContainerOptions
 
 	for _, conf := range e.DockerConfs {
+		var challenges []Challenge
 		envVars := make(map[string]string)
 
 		for _, flag := range conf.Flags {
 			value := flag.Static
 			if value == "" {
+				// flag is not static
 				value = uuid.New().String()
-				e.activeFlags[flag.Tag] = value
 			}
 
+			challenges = append(challenges, Challenge{
+				FlagTag:   flag.Tag,
+				FlagValue: value,
+			})
 			envVars[flag.EnvVar] = value
 		}
 
@@ -108,11 +117,14 @@ func (e Exercise) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 			EnvVars: envVars,
 		}
 
-		contSpecs = append(contSpecs, spec)
-		contRecords = append(contRecords, conf.Records)
+		opts = append(opts, ContainerOptions{
+			DockerConf: spec,
+			Records:    conf.Records,
+			Challenges: challenges,
+		})
 	}
 
-	return contSpecs, contRecords
+	return opts
 }
 
 type RecordConfig struct {

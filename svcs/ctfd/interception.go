@@ -23,15 +23,9 @@ var (
 
 type RegisterInterceptOpts func(*registerInterception)
 
-func WithPreRegisterHooks(hooks ...func(*store.Team) error) RegisterInterceptOpts {
+func WithRegisterHooks(hooks ...func(*store.Team) error) RegisterInterceptOpts {
 	return func(ri *registerInterception) {
 		ri.preHooks = append(ri.preHooks, hooks...)
-	}
-}
-
-func WithPostRegisterHooks(hooks ...func(store.Team) error) RegisterInterceptOpts {
-	return func(ri *registerInterception) {
-		ri.postHooks = append(ri.postHooks, hooks...)
 	}
 }
 
@@ -49,7 +43,6 @@ func NewRegisterInterception(ts store.TeamStore, opts ...RegisterInterceptOpts) 
 
 type registerInterception struct {
 	preHooks  []func(*store.Team) error
-	postHooks []func(store.Team) error
 	teamStore store.TeamStore
 }
 
@@ -109,15 +102,6 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 					Msg("Unable to store session token for team")
 				return
 			}
-
-			for _, h := range ri.postHooks {
-				if err := h(t); err != nil {
-					log.Warn().
-						Err(err).
-						Str("name", t.Name).
-						Msg("Unable to run post hook")
-				}
-			}
 		}
 
 	})
@@ -131,14 +115,12 @@ type challengeResp struct {
 type checkFlagInterception struct {
 	teamStore store.TeamStore
 	flagPool  *flagPool
-	postHooks []func(store.Challenge) error
 }
 
-func NewCheckFlagInterceptor(ts store.TeamStore, fp *flagPool, post ...func(store.Challenge) error) *checkFlagInterception {
+func NewCheckFlagInterceptor(ts store.TeamStore, fp *flagPool) *checkFlagInterception {
 	return &checkFlagInterception{
 		teamStore: ts,
 		flagPool:  fp,
-		postHooks: post,
 	}
 }
 
@@ -167,6 +149,8 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 		flagValue := r.FormValue("key")
 
 		value := cfi.flagPool.TranslateFlagForTeam(t, cid, flagValue)
+
+		fmt.Printf("Value before (%s) after (%s)\n", flagValue, value)
 		r.Form.Set("key", value)
 
 		// update body and content-length

@@ -16,7 +16,7 @@ type Environment interface {
 	Add(conf store.Exercise, updateDNS bool) error
 	ResetByTag(t string) error
 	NetworkInterface() string
-	ActiveFlags() map[store.Tag]string
+	Challenges() []store.Challenge
 	Start() error
 	Stop() error
 	Restart() error
@@ -30,7 +30,7 @@ type environment struct {
 	network    docker.Network
 	dnsServer  *dns.Server
 	dhcpServer *dhcp.Server
-	dnsIP      string
+	dnsAddr    string
 
 	lib     vbox.Library
 	closers []io.Closer
@@ -59,7 +59,7 @@ func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment,
 
 	// we need to set the DNS server BEFORE we add our exercises
 	// else ee.dnsIP wil be "", and the resulting resolv.conf "nameserver "
-	ee.dnsIP = ee.network.FormatIP(dns.PreferedIP)
+	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
 
 	for _, e := range exercises {
 		if err := ee.Add(e, false); err != nil {
@@ -94,14 +94,7 @@ func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
 		}
 	}
 
-	e := &exercise{
-		conf:       &conf,
-		net:        ee.network,
-		dnsIP:      ee.dnsIP,
-		dockerHost: dockerHost{},
-		lib:        ee.lib,
-	}
-
+	e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
 	if err := e.Create(); err != nil {
 		return err
 	}
@@ -213,18 +206,13 @@ func (ee *environment) ResetByTag(s string) error {
 	return nil
 }
 
-func (ee *environment) ActiveFlags() map[store.Tag]string {
-	flags := map[store.Tag]string{}
-
+func (ee *environment) Challenges() []store.Challenge {
+	var challenges []store.Challenge
 	for _, e := range ee.exercises {
-		m := e.conf.ActiveFlags()
-
-		for t, v := range m {
-			flags[t] = v
-		}
+		challenges = append(challenges, e.Challenges()...)
 	}
 
-	return flags
+	return challenges
 }
 
 func (ee *environment) updateDNS() error {
@@ -251,7 +239,7 @@ func (ee *environment) updateDNS() error {
 	}
 
 	ee.dnsServer = serv
-	ee.dnsIP = ee.network.FormatIP(dns.PreferedIP)
+	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
 
 	return nil
 }
