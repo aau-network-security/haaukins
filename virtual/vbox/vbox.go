@@ -32,10 +32,11 @@ const (
 type VBoxErr struct {
 	Action string
 	Output []byte
+	Err    error
 }
 
-func (err *VBoxErr) Error() string {
-	return fmt.Sprintf("VBoxError [%s]: %s", err.Action, string(err.Output))
+func (vErr *VBoxErr) Error() string {
+	return fmt.Sprintf("VBoxError [%s] (%s): %s", vErr.Action, string(vErr.Output), vErr.Err)
 }
 
 type VM interface {
@@ -432,6 +433,7 @@ func VBoxCmdContext(ctx context.Context, cmd string, cmds ...string) ([]byte, er
 		return nil, &VBoxErr{
 			Action: strings.Join(command, " "),
 			Output: out,
+			Err:    err,
 		}
 	}
 
