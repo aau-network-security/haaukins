@@ -36,6 +36,15 @@ var (
 	DefaultAdminPass = "guacadmin"
 )
 
+type GuacError struct {
+	action string
+	err    error
+}
+
+func (ge *GuacError) Error() string {
+	return fmt.Sprintf("guacamole: trying to %s. failed: %s", ge.action, ge.err)
+}
+
 type Guacamole interface {
 	docker.Identifier
 	io.Closer
@@ -316,10 +325,14 @@ func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	if err := IsResponseOK(resp.StatusCode); err != nil {
+		return nil, &GuacError{action: "login", err: err}
+	}
+
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
+func (guac *guacamole) authAction(action string, a func(string) (*http.Response, error), i interface{}) error {
 	perform := func() ([]byte, int, error) {
 		resp, err := a(guac.token)
 		if err != nil {
@@ -335,39 +348,52 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		return content, resp.StatusCode, nil
 	}
 
-	content, status, err := perform()
-	if err != nil {
-		return err
-	}
+	shouldTryAgain := func(content []byte, status int, err error) (bool, error) {
+		if err != nil {
+			return false, err
+		}
 
-	// out of 2XX range
-	if status < http.StatusOK || status > 300 {
+		if err := IsResponseOK(status); err != nil {
+			return false, &GuacError{action: action, err: err}
+		}
+
 		var msg struct {
 			Message string `json:"message"`
 		}
 
 		if err := json.Unmarshal(content, &msg); err != nil {
-			return UnexpectedRespErr
+			return false, UnexpectedRespErr
 		}
 
 		switch msg.Message {
 		case "Permission Denied.":
 			token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 			guac.token = token
 
-			content, status, err = perform()
-			if err != nil {
-				return err
-			}
-
+			return true, nil
 		default:
-			return fmt.Errorf("Unknown Guacamole Error: %s", msg.Message)
+			return false, &GuacError{action: action, err: fmt.Errorf("unexpected message: %s", msg.Message)}
 		}
 
+		return false, nil
+	}
+
+	content, status, err := perform()
+	for {
+		retry, err := shouldTryAgain(content, status, err)
+		if err != nil {
+			return err
+		}
+
+		if !retry {
+			break
+		}
+
+		content, status, err = perform()
 	}
 
 	if i != nil {
@@ -397,7 +423,7 @@ func (guac *guacamole) changeAdminPass(newPass string) error {
 		return guac.client.Do(req)
 	}
 
-	if err := guac.authAction(action, nil); err != nil {
+	if err := guac.authAction("change admin password", action, nil); err != nil {
 		return err
 	}
 
@@ -443,7 +469,7 @@ func (guac *guacamole) CreateUser(username, password string) error {
 		Password string `json:"password"`
 	}
 
-	if err := guac.authAction(action, &output); err != nil {
+	if err := guac.authAction("create user", action, &output); err != nil {
 		return err
 	}
 
@@ -461,7 +487,7 @@ func (guac *guacamole) logout() error {
 		return guac.client.Do(req)
 	}
 
-	if err := guac.authAction(action, nil); err != nil {
+	if err := guac.authAction("logout", action, nil); err != nil {
 		return err
 	}
 
@@ -604,7 +630,7 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 	var out struct {
 		Id string `json:"identifier"`
 	}
-	if err := guac.authAction(action, &out); err != nil {
+	if err := guac.authAction("create rdp connection", action, &out); err != nil {
 		return err
 	}
 
@@ -643,7 +669,7 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 		return guac.client.Do(req)
 	}
 
-	if err := guac.authAction(action, nil); err != nil {
+	if err := guac.authAction("add user to connection", action, nil); err != nil {
 		return err
 	}
 
@@ -699,4 +725,13 @@ func IsWebSocket(req *http.Request) bool {
 	}
 
 	return false
+}
+
+func IsResponseOK(s int) error {
+	// is 200-302 status code range
+	if (s >= 200) && (s <= 302) {
+		return nil
+	}
+
+	return fmt.Errorf("unexpected response %d", s)
 }
