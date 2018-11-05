@@ -30,6 +30,7 @@ var (
 	NoNameErr         = errors.New("Name is missing")
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
 	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
+	LoginFailureErr   = errors.New("Failed to login as admin")
 
 	DefaultAdminUser = "guacadmin"
 	DefaultAdminPass = "guacadmin"
@@ -184,7 +185,9 @@ func (guac *guacamole) create() error {
 	guac.containers = append(guac.containers, web)
 	guac.web = web
 
-	guac.stop()
+	if err := guac.stop(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -236,13 +239,17 @@ func (guac *guacamole) configureInstance() error {
 		webPort: guac.webPort,
 	}
 
-	for i := 0; i < 15; i++ {
-		_, err := temp.login(DefaultAdminUser, DefaultAdminPass)
+	var err error
+	for i := 0; i < 60; i++ {
+		_, err = temp.login(DefaultAdminUser, DefaultAdminPass)
 		if err == nil {
 			break
 		}
-
 		time.Sleep(time.Second)
+	}
+
+	if err != nil {
+		return LoginFailureErr
 	}
 
 	if err := temp.changeAdminPass(guac.conf.AdminPass); err != nil {
