@@ -89,20 +89,3 @@ func TestEventPoolRestart(t *testing.T) {
 		t.Fatalf("expected status 200 as status code, but received: %d", s)
 	}
 }
-
-func BenchmarkEventPoolRouting(b *testing.B) {
-	ep := NewEventPool("ntp-event.dk")
-	ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("demo")}}
-
-	ep.AddEvent(ev)
-
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest("GET", "http://demo.ntp-event.dk", nil)
-		w := httptest.NewRecorder()
-		ep.ServeHTTP(w, req)
-
-		resp := w.Result()
-		resp.Body.Close()
-	}
-}
