@@ -165,7 +165,6 @@ func (ev *event) Start(ctx context.Context) error {
 		return StartingGuacErr
 	}
 
-	fmt.Println("Teams N:", len(ev.store.GetTeams()))
 	for _, team := range ev.store.GetTeams() {
 		if err := ev.AssignLab(&team); err != nil {
 			fmt.Println("Issue assigning lab: ", err)

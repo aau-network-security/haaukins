@@ -234,7 +234,6 @@ func (ctf *ctfd) configureInstance() error {
 
 	for id, flag := range ctf.conf.Flags {
 		value := ctf.flagPool.AddFlag(flag, id+1)
-		fmt.Println("Flag: ", flag)
 
 		if err := ctf.createFlag(flag.Name, value, flag.Points); err != nil {
 			return err
