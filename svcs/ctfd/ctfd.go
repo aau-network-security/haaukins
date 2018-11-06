@@ -109,6 +109,7 @@ func New(conf Config) (CTFd, error) {
 
 	ctf := &ctfd{
 		conf:     conf,
+		flagPool: NewFlagPool(),
 		nc:       nc,
 		relation: make(map[string]*user),
 	}
