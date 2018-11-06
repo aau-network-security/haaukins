@@ -62,8 +62,8 @@ func (e EventConfig) Validate() error {
 }
 
 type Lab struct {
-	Frontends []string `yaml:"frontends"`
-	Exercises []Tag    `yaml:"exercises"`
+	Frontends []InstanceConfig `yaml:"frontends"`
+	Exercises []Tag            `yaml:"exercises"`
 }
 
 type Challenge struct {

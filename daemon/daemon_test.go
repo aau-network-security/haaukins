@@ -452,6 +452,18 @@ func (fe *fakeEnvironment) ResetByTag(t string) error {
 	return nil
 }
 
+type fakeFrontendStore struct {
+	store.FrontendStore
+}
+
+func (fe *fakeFrontendStore) GetFrontends(names ...string) []store.InstanceConfig {
+	var res []store.InstanceConfig
+	for _, f := range names {
+		res = append(res, store.InstanceConfig{Image: f})
+	}
+	return res
+}
+
 func TestCreateEvent(t *testing.T) {
 	tt := []struct {
 		name         string
@@ -476,6 +488,7 @@ func TestCreateEvent(t *testing.T) {
 			d := &daemon{
 				conf:      &Config{},
 				eventPool: eventPool,
+				frontends: &fakeFrontendStore{},
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
@@ -990,6 +1003,7 @@ func TestListFrontends(t *testing.T) {
 					OvaDir: tmpDir,
 				},
 				eventPool: NewEventPool(""),
+				frontends: &fakeFrontendStore{},
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
