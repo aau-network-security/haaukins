@@ -230,7 +230,7 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
 			req.Header.Add("X-Forwarded-Host", req.Host)
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
-			req.URL.Path = "/guacamole" + req.URL.Path
+			req.URL.Path = req.URL.Path
 		}}
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

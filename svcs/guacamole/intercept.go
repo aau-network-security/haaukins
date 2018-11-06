@@ -90,7 +90,7 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 		if err != nil {
 			log.Warn().
 				Err(err).
-				Msg("Unable to guac user for team")
+				Msg("Unable to guac get user for team")
 			return
 		}
 

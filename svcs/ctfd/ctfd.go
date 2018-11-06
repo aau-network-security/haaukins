@@ -234,6 +234,7 @@ func (ctf *ctfd) configureInstance() error {
 
 	for id, flag := range ctf.conf.Flags {
 		value := ctf.flagPool.AddFlag(flag, id+1)
+		fmt.Println("Flag: ", flag)
 
 		if err := ctf.createFlag(flag.Name, value, flag.Points); err != nil {
 			return err
@@ -392,7 +393,7 @@ func (t *team) create(fp *flagPool) error {
 
 	defer resp.Body.Close()
 
-	for _, chal := range t.conf.Challenges {
+	for _, chal := range t.conf.SolvedChallenges {
 		if err := t.solve(fp, chal.FlagTag); err != nil {
 			return err
 		}

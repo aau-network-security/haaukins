@@ -19,6 +19,10 @@ type activeFlagConfig struct {
 	store.FlagConfig
 }
 
+func (afc *activeFlagConfig) IsStatic() bool {
+	return afc.FlagConfig.Static != ""
+}
+
 func NewFlagPool() *flagPool {
 	return &flagPool{
 		ids:  map[int]*activeFlagConfig{},
@@ -86,6 +90,10 @@ func (fp *flagPool) TranslateFlagForTeam(t store.Team, cid int, value string) st
 	chal, ok := fp.ids[cid]
 	if !ok {
 		return ""
+	}
+
+	if chal.IsStatic() {
+		return chal.CTFdFlag
 	}
 
 	if err := t.IsCorrectFlag(chal.Tag, value); err != nil {

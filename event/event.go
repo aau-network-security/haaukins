@@ -62,6 +62,7 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		Exercises: exer,
 		Frontends: conf.Lab.Frontends,
 	}
+
 	hub, err := lab.NewHub(labConf, eh.vlib, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
@@ -138,9 +139,9 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
+		closers:       []io.Closer{ctf, guac, hub},
 		dockerHost:    dockerHost,
 	}
-	ev.closers = append(ev.closers, ctf, guac, hub)
 
 	return ev, nil
 }
@@ -162,6 +163,15 @@ func (ev *event) Start(ctx context.Context) error {
 			Msg("error starting guac")
 
 		return StartingGuacErr
+	}
+
+	time.Sleep(3 * time.Second)
+
+	for _, team := range ev.store.GetTeams() {
+		if err := ev.AssignLab(&team); err != nil {
+			fmt.Println("Assign error", err)
+			return err
+		}
 	}
 
 	return nil
@@ -240,8 +250,12 @@ func (ev *event) AssignLab(t *store.Team) error {
 	ev.labs[t.Id] = lab
 
 	chals := lab.GetEnvironment().Challenges()
+	if t.ChalMap == nil {
+		t.ChalMap = map[store.Tag]store.Challenge{}
+	}
+
 	for _, chal := range chals {
-		t.Challenges[chal.FlagTag] = chal
+		t.ChalMap[chal.FlagTag] = &chal
 	}
 
 	return nil
