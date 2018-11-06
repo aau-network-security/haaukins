@@ -165,13 +165,14 @@ func (ev *event) Start(ctx context.Context) error {
 		return StartingGuacErr
 	}
 
-	time.Sleep(3 * time.Second)
-
+	fmt.Println("Teams N:", len(ev.store.GetTeams()))
 	for _, team := range ev.store.GetTeams() {
 		if err := ev.AssignLab(&team); err != nil {
-			fmt.Println("Assign error", err)
+			fmt.Println("Issue assigning lab: ", err)
 			return err
 		}
+
+		ev.store.SaveTeam(team)
 	}
 
 	return nil
@@ -251,12 +252,14 @@ func (ev *event) AssignLab(t *store.Team) error {
 
 	chals := lab.GetEnvironment().Challenges()
 	if t.ChalMap == nil {
-		t.ChalMap = map[store.Tag]store.Challenge{}
+		t.ChalMap = map[store.Tag]*store.Challenge{}
 	}
 
 	for _, chal := range chals {
 		t.ChalMap[chal.FlagTag] = &chal
 	}
+
+	fmt.Println("Challenge Map:", t.ChalMap)
 
 	return nil
 }
@@ -268,7 +271,7 @@ func (ev *event) Handler() http.Handler {
 		}
 
 		if err := ev.AssignLab(t); err != nil {
-			return nil
+			return err
 		}
 
 		return nil

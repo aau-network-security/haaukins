@@ -260,13 +260,17 @@ func (guac *guacamole) configureInstance() error {
 		webPort: guac.webPort,
 	}
 
-	for i := 0; i < 15; i++ {
-		_, err := temp.login(DefaultAdminUser, DefaultAdminPass)
+	var err error
+	for i := 0; i < 120; i++ {
+		_, err = temp.login(DefaultAdminUser, DefaultAdminPass)
 		if err == nil {
 			break
 		}
 
 		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return err
 	}
 
 	if err := temp.changeAdminPass(guac.conf.AdminPass); err != nil {
@@ -325,7 +329,7 @@ func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if err := IsResponseOK(resp.StatusCode); err != nil {
+	if err := IsExpectedStatus(resp.StatusCode); err != nil {
 		return nil, &GuacError{action: "login", err: err}
 	}
 
@@ -348,25 +352,16 @@ func (guac *guacamole) authAction(action string, a func(string) (*http.Response,
 		return content, resp.StatusCode, nil
 	}
 
-	shouldTryAgain := func(content []byte, status int, err error) (bool, error) {
-		if err != nil {
-			return false, err
+	shouldTryAgain := func(content []byte, status int, connErr error) (bool, error) {
+		if connErr != nil {
+			return true, connErr
 		}
 
-		if err := IsResponseOK(status); err != nil {
-			return false, &GuacError{action: action, err: err}
+		if err := IsExpectedStatus(status); err != nil {
+			return true, err
 		}
 
-		var msg struct {
-			Message string `json:"message"`
-		}
-
-		if err := json.Unmarshal(content, &msg); err != nil {
-			return false, UnexpectedRespErr
-		}
-
-		switch msg.Message {
-		case "Permission Denied.":
+		if status == http.StatusForbidden {
 			token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
 			if err != nil {
 				return false, err
@@ -375,25 +370,46 @@ func (guac *guacamole) authAction(action string, a func(string) (*http.Response,
 			guac.token = token
 
 			return true, nil
-		default:
-			return false, &GuacError{action: action, err: fmt.Errorf("unexpected message: %s", msg.Message)}
+		}
+
+		var msg struct {
+			Message string `json:"message"`
+		}
+
+		if err := json.Unmarshal(content, &msg); err == nil {
+			switch {
+			case msg.Message == "Permission Denied.":
+				token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
+				if err != nil {
+					return false, err
+				}
+
+				guac.token = token
+
+				return true, nil
+			case msg.Message != "":
+				return false, &GuacError{action: action, err: fmt.Errorf("unexpected message: %s", msg.Message)}
+			}
 		}
 
 		return false, nil
 	}
 
+	var retry bool
 	content, status, err := perform()
-	for {
-		retry, err := shouldTryAgain(content, status, err)
-		if err != nil {
-			return err
-		}
-
+	for i := 1; i <= 3; i++ {
+		retry, err = shouldTryAgain(content, status, err)
 		if !retry {
 			break
 		}
 
+		time.Sleep(time.Second)
+
 		content, status, err = perform()
+	}
+
+	if err != nil {
+		return err
 	}
 
 	if i != nil {
@@ -727,9 +743,8 @@ func IsWebSocket(req *http.Request) bool {
 	return false
 }
 
-func IsResponseOK(s int) error {
-	// is 200-302 status code range
-	if (s >= 200) && (s <= 302) {
+func IsExpectedStatus(s int) error {
+	if (s >= http.StatusOK) && (s <= 302) || s == http.StatusForbidden {
 		return nil
 	}
 

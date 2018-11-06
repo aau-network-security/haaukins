@@ -68,7 +68,7 @@ type Lab struct {
 
 type Challenge struct {
 	OwnerID     string     `yaml:"-"`
-	FlagTag     Tag        `yaml:"-"`
+	FlagTag     Tag        `yaml:"tag"`
 	FlagValue   string     `yaml:"-"`
 	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
 }
@@ -79,10 +79,13 @@ type Team struct {
 	Name             string             `yaml:"name"`
 	HashedPassword   string             `yaml:"hashed-password"`
 	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
+	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
 	ChalMap          map[Tag]*Challenge `yaml:"-"`
 }
 
 func NewTeam(email, name, password string, chals ...Challenge) Team {
+	now := time.Now()
+
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 	email = strings.ToLower(email)
 
@@ -97,6 +100,7 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 		Name:           name,
 		HashedPassword: hashedPassword,
 		ChalMap:        chalMap,
+		CreatedAt:      &now,
 	}
 }
 
@@ -113,7 +117,7 @@ func (t Team) IsCorrectFlag(tag Tag, v string) error {
 	return nil
 }
 
-func (t Team) SolveChallenge(tag Tag, v string) error {
+func (t *Team) SolveChallenge(tag Tag, v string) error {
 	now := time.Now()
 
 	if err := t.IsCorrectFlag(tag, v); err != nil {
@@ -122,6 +126,8 @@ func (t Team) SolveChallenge(tag Tag, v string) error {
 
 	c := t.ChalMap[tag]
 	c.CompletedAt = &now
+
+	t.SolvedChallenges = append(t.SolvedChallenges, *c)
 	t.ChalMap[tag] = c
 
 	return nil
