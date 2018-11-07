@@ -558,6 +558,7 @@ func TestCreateEvent(t *testing.T) {
 				t.Fatalf("expected one event to have been created")
 			}
 
+			ev.m.Lock()
 			if ev.started != 1 {
 				t.Fatalf("expected event to have been started once")
 			}
@@ -569,6 +570,7 @@ func TestCreateEvent(t *testing.T) {
 			if ev.close != 0 {
 				t.Fatalf("expected event to not have been closed")
 			}
+			ev.m.Unlock()
 		})
 	}
 }
