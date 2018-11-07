@@ -629,6 +629,10 @@ func (d *daemon) Close() error {
 
 	wg.Wait()
 
+	if err := docker.DefaultLinkBridge.Close(); err != nil {
+		return err
+	}
+
 	return errs
 }
 
