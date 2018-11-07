@@ -103,7 +103,7 @@ type Identifier interface {
 type Container interface {
 	Identifier
 	virtual.Instance
-	CommonAlias() (string, error)
+	BridgeAlias() (string, error)
 }
 
 type ContainerConfig struct {
@@ -521,7 +521,7 @@ func (c *container) Stop() error {
 	return nil
 }
 
-func (c *container) CommonAlias() (string, error) {
+func (c *container) BridgeAlias() (string, error) {
 	return DefaultLinkBridge.connect(c.id)
 }
 
@@ -759,7 +759,7 @@ func randomPickWeighted(m map[string]int) string {
 type defaultBridge struct {
 	m          sync.Mutex
 	id         string
-	containers map[string]struct{}
+	containers map[string]string
 }
 
 func newDefaultBridge(name string) *defaultBridge {
@@ -798,12 +798,19 @@ func newDefaultBridge(name string) *defaultBridge {
 
 	return &defaultBridge{
 		id:         netID,
-		containers: map[string]struct{}{},
+		containers: map[string]string{},
 	}
 }
 
 func (dbr *defaultBridge) connect(cid string) (string, error) {
-	alias := strings.Replace(uuid.New().String(), "-", "", -1)
+	dbr.m.Lock()
+	alias, ok := dbr.containers[cid]
+	if ok {
+		return alias, nil
+	}
+	dbr.m.Unlock()
+
+	alias = strings.Replace(uuid.New().String(), "-", "", -1)
 	err := DefaultClient.ConnectNetwork(dbr.id, docker.NetworkConnectionOptions{
 		Container: cid,
 		EndpointConfig: &docker.EndpointConfig{
@@ -815,7 +822,7 @@ func (dbr *defaultBridge) connect(cid string) (string, error) {
 	}
 
 	dbr.m.Lock()
-	dbr.containers[cid] = struct{}{}
+	dbr.containers[cid] = alias
 	dbr.m.Unlock()
 
 	return alias, nil

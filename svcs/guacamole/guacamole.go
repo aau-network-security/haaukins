@@ -125,7 +125,7 @@ func (guac *guacamole) create() error {
 	}
 	guac.containers = append(guac.containers, guacd)
 
-	guacdAlias, err := guacd.CommonAlias()
+	guacdAlias, err := guacd.BridgeAlias()
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (guac *guacamole) create() error {
 	}
 	guac.containers = append(guac.containers, db)
 
-	dbAlias, err := db.CommonAlias()
+	dbAlias, err := db.BridgeAlias()
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (guac *guacamole) create() error {
 		return err
 	}
 
-	_, err = web.CommonAlias()
+	_, err = web.BridgeAlias()
 	if err != nil {
 		return err
 	}
