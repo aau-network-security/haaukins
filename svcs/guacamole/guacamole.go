@@ -125,6 +125,11 @@ func (guac *guacamole) create() error {
 	}
 	guac.containers = append(guac.containers, guacd)
 
+	guacdAlias, err := guacd.CommonAlias()
+	if err != nil {
+		return err
+	}
+
 	err = guacd.Start()
 	if err != nil {
 		return err
@@ -145,6 +150,11 @@ func (guac *guacamole) create() error {
 	}
 	guac.containers = append(guac.containers, db)
 
+	dbAlias, err := db.CommonAlias()
+	if err != nil {
+		return err
+	}
+
 	err = db.Start()
 	if err != nil {
 		return err
@@ -154,8 +164,8 @@ func (guac *guacamole) create() error {
 		"MYSQL_DATABASE": "guacamole_db",
 		"MYSQL_USER":     "guacamole_user",
 		"MYSQL_PASSWORD": dbEnv["MYSQL_PASSWORD"],
-		"GUACD_HOSTNAME": "guacd",
-		"MYSQL_HOSTNAME": "db",
+		"GUACD_HOSTNAME": guacdAlias,
+		"MYSQL_HOSTNAME": dbAlias,
 	}
 
 	guac.webPort = virtual.GetAvailablePort()
@@ -173,11 +183,8 @@ func (guac *guacamole) create() error {
 		return err
 	}
 
-	if err = web.Link(db, "db"); err != nil {
-		return err
-	}
-
-	if err = web.Link(guacd, "guacd"); err != nil {
+	_, err = web.CommonAlias()
+	if err != nil {
 		return err
 	}
 
