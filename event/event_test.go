@@ -109,6 +109,14 @@ func (dh *testDockerHost) GetDockerHostIP() (string, error) {
 	return "1.2.3.4", nil
 }
 
+type testEventFile struct {
+	store.EventFile
+}
+
+func (ef *testEventFile) GetTeams() []store.Team {
+	return []store.Team{}
+}
+
 func TestEvent_StartAndClose(t *testing.T) {
 	tt := []struct {
 		name string
@@ -121,12 +129,14 @@ func TestEvent_StartAndClose(t *testing.T) {
 			ctfd := testCtfd{}
 			guac := testGuac{}
 			hub := testLabHub{}
+			store := testEventFile{}
 
 			ev := event{
 				ctfd:    &ctfd,
 				guac:    &guac,
 				labhub:  &hub,
 				closers: []io.Closer{&ctfd, &guac, &hub},
+				store:   &store,
 			}
 
 			ev.Start(context.Background())
@@ -177,6 +187,7 @@ func TestEvent_AssignLab(t *testing.T) {
 				labs:          labs,
 				guacUserStore: guacamole.NewGuacUserStore(),
 				dockerHost:    &testDockerHost{},
+				store:         &testEventFile{},
 			}
 			ev.Start(context.Background())
 

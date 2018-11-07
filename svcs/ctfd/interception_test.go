@@ -134,21 +134,6 @@ func TestCheckFlagInterceptor(t *testing.T) {
 	email := "some@email.com"
 	nonce := "some_nonce"
 
-	// ts := store.NewTeamStore()
-	// team := store.NewTeam(email, "name_goes_here", "passhere")
-	// if err := ts.CreateTeam(team); err != nil {
-	// 	t.Fatalf("expected to be able to create team")
-	// }
-
-	// if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
-	// 	t.Fatalf("expected to be able to create token for team")
-	// }
-
-	// validForm := url.Values{
-	// 	"key":   {flag},
-	// 	"nonce": {"random_string"},
-	// }
-
 	tt := []struct {
 		name      string
 		path      string
@@ -159,8 +144,8 @@ func TestCheckFlagInterceptor(t *testing.T) {
 		solve     bool
 		intercept bool
 	}{
-		{name: "Static (correct)", path: "/chal/1", method: "POST", sendFlag: "abc", value: "abc", flag: &store.FlagConfig{Tag: "tst", Static: "abcde"}, solve: true, intercept: true},
 		{name: "Static (incorrect)", path: "/chal/1", method: "POST", sendFlag: "incorrect", value: "abc", flag: &store.FlagConfig{Tag: "tst", Static: "abcde"}, intercept: true},
+		{name: "Static (correct)", path: "/chal/1", method: "POST", sendFlag: "abc", value: "abc", flag: &store.FlagConfig{Tag: "tst", Static: "abcde"}, solve: true, intercept: true},
 		{name: "Dynamic (incorrect)", path: "/chal/1", method: "POST", sendFlag: "incorrect", value: "abc", flag: &store.FlagConfig{Tag: "tst", EnvVar: "flag"}, intercept: true},
 		{name: "Dynamic (correct)", path: "/chal/1", method: "POST", sendFlag: "abc", value: "abc", flag: &store.FlagConfig{Tag: "tst", EnvVar: "flag"}, solve: true, intercept: true},
 		{name: "Index", path: "/", method: "GET", intercept: false},
@@ -240,14 +225,23 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			}
 
 			team, _ := ts.GetTeamByEmail(email)
-			chal := team.Challenges[tc.flag.Tag]
+			chal := team.ChalMap[tc.flag.Tag]
+
+			inSolvedChallenges := false
+			for _, c := range team.SolvedChallenges {
+				if c.FlagTag == tc.flag.Tag {
+					inSolvedChallenges = true
+					break
+				}
+			}
+
+			if inSolvedChallenges != tc.solve {
+				t.Fatalf("unexpected appearence/missing of challenge in solved challenges")
+			}
+
 			if !tc.solve {
 				if chal.CompletedAt != nil {
 					t.Fatalf("expected no completion of challenge")
-				}
-
-				if key != "" {
-					t.Fatalf("expected key to be empty")
 				}
 
 				return

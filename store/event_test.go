@@ -31,8 +31,8 @@ func TestTeamSolveTask(t *testing.T) {
 		t.Fatalf("expected no error when solving task for team: %s", err)
 	}
 
-	if team.Challenges[etag].CompletedAt == nil {
-		t.Fatalf("expected completed at to be non nil when completed")
+	if len(team.SolvedChallenges) == 0 {
+		t.Fatalf("expected one completed challenge, but got 0")
 	}
 
 	if err := team.SolveChallenge(store.Tag("unknown-tag"), "whatever"); err == nil {
