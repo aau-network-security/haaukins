@@ -29,7 +29,7 @@ script:
 - go test -v ./...
 
 before_deploy:
-- go run ./scripts/build_binaries.go
+- go run ./scripts/deploy/build_binaries.go
 
 deploy:
 - provider: releases
@@ -41,7 +41,7 @@ deploy:
   on:
     tags: true
 - provider: script
-  script: "bash ./scripts/deploy.sh"
+  script: "bash ./scripts/deploy/deploy.sh"
   skip_cleanup: true
   on:
     tags: true
