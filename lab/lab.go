@@ -4,6 +4,9 @@ import (
 	"math/rand"
 	"time"
 
+	"io"
+	"sync"
+
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
@@ -11,8 +14,6 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
-	"io"
-	"sync"
 )
 
 var (
@@ -95,7 +96,7 @@ func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
 
 	rdpPort := virtual.GetAvailablePort()
 	vm, err := l.lib.GetCopy(conf,
-		vbox.SetBridge(l.environment.Interface()),
+		vbox.SetBridge(l.environment.NetworkInterface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
 	)
 	if err != nil {

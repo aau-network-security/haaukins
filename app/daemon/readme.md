@@ -38,12 +38,11 @@ exercises:
       - tag: sql-1
         name: Web server login
         env: INTERNAL_FLAG
-        default: c5b0238c-f504-4ade-8075-3afb71e88cf6
         points: 5
       - tag: sql-2
         name: SQL injection
         env: DB_FLAG
-        default: 334637ad-2c51-45dd-89d9-9b7c7155b366
+        static: 334637ad-2c51-45dd-89d9-9b7c7155b366
         points: 15
     - image: registry.sec-aau.dk/aau/sql-server
       memoryMB: 85

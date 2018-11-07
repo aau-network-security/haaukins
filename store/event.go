@@ -18,10 +18,12 @@ import (
 )
 
 var (
-	TeamExistsErr   = errors.New("Team already exists")
-	UnknownTeamErr  = errors.New("Unknown team")
-	UnknownTokenErr = errors.New("Unknown token")
-	NoFrontendErr   = errors.New("lab requires at least one frontend")
+	TeamExistsErr       = errors.New("Team already exists")
+	UnknownTeamErr      = errors.New("Unknown team")
+	UnknownTokenErr     = errors.New("Unknown token")
+	NoFrontendErr       = errors.New("lab requires at least one frontend")
+	InvalidFlagValueErr = errors.New("Incorrect value for flag")
+	UnknownChallengeErr = errors.New("Unknown challenge")
 )
 
 type EventConfig struct {
@@ -64,47 +66,69 @@ type Lab struct {
 	Exercises []Tag            `yaml:"exercises"`
 }
 
-type Task struct {
+type Challenge struct {
 	OwnerID     string     `yaml:"-"`
-	FlagTag     Tag        `yaml:"tag,omitempty"`
+	FlagTag     Tag        `yaml:"tag"`
+	FlagValue   string     `yaml:"-"`
 	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
 }
 
 type Team struct {
-	Id             string `yaml:"id"`
-	Email          string `yaml:"email"`
-	Name           string `yaml:"name"`
-	HashedPassword string `yaml:"hashed-password"`
-	Tasks          []Task `yaml:"tasks,omitempty"`
+	Id               string             `yaml:"id"`
+	Email            string             `yaml:"email"`
+	Name             string             `yaml:"name"`
+	HashedPassword   string             `yaml:"hashed-password"`
+	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
+	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
+	ChalMap          map[Tag]*Challenge `yaml:"-"`
 }
 
-func NewTeam(email, name, password string, tasks ...Task) Team {
-	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
+func NewTeam(email, name, password string, chals ...Challenge) Team {
+	now := time.Now()
 
+	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 	email = strings.ToLower(email)
+
+	chalMap := map[Tag]*Challenge{}
+	for _, chal := range chals {
+		chalMap[chal.FlagTag] = &chal
+	}
+
 	return Team{
 		Id:             uuid.New().String()[0:8],
 		Email:          email,
 		Name:           name,
 		HashedPassword: hashedPassword,
-		Tasks:          tasks,
+		ChalMap:        chalMap,
+		CreatedAt:      &now,
 	}
 }
 
-func (t Team) SolveTaskByTag(tag Tag) error {
-	var task *Task
-	for i, ta := range t.Tasks {
-		if ta.FlagTag == tag {
-			task = &t.Tasks[i]
-		}
+func (t Team) IsCorrectFlag(tag Tag, v string) error {
+	c, ok := t.ChalMap[tag]
+	if !ok {
+		return UnknownChallengeErr
 	}
 
-	if task == nil {
-		return &UnknownExerTagErr{tag}
+	if c.FlagValue != v {
+		return InvalidFlagValueErr
 	}
 
+	return nil
+}
+
+func (t *Team) SolveChallenge(tag Tag, v string) error {
 	now := time.Now()
-	task.CompletedAt = &now
+
+	if err := t.IsCorrectFlag(tag, v); err != nil {
+		return err
+	}
+
+	c := t.ChalMap[tag]
+	c.CompletedAt = &now
+
+	t.SolvedChallenges = append(t.SolvedChallenges, *c)
+	t.ChalMap[tag] = c
 
 	return nil
 }

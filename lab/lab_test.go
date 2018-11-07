@@ -2,10 +2,11 @@ package lab
 
 import (
 	"testing"
+
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/aau-network-security/go-ntp/exercise"
 )
 
 type testDockerHost struct {
@@ -33,7 +34,7 @@ type testEnvironment struct {
 	exercise.Environment
 }
 
-func (ee *testEnvironment) Interface() string {
+func (ee *testEnvironment) NetworkInterface() string {
 	return ""
 }
 

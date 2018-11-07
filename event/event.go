@@ -7,14 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"net/url"
-
 	"io"
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -65,6 +62,7 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		Exercises: exer,
 		Frontends: conf.Lab.Frontends,
 	}
+
 	hub, err := lab.NewHub(labConf, eh.vlib, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
@@ -91,7 +89,7 @@ type Event interface {
 	Start(context.Context) error
 	Close() error
 	Finish()
-	AssignLab(store.Team) error
+	AssignLab(*store.Team) error
 	Handler() http.Handler
 
 	GetConfig() store.EventConfig
@@ -141,9 +139,9 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
+		closers:       []io.Closer{ctf, guac, hub},
 		dockerHost:    dockerHost,
 	}
-	ev.closers = append(ev.closers, ctf, guac, hub)
 
 	return ev, nil
 }
@@ -165,6 +163,15 @@ func (ev *event) Start(ctx context.Context) error {
 			Msg("error starting guac")
 
 		return StartingGuacErr
+	}
+
+	for _, team := range ev.store.GetTeams() {
+		if err := ev.AssignLab(&team); err != nil {
+			fmt.Println("Issue assigning lab: ", err)
+			return err
+		}
+
+		ev.store.SaveTeam(team)
 	}
 
 	return nil
@@ -192,7 +199,7 @@ func (ev *event) Finish() {
 	ev.store.Finish(now)
 }
 
-func (ev *event) AssignLab(t store.Team) error {
+func (ev *event) AssignLab(t *store.Team) error {
 	lab, err := ev.labhub.Get()
 	if err != nil {
 		return err
@@ -242,46 +249,40 @@ func (ev *event) AssignLab(t store.Team) error {
 
 	ev.labs[t.Id] = lab
 
+	chals := lab.GetEnvironment().Challenges()
+	if t.ChalMap == nil {
+		t.ChalMap = map[store.Tag]*store.Challenge{}
+	}
+
+	for _, chal := range chals {
+		t.ChalMap[chal.FlagTag] = &chal
+	}
+
+	fmt.Println("Challenge Map:", t.ChalMap)
+
 	return nil
 }
 
 func (ev *event) Handler() http.Handler {
-	prehooks := []func() error{
-		func() error {
-			if ev.labhub.Available() == 0 {
-				return lab.CouldNotFindLabErr
-			}
-			return nil
-		},
-	}
-
-	posthooks := []func(t store.Team) error{
-		ev.AssignLab,
-	}
-
-	loginFunc := func(u string, p string) (string, error) {
-		content, err := ev.guac.RawLogin(u, p)
-		if err != nil {
-			return "", err
+	reghook := func(t *store.Team) error {
+		if ev.labhub.Available() == 0 {
+			return lab.CouldNotFindLabErr
 		}
-		return url.QueryEscape(string(content)), nil
+
+		if err := ev.AssignLab(t); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
-	defaultTasks := []store.Task{}
-	for _, f := range ev.labhub.Flags() {
-		defaultTasks = append(defaultTasks, store.Task{FlagTag: f.Tag})
-	}
-
-	interceptors := svcs.Interceptors{
-		ctfd.NewRegisterInterception(ev.store, prehooks, posthooks, defaultTasks...),
-		ctfd.NewCheckFlagInterceptor(ev.store, ev.ctfd.ChalMap()),
-		ctfd.NewLoginInterceptor(ev.store),
-		guacamole.NewGuacTokenLoginEndpoint(ev.guacUserStore, ev.store, loginFunc),
-	}
+	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore)(ev.store)
 
 	m := http.NewServeMux()
-	m.Handle("/guacamole", interceptors.Intercept(ev.guac.ProxyHandler()))
-	m.Handle("/", interceptors.Intercept(ev.ctfd.ProxyHandler()))
+	m.Handle("/guaclogin", guacHandler)
+	m.Handle("/guacamole", guacHandler)
+	m.Handle("/guacamole/", guacHandler)
+	m.Handle("/", ev.ctfd.ProxyHandler(reghook)(ev.store))
 
 	return m
 }

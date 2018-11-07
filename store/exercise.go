@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/google/uuid"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -40,6 +41,15 @@ type Exercise struct {
 	VboxConfs   []VboxConfig   `yaml:"vbox"`
 }
 
+func (e Exercise) Flags() []FlagConfig {
+	var res []FlagConfig
+
+	for _, dockerConf := range e.DockerConfs {
+		res = append(res, dockerConf.Flags...)
+	}
+	return res
+}
+
 func (e Exercise) Validate() error {
 	if len(e.Tags) == 0 {
 		return &EmptyVarErr{Var: "Tags", Type: "Exercise"}
@@ -66,24 +76,31 @@ func (e Exercise) Validate() error {
 	return nil
 }
 
-func (e Exercise) Flags() []FlagConfig {
-	var res []FlagConfig
-
-	for _, dockerConf := range e.DockerConfs {
-		res = append(res, dockerConf.Flags...)
-	}
-	return res
+type ContainerOptions struct {
+	DockerConf docker.ContainerConfig
+	Records    []RecordConfig
+	Challenges []Challenge
 }
 
-func (e Exercise) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
-	var contSpecs []docker.ContainerConfig
-	var contRecords [][]RecordConfig
+func (e Exercise) ContainerOpts() []ContainerOptions {
+	var opts []ContainerOptions
 
 	for _, conf := range e.DockerConfs {
+		var challenges []Challenge
 		envVars := make(map[string]string)
 
 		for _, flag := range conf.Flags {
-			envVars[flag.EnvVar] = flag.Default
+			value := flag.Static
+			if value == "" {
+				// flag is not static
+				value = uuid.New().String()
+			}
+
+			challenges = append(challenges, Challenge{
+				FlagTag:   flag.Tag,
+				FlagValue: value,
+			})
+			envVars[flag.EnvVar] = value
 		}
 
 		for _, env := range conf.Envs {
@@ -100,14 +117,14 @@ func (e Exercise) ContainerOpts() ([]docker.ContainerConfig, [][]RecordConfig) {
 			EnvVars: envVars,
 		}
 
-		contSpecs = append(contSpecs, spec)
-		contRecords = append(contRecords, conf.Records)
+		opts = append(opts, ContainerOptions{
+			DockerConf: spec,
+			Records:    conf.Records,
+			Challenges: challenges,
+		})
 	}
 
-	return contSpecs, contRecords
-}
-
-type Flag struct {
+	return opts
 }
 
 type RecordConfig struct {
@@ -133,11 +150,11 @@ func (rc RecordConfig) Format(ip string) string {
 }
 
 type FlagConfig struct {
-	Tag     Tag    `yaml:"tag"`
-	Name    string `yaml:"name"`
-	EnvVar  string `yaml:"env"`
-	Default string `yaml:"default"`
-	Points  uint   `yaml:"points"`
+	Tag    Tag    `yaml:"tag"`
+	Name   string `yaml:"name"`
+	EnvVar string `yaml:"env"`
+	Static string `yaml:"static"`
+	Points uint   `yaml:"points"`
 }
 
 func (fc FlagConfig) Validate() error {
@@ -149,8 +166,8 @@ func (fc FlagConfig) Validate() error {
 		return &EmptyVarErr{Var: "Name", Type: "Flag Config"}
 	}
 
-	if fc.Default == "" {
-		return &EmptyVarErr{Var: "Default", Type: "Flag Config"}
+	if fc.Static == "" && fc.EnvVar == "" {
+		return &EmptyVarErr{Var: "Static or Env", Type: "Flag Config"}
 	}
 
 	if fc.Points == 0 {
