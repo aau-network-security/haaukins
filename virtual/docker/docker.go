@@ -41,7 +41,7 @@ var (
 	Registries = map[string]docker.AuthConfiguration{
 		"": {},
 	}
-	DefaultLinkBridge = newDefaultBridge("ntpd-bridge")
+	DefaultLinkBridge = newDefaultBridge("ntp-bridge")
 
 	ipPool = newIPPoolFromHost()
 )

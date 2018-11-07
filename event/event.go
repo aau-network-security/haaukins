@@ -258,8 +258,6 @@ func (ev *event) AssignLab(t *store.Team) error {
 		t.ChalMap[chal.FlagTag] = &chal
 	}
 
-	fmt.Println("Challenge Map:", t.ChalMap)
-
 	return nil
 }
 
