@@ -47,6 +47,11 @@ func (e Exercise) Flags() []FlagConfig {
 	for _, dockerConf := range e.DockerConfs {
 		res = append(res, dockerConf.Flags...)
 	}
+
+	for _, vboxConf := range e.VboxConfs {
+		res = append(res, vboxConf.Flags...)
+	}
+
 	return res
 }
 
