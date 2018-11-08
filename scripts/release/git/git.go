@@ -1,4 +1,4 @@
-package main
+package git
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ type repo struct {
 	repo git.Repository
 }
 
-func newRepo(path string) (*repo, error) {
+func NewRepo(path string) (*repo, error) {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func newRepo(path string) (*repo, error) {
 	}, nil
 }
 
-func (r repo) commitVersionUpdate(version *semver.Version, files ...string) error {
+func (r repo) CommitVersionUpdate(version *semver.Version, files ...string) error {
 	wt, err := r.repo.Worktree()
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (r repo) commitVersionUpdate(version *semver.Version, files ...string) erro
 	return nil
 }
 
-func (r repo) tag(version *semver.Version) error {
+func (r repo) Tag(version *semver.Version) error {
 	headRef, err := r.repo.Head()
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func (r repo) tag(version *semver.Version) error {
 	return err
 }
 
-func (r repo) createBranch(version *semver.Version) error {
+func (r repo) CreateBranch(version *semver.Version) error {
 	headRef, err := r.repo.Head()
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (r repo) createBranch(version *semver.Version) error {
 	return r.repo.Storer.SetReference(ref)
 }
 
-func (r repo) push(branches []*semver.Version, tags []*semver.Version) error {
+func (r repo) Push(branches []*semver.Version, tags []*semver.Version) error {
 	var refSpecs []config.RefSpec
 	spec, err := r.refSpec(nil, "head")
 	if err != nil {
