@@ -7,9 +7,16 @@ import (
 	"strings"
 )
 
+type InstanceInfo struct {
+	Image string
+	Type string
+	Id string
+}
+
 type Instance interface {
 	Start() error
 	Stop() error
+	Info() InstanceInfo
 	io.Closer
 }
 
@@ -17,8 +24,6 @@ type ResourceResizer interface {
 	SetRAM(uint) error
 	SetCPU(uint) error
 }
-
-type ID string
 
 func GetAvailablePort() uint {
 	l, _ := net.Listen("tcp", ":0")

@@ -47,11 +47,13 @@ type VM interface {
 }
 
 type vm struct {
+	image   string
 	id      string
 	running bool
 }
 
-func NewVMFromOVA(path, name string, vmOpts ...VMOpt) (VM, error) {
+func NewVMFromOVA(path, image string, checksum string, vmOpts ...VMOpt) (VM, error) {
+	name := fmt.Sprintf("%s{%s}", image, checksum)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -60,7 +62,10 @@ func NewVMFromOVA(path, name string, vmOpts ...VMOpt) (VM, error) {
 		return nil, err
 	}
 
-	vm := &vm{id: name}
+	vm := &vm{
+		image: image,
+		id: name,
+	}
 	for _, opt := range vmOpts {
 		if err := opt(vm); err != nil {
 			return nil, err
@@ -275,7 +280,10 @@ func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 		return nil, err
 	}
 
-	vm := &vm{id: newID}
+	vm := &vm{
+		image: v.image,
+		id: newID,
+	}
 	for _, opt := range vmOpts {
 		if err := opt(vm); err != nil {
 			return nil, err
@@ -283,6 +291,14 @@ func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 	}
 
 	return vm, nil
+}
+
+func (v *vm) Info() virtual.InstanceInfo {
+	return virtual.InstanceInfo{
+		Image: v.image,
+		Type: "vbox",
+		Id: v.id,
+	}
 }
 
 type Library interface {
@@ -349,11 +365,10 @@ func (lib *vBoxLibrary) GetCopy(conf store.InstanceConfig, vmOpts ...VMOpt) (VM,
 	}
 
 	n := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	id := fmt.Sprintf("%s{%s}", n, sum)
 
-	vm, ok = VmExists(id)
+	vm, ok = VmExists(n, sum)
 	if !ok {
-		vm, err = NewVMFromOVA(path, id)
+		vm, err = NewVMFromOVA(path, n, sum)
 		if err != nil {
 			return nil, err
 		}
@@ -409,7 +424,9 @@ func checksumOfFile(filepath string) (string, error) {
 	return hex.EncodeToString(checksum), nil
 }
 
-func VmExists(name string) (VM, bool) {
+func VmExists(image string, checksum string) (VM, bool) {
+	name := fmt.Sprintf("%s{%s}", image, checksum)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -419,7 +436,10 @@ func VmExists(name string) (VM, bool) {
 	}
 
 	if bytes.Contains(out, []byte("\""+name+"\"")) {
-		return &vm{id: name}, true
+		return &vm{
+			image: image,
+			id: name,
+		}, true
 	}
 
 	return nil, false

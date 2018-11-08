@@ -73,6 +73,7 @@ type Lab interface {
 	GetEnvironment() exercise.Environment
 	RdpConnPorts() []uint
 	GetTag() string
+	InstanceInfo() []virtual.InstanceInfo
 	io.Closer
 }
 
@@ -180,6 +181,15 @@ func (l *lab) RdpConnPorts() []uint {
 
 func (l *lab) GetTag() string {
 	return l.tag
+}
+
+func (l *lab) InstanceInfo() []virtual.InstanceInfo {
+	var instances []virtual.InstanceInfo
+	for _, f := range l.frontends {
+		instances = append(instances, f.Info())
+	}
+	instances = append(instances, l.environment.InstanceInfo()...)
+	return instances
 }
 
 func generateTag() string {
