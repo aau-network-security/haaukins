@@ -109,7 +109,9 @@ func (vm *vm) Stop() error {
 func (vm *vm) Close() error {
 	_, err := vm.ensureStopped()
 	if err != nil {
-		return err
+		log.Warn().
+			Str("ID", vm.id).
+			Msgf("Failed to stop VM: %s", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
