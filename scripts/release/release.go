@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/aau-network-security/go-ntp/scripts/release/git"
 	"github.com/coreos/go-semver/semver"
 	"github.com/giantswarm/semver-bump/bump"
 	"github.com/giantswarm/semver-bump/storage"
@@ -45,18 +46,18 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 		return errors.Wrap(err, "failed to bump version")
 	}
 
-	r, err := newRepo(".")
+	r, err := git.NewRepo(".")
 	if err != nil {
 		return errors.Wrap(err, "failed to find git repo")
 	}
 
 	fmt.Printf("Releasing version %s (from %s)\n", newVer.String(), curVer.String())
 
-	if err := r.commitVersionUpdate(newVer, versionFile); err != nil {
+	if err := r.CommitVersionUpdate(newVer, versionFile); err != nil {
 		return errors.Wrap(err, "failed to commit version update")
 	}
 
-	if err := r.tag(newVer); err != nil {
+	if err := r.Tag(newVer); err != nil {
 		return errors.Wrap(err, "failed to create tag")
 	}
 
@@ -70,14 +71,14 @@ func bumpVersion(bumpFunc func(*bump.SemverBumper) (*semver.Version, error), bra
 		bf(newBranchVer)
 		branches = append(branches, newBranchVer)
 		fmt.Printf("Creating new branch '%s'\n", newBranchVer.String())
-		if err := r.createBranch(newBranchVer); err != nil {
+		if err := r.CreateBranch(newBranchVer); err != nil {
 			return errors.Wrap(err, "failed to create branch")
 		}
 	}
 
 	tags := []*semver.Version{newVer}
 
-	if err := r.push(branches, tags); err != nil {
+	if err := r.Push(branches, tags); err != nil {
 		return errors.Wrap(err, "failed to push branch")
 	}
 

@@ -96,7 +96,7 @@ func (ep *eventPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sub, dom := domainParts[0], domainParts[1]
-	if dom != ep.host {
+	if !strings.HasPrefix(dom, ep.host) {
 		ep.notFoundHandler.ServeHTTP(w, r)
 		return
 	}
@@ -110,4 +110,16 @@ func (ep *eventPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mux.ServeHTTP(w, r)
+}
+
+func getHost(r *http.Request) string {
+	if r.URL.IsAbs() {
+		host := r.Host
+		// Slice off any port information.
+		if i := strings.Index(host, ":"); i != -1 {
+			host = host[:i]
+		}
+		return host
+	}
+	return r.URL.Host
 }

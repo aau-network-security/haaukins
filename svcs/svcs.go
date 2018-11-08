@@ -2,11 +2,11 @@ package svcs
 
 import (
 	"net/http"
+
+	"github.com/aau-network-security/go-ntp/store"
 )
 
-type ProxyConnector interface {
-	ProxyHandler() http.Handler
-}
+type ProxyConnector func(store.EventFile) http.Handler
 
 type Interception interface {
 	ValidRequest(r *http.Request) bool

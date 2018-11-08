@@ -363,7 +363,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 func (d *daemon) createEventFromEventFile(ef store.EventFile) error {
 	ev, err := d.ehost.CreateEventFromEventFile(ef)
 	if err != nil {
-		log.Error().Err(err).Msg("Error creating event")
+		log.Error().Err(err).Msg("Error creating event from file")
 		return err
 	}
 
@@ -412,6 +412,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Strs("frontends", req.Frontends).
 		Strs("exercises", req.Exercises).
 		Msg("create event")
+	now := time.Now()
 
 	tags := make([]store.Tag, len(req.Exercises))
 	for i, s := range req.Exercises {
@@ -428,6 +429,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Tag:       evtag,
 		Available: int(req.Available),
 		Capacity:  int(req.Capacity),
+		StartedAt: &now,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
@@ -626,6 +628,10 @@ func (d *daemon) Close() error {
 	}
 
 	wg.Wait()
+
+	if err := docker.DefaultLinkBridge.Close(); err != nil {
+		return err
+	}
 
 	return errs
 }

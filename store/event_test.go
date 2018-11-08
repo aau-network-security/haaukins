@@ -21,19 +21,21 @@ func TestTeamSolveTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid tag: %s", err)
 	}
-	team := store.NewTeam("some name", "some@email.com", "some_password", []store.Task{
-		{FlagTag: store.Tag(etag)},
+	value := "meowwww"
+
+	team := store.NewTeam("some name", "some@email.com", "some_password", []store.Challenge{
+		{FlagTag: etag, FlagValue: value},
 	}...)
 
-	if err := team.SolveTaskByTag(etag); err != nil {
+	if err := team.SolveChallenge(etag, value); err != nil {
 		t.Fatalf("expected no error when solving task for team: %s", err)
 	}
 
-	if team.Tasks[0].CompletedAt == nil {
-		t.Fatalf("expected completed at to be non nil when completed")
+	if len(team.SolvedChallenges) == 0 {
+		t.Fatalf("expected one completed challenge, but got 0")
 	}
 
-	if err := team.SolveTaskByTag("unknown-tag"); err == nil {
+	if err := team.SolveChallenge(store.Tag("unknown-tag"), "whatever"); err == nil {
 		t.Fatalf("expected error when solving unknown task")
 	}
 }

@@ -2,13 +2,15 @@ package event
 
 import (
 	"context"
+	"io"
+	"testing"
+
+	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"io"
-	"testing"
 )
 
 const (
@@ -61,6 +63,14 @@ func (guac *testGuac) CreateRDPConn(opts guacamole.CreateRDPConnOpts) error {
 	return nil
 }
 
+type testEnvironment struct {
+	exercise.Environment
+}
+
+func (te *testEnvironment) Challenges() []store.Challenge {
+	return nil
+}
+
 type testLab struct {
 	status   int
 	rdpPorts []uint
@@ -69,6 +79,10 @@ type testLab struct {
 
 func (lab *testLab) RdpConnPorts() []uint {
 	return lab.rdpPorts
+}
+
+func (lab *testLab) GetEnvironment() exercise.Environment {
+	return &testEnvironment{}
 }
 
 type testLabHub struct {
@@ -95,6 +109,14 @@ func (dh *testDockerHost) GetDockerHostIP() (string, error) {
 	return "1.2.3.4", nil
 }
 
+type testEventFile struct {
+	store.EventFile
+}
+
+func (ef *testEventFile) GetTeams() []store.Team {
+	return []store.Team{}
+}
+
 func TestEvent_StartAndClose(t *testing.T) {
 	tt := []struct {
 		name string
@@ -107,12 +129,14 @@ func TestEvent_StartAndClose(t *testing.T) {
 			ctfd := testCtfd{}
 			guac := testGuac{}
 			hub := testLabHub{}
+			store := testEventFile{}
 
 			ev := event{
 				ctfd:    &ctfd,
 				guac:    &guac,
 				labhub:  &hub,
 				closers: []io.Closer{&ctfd, &guac, &hub},
+				store:   &store,
 			}
 
 			ev.Start(context.Background())
@@ -163,12 +187,12 @@ func TestEvent_AssignLab(t *testing.T) {
 				labs:          labs,
 				guacUserStore: guacamole.NewGuacUserStore(),
 				dockerHost:    &testDockerHost{},
+				store:         &testEventFile{},
 			}
 			ev.Start(context.Background())
 
-			team := store.Team{}
-
-			if err := ev.AssignLab(team); err != tc.expectedErr {
+			team := store.NewTeam("what@ever.com", "test", "passworder")
+			if err := ev.AssignLab(&team); err != tc.expectedErr {
 				t.Fatalf("Unexpected error %s, expected %s", err, tc.expectedErr)
 			}
 

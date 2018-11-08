@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/rs/zerolog/log"
@@ -22,20 +21,29 @@ var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
 )
 
-func NewRegisterInterception(ts store.TeamStore, pre []func() error, post []func(t store.Team) error, tasks ...store.Task) *registerInterception {
-	return &registerInterception{
-		defaultTasks: tasks,
-		preHooks:     pre,
-		postHooks:    post,
-		teamStore:    ts,
+type RegisterInterceptOpts func(*registerInterception)
+
+func WithRegisterHooks(hooks ...func(*store.Team) error) RegisterInterceptOpts {
+	return func(ri *registerInterception) {
+		ri.preHooks = append(ri.preHooks, hooks...)
 	}
 }
 
+func NewRegisterInterception(ts store.TeamStore, opts ...RegisterInterceptOpts) *registerInterception {
+	ri := &registerInterception{
+		teamStore: ts,
+	}
+
+	for _, opt := range opts {
+		opt(ri)
+	}
+
+	return ri
+}
+
 type registerInterception struct {
-	defaultTasks []store.Task
-	preHooks     []func() error
-	postHooks    []func(t store.Team) error
-	teamStore    store.TeamStore
+	preHooks  []func(*store.Team) error
+	teamStore store.TeamStore
 }
 
 func (*registerInterception) ValidRequest(r *http.Request) bool {
@@ -48,17 +56,18 @@ func (*registerInterception) ValidRequest(r *http.Request) bool {
 
 func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := r.FormValue("name")
+		email := r.FormValue("email")
+		pass := r.FormValue("password")
+		t := store.NewTeam(email, name, pass)
+
 		for _, h := range ri.preHooks {
-			if err := h(); err != nil {
+			if err := h(&t); err != nil {
 				w.Write([]byte(fmt.Sprintf("<h1>%s</h1>", err)))
 				return
 			}
 		}
 
-		name := r.FormValue("name")
-		email := r.FormValue("email")
-		pass := r.FormValue("password")
-		t := store.NewTeam(email, name, pass, ri.defaultTasks...)
 		r.Form.Set("password", t.HashedPassword)
 
 		// update body and content-length
@@ -93,15 +102,6 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 					Msg("Unable to store session token for team")
 				return
 			}
-
-			for _, h := range ri.postHooks {
-				if err := h(t); err != nil {
-					log.Warn().
-						Err(err).
-						Str("name", t.Name).
-						Msg("Unable to run post hook")
-				}
-			}
 		}
 
 	})
@@ -113,16 +113,14 @@ type challengeResp struct {
 }
 
 type checkFlagInterception struct {
-	teamStore    store.TeamStore
-	challengeMap map[int]store.Tag
-	postHooks    []func(store.Task) error
+	teamStore store.TeamStore
+	flagPool  *flagPool
 }
 
-func NewCheckFlagInterceptor(ts store.TeamStore, chalMap map[int]store.Tag, post ...func(store.Task) error) *checkFlagInterception {
+func NewCheckFlagInterceptor(ts store.TeamStore, fp *flagPool) *checkFlagInterception {
 	return &checkFlagInterception{
-		teamStore:    ts,
-		challengeMap: chalMap,
-		postHooks:    post,
+		teamStore: ts,
+		flagPool:  fp,
 	}
 }
 
@@ -136,74 +134,85 @@ func (*checkFlagInterception) ValidRequest(r *http.Request) bool {
 
 func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp, body := recordAndServe(next, r, w)
-
-		cfi.inspectResponse(r, body, resp)
-	})
-}
-
-func (cfi *checkFlagInterception) inspectResponse(r *http.Request, body []byte, resp *http.Response) {
-	defer resp.Body.Close()
-
-	id, err := cfi.getIDFromSession(r)
-	if err != nil {
-		log.Warn().
-			Err(err).
-			Msg("Unable to get team based on session")
-		return
-	}
-
-	var chal challengeResp
-	if err := json.Unmarshal(body, &chal); err != nil {
-		log.Warn().
-			Err(err).
-			Msg("Unable to read response from flag intercept")
-		return
-	}
-
-	matches := chalPathRegex.FindStringSubmatch("/" + r.URL.Path)
-	chalNumStr := matches[1]
-	chalNum, _ := strconv.Atoi(chalNumStr)
-
-	tag, ok := cfi.challengeMap[chalNum]
-	if !ok {
-		log.Warn().
-			Int("chal_id", chalNum).
-			Msg("Unknown challenge by id")
-		return
-	}
-
-	if strings.ToLower(chal.Message) == "correct" {
-		now := time.Now()
-		task := store.Task{
-			OwnerID:     id,
-			FlagTag:     tag,
-			CompletedAt: &now,
+		t, err := cfi.getTeamFromSession(r)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Msg("Unable to get team based on session")
+			return
 		}
 
-		for _, h := range cfi.postHooks {
-			if err := h(task); err != nil {
+		matches := chalPathRegex.FindStringSubmatch("/" + r.URL.Path)
+		chalNumStr := matches[1]
+		cid, _ := strconv.Atoi(chalNumStr)
+
+		flagValue := r.FormValue("key")
+
+		value := cfi.flagPool.TranslateFlagForTeam(t, cid, flagValue)
+
+		r.Form.Set("key", value)
+
+		// update body and content-length
+		formdata := r.Form.Encode()
+		r.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(formdata)))
+		r.ContentLength = int64(len(formdata))
+
+		resp, body := recordAndServe(next, r, w)
+		defer resp.Body.Close()
+
+		var chal challengeResp
+		if err := json.Unmarshal(body, &chal); err != nil {
+			log.Warn().
+				Err(err).
+				Msg("Unable to read response from flag intercept")
+			return
+		}
+
+		if strings.ToLower(chal.Message) == "correct" {
+			tag, err := cfi.flagPool.GetTagByIdentifier(cid)
+			if err != nil {
 				log.Warn().
-					Int("chal_id", chalNum).
-					Msg("Unknown challenge by id")
+					Err(err).
+					Msg("Unable to find challenge tag for identifier")
+				return
+			}
+
+			err = t.SolveChallenge(tag, flagValue)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("tag", string(tag)).
+					Str("team-id", t.Id).
+					Str("value", value).
+					Msg("Unable to solve challenge for team")
+				return
+			}
+
+			err = cfi.teamStore.SaveTeam(t)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Msg("Unable to save team")
 				return
 			}
 		}
-	}
+
+	})
 }
 
-func (cfi *checkFlagInterception) getIDFromSession(r *http.Request) (string, error) {
+func (cfi *checkFlagInterception) getTeamFromSession(r *http.Request) (store.Team, error) {
 	c, err := r.Cookie("session")
 	if err != nil {
-		return "", fmt.Errorf("Unable to find session cookie")
+		return store.Team{}, fmt.Errorf("Unable to find session cookie")
 	}
+
 	session := c.Value
 	t, err := cfi.teamStore.GetTeamByToken(session)
 	if err != nil {
-		return "", err
+		return store.Team{}, err
 	}
 
-	return t.Id, nil
+	return t, nil
 }
 
 type loginInterception struct {

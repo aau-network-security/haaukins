@@ -41,6 +41,7 @@ var (
 	Registries = map[string]docker.AuthConfiguration{
 		"": {},
 	}
+	DefaultLinkBridge = newDefaultBridge("ntp-bridge")
 
 	ipPool = newIPPoolFromHost()
 )
@@ -102,7 +103,7 @@ type Identifier interface {
 type Container interface {
 	Identifier
 	virtual.Instance
-	Link(Identifier, string) error
+	BridgeAlias() (string, error)
 }
 
 type ContainerConfig struct {
@@ -479,6 +480,10 @@ func (c *container) Close() error {
 		Force:         true,
 	}
 
+	if err := DefaultLinkBridge.disconnect(c.id); err != nil {
+		return err
+	}
+
 	err := DefaultClient.RemoveContainer(removeContOpts)
 	if err != nil {
 		return err
@@ -516,41 +521,8 @@ func (c *container) Stop() error {
 	return nil
 }
 
-func (c *container) Link(other Identifier, alias string) error {
-	if c.network == nil {
-		createNetworkOpts := docker.CreateNetworkOptions{
-			Name:   uuid.New().String(),
-			Driver: "bridge",
-		}
-
-		net, err := DefaultClient.CreateNetwork(createNetworkOpts)
-		if err != nil {
-			return err
-		}
-
-		c.network = net
-	}
-
-	err := DefaultClient.ConnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
-		Container: other.ID(),
-		EndpointConfig: &docker.EndpointConfig{
-			Aliases: []string{alias},
-		},
-	})
-	if err != nil {
-		return err
-	}
-	c.linked = append(c.linked, other)
-
-	err = DefaultClient.ConnectNetwork(c.network.ID, docker.NetworkConnectionOptions{
-		Container: c.ID(),
-	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (c *container) BridgeAlias() (string, error) {
+	return DefaultLinkBridge.connect(c.id)
 }
 
 type network struct {
@@ -581,6 +553,9 @@ func NewNetwork() (Network, error) {
 			Config: []docker.IPAMConfig{{
 				Subnet: subnet,
 			}},
+		},
+		Labels: map[string]string{
+			"ntp": "lab_network",
 		},
 	}
 
@@ -781,54 +756,95 @@ func randomPickWeighted(m map[string]int) string {
 	return ""
 }
 
-var (
-	privateSubnets = map[uint8]struct {
-		minLvl2 int
-		maxLvl2 int
-		minLvl3 int
-		maxLvl3 int
-	}{
-		10: {
-			minLvl2: 0,
-			maxLvl2: 255,
-			minLvl3: 0,
-			maxLvl3: 255,
-		},
-		172: {
-			minLvl2: 25,
-			maxLvl2: 31,
-			minLvl3: 0,
-			maxLvl3: 255,
-		},
-		192: {
-			minLvl2: 168,
-			maxLvl2: 168,
-			minLvl3: 0,
-			maxLvl3: 255,
-		},
-	}
-)
+type defaultBridge struct {
+	m          sync.Mutex
+	id         string
+	containers map[string]string
+}
 
-func randomPrivateSubnet24() string {
-	v := []uint8{10, 172, 192}
-	lvl1 := v[rand.Intn(len(v))]
-	opts := privateSubnets[lvl1]
+func newDefaultBridge(name string) *defaultBridge {
+	var netID string
 
-	lvl2range := opts.maxLvl2 - opts.minLvl2
-	lvl2 := opts.maxLvl2
-
-	if lvl2range > 0 {
-		lvl2 = rand.Intn(lvl2range) + opts.minLvl2
+	networks, err := DefaultClient.ListNetworks()
+	if err == nil {
+		for _, n := range networks {
+			if n.Name == name {
+				netID = n.ID
+				break
+			}
+		}
 	}
 
-	lvl3range := opts.maxLvl3 - opts.minLvl3
-	lvl3 := opts.maxLvl3
+	if netID == "" {
+		createNetworkOpts := docker.CreateNetworkOptions{
+			Name:     name,
+			Driver:   "bridge",
+			Internal: true,
+			Labels: map[string]string{
+				"ntp": "default_bridge",
+			},
+		}
 
-	if lvl3range > 0 {
-		lvl3 = rand.Intn(lvl3range) + opts.minLvl3
+		net, err := DefaultClient.CreateNetwork(createNetworkOpts)
+		if err != nil {
+			log.Fatal().
+				Str("bridge-name", name).
+				Msg("Unable to create default bridge")
+			return nil
+		}
+
+		netID = net.ID
 	}
 
-	return fmt.Sprintf("%d.%d.%d", lvl1, lvl2, lvl3)
+	return &defaultBridge{
+		id:         netID,
+		containers: map[string]string{},
+	}
+}
+
+func (dbr *defaultBridge) connect(cid string) (string, error) {
+	dbr.m.Lock()
+	alias, ok := dbr.containers[cid]
+	if ok {
+		return alias, nil
+	}
+	dbr.m.Unlock()
+
+	alias = strings.Replace(uuid.New().String(), "-", "", -1)
+	err := DefaultClient.ConnectNetwork(dbr.id, docker.NetworkConnectionOptions{
+		Container: cid,
+		EndpointConfig: &docker.EndpointConfig{
+			Aliases: []string{alias},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	dbr.m.Lock()
+	dbr.containers[cid] = alias
+	dbr.m.Unlock()
+
+	return alias, nil
+}
+
+func (dbr *defaultBridge) disconnect(cid string) error {
+	dbr.m.Lock()
+	_, present := dbr.containers[cid]
+	delete(dbr.containers, cid)
+	dbr.m.Unlock()
+
+	if !present {
+		return nil
+	}
+
+	return DefaultClient.DisconnectNetwork(dbr.id, docker.NetworkConnectionOptions{
+		Container: cid,
+	})
+}
+
+func (dbr *defaultBridge) Close() error {
+	return DefaultClient.RemoveNetwork(dbr.id)
 }
 
 func getResolvFile(ns []string) (string, error) {

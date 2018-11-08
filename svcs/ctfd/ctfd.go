@@ -18,13 +18,14 @@ import (
 
 	"errors"
 
+	"io"
+
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"io"
 )
 
 var (
@@ -39,12 +40,11 @@ var (
 
 type CTFd interface {
 	docker.Identifier
-	svcs.ProxyConnector
 	io.Closer
+	ProxyHandler(...func(*store.Team) error) svcs.ProxyConnector
 	Start() error
 	Stop() error
 	Flags() []store.FlagConfig
-	ChalMap() map[int]store.Tag
 }
 
 type Config struct {
@@ -57,13 +57,13 @@ type Config struct {
 }
 
 type ctfd struct {
-	conf       Config
-	cont       docker.Container
-	confDir    string
-	nc         nonceClient
-	users      []*user
-	relation   map[string]*user
-	challenges map[store.Tag]int
+	conf     Config
+	cont     docker.Container
+	confDir  string
+	nc       nonceClient
+	users    []*user
+	relation map[string]*user
+	flagPool *flagPool
 }
 
 type user struct {
@@ -108,10 +108,10 @@ func New(conf Config) (CTFd, error) {
 	}
 
 	ctf := &ctfd{
-		conf:       conf,
-		nc:         nc,
-		relation:   make(map[string]*user),
-		challenges: make(map[store.Tag]int),
+		conf:     conf,
+		flagPool: NewFlagPool(),
+		nc:       nc,
+		relation: make(map[string]*user),
 	}
 
 	confDir, err := ioutil.TempDir("", "ctfd")
@@ -186,17 +186,18 @@ func (ctf *ctfd) ID() string {
 	return ctf.cont.ID()
 }
 
-func (ctf *ctfd) ProxyHandler() http.Handler {
+func (ctf *ctfd) ProxyHandler(hooks ...func(*store.Team) error) svcs.ProxyConnector {
 	origin, _ := url.Parse(ctf.nc.baseUrl())
-	return httputil.NewSingleHostReverseProxy(origin)
-}
 
-func (ctf *ctfd) ChalMap() map[int]store.Tag {
-	res := make(map[int]store.Tag)
-	for k, v := range ctf.challenges {
-		res[v] = k
+	return func(es store.EventFile) http.Handler {
+		itc := svcs.Interceptors{
+			NewRegisterInterception(es, WithRegisterHooks(hooks...)),
+			NewCheckFlagInterceptor(es, ctf.flagPool),
+			NewLoginInterceptor(es),
+		}
+
+		return itc.Intercept(httputil.NewSingleHostReverseProxy(origin))
 	}
-	return res
 }
 
 func (ctf *ctfd) configureInstance() error {
@@ -223,26 +224,24 @@ func (ctf *ctfd) configureInstance() error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := ctf.nc.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	flags := make(map[store.Tag]string)
-
 	for id, flag := range ctf.conf.Flags {
-		if err := ctf.createFlag(flag.Name, flag.Default, flag.Points); err != nil {
+		value := ctf.flagPool.AddFlag(flag, id+1)
+
+		if err := ctf.createFlag(flag.Name, value, flag.Points); err != nil {
 			return err
 		}
-		ctf.challenges[flag.Tag] = id + 1
-		flags[flag.Tag] = flag.Default
 
 		log.Debug().
 			Str("name", flag.Name).
-			Str("flag", flag.Default).
+			Bool("static", flag.Static != "").
 			Uint("points", flag.Points).
 			Msg("Flag created")
 	}
@@ -262,12 +261,10 @@ func (ctf *ctfd) configureInstance() error {
 				port:   ctf.nc.port,
 				client: hc,
 			},
-			conf:       tt,
-			flags:      flags,
-			challenges: ctf.challenges,
+			conf: tt,
 		}
 
-		if err := t.create(); err != nil {
+		if err := t.create(ctf.flagPool); err != nil {
 			return err
 		}
 	}
@@ -351,13 +348,12 @@ func (ctf *ctfd) createFlag(name, flag string, points uint) error {
 }
 
 type team struct {
-	nc         nonceClient
-	conf       store.Team
-	challenges map[store.Tag]int
-	flags      map[store.Tag]string
+	nc    nonceClient
+	conf  store.Team
+	flags map[store.Tag]string
 }
 
-func (t *team) create() error {
+func (t *team) create(fp *flagPool) error {
 	endpoint := t.nc.baseUrl() + "/register"
 
 	nonce, err := t.nc.getNonce(endpoint)
@@ -396,8 +392,8 @@ func (t *team) create() error {
 
 	defer resp.Body.Close()
 
-	for _, task := range t.conf.Tasks {
-		if err := t.solve(task.FlagTag); err != nil {
+	for _, chal := range t.conf.SolvedChallenges {
+		if err := t.solve(fp, chal.FlagTag); err != nil {
 			return err
 		}
 	}
@@ -405,14 +401,15 @@ func (t *team) create() error {
 	return nil
 }
 
-func (t *team) solve(tag store.Tag) error {
-	id, ok := t.challenges[tag]
-	if !ok {
-		return ChallengeNotFoundErr
+func (t *team) solve(fp *flagPool, tag store.Tag) error {
+	id, err := fp.GetIdentifierByTag(tag)
+	if err != nil {
+		return err
 	}
-	flagval, ok := t.flags[tag]
-	if !ok {
-		return FlagNotFoundErr
+
+	flagval, err := fp.GetFlagByTag(tag)
+	if err != nil {
+		return err
 	}
 
 	endpoint := fmt.Sprintf("%s/chal/%d", t.nc.baseUrl(), id)

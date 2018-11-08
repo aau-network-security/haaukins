@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
@@ -35,15 +36,24 @@ var (
 	DefaultAdminPass = "guacadmin"
 )
 
+type GuacError struct {
+	action string
+	err    error
+}
+
+func (ge *GuacError) Error() string {
+	return fmt.Sprintf("guacamole: trying to %s. failed: %s", ge.action, ge.err)
+}
+
 type Guacamole interface {
 	docker.Identifier
 	io.Closer
-	svcs.ProxyConnector
 	Start(context.Context) error
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	RawLogin(username, password string) ([]byte, error)
+	ProxyHandler(us *GuacUserStore) svcs.ProxyConnector
 }
 
 type Config struct {
@@ -115,6 +125,11 @@ func (guac *guacamole) create() error {
 	}
 	guac.containers = append(guac.containers, guacd)
 
+	guacdAlias, err := guacd.BridgeAlias()
+	if err != nil {
+		return err
+	}
+
 	err = guacd.Start()
 	if err != nil {
 		return err
@@ -135,6 +150,11 @@ func (guac *guacamole) create() error {
 	}
 	guac.containers = append(guac.containers, db)
 
+	dbAlias, err := db.BridgeAlias()
+	if err != nil {
+		return err
+	}
+
 	err = db.Start()
 	if err != nil {
 		return err
@@ -144,8 +164,8 @@ func (guac *guacamole) create() error {
 		"MYSQL_DATABASE": "guacamole_db",
 		"MYSQL_USER":     "guacamole_user",
 		"MYSQL_PASSWORD": dbEnv["MYSQL_PASSWORD"],
-		"GUACD_HOSTNAME": "guacd",
-		"MYSQL_HOSTNAME": "db",
+		"GUACD_HOSTNAME": guacdAlias,
+		"MYSQL_HOSTNAME": dbAlias,
 	}
 
 	guac.webPort = virtual.GetAvailablePort()
@@ -163,11 +183,8 @@ func (guac *guacamole) create() error {
 		return err
 	}
 
-	if err = web.Link(db, "db"); err != nil {
-		return err
-	}
-
-	if err = web.Link(guacd, "guacd"); err != nil {
+	_, err = web.BridgeAlias()
+	if err != nil {
 		return err
 	}
 
@@ -208,25 +225,39 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ProxyHandler() http.Handler {
-	origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
-	host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
+func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
+	loginFunc := func(u string, p string) (string, error) {
+		content, err := guac.RawLogin(u, p)
+		if err != nil {
+			return "", err
+		}
+		return url.QueryEscape(string(content)), nil
+	}
 
-	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
-		req.Header.Add("X-Forwarded-Host", req.Host)
-		req.URL.Scheme = "http"
-		req.URL.Host = origin.Host
-		req.URL.Path = "/guacamole" + req.URL.Path
-	}}
+	return func(ef store.EventFile) http.Handler {
+		origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
+		host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if IsWebSocket(r) {
-			websocketProxy(host).ServeHTTP(w, r)
-			return
+		interceptors := svcs.Interceptors{
+			NewGuacTokenLoginEndpoint(us, ef, loginFunc),
 		}
 
-		proxy.ServeHTTP(w, r)
-	})
+		proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
+			req.Header.Add("X-Forwarded-Host", req.Host)
+			req.URL.Scheme = "http"
+			req.URL.Host = origin.Host
+			req.URL.Path = req.URL.Path
+		}}
+
+		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if IsWebSocket(r) {
+				websocketProxy(host).ServeHTTP(w, r)
+				return
+			}
+
+			proxy.ServeHTTP(w, r)
+		}))
+	}
 }
 
 func (guac *guacamole) configureInstance() error {
@@ -236,13 +267,17 @@ func (guac *guacamole) configureInstance() error {
 		webPort: guac.webPort,
 	}
 
-	for i := 0; i < 15; i++ {
-		_, err := temp.login(DefaultAdminUser, DefaultAdminPass)
+	var err error
+	for i := 0; i < 120; i++ {
+		_, err = temp.login(DefaultAdminUser, DefaultAdminPass)
 		if err == nil {
 			break
 		}
 
 		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return err
 	}
 
 	if err := temp.changeAdminPass(guac.conf.AdminPass); err != nil {
@@ -301,10 +336,14 @@ func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	if err := IsExpectedStatus(resp.StatusCode); err != nil {
+		return nil, &GuacError{action: "login", err: err}
+	}
+
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (guac *guacamole) authAction(a func(string) (*http.Response, error), i interface{}) error {
+func (guac *guacamole) authAction(action string, a func(string) (*http.Response, error), i interface{}) error {
 	perform := func() ([]byte, int, error) {
 		resp, err := a(guac.token)
 		if err != nil {
@@ -320,39 +359,64 @@ func (guac *guacamole) authAction(a func(string) (*http.Response, error), i inte
 		return content, resp.StatusCode, nil
 	}
 
-	content, status, err := perform()
-	if err != nil {
-		return err
-	}
-
-	// out of 2XX range
-	if status < http.StatusOK || status > 300 {
-		var msg struct {
-			Message string `json:"message"`
+	shouldTryAgain := func(content []byte, status int, connErr error) (bool, error) {
+		if connErr != nil {
+			return true, connErr
 		}
 
-		if err := json.Unmarshal(content, &msg); err != nil {
-			return UnexpectedRespErr
+		if err := IsExpectedStatus(status); err != nil {
+			return true, err
 		}
 
-		switch msg.Message {
-		case "Permission Denied.":
+		if status == http.StatusForbidden {
 			token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 			guac.token = token
 
-			content, status, err = perform()
-			if err != nil {
-				return err
-			}
-
-		default:
-			return fmt.Errorf("Unknown Guacamole Error: %s", msg.Message)
+			return true, nil
 		}
 
+		var msg struct {
+			Message string `json:"message"`
+		}
+
+		if err := json.Unmarshal(content, &msg); err == nil {
+			switch {
+			case msg.Message == "Permission Denied.":
+				token, err := guac.login(DefaultAdminUser, guac.conf.AdminPass)
+				if err != nil {
+					return false, err
+				}
+
+				guac.token = token
+
+				return true, nil
+			case msg.Message != "":
+				return false, &GuacError{action: action, err: fmt.Errorf("unexpected message: %s", msg.Message)}
+			}
+		}
+
+		return false, nil
+	}
+
+	var retry bool
+	content, status, err := perform()
+	for i := 1; i <= 3; i++ {
+		retry, err = shouldTryAgain(content, status, err)
+		if !retry {
+			break
+		}
+
+		time.Sleep(time.Second)
+
+		content, status, err = perform()
+	}
+
+	if err != nil {
+		return err
 	}
 
 	if i != nil {
@@ -382,7 +446,7 @@ func (guac *guacamole) changeAdminPass(newPass string) error {
 		return guac.client.Do(req)
 	}
 
-	if err := guac.authAction(action, nil); err != nil {
+	if err := guac.authAction("change admin password", action, nil); err != nil {
 		return err
 	}
 
@@ -428,7 +492,7 @@ func (guac *guacamole) CreateUser(username, password string) error {
 		Password string `json:"password"`
 	}
 
-	if err := guac.authAction(action, &output); err != nil {
+	if err := guac.authAction("create user", action, &output); err != nil {
 		return err
 	}
 
@@ -446,7 +510,7 @@ func (guac *guacamole) logout() error {
 		return guac.client.Do(req)
 	}
 
-	if err := guac.authAction(action, nil); err != nil {
+	if err := guac.authAction("logout", action, nil); err != nil {
 		return err
 	}
 
@@ -589,7 +653,7 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 	var out struct {
 		Id string `json:"identifier"`
 	}
-	if err := guac.authAction(action, &out); err != nil {
+	if err := guac.authAction("create rdp connection", action, &out); err != nil {
 		return err
 	}
 
@@ -628,7 +692,7 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 		return guac.client.Do(req)
 	}
 
-	if err := guac.authAction(action, nil); err != nil {
+	if err := guac.authAction("add user to connection", action, nil); err != nil {
 		return err
 	}
 
@@ -639,7 +703,6 @@ func websocketProxy(target string) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = "/guacamole" + r.URL.Path
 		r.Header.Set("Origin", origin)
 		r.Header.Add("X-Forwarded-Host", r.Host)
 		r.Host = target
@@ -685,4 +748,12 @@ func IsWebSocket(req *http.Request) bool {
 	}
 
 	return false
+}
+
+func IsExpectedStatus(s int) error {
+	if (s >= http.StatusOK) && (s <= 302) || s == http.StatusForbidden {
+		return nil
+	}
+
+	return fmt.Errorf("unexpected response %d", s)
 }
