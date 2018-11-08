@@ -54,26 +54,34 @@ func (bc *buildContext) packageName() string {
 }
 
 func (bc *buildContext) linkFlags(version string) string {
-	return fmt.Sprintf("-X %s.version=%s", bc.App.ImportPath, version)
+	return fmt.Sprintf("-w -X %s.version=%s", bc.App.ImportPath, version)
 }
 
 func (bc *buildContext) build(ctx context.Context) error {
 	cmd := exec.CommandContext(
 		ctx,
 		"env",
-		"CGO_ENABlED=0s",
+		"CGO_ENABLED=0",
 		fmt.Sprintf("GOOS=%s", bc.Os.Name),
 		fmt.Sprintf("GOARCH=%s", bc.Arch),
 		"go",
 		"build",
 		"-a",
-		"-ldflags '-w'",
+		"-tags",
+		"netgo",
+		"-ldflags",
 		bc.linkFlags(os.Getenv("GIT_TAG")),
 		"-o",
 		bc.outputFilePath(),
 		bc.packageName(),
 	)
-	return cmd.Run()
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(string(out))
+	}
+
+	return err
 }
 
 func main() {
@@ -82,6 +90,9 @@ func main() {
 	for _, bc := range bcs {
 		for _, arch := range []string{"amd64", "386"} {
 			bcWithArch := buildContext{arch, bc.Os, bc.App}
+			if bc.App.FilenamePrefix == "ntpd" && bc.Os.Name != "linux" {
+				continue
+			}
 			if err := bcWithArch.build(ctx); err != nil {
 				fmt.Printf("\u2717 %s: %+v\n", bcWithArch.outputFileName(), err)
 				continue
