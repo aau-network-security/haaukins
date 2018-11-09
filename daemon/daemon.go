@@ -19,6 +19,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	yaml "gopkg.in/yaml.v2"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -248,6 +249,9 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		ctx = withAuditLogger(ctx, logger)
 		stream = &contextStream{stream, ctx}
 
+		header := metadata.Pairs("daemon-version", version)
+		stream.SendHeader(header)
+
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
 				return handler(srv, stream)
@@ -264,6 +268,9 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		ctx, authErr := d.auth.AuthenticateContext(ctx)
 		ctx = withAuditLogger(ctx, logger)
+
+		header := metadata.Pairs("daemon-version", version)
+		grpc.SendHeader(ctx, header)
 
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {

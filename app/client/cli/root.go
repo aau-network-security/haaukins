@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
 	"log"
 
@@ -21,6 +20,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -46,10 +46,6 @@ func Execute() {
 	}
 	defer c.Close()
 
-	if err := c.CheckVersionSync(); err != nil {
-		PrintWarning(err.Error())
-	}
-
 	var rootCmd = &cobra.Command{Use: "ntp"}
 	rootCmd.AddCommand(
 		c.CmdVersion(),
@@ -67,6 +63,31 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func versionCheckInterceptor(ctx context.Context, method string, req interface{}, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+
+	var header metadata.MD
+	if err := invoker(ctx, method, req, reply, cc, append(opts, grpc.Header(&header))...); err != nil {
+		return err
+	}
+
+	var daemonVersion string
+	if v := header["daemon-version"]; len(v) > 0 {
+		daemonVersion = v[0]
+	}
+
+	ok, err := isClientVersionLessThan(daemonVersion)
+	if err != nil {
+		return fmt.Errorf("Unable to read daemon's version: %s", err)
+	}
+
+	if ok {
+		return fmt.Errorf("A new version (daemon version: %s) of this client exists, please update", daemonVersion)
+	}
+
+	return nil
+
 }
 
 func (c Creds) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
@@ -114,7 +135,9 @@ func NewClient() (*Client, error) {
 	}
 
 	authCreds := Creds{Token: c.Token}
-	dialOpts := []grpc.DialOption{}
+	dialOpts := []grpc.DialOption{
+		grpc.WithUnaryInterceptor(versionCheckInterceptor),
+	}
 
 	ssl := os.Getenv("NTP_SSL_OFF")
 	if strings.ToLower(ssl) == "true" {
@@ -153,35 +176,6 @@ func (c *Client) LoadToken() error {
 
 func (c *Client) SaveToken() error {
 	return ioutil.WriteFile(c.TokenFile, []byte(c.Token), 0644)
-}
-
-func (c *Client) CheckVersionSync() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	resp, err := c.rpcClient.Version(ctx, &pb.Empty{})
-	if err != nil {
-		err = TranslateRPCErr(err)
-		switch err {
-		case context.DeadlineExceeded:
-			return UnreachableDaemonErr
-		case UnauthorizedErr:
-			return nil
-		default:
-			return err
-		}
-	}
-
-	ok, err := isClientVersionLessThan(resp.Version)
-	if err != nil {
-		return err
-	}
-
-	if ok {
-		return fmt.Errorf("A new version (daemon version: %s) of this client exists, please update", resp.Version)
-	}
-
-	return nil
 }
 
 func (c *Client) Close() {
