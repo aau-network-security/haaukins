@@ -37,6 +37,7 @@ var (
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	MissingSecretKey    = errors.New("Management signing key cannot be empty")
+	UnknownTeamErr 		= errors.New("Unable to find team by that id")
 
 	version string
 )
@@ -680,6 +681,33 @@ func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemory
 func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuRequest) (*pb.Empty, error) {
 	err := d.frontends.SetCpu(in.Image, float64(in.Cpu))
 	return &pb.Empty{}, err
+}
+
+func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*pb.GetTeamInfoResponse, error) {
+	t, err := store.NewTag(in.EventTag)
+	if err != nil {
+		return nil, err
+	}
+	ev, err := d.eventPool.GetEvent(t)
+	if err != nil {
+		return nil, err
+	}
+	lab, ok := ev.GetLabByTeam(in.TeamId)
+	if !ok {
+		return nil, UnknownTeamErr
+	}
+
+	var instances []*pb.GetTeamInfoResponse_Instance
+	for _, i := range lab.InstanceInfo() {
+		instance := &pb.GetTeamInfoResponse_Instance{
+			Image: i.Image,
+			Type: i.Type,
+			Id: i.Id,
+		}
+		instances = append(instances, instance)
+	}
+	return &pb.GetTeamInfoResponse{Instances: instances}, nil
+
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {

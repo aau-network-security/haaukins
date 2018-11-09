@@ -10,6 +10,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"github.com/aau-network-security/go-ntp/virtual"
 )
 
 type Environment interface {
@@ -17,6 +18,7 @@ type Environment interface {
 	ResetByTag(t string) error
 	NetworkInterface() string
 	Challenges() []store.Challenge
+	InstanceInfo() []virtual.InstanceInfo
 	Start() error
 	Stop() error
 	Restart() error
@@ -214,6 +216,15 @@ func (ee *environment) Challenges() []store.Challenge {
 
 	return challenges
 }
+
+func (ee *environment) InstanceInfo() []virtual.InstanceInfo {
+	var instances []virtual.InstanceInfo
+	for _, e := range ee.exercises {
+		instances = append(instances, e.InstanceInfo()...)
+	}
+	return instances
+}
+
 
 func (ee *environment) updateDNS() error {
 	if ee.dnsServer != nil {
