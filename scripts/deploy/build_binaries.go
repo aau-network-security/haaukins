@@ -12,7 +12,6 @@ var (
 		{Os: DARWIN, App: CLIENT},
 		{Os: LINUX, App: CLIENT},
 		{Os: WINDOWS, App: CLIENT},
-		{Os: DARWIN, App: DAEMON},
 		{Os: LINUX, App: DAEMON},
 	}
 
@@ -90,9 +89,6 @@ func main() {
 	for _, bc := range bcs {
 		for _, arch := range []string{"amd64", "386"} {
 			bcWithArch := buildContext{arch, bc.Os, bc.App}
-			if bc.App.FilenamePrefix == "ntpd" && bc.Os.Name != "linux" {
-				continue
-			}
 			if err := bcWithArch.build(ctx); err != nil {
 				fmt.Printf("\u2717 %s: %+v\n", bcWithArch.outputFileName(), err)
 				continue
