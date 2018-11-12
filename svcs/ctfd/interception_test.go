@@ -1,6 +1,7 @@
 package ctfd_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
 )
@@ -366,4 +368,86 @@ func TestLoginInterception(t *testing.T) {
 		})
 	}
 
+}
+
+func TestSelectorHtml(t *testing.T) {
+	s := ctfd.NewSelector("Age", "age", []string{"0-14", "15-21", "22-30", "30-50", "51+"})
+	htmlStr := s.Html()
+
+	doc, err := goquery.NewDocumentFromReader(
+		strings.NewReader(string(htmlStr)),
+	)
+	if err != nil {
+		t.Fatalf("unable to read html: %s", err)
+	}
+
+	n := len(s.Options) + 1 // adding one for default element
+	if count := doc.Find("option").Size(); count != n {
+		t.Fatalf("expected %d option elements, but received: %d", n, count)
+	}
+
+}
+
+func TestSelectorReadMetadata(t *testing.T) {
+	s := ctfd.NewSelector("Age", "age", []string{"0-14", "15-21", "22-30", "30-50", "51+"})
+
+	tt := []struct {
+		name string
+		form *url.Values
+		err  string
+	}{
+		{name: "Normal", form: &url.Values{"age": {"0-14"}}},
+		{name: "No values", err: `Field "Age" cannot be empty`},
+		{name: "Invalid value", err: `Invalid value for field "Age"`, form: &url.Values{"age": {"abc"}}},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "http://test.com", nil)
+			if tc.form != nil {
+				values := *tc.form
+				req = httptest.NewRequest("POST", "http://test.com", strings.NewReader(values.Encode()))
+				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			}
+
+			var team store.Team
+			err := s.ReadMetadata(req, &team)
+			if err != nil {
+				if tc.err != "" {
+					if err.Error() != tc.err {
+
+						t.Fatalf("expected error (%s), but received: %s", tc.err, err)
+					}
+
+					return
+				}
+
+				t.Fatalf("expected no error but received: %s", err)
+				return
+			}
+
+			if tc.err != "" {
+				t.Fatalf("expected error (%s), but received none", tc.err)
+				return
+			}
+
+			if _, ok := team.Metadata["age"]; !ok {
+				t.Fatalf("expected metadata to be read")
+			}
+		})
+	}
+}
+
+func TestExtraFields(t *testing.T) {
+	ef := ctfd.NewExtraFields([][]*ctfd.Selector{
+		{
+			ctfd.NewSelector("Team Size", "team-size", []string{"1", "2", "3", "4", "5", "6", "7", "8", "9+"}),
+			ctfd.NewSelector("Technology Interest", "tech-interest", []string{"We enjoy technology", "Not interested in technology"}),
+		},
+		{
+			ctfd.NewSelector("Hacking Experience (in total)", "hack-exp", []string{"None", "1-2 years", "3-4 years", "5-8 years", "9+ years"}),
+		},
+	})
+
+	fmt.Println(ef.Html())
 }
