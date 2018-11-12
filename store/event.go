@@ -79,6 +79,7 @@ type Team struct {
 	Name             string             `yaml:"name"`
 	HashedPassword   string             `yaml:"hashed-password"`
 	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
+	Metadata         map[string]string  `yaml:"metadata,omitempty"`
 	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
 	ChalMap          map[Tag]*Challenge `yaml:"-"`
 }
