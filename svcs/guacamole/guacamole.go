@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httputil"
@@ -22,6 +21,7 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/gorilla/websocket"
 )
 
 var (
@@ -34,6 +34,8 @@ var (
 
 	DefaultAdminUser = "guacadmin"
 	DefaultAdminPass = "guacadmin"
+
+	upgrader = websocket.Upgrader{}
 )
 
 type GuacError struct {
@@ -699,45 +701,79 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
+func copyHeaders(src, dst http.Header) {
+	for k, vv := range src {
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
+	}
+}
+
+
+
 func websocketProxy(target string) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Header.Set("Origin", origin)
-		r.Header.Add("X-Forwarded-Host", r.Host)
-		r.Host = target
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("Failed to upgrade connection: %s", err)
+			return
+		}
+		defer c.Close()
 
-		d, err := net.Dial("tcp", target)
-		if err != nil {
-			log.Printf("Error dialing websocket backend %s: %v", target, err)
-			return
-		}
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			return
-		}
-		nc, _, err := hj.Hijack()
-		if err != nil {
-			log.Printf("Hijack error: %v", err)
-			return
-		}
-		defer nc.Close()
-		defer d.Close()
+		url := r.URL
+		url.Host = target
+		url.Scheme = "ws"
 
-		err = r.Write(d)
+		rHeader := http.Header{}
+		copyHeaders(r.Header, rHeader)
+		rHeader.Set("Origin", origin)
+		rHeader.Add("X-Forwarded-Host", r.Host)
+		rHeader.Set("X-Forwarded-Proto", "http")
+		//backendUrl := fmt.Sprintf("ws://%s%s", target, r.URL.Path)
+		log.Debug().Msgf("Dialing backend URL %s", url)
+		backend, resp, err := websocket.DefaultDialer.Dial(url.String(), nil)
 		if err != nil {
-			log.Printf("Error copying request to target: %v", err)
+			log.Printf("Failed to connect target (ws://%s): %s", target, err)
+			if resp != nil {
+				content, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Printf("Failed to read response: %s", err)
+					return
+				}
+				log.Printf("Response body: %s", content)
+			}
 			return
 		}
+		defer backend.Close()
+
+		log.Debug().Msgf("Successfully called backend!")
 
 		errc := make(chan error, 2)
-		cp := func(dst io.Writer, src io.Reader) {
-			_, err := io.Copy(dst, src)
-			errc <- err
-		}
-		go cp(d, nc)
-		go cp(nc, d)
+		cp := func(src *websocket.Conn, dst *websocket.Conn) {
+			for {
 
+				msgType, p, err := src.ReadMessage()
+				if err != nil {
+					if _, ok := err.(*websocket.CloseError); ok {
+						return
+					}
+					//errc <- err
+					log.Printf("Failed to read message: %s", err)
+					return
+				}
+				fmt.Printf("Received message (%s -> %s: %s\n", src.LocalAddr().String(), dst.LocalAddr().String(), string(p))
+				if err := dst.WriteMessage(msgType, p); err != nil {
+					//errc <- err
+					log.Printf("Failed to write message: %s", err)
+					return
+				}
+			}
+		}
+
+		go cp(c, backend)
+		go cp(backend, c)
 		<-errc
 	})
 }
