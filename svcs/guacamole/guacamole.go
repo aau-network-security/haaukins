@@ -6,6 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/svcs"
+	"github.com/aau-network-security/go-ntp/virtual"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -14,13 +21,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs"
-	"github.com/aau-network-security/go-ntp/virtual"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -42,8 +42,8 @@ var (
 		"Upgrade",
 	}
 
-	upgrader = websocket.Upgrader{}
-	validOpcodes = []string {
+	upgrader     = websocket.Upgrader{}
+	validOpcodes = []string{
 		"key",
 		"mouse",
 	}
@@ -713,12 +713,12 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 }
 
 type LogEvent struct {
-	ts time.Time
+	ts   time.Time
 	data []byte
 }
 
 type messageProcessor struct {
-	c chan LogEvent
+	c  chan LogEvent
 	mf MessageFilter
 }
 
@@ -728,7 +728,7 @@ func (mp *messageProcessor) add(t LogEvent) {
 
 func (mp *messageProcessor) run() {
 	for {
-		b := <- mp.c
+		b := <-mp.c
 		msg, dropped, err := mp.mf.Filter(b.data)
 		if err != nil {
 			log.Debug().Msgf("Failed to filter message: %s", err)
@@ -765,15 +765,7 @@ func websocketProxy(target string) http.Handler {
 
 		backend, resp, err := websocket.DefaultDialer.Dial(url.String(), rHeader)
 		if err != nil {
-			log.Debug().Msgf("Failed to connect target (%s): %s", url.String(), err)
-			if resp != nil {
-				content, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					log.Debug().Msgf("Failed to read response: %s", err)
-					return
-				}
-				log.Debug().Msgf("Response body: %s", content)
-			}
+			log.Error().Msgf("Failed to connect target (%s): %s", url.String(), err)
 			return
 		}
 		defer backend.Close()
@@ -785,7 +777,7 @@ func websocketProxy(target string) http.Handler {
 
 		c, err := upgrader.Upgrade(w, r, upgradeHeader)
 		if err != nil {
-			log.Debug().Msgf("Failed to upgrade connection: %s", err)
+			log.Error().Msgf("Failed to upgrade connection: %s", err)
 			return
 		}
 		defer c.Close()
@@ -803,7 +795,7 @@ func websocketProxy(target string) http.Handler {
 
 				if monitor {
 					t := LogEvent{
-						ts: time.Now(),
+						ts:   time.Now(),
 						data: data,
 					}
 					mp.add(t)
@@ -828,7 +820,7 @@ func websocketProxy(target string) http.Handler {
 		}
 
 		if e, ok := err.(*websocket.CloseError); !ok || e.Code != websocket.CloseNormalClosure {
-			log.Debug().Msgf(msgFormat, err)
+			log.Error().Msgf(msgFormat, err)
 		}
 	})
 }
