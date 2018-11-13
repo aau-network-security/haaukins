@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs"
 	"github.com/aau-network-security/go-ntp/virtual"
@@ -44,6 +43,10 @@ var (
 	}
 
 	upgrader = websocket.Upgrader{}
+	validOpcodes = []string {
+		"key",
+		"mouse",
+	}
 )
 
 type GuacError struct {
@@ -260,7 +263,7 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
 		}}
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if IsWebSocket(r) {
+			if isWebSocket(r) {
 				websocketProxy(host).ServeHTTP(w, r)
 				return
 			}
@@ -346,7 +349,7 @@ func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if err := IsExpectedStatus(resp.StatusCode); err != nil {
+	if err := isExpectedStatus(resp.StatusCode); err != nil {
 		return nil, &GuacError{action: "login", err: err}
 	}
 
@@ -374,7 +377,7 @@ func (guac *guacamole) authAction(action string, a func(string) (*http.Response,
 			return true, connErr
 		}
 
-		if err := IsExpectedStatus(status); err != nil {
+		if err := isExpectedStatus(status); err != nil {
 			return true, err
 		}
 
@@ -405,7 +408,7 @@ func (guac *guacamole) authAction(action string, a func(string) (*http.Response,
 
 				return true, nil
 			case msg.Message != "":
-				return false, &GuacError{action: action, err: fmt.Errorf("unexpected message: %s", msg.Message)}
+				return false, &GuacError{action: action, err: fmt.Errorf("unexpected Message: %s", msg.Message)}
 			}
 		}
 
@@ -709,36 +712,46 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func copyHeaders(src, dst http.Header, ignore []string) {
-	for k, vv := range src {
-		isIgnored := false
-		for _, h := range ignore {
-			if k == h {
-				isIgnored = true
-				break
-			}
-		}
-		if isIgnored {
-			continue
-		}
-		for _, v := range vv {
-			dst.Add(k, v)
+type LogEvent struct {
+	ts time.Time
+	data []byte
+}
+
+type messageProcessor struct {
+	c chan LogEvent
+	mf MessageFilter
+}
+
+func (mp *messageProcessor) add(t LogEvent) {
+	mp.c <- t
+}
+
+func (mp *messageProcessor) run() {
+	for {
+		b := <- mp.c
+		msg, dropped, err := mp.mf.Filter(b.data)
+		if err != nil {
+			log.Debug().Msgf("Failed to filter message: %s", err)
+		} else if !dropped {
+			log.Debug().Msgf("Processing message (%s): %s", b.ts.String(), msg.String())
 		}
 	}
 }
 
-func getCloseMsg(err error) []byte {
-	res := websocket.FormatCloseMessage(websocket.CloseNormalClosure, fmt.Sprintf("%s", err))
-	if e, ok := err.(*websocket.CloseError); ok {
-		if e.Code != websocket.CloseNoStatusReceived {
-			res = websocket.FormatCloseMessage(e.Code, e.Text)
-		}
+func newMessageProcessor(opcodes []string) messageProcessor {
+	mp := messageProcessor{
+		c: make(chan LogEvent),
+		mf: MessageFilter{
+			opcodes: opcodes,
+		},
 	}
-	return res
+	go mp.run()
+	return mp
 }
 
 func websocketProxy(target string) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
+	mp := newMessageProcessor(validOpcodes)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL
@@ -779,31 +792,32 @@ func websocketProxy(target string) http.Handler {
 
 		errClient := make(chan error, 1)
 		errBackend := make(chan error, 1)
-		cp := func(src *websocket.Conn, dst *websocket.Conn, errc chan error) {
+		cp := func(src *websocket.Conn, dst *websocket.Conn, errc chan error, monitor bool) {
 			for {
-				msgType, p, err := src.ReadMessage()
+				msgType, data, err := src.ReadMessage()
 				if err != nil {
 					m := getCloseMsg(err)
 					dst.WriteMessage(websocket.CloseMessage, m)
 					errc <- err
 				}
 
-				srcAddr := src.LocalAddr().String()
-				dstAddr := dst.LocalAddr().String()
-				log.Debug().Msgf("Received message (%s -> %s): %s\n", srcAddr, dstAddr, string(p))
-
-				if err != nil {
-					break
+				if monitor {
+					t := LogEvent{
+						ts: time.Now(),
+						data: data,
+					}
+					mp.add(t)
 				}
-				if err := dst.WriteMessage(msgType, p); err != nil {
+
+				if err := dst.WriteMessage(msgType, data); err != nil {
 					errc <- err
 					break
 				}
 			}
 		}
 
-		go cp(c, backend, errClient)
-		go cp(backend, c, errBackend)
+		go cp(c, backend, errClient, true)
+		go cp(backend, c, errBackend, false)
 
 		var msgFormat string
 		select {
@@ -819,7 +833,35 @@ func websocketProxy(target string) http.Handler {
 	})
 }
 
-func IsWebSocket(req *http.Request) bool {
+func copyHeaders(src, dst http.Header, ignore []string) {
+	for k, vv := range src {
+		isIgnored := false
+		for _, h := range ignore {
+			if k == h {
+				isIgnored = true
+				break
+			}
+		}
+		if isIgnored {
+			continue
+		}
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
+	}
+}
+
+func getCloseMsg(err error) []byte {
+	res := websocket.FormatCloseMessage(websocket.CloseNormalClosure, fmt.Sprintf("%s", err))
+	if e, ok := err.(*websocket.CloseError); ok {
+		if e.Code != websocket.CloseNoStatusReceived {
+			res = websocket.FormatCloseMessage(e.Code, e.Text)
+		}
+	}
+	return res
+}
+
+func isWebSocket(req *http.Request) bool {
 	if upgrade := req.Header.Get("Upgrade"); upgrade != "" {
 		return upgrade == "websocket" || upgrade == "Websocket"
 	}
@@ -827,7 +869,7 @@ func IsWebSocket(req *http.Request) bool {
 	return false
 }
 
-func IsExpectedStatus(s int) error {
+func isExpectedStatus(s int) error {
 	if (s >= http.StatusOK) && (s <= 302) || s == http.StatusForbidden {
 		return nil
 	}

@@ -3,8 +3,8 @@ package guacamole
 import (
 	"testing"
 	"net/http/httptest"
-		"net/http"
-		"github.com/gorilla/websocket"
+	"net/http"
+	"github.com/gorilla/websocket"
 	"strings"
 )
 
