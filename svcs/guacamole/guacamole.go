@@ -20,8 +20,8 @@ import (
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 	DefaultAdminUser = "guacadmin"
 	DefaultAdminPass = "guacadmin"
 
-	wsHeaders = []string {
+	wsHeaders = []string{
 		"Sec-Websocket-Extensions",
 		"Sec-Websocket-Version",
 		"Sec-Websocket-Key",
@@ -727,16 +727,6 @@ func copyHeaders(src, dst http.Header, ignore []string) {
 	}
 }
 
-func printHeader(h http.Header) {
-	log.Debug().Msgf("--- HEADER ---")
-	for k, vv := range h {
-		for _, v := range vv {
-			log.Debug().Msgf("%s: %s", k, v)
-		}
-	}
-	log.Debug().Msgf("--- HEADER ---")
-}
-
 func getCloseMsg(err error) []byte {
 	res := websocket.FormatCloseMessage(websocket.CloseNormalClosure, fmt.Sprintf("%s", err))
 	if e, ok := err.(*websocket.CloseError); ok {
@@ -759,14 +749,10 @@ func websocketProxy(target string) http.Handler {
 		copyHeaders(r.Header, rHeader, wsHeaders)
 		rHeader.Set("Origin", origin)
 		rHeader.Set("X-Forwarded-Host", r.Host)
-		rHeader.Set("X-Forwarded-For", fmt.Sprintf("%s, %s", origin, r.Host))
-		rHeader.Set("X-Forwarded-Proto", "http")
-
-		printHeader(rHeader)
 
 		backend, resp, err := websocket.DefaultDialer.Dial(url.String(), rHeader)
 		if err != nil {
-			log.Debug().Msgf("Failed to connect target (ws://%s): %s", target, err)
+			log.Debug().Msgf("Failed to connect target (%s): %s", url.String(), err)
 			if resp != nil {
 				content, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
@@ -780,11 +766,8 @@ func websocketProxy(target string) http.Handler {
 		defer backend.Close()
 
 		upgradeHeader := http.Header{}
-		if hdr := resp.Header.Get("Sec-Websocket-Protocol"); hdr != "" {
-			upgradeHeader.Set("Sec-Websocket-Protocol", hdr)
-		}
-		if hdr := resp.Header.Get("Set-Cookie"); hdr != "" {
-			upgradeHeader.Set("Set-Cookie", hdr)
+		if h := resp.Header.Get("Sec-Websocket-Protocol"); h != "" {
+			upgradeHeader.Set("Sec-Websocket-Protocol", h)
 		}
 
 		c, err := upgrader.Upgrade(w, r, upgradeHeader)
@@ -793,7 +776,6 @@ func websocketProxy(target string) http.Handler {
 			return
 		}
 		defer c.Close()
-
 
 		errClient := make(chan error, 1)
 		errBackend := make(chan error, 1)
