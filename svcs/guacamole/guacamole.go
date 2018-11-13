@@ -35,6 +35,14 @@ var (
 	DefaultAdminUser = "guacadmin"
 	DefaultAdminPass = "guacadmin"
 
+	wsHeaders = []string {
+		"Sec-Websocket-Extensions",
+		"Sec-Websocket-Version",
+		"Sec-Websocket-Key",
+		"Connection",
+		"Upgrade",
+	}
+
 	upgrader = websocket.Upgrader{}
 )
 
@@ -701,80 +709,131 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func copyHeaders(src, dst http.Header) {
+func copyHeaders(src, dst http.Header, ignore []string) {
 	for k, vv := range src {
+		isIgnored := false
+		for _, h := range ignore {
+			if k == h {
+				isIgnored = true
+				break
+			}
+		}
+		if isIgnored {
+			continue
+		}
 		for _, v := range vv {
 			dst.Add(k, v)
 		}
 	}
 }
 
+func printHeader(h http.Header) {
+	log.Debug().Msgf("--- HEADER ---")
+	for k, vv := range h {
+		for _, v := range vv {
+			log.Debug().Msgf("%s: %s", k, v)
+		}
+	}
+	log.Debug().Msgf("--- HEADER ---")
+}
 
+func getCloseMsg(err error) []byte {
+	res := websocket.FormatCloseMessage(websocket.CloseNormalClosure, fmt.Sprintf("%s", err))
+	if e, ok := err.(*websocket.CloseError); ok {
+		if e.Code != websocket.CloseNoStatusReceived {
+			res = websocket.FormatCloseMessage(e.Code, e.Text)
+		}
+	}
+	return res
+}
 
 func websocketProxy(target string) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Printf("Failed to upgrade connection: %s", err)
-			return
-		}
-		defer c.Close()
-
 		url := r.URL
 		url.Host = target
 		url.Scheme = "ws"
 
 		rHeader := http.Header{}
-		copyHeaders(r.Header, rHeader)
+		copyHeaders(r.Header, rHeader, wsHeaders)
 		rHeader.Set("Origin", origin)
-		rHeader.Add("X-Forwarded-Host", r.Host)
+		rHeader.Set("X-Forwarded-Host", r.Host)
+		rHeader.Set("X-Forwarded-For", fmt.Sprintf("%s, %s", origin, r.Host))
 		rHeader.Set("X-Forwarded-Proto", "http")
-		//backendUrl := fmt.Sprintf("ws://%s%s", target, r.URL.Path)
-		log.Debug().Msgf("Dialing backend URL %s", url)
-		backend, resp, err := websocket.DefaultDialer.Dial(url.String(), nil)
+
+		printHeader(rHeader)
+
+		backend, resp, err := websocket.DefaultDialer.Dial(url.String(), rHeader)
 		if err != nil {
-			log.Printf("Failed to connect target (ws://%s): %s", target, err)
+			log.Debug().Msgf("Failed to connect target (ws://%s): %s", target, err)
 			if resp != nil {
 				content, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					log.Printf("Failed to read response: %s", err)
+					log.Debug().Msgf("Failed to read response: %s", err)
 					return
 				}
-				log.Printf("Response body: %s", content)
+				log.Debug().Msgf("Response body: %s", content)
 			}
 			return
 		}
 		defer backend.Close()
 
-		log.Debug().Msgf("Successfully called backend!")
+		upgradeHeader := http.Header{}
+		if hdr := resp.Header.Get("Sec-Websocket-Protocol"); hdr != "" {
+			upgradeHeader.Set("Sec-Websocket-Protocol", hdr)
+		}
+		if hdr := resp.Header.Get("Set-Cookie"); hdr != "" {
+			upgradeHeader.Set("Set-Cookie", hdr)
+		}
 
-		errc := make(chan error, 2)
-		cp := func(src *websocket.Conn, dst *websocket.Conn) {
+		c, err := upgrader.Upgrade(w, r, upgradeHeader)
+		if err != nil {
+			log.Debug().Msgf("Failed to upgrade connection: %s", err)
+			return
+		}
+		defer c.Close()
+
+
+		errClient := make(chan error, 1)
+		errBackend := make(chan error, 1)
+		cp := func(src *websocket.Conn, dst *websocket.Conn, errc chan error) {
 			for {
-
 				msgType, p, err := src.ReadMessage()
 				if err != nil {
-					if _, ok := err.(*websocket.CloseError); ok {
-						return
-					}
-					//errc <- err
-					log.Printf("Failed to read message: %s", err)
-					return
+					m := getCloseMsg(err)
+					dst.WriteMessage(websocket.CloseMessage, m)
+					errc <- err
 				}
-				fmt.Printf("Received message (%s -> %s: %s\n", src.LocalAddr().String(), dst.LocalAddr().String(), string(p))
+
+				srcAddr := src.LocalAddr().String()
+				dstAddr := dst.LocalAddr().String()
+				log.Debug().Msgf("Received message (%s -> %s): %s\n", srcAddr, dstAddr, string(p))
+
+				if err != nil {
+					break
+				}
 				if err := dst.WriteMessage(msgType, p); err != nil {
-					//errc <- err
-					log.Printf("Failed to write message: %s", err)
-					return
+					errc <- err
+					break
 				}
 			}
 		}
 
-		go cp(c, backend)
-		go cp(backend, c)
-		<-errc
+		go cp(c, backend, errClient)
+		go cp(backend, c, errBackend)
+
+		var msgFormat string
+		select {
+		case err = <-errClient:
+			msgFormat = "Error when copying from client to backend: %s"
+		case err = <-errBackend:
+			msgFormat = "Error when copying from backend to client: %s"
+		}
+
+		if e, ok := err.(*websocket.CloseError); !ok || e.Code != websocket.CloseNormalClosure {
+			log.Debug().Msgf(msgFormat, err)
+		}
 	})
 }
 
