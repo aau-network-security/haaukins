@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -81,6 +82,7 @@ type Team struct {
 	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
 	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
 	ChalMap          map[Tag]*Challenge `yaml:"-"`
+	Logger           zerolog.Logger     `yaml:"-"`
 }
 
 func NewTeam(email, name, password string, chals ...Challenge) Team {
@@ -94,6 +96,8 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 		chalMap[chal.FlagTag] = &chal
 	}
 
+	logger := zerolog.New(os.Stdout)
+
 	return Team{
 		Id:             uuid.New().String()[0:8],
 		Email:          email,
@@ -101,6 +105,7 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 		HashedPassword: hashedPassword,
 		ChalMap:        chalMap,
 		CreatedAt:      &now,
+		Logger:         logger,
 	}
 }
 

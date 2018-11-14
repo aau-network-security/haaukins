@@ -1,15 +1,17 @@
 package guacamole
 
 import (
-	"unicode/utf8"
-	"strconv"
 	"fmt"
-	"strings"
 	"github.com/pkg/errors"
-	)
+	"github.com/rs/zerolog/log"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
 
 var (
-	FilterErr = errors.New("opcode is filtered")
+	FilterErr       = errors.New("opcode is filtered")
 	MalformedMsgErr = errors.New("message is malformed")
 )
 
@@ -35,6 +37,14 @@ func (m *Message) String() string {
 		s = append(s, arg.String())
 	}
 
+	return strings.Join(s, ",") + ";"
+}
+
+func (m *Message) ArgsString() string {
+	var s []string
+	for _, arg := range m.args {
+		s = append(s, arg.String())
+	}
 	return strings.Join(s, ",") + ";"
 }
 
@@ -108,4 +118,45 @@ func (mf *MessageFilter) Filter(b []byte) (*Message, bool, error) {
 		b = b[size:]
 	}
 	return nil, false, MalformedMsgErr
+}
+
+type logEvent struct {
+	ts   time.Time
+	data []byte
+}
+
+type messageLogger struct {
+	logFunc func(ts time.Time, event Message)
+	c       chan logEvent
+	mf      MessageFilter
+}
+
+func (mp *messageLogger) log(t logEvent) {
+	mp.c <- t
+}
+
+func (mp *messageLogger) run() {
+	for {
+		event := <-mp.c
+		msg, dropped, err := mp.mf.Filter(event.data)
+		if err != nil {
+			log.Debug().Msgf("Failed to filter message: %s", err)
+		} else if !dropped {
+			mp.logFunc(event.ts, *msg)
+		}
+	}
+}
+
+func newMessageLogger(logFunc func(ts time.Time, event Message), filterOpcodes []string) messageLogger {
+	mf := MessageFilter{
+		opcodes: filterOpcodes,
+	}
+
+	mp := messageLogger{
+		logFunc: logFunc,
+		c:       make(chan logEvent),
+		mf:      mf,
+	}
+	go mp.run()
+	return mp
 }

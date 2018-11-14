@@ -1,11 +1,11 @@
 package guacamole
 
 import (
-	"testing"
-	"net/http/httptest"
-	"net/http"
 	"github.com/gorilla/websocket"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"testing"
 )
 
 func echo(w http.ResponseWriter, r *http.Request) {
@@ -30,11 +30,11 @@ func TestWebSocketProxy(t *testing.T) {
 	backend := httptest.NewServer(http.HandlerFunc(echo))
 	defer backend.Close()
 
-	h := websocketProxy(strings.TrimPrefix(backend.URL, "http://"))
+	h := websocketProxy(strings.TrimPrefix(backend.URL, "http://"), nil)
 	wsProxy := httptest.NewServer(h)
 	defer wsProxy.Close()
 
-	ws, _, err := websocket.DefaultDialer.Dial("ws" + strings.TrimPrefix(wsProxy.URL, "http"), nil)
+	ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(wsProxy.URL, "http"), nil)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

@@ -30,6 +30,7 @@ var (
 	NoNameErr         = errors.New("Name is missing")
 	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
 	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
+	SessionErr        = errors.New("Session must exist")
 
 	DefaultAdminUser = "guacadmin"
 	DefaultAdminPass = "guacadmin"
@@ -264,7 +265,7 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if isWebSocket(r) {
-				websocketProxy(host).ServeHTTP(w, r)
+				websocketProxy(host, &ef).ServeHTTP(w, r)
 				return
 			}
 
@@ -408,7 +409,7 @@ func (guac *guacamole) authAction(action string, a func(string) (*http.Response,
 
 				return true, nil
 			case msg.Message != "":
-				return false, &GuacError{action: action, err: fmt.Errorf("unexpected Message: %s", msg.Message)}
+				return false, &GuacError{action: action, err: fmt.Errorf("unexpected message: %s", msg.Message)}
 			}
 		}
 
@@ -712,51 +713,34 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-type LogEvent struct {
-	ts   time.Time
-	data []byte
-}
-
-type messageProcessor struct {
-	c  chan LogEvent
-	mf MessageFilter
-}
-
-func (mp *messageProcessor) add(t LogEvent) {
-	mp.c <- t
-}
-
-func (mp *messageProcessor) run() {
-	for {
-		b := <-mp.c
-		msg, dropped, err := mp.mf.Filter(b.data)
-		if err != nil {
-			log.Debug().Msgf("Failed to filter message: %s", err)
-		} else if !dropped {
-			log.Debug().Msgf("Processing message (%s): %s", b.ts.String(), msg.String())
-		}
-	}
-}
-
-func newMessageProcessor(opcodes []string) messageProcessor {
-	mp := messageProcessor{
-		c: make(chan LogEvent),
-		mf: MessageFilter{
-			opcodes: opcodes,
-		},
-	}
-	go mp.run()
-	return mp
-}
-
-func websocketProxy(target string) http.Handler {
+func websocketProxy(target string, ef *store.EventFile) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
-	mp := newMessageProcessor(validOpcodes)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL
 		url.Host = target
 		url.Scheme = "ws"
+
+		cookie, err := r.Cookie("session")
+		if err != nil {
+			log.Error().Err(SessionErr)
+			return
+		}
+
+		t, err := (*ef).GetTeamByToken(cookie.Value)
+		if err != nil {
+			log.Error().Msgf("Failed to find team by token")
+			return
+		}
+		logFunc := func(ts time.Time, msg Message) {
+			log.Debug().Msgf("Logging message..")
+			t.Logger.Log().
+				Time("time", ts).
+				Str("opcode", msg.opcode.value).
+				Msgf(msg.ArgsString())
+		}
+
+		ml := newMessageLogger(logFunc, validOpcodes)
 
 		rHeader := http.Header{}
 		copyHeaders(r.Header, rHeader, wsHeaders)
@@ -794,11 +778,11 @@ func websocketProxy(target string) http.Handler {
 				}
 
 				if monitor {
-					t := LogEvent{
+					t := logEvent{
 						ts:   time.Now(),
 						data: data,
 					}
-					mp.add(t)
+					ml.log(t)
 				}
 
 				if err := dst.WriteMessage(msgType, data); err != nil {
