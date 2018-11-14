@@ -61,6 +61,7 @@ func Execute() {
 		c.CmdFrontend(),
 		c.CmdFrontends(),
 		c.CmdHost(),
+		c.CmdTeam(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

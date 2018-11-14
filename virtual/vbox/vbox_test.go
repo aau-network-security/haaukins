@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	tst "github.com/aau-network-security/go-ntp/testing"
-)
+	)
 
 const (
 	vboxBin     = "VBoxManage"
@@ -40,7 +40,7 @@ func TestVmBase(t *testing.T) {
 	tst.SkipCI(t)
 
 	// new vm
-	vm, err := vbox.NewVMFromOVA("go-ntp-ova.ova", "go-ntp")
+	vm, err := vbox.NewVMFromOVA("go-ntp-ova.ova", "go-ntp", "d41d8cd98f00b204e9800998ecf8427e")
 	assert.Equal(t, err, nil)
 
 	// check if it is created

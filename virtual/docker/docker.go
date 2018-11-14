@@ -461,6 +461,14 @@ func (c *container) ID() string {
 	return c.id
 }
 
+func (c *container) Info() virtual.InstanceInfo {
+	return virtual.InstanceInfo{
+		Image: c.conf.Image,
+		Type: "docker",
+		Id: c.ID()[0:12],
+	}
+}
+
 func (c *container) Close() error {
 	if c.network != nil {
 		for _, cont := range append(c.linked, c) {
