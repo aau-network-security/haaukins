@@ -80,7 +80,7 @@ type Team struct {
 	HashedPassword   string             `yaml:"hashed-password"`
 	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
 	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
-	ChalMap          map[Tag]*Challenge `yaml:"-"`
+	ChalMap          map[Tag]Challenge  `yaml:"-"`
 }
 
 func NewTeam(email, name, password string, chals ...Challenge) Team {
@@ -89,9 +89,9 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 	email = strings.ToLower(email)
 
-	chalMap := map[Tag]*Challenge{}
+	chalMap := map[Tag]Challenge{}
 	for _, chal := range chals {
-		chalMap[chal.FlagTag] = &chal
+		chalMap[chal.FlagTag] = chal
 	}
 
 	return Team{
@@ -104,7 +104,7 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 	}
 }
 
-func (t Team) IsCorrectFlag(tag Tag, v string) error {
+func (t *Team) IsCorrectFlag(tag Tag, v string) error {
 	c, ok := t.ChalMap[tag]
 	if !ok {
 		return UnknownChallengeErr
@@ -127,10 +127,14 @@ func (t *Team) SolveChallenge(tag Tag, v string) error {
 	c := t.ChalMap[tag]
 	c.CompletedAt = &now
 
-	t.SolvedChallenges = append(t.SolvedChallenges, *c)
-	t.ChalMap[tag] = c
+	t.SolvedChallenges = append(t.SolvedChallenges, c)
+	t.AddChallenge(c)
 
 	return nil
+}
+
+func (t *Team) AddChallenge(c Challenge) {
+	t.ChalMap[c.FlagTag] = c
 }
 
 type TeamStore interface {
