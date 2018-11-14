@@ -89,19 +89,17 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 	email = strings.ToLower(email)
 
-	chalMap := map[Tag]Challenge{}
-	for _, chal := range chals {
-		chalMap[chal.FlagTag] = chal
-	}
-
-	return Team{
+	t := Team{
 		Id:             uuid.New().String()[0:8],
 		Email:          email,
 		Name:           name,
 		HashedPassword: hashedPassword,
-		ChalMap:        chalMap,
 		CreatedAt:      &now,
 	}
+	for _, chal := range chals {
+		t.AddChallenge(chal)
+	}
+	return t
 }
 
 func (t *Team) IsCorrectFlag(tag Tag, v string) error {
@@ -134,6 +132,9 @@ func (t *Team) SolveChallenge(tag Tag, v string) error {
 }
 
 func (t *Team) AddChallenge(c Challenge) {
+	if t.ChalMap == nil {
+		t.ChalMap = map[Tag]Challenge{}
+	}
 	t.ChalMap[c.FlagTag] = c
 }
 

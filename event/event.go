@@ -250,10 +250,6 @@ func (ev *event) AssignLab(t *store.Team) error {
 	ev.labs[t.Id] = lab
 
 	chals := lab.GetEnvironment().Challenges()
-	if t.ChalMap == nil {
-		t.ChalMap = map[store.Tag]store.Challenge{}
-	}
-
 	for _, chal := range chals {
 		t.AddChallenge(chal)
 	}
