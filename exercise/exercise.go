@@ -220,3 +220,11 @@ func (e *exercise) Challenges() []store.Challenge {
 
 	return challenges
 }
+
+func (e *exercise) InstanceInfo() []virtual.InstanceInfo {
+	var instances []virtual.InstanceInfo
+	for _, m := range e.machines {
+		instances = append(instances, m.Info())
+	}
+	return instances
+}
