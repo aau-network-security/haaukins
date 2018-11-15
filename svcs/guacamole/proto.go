@@ -1,162 +1,145 @@
 package guacamole
 
 import (
-	"fmt"
+	"bytes"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 )
 
 var (
-	FilterErr       = errors.New("opcode is filtered")
-	MalformedMsgErr = errors.New("message is malformed")
+	FilterErr        = errors.New("opcode is filtered")
+	MalformedMsgErr  = errors.New("message is malformed")
+	InvalidOpcodeErr = errors.New("invalid opcode")
+	InvalidArgsErr   = errors.New("invalid number of args")
+
+	keyOpcode   = []byte("3.key")
+	mouseOpcode = []byte("5.mouse")
 )
 
-type Element struct {
-	length int
-	value  string
+type RawFrame []byte
+
+type Element string
+
+func (e Element) String() string {
+	return string(e)
 }
 
-func (e *Element) String() string {
-	return fmt.Sprintf("%d.%s", e.length, e.value)
+type Frame struct {
+	opcode Element
+	args   []Element
 }
 
-type Message struct {
-	opcode *Element
-	args   []*Element
-}
-
-func (m *Message) String() string {
+func (f *Frame) String() string {
 	s := []string{
-		m.opcode.String(),
+		f.opcode.String(),
 	}
-	for _, arg := range m.args {
+	for _, arg := range f.args {
 		s = append(s, arg.String())
 	}
 
 	return strings.Join(s, ",") + ";"
 }
 
-func (m *Message) ArgsString() string {
-	var s []string
-	for _, arg := range m.args {
-		s = append(s, arg.String())
+func NewFrame(rawFrame RawFrame) (*Frame, error) {
+	msg := &Frame{
+		args: []Element{},
 	}
-	return strings.Join(s, ",") + ";"
-}
-
-func NewMessage(b []byte) (*Message, error) {
-	msg := &Message{
-		args: []*Element{},
-	}
-	el := &Element{}
 
 	s := ""
-	for utf8.RuneCount(b) > 0 {
-		r, size := utf8.DecodeRune(b)
+	for utf8.RuneCount(rawFrame) > 0 {
+		r, size := utf8.DecodeRune(rawFrame)
 		if r == 46 {
 			// end of length
-			l, err := strconv.Atoi(s)
-			if err != nil {
-				return nil, err
-			}
-			el.length = l
 			s = ""
 		} else if r == 44 || r == 59 {
 			// end of element || end of message
-			el.value = s
-			if msg.opcode == nil {
-				msg.opcode = el
+			if msg.opcode == "" {
+				msg.opcode = Element(s)
 			} else {
-				msg.args = append(msg.args, el)
+				msg.args = append(msg.args, Element(s))
 			}
-			el = &Element{}
 			s = ""
 		} else {
 			// normal rune
 			s += string(r)
 		}
-		b = b[size:]
+		rawFrame = rawFrame[size:]
 	}
 	return msg, nil
 }
 
-type MessageFilter struct {
-	opcodes []string
+type KeyFrame struct {
+	Key     Element
+	Pressed Element
 }
 
-func (mf *MessageFilter) Filter(b []byte) (*Message, bool, error) {
-	c := append([]byte(nil), b...)
-
-	s := ""
-	for utf8.RuneCount(b) > 0 {
-		r, size := utf8.DecodeRune(b)
-		if r == 46 {
-			// end of length
-			s = ""
-		} else if r == 44 || r == 59 {
-			// end of element
-			keep := false
-			for _, opcode := range mf.opcodes {
-				if s == opcode {
-					keep = true
-					break
-				}
-			}
-			if !keep {
-				return nil, true, nil
-			}
-			msg, err := NewMessage(c)
-			return msg, false, err
-		} else {
-			// normal rune
-			s += string(r)
-		}
-		b = b[size:]
+func NewKeyFrame(f *Frame) (*KeyFrame, error) {
+	if f.opcode != "key" {
+		return nil, InvalidOpcodeErr
 	}
-	return nil, false, MalformedMsgErr
-}
-
-type logEvent struct {
-	ts   time.Time
-	data []byte
-}
-
-type messageLogger struct {
-	logFunc func(ts time.Time, event Message)
-	c       chan logEvent
-	mf      MessageFilter
-}
-
-func (mp *messageLogger) log(t logEvent) {
-	mp.c <- t
-}
-
-func (mp *messageLogger) run() {
-	for {
-		event := <-mp.c
-		msg, dropped, err := mp.mf.Filter(event.data)
-		if err != nil {
-			log.Debug().Msgf("Failed to filter message: %s", err)
-		} else if !dropped {
-			mp.logFunc(event.ts, *msg)
-		}
+	if len(f.args) != 2 {
+		return nil, InvalidArgsErr
 	}
+	return &KeyFrame{
+		Key:     f.args[0],
+		Pressed: f.args[1],
+	}, nil
 }
 
-func newMessageLogger(logFunc func(ts time.Time, event Message), filterOpcodes []string) messageLogger {
-	mf := MessageFilter{
-		opcodes: filterOpcodes,
+type KeyFrameFilter struct{}
+
+func (kff *KeyFrameFilter) Filter(rawFrame RawFrame) (*KeyFrame, bool, error) {
+	h := []byte(rawFrame)[:len(keyOpcode)]
+	if bytes.Compare(keyOpcode, h) != 0 {
+		return nil, false, nil
+	}
+	f, err := NewFrame(rawFrame)
+	if err != nil {
+		return nil, false, err
+	}
+	kf, err := NewKeyFrame(f)
+	if err != nil {
+		return nil, false, err
+	}
+	return kf, true, nil
+}
+
+type MouseFrame struct {
+	X      Element
+	Y      Element
+	Button Element
+}
+
+func NewMouseFrame(f *Frame) (*MouseFrame, error) {
+	if f.opcode != "mouse" {
+		return nil, InvalidOpcodeErr
+	}
+	if len(f.args) != 3 {
+		return nil, InvalidArgsErr
 	}
 
-	mp := messageLogger{
-		logFunc: logFunc,
-		c:       make(chan logEvent),
-		mf:      mf,
+	return &MouseFrame{
+		X:      f.args[0],
+		Y:      f.args[1],
+		Button: f.args[2],
+	}, nil
+}
+
+type MouseFrameFilter struct{}
+
+func (ff *MouseFrameFilter) Filter(rawFrame RawFrame) (*MouseFrame, bool, error) {
+	h := []byte(rawFrame)[:len(mouseOpcode)]
+	if bytes.Compare(mouseOpcode, h) != 0 {
+		return nil, false, nil
 	}
-	go mp.run()
-	return mp
+	f, err := NewFrame(rawFrame)
+	if err != nil {
+		return nil, false, err
+	}
+	mf, err := NewMouseFrame(f)
+	if err != nil {
+		return nil, false, err
+	}
+	return mf, true, nil
 }

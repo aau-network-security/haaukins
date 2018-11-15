@@ -727,20 +727,13 @@ func websocketProxy(target string, ef *store.EventFile) http.Handler {
 			return
 		}
 
-		t, err := (*ef).GetTeamByToken(cookie.Value)
+		_, err = (*ef).GetTeamByToken(cookie.Value)
 		if err != nil {
 			log.Error().Msgf("Failed to find team by token")
 			return
 		}
-		logFunc := func(ts time.Time, msg Message) {
-			log.Debug().Msgf("Logging message..")
-			t.Logger.Log().
-				Time("time", ts).
-				Str("opcode", msg.opcode.value).
-				Msgf(msg.ArgsString())
-		}
 
-		ml := newMessageLogger(logFunc, validOpcodes)
+		//logger := ef.logpool.GetLogger(t)
 
 		rHeader := http.Header{}
 		copyHeaders(r.Header, rHeader, wsHeaders)
@@ -778,11 +771,7 @@ func websocketProxy(target string, ef *store.EventFile) http.Handler {
 				}
 
 				if monitor {
-					t := logEvent{
-						ts:   time.Now(),
-						data: data,
-					}
-					ml.log(t)
+					//logger.log(data)
 				}
 
 				if err := dst.WriteMessage(msgType, data); err != nil {
