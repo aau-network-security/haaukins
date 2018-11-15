@@ -74,13 +74,13 @@ type Challenge struct {
 }
 
 type Team struct {
-	Id               string             `yaml:"id"`
-	Email            string             `yaml:"email"`
-	Name             string             `yaml:"name"`
-	HashedPassword   string             `yaml:"hashed-password"`
-	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
-	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
-	ChalMap          map[Tag]Challenge  `yaml:"-"`
+	Id               string            `yaml:"id"`
+	Email            string            `yaml:"email"`
+	Name             string            `yaml:"name"`
+	HashedPassword   string            `yaml:"hashed-password"`
+	SolvedChallenges []Challenge       `yaml:"solved-challenges,omitempty"`
+	CreatedAt        *time.Time        `yaml:"created-at,omitempty"`
+	ChalMap          map[Tag]Challenge `yaml:"-"`
 }
 
 func NewTeam(email, name, password string, chals ...Challenge) Team {

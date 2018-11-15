@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type flagPool struct {
+type FlagPool struct {
 	m    sync.RWMutex
 	ids  map[int]*activeFlagConfig
 	tags map[store.Tag]*activeFlagConfig
@@ -23,14 +23,14 @@ func (afc *activeFlagConfig) IsStatic() bool {
 	return afc.FlagConfig.Static != ""
 }
 
-func NewFlagPool() *flagPool {
-	return &flagPool{
+func NewFlagPool() *FlagPool {
+	return &FlagPool{
 		ids:  map[int]*activeFlagConfig{},
 		tags: map[store.Tag]*activeFlagConfig{},
 	}
 }
 
-func (fp *flagPool) AddFlag(flag store.FlagConfig, cid int) string {
+func (fp *FlagPool) AddFlag(flag store.FlagConfig, cid int) string {
 	fp.m.Lock()
 	defer fp.m.Unlock()
 
@@ -47,7 +47,7 @@ func (fp *flagPool) AddFlag(flag store.FlagConfig, cid int) string {
 	return value
 }
 
-func (fp *flagPool) GetIdentifierByTag(t store.Tag) (int, error) {
+func (fp *FlagPool) GetIdentifierByTag(t store.Tag) (int, error) {
 	fp.m.RLock()
 	defer fp.m.RUnlock()
 
@@ -59,7 +59,7 @@ func (fp *flagPool) GetIdentifierByTag(t store.Tag) (int, error) {
 	return conf.CTFdIdentifier, nil
 }
 
-func (fp *flagPool) GetFlagByTag(t store.Tag) (string, error) {
+func (fp *FlagPool) GetFlagByTag(t store.Tag) (string, error) {
 	fp.m.RLock()
 	defer fp.m.RUnlock()
 
@@ -71,7 +71,7 @@ func (fp *flagPool) GetFlagByTag(t store.Tag) (string, error) {
 	return conf.CTFdFlag, nil
 }
 
-func (fp *flagPool) GetTagByIdentifier(id int) (store.Tag, error) {
+func (fp *FlagPool) GetTagByIdentifier(id int) (store.Tag, error) {
 	fp.m.RLock()
 	defer fp.m.RUnlock()
 
@@ -83,7 +83,7 @@ func (fp *flagPool) GetTagByIdentifier(id int) (store.Tag, error) {
 	return conf.Tag, nil
 }
 
-func (fp *flagPool) TranslateFlagForTeam(t store.Team, cid int, value string) string {
+func (fp *FlagPool) TranslateFlagForTeam(t store.Team, cid int, value string) string {
 	fp.m.RLock()
 	defer fp.m.RUnlock()
 

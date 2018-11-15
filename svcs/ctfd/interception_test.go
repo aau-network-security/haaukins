@@ -1,7 +1,9 @@
 package ctfd_test
 
 import (
-	"io/ioutil"
+	"encoding/json"
+	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
+	"github.com/google/uuid"
 )
 
 func TestRegisterInterception(t *testing.T) {
@@ -134,53 +137,91 @@ func TestCheckFlagInterceptor(t *testing.T) {
 	email := "some@email.com"
 	nonce := "some_nonce"
 
+	genFlags := func(value string, static bool, n int) (*ctfd.FlagPool, store.Tag, int, string) {
+		fp := ctfd.NewFlagPool()
+		var flags []store.FlagConfig
+		for i := 0; i < n-1; i++ {
+			flag := store.FlagConfig{
+				Tag:    store.Tag(uuid.New().String()),
+				EnvVar: uuid.New().String(),
+			}
+
+			if n := rand.Intn(1); n > 0 {
+				flag.Static = uuid.New().String()
+			}
+
+			flags = append(flags, flag)
+		}
+
+		flagtag := store.Tag(uuid.New().String())
+		flag := store.FlagConfig{
+			Tag:    flagtag,
+			EnvVar: "tst",
+		}
+		if static {
+			flag.Static = value
+		}
+
+		flags = append(flags, flag)
+
+		rand.Seed(time.Now().UnixNano())
+		perm := rand.Perm(len(flags))
+
+		// shuffle
+		var ctfdValue string
+		for i, v := range perm {
+			flag := flags[i]
+			ctfval := fp.AddFlag(flag, v)
+			if flag.Tag == flagtag {
+				ctfdValue = ctfval
+			}
+		}
+
+		id, _ := fp.GetIdentifierByTag(flagtag)
+
+		return fp, flagtag, id, ctfdValue
+	}
+
 	tt := []struct {
 		name      string
-		path      string
-		method    string
 		sendFlag  string
-		value     string
-		flag      *store.FlagConfig
+		flagValue string
+		static    bool
 		solve     bool
 		intercept bool
 	}{
-		{name: "Static (incorrect)", path: "/chal/1", method: "POST", sendFlag: "incorrect", value: "abc", flag: &store.FlagConfig{Tag: "tst", Static: "abcde"}, intercept: true},
-		{name: "Static (correct)", path: "/chal/1", method: "POST", sendFlag: "abc", value: "abc", flag: &store.FlagConfig{Tag: "tst", Static: "abcde"}, solve: true, intercept: true},
-		{name: "Dynamic (incorrect)", path: "/chal/1", method: "POST", sendFlag: "incorrect", value: "abc", flag: &store.FlagConfig{Tag: "tst", EnvVar: "flag"}, intercept: true},
-		{name: "Dynamic (correct)", path: "/chal/1", method: "POST", sendFlag: "abc", value: "abc", flag: &store.FlagConfig{Tag: "tst", EnvVar: "flag"}, solve: true, intercept: true},
-		{name: "Index", path: "/", method: "GET", intercept: false},
+		{name: "Static (incorrect)", sendFlag: "incorrect", flagValue: "abc", intercept: true},
+		{name: "Static (correct)", sendFlag: "abc", flagValue: "abc", static: true, solve: true, intercept: true},
+		{name: "Dynamic (incorrect)", sendFlag: "incorrect", flagValue: "abc", intercept: true},
+		{name: "Dynamic (correct)", sendFlag: "abc", flagValue: "abc", solve: true, intercept: true},
+		{name: "No flags", sendFlag: "abc", intercept: true},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, host+tc.path, nil)
-			if tc.sendFlag != "" {
-				f := url.Values{
-					"key":   {tc.sendFlag},
-					"nonce": {nonce},
-				}
-				req = httptest.NewRequest(tc.method, host+tc.path, strings.NewReader(f.Encode()))
-				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			fp, flagtag, id, ctfdValue := genFlags(tc.flagValue, tc.static, 50)
+			ts := store.NewTeamStore()
+
+			team := store.NewTeam(email, "name_goes_here", "passhere")
+			if err := ts.CreateTeam(team); err != nil {
+				t.Fatalf("expected to be able to create team")
 			}
 
-			ts := store.NewTeamStore()
-			fp := ctfd.NewFlagPool()
+			if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
+				t.Fatalf("expected to be able to create token for team")
+			}
 
-			var ctfdValue string
-			if tc.flag != nil {
-				ctfdValue = fp.AddFlag(*tc.flag, 1)
+			f := url.Values{
+				"key":   {tc.sendFlag},
+				"nonce": {nonce},
+			}
+			req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s%s%d", host, "/chal/", id), strings.NewReader(f.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			req.AddCookie(&http.Cookie{Name: "session", Value: knownSession})
 
-				team := store.NewTeam(email, "name_goes_here", "passhere", store.Challenge{FlagTag: tc.flag.Tag, FlagValue: tc.value})
-				if err := ts.CreateTeam(team); err != nil {
-					t.Fatalf("expected to be able to create team")
-				}
-
-				if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
-					t.Fatalf("expected to be able to create token for team")
-				}
-
-				cookie := http.Cookie{Name: "session", Value: knownSession}
-				req.AddCookie(&cookie)
+			if tc.flagValue != "" {
+				team.AddChallenge(store.Challenge{FlagTag: flagtag, FlagValue: tc.flagValue})
+				ts.SaveTeam(team)
 			}
 
 			interceptor := ctfd.NewCheckFlagInterceptor(ts, fp)
@@ -195,13 +236,16 @@ func TestCheckFlagInterceptor(t *testing.T) {
 
 			var key string
 			var readNonce string
-			output := `{"message":"Correct", "status": 1}`
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				key = r.FormValue("key")
 				readNonce = r.FormValue("nonce")
 
-				w.Write([]byte(output))
-				return
+				if key == ctfdValue {
+					w.Write([]byte(`{"message":"Correct", "status": 1}`))
+					return
+				}
+
+				w.Write([]byte(`{"message":"Incorrect", "status": 0}`))
 			})
 
 			if !tc.intercept {
@@ -211,32 +255,32 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			w := httptest.NewRecorder()
 			interceptor.Intercept(testHandler).ServeHTTP(w, req)
 
-			content, err := ioutil.ReadAll(w.Result().Body)
-			if err != nil {
-				t.Fatalf("unable to read response body")
+			var respJson struct {
+				M string `json:"message"`
+				S int    `json:"status"`
 			}
-
-			if string(content) != output {
-				t.Fatalf("response does not match expectation")
+			err := json.NewDecoder(w.Result().Body).Decode(&respJson)
+			if err != nil {
+				t.Fatalf("unable to read json response body")
 			}
 
 			if readNonce != nonce {
 				t.Fatalf("expected nonce (value: %s) to be parsed on, but received: %s", nonce, readNonce)
 			}
 
-			team, _ := ts.GetTeamByEmail(email)
-			chal := team.ChalMap[tc.flag.Tag]
+			team, _ = ts.GetTeamByEmail(email)
+			chal := team.ChalMap[flagtag]
 
 			inSolvedChallenges := false
 			for _, c := range team.SolvedChallenges {
-				if c.FlagTag == tc.flag.Tag {
+				if c.FlagTag == flagtag {
 					inSolvedChallenges = true
 					break
 				}
 			}
 
 			if inSolvedChallenges != tc.solve {
-				t.Fatalf("unexpected appearence/missing of challenge in solved challenges")
+				t.Fatalf("missing challenge in solved challenges for team")
 			}
 
 			if !tc.solve {
@@ -245,10 +289,6 @@ func TestCheckFlagInterceptor(t *testing.T) {
 				}
 
 				return
-			}
-
-			if key != ctfdValue {
-				t.Fatalf("expect key to pass through interception")
 			}
 
 			if chal.CompletedAt == nil {

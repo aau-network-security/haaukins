@@ -267,6 +267,10 @@ func (ev *event) Handler() http.Handler {
 			return err
 		}
 
+		if err := ev.store.SaveTeam(t); err != nil {
+			return err
+		}
+
 		return nil
 	}
 

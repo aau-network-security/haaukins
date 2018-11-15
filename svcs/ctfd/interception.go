@@ -114,10 +114,10 @@ type challengeResp struct {
 
 type checkFlagInterception struct {
 	teamStore store.TeamStore
-	flagPool  *flagPool
+	flagPool  *FlagPool
 }
 
-func NewCheckFlagInterceptor(ts store.TeamStore, fp *flagPool) *checkFlagInterception {
+func NewCheckFlagInterceptor(ts store.TeamStore, fp *FlagPool) *checkFlagInterception {
 	return &checkFlagInterception{
 		teamStore: ts,
 		flagPool:  fp,
