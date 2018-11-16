@@ -12,11 +12,29 @@ import (
 var (
 	keyOpcode   = []byte("3.key")
 	mouseOpcode = []byte("5.mouse")
+
+	KeyPressed = func(kf *KeyFrame) bool {
+		return kf.Pressed == "1"
+	}
+	MouseClicked = func(mf *MouseFrame) bool {
+		return mf.Button == "1" || mf.Button == "4" || mf.Button == "2"
+	}
 )
 
-type KeyFrameFilter struct{}
+type KeyFrameFilterCondition func(*KeyFrame) bool
 
-func (kff *KeyFrameFilter) Filter(rawFrame RawFrame) (*KeyFrame, bool, error) {
+type KeyFrameFilter interface {
+	Filter(RawFrame) (*KeyFrame, bool, error)
+}
+
+type keyFrameFilter struct {
+	conditions []KeyFrameFilterCondition
+}
+
+func (kff *keyFrameFilter) Filter(rawFrame RawFrame) (*KeyFrame, bool, error) {
+	if len(rawFrame) < len(keyOpcode) {
+		return nil, false, nil
+	}
 	h := []byte(rawFrame)[:len(keyOpcode)]
 	if bytes.Compare(keyOpcode, h) != 0 {
 		return nil, false, nil
@@ -29,15 +47,35 @@ func (kff *KeyFrameFilter) Filter(rawFrame RawFrame) (*KeyFrame, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	if kf.Pressed == "0" {
-		return nil, false, nil
+
+	for _, c := range kff.conditions {
+		if !c(kf) {
+			return nil, false, nil
+		}
 	}
 	return kf, true, nil
 }
 
-type MouseFrameFilter struct{}
+func NewKeyFrameFilter(conditions ...KeyFrameFilterCondition) KeyFrameFilter {
+	return &keyFrameFilter{
+		conditions: conditions,
+	}
+}
 
-func (ff *MouseFrameFilter) Filter(rawFrame RawFrame) (*MouseFrame, bool, error) {
+type MouseFrameFilterCondition func(*MouseFrame) bool
+
+type MouseFrameFilter interface {
+	Filter(RawFrame) (*MouseFrame, bool, error)
+}
+
+type mouseFrameFilter struct {
+	conditions []MouseFrameFilterCondition
+}
+
+func (mff *mouseFrameFilter) Filter(rawFrame RawFrame) (*MouseFrame, bool, error) {
+	if len(rawFrame) < len(mouseOpcode) {
+		return nil, false, nil
+	}
 	h := []byte(rawFrame)[:len(mouseOpcode)]
 	if bytes.Compare(mouseOpcode, h) != 0 {
 		return nil, false, nil
@@ -50,13 +88,19 @@ func (ff *MouseFrameFilter) Filter(rawFrame RawFrame) (*MouseFrame, bool, error)
 	if err != nil {
 		return nil, false, err
 	}
-	if mf.Button != "1" ||
-		mf.Button != "4" ||
-		mf.Button != "2 " {
-		// left, right, middle
-		return nil, false, nil
+	for _, c := range mff.conditions {
+		if !c(mf) {
+			return nil, false, nil
+		}
 	}
+
 	return mf, true, nil
+}
+
+func NewMouseFrameFilter(conditions ...MouseFrameFilterCondition) MouseFrameFilter {
+	return &mouseFrameFilter{
+		conditions: conditions,
+	}
 }
 
 type logEvent struct {
@@ -116,11 +160,14 @@ func (k keyLogger) Log(rawFrame RawFrame) {
 
 func NewKeyLogger(logger *zerolog.Logger) (KeyLogger, error) {
 	c := make(chan logEvent)
+	kff := NewKeyFrameFilter(KeyPressed)
+	mff := NewMouseFrameFilter(MouseClicked)
+
 	kl := keyLogger{
 		ch:     c,
 		logger: logger,
-		kff:    KeyFrameFilter{},
-		mff:    MouseFrameFilter{},
+		kff:    kff,
+		mff:    mff,
 	}
 	go kl.run()
 	return kl, nil

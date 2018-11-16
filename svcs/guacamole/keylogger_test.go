@@ -31,9 +31,15 @@ func TestKeyLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error while getting logger: %s", err)
 	}
-	logger.Log([]byte("3.key,5.10000,1.0;"))
-	logger.Log([]byte("5.mouse,3.100,4.1000,1.2;"))
-	logger.Log([]byte("4.sync,8.31163115,8.31163115;"))
+
+	// should be logged
+	logger.Log([]byte("3.key,5.10000,1.1;"))        // key pressed
+	logger.Log([]byte("5.mouse,3.100,4.1000,1.2;")) // mouse left click
+
+	// should NOT be logged
+	logger.Log([]byte("3.key,5.10000,1.0;"))            // key release
+	logger.Log([]byte("5.mouse,3.100,4.1000,1.0;"))     // no mouse click
+	logger.Log([]byte("4.sync,8.31163115,8.31163115;")) // wrong opcode
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -65,14 +71,19 @@ func TestKeyFrameFilter(t *testing.T) {
 	}{
 		{
 			name:       "Normal",
-			input:      "3.key,5.10000,1.0;",
+			input:      "3.key,5.10000,1.1;",
 			expectedOk: true,
 			key:        "10000",
-			pressed:    "0",
+			pressed:    "1",
 		},
 		{
 			name:       "Invalid opcode",
 			input:      "5.mouse,3.100,4.1000,1.2;",
+			expectedOk: false,
+		},
+		{
+			name:       "Key release",
+			input:      "3.key,5.10000,1.0;",
 			expectedOk: false,
 		},
 		{
@@ -84,7 +95,9 @@ func TestKeyFrameFilter(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			kff := guacamole.KeyFrameFilter{}
+			kff := guacamole.NewKeyFrameFilter(
+				guacamole.KeyPressed,
+			)
 
 			rf := []byte(tc.input)
 			kf, ok, err := kff.Filter(rf)
@@ -134,6 +147,16 @@ func TestMouseFrameFilter(t *testing.T) {
 			expectedOk: false,
 		},
 		{
+			name:       "Too short opcode",
+			input:      "1.a,5.10000,1.0;",
+			expectedOk: false,
+		},
+		{
+			name:       "Invalid button",
+			input:      "5.mouse,3.100,4.1000,1.0;",
+			expectedOk: false,
+		},
+		{
 			name:        "Invalid number of args",
 			input:       "5.mouse,3.100,4.1000;",
 			expectedErr: guacamole.InvalidArgsErr,
@@ -142,7 +165,9 @@ func TestMouseFrameFilter(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			mff := guacamole.MouseFrameFilter{}
+			mff := guacamole.NewMouseFrameFilter(
+				guacamole.MouseClicked,
+			)
 
 			rf := []byte(tc.input)
 			mf, ok, err := mff.Filter(rf)
