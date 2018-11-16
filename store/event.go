@@ -13,7 +13,6 @@ import (
 	"crypto/sha256"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -82,7 +81,6 @@ type Team struct {
 	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
 	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
 	ChalMap          map[Tag]*Challenge `yaml:"-"`
-	Logger           zerolog.Logger     `yaml:"-"`
 }
 
 func NewTeam(email, name, password string, chals ...Challenge) Team {
@@ -96,8 +94,6 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 		chalMap[chal.FlagTag] = &chal
 	}
 
-	logger := zerolog.New(os.Stdout)
-
 	return Team{
 		Id:             uuid.New().String()[0:8],
 		Email:          email,
@@ -105,7 +101,6 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 		HashedPassword: hashedPassword,
 		ChalMap:        chalMap,
 		CreatedAt:      &now,
-		Logger:         logger,
 	}
 }
 
@@ -397,6 +392,7 @@ func NewEventFileHub(path string) (EventFileHub, error) {
 type EventFile interface {
 	TeamStore
 	EventConfigStore
+	LogDir() string
 }
 
 type eventfile struct {
@@ -445,6 +441,13 @@ func (ef *eventfile) saveEventConfig(conf EventConfig) error {
 	ef.file.EventConfig = conf
 
 	return ef.save()
+}
+
+func (ef *eventfile) LogDir() string {
+	dir, file := filepath.Split(ef.path)
+	parts := strings.Split(file, ".")
+	relativeDir := strings.Join(parts[:len(parts)-1], ".")
+	return filepath.Join(dir, relativeDir)
 }
 
 func getFileNameForEvent(path string, tag Tag) (string, error) {

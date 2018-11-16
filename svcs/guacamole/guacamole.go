@@ -265,7 +265,7 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if isWebSocket(r) {
-				websocketProxy(host, &ef).ServeHTTP(w, r)
+				websocketProxy(host, ef).ServeHTTP(w, r)
 				return
 			}
 
@@ -713,8 +713,14 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func websocketProxy(target string, ef *store.EventFile) http.Handler {
+func websocketProxy(target string, ef store.EventFile) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
+
+	var klp KeyLoggerPool
+	klp, err := NewKeyLoggerPool(ef.LogDir())
+	if err != nil {
+		log.Warn().Msgf("Failed to create keylogger pool")
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL
@@ -727,13 +733,19 @@ func websocketProxy(target string, ef *store.EventFile) http.Handler {
 			return
 		}
 
-		_, err = (*ef).GetTeamByToken(cookie.Value)
+		t, err := ef.GetTeamByToken(cookie.Value)
 		if err != nil {
 			log.Error().Msgf("Failed to find team by token")
 			return
 		}
 
-		//logger := ef.logpool.GetLogger(t)
+		var logger KeyLogger
+		if klp != nil {
+			logger, err = klp.GetLogger(t)
+			if err != nil {
+				log.Warn().Msg("Failed to create keylogger")
+			}
+		}
 
 		rHeader := http.Header{}
 		copyHeaders(r.Header, rHeader, wsHeaders)
@@ -771,7 +783,9 @@ func websocketProxy(target string, ef *store.EventFile) http.Handler {
 				}
 
 				if monitor {
-					//logger.log(data)
+					if logger != nil {
+						logger.Log(data)
+					}
 				}
 
 				if err := dst.WriteMessage(msgType, data); err != nil {

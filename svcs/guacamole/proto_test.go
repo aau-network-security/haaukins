@@ -1,6 +1,7 @@
-package guacamole
+package guacamole_test
 
 import (
+	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"testing"
 )
 
@@ -21,13 +22,13 @@ func TestNewFrame(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			b := []byte(tc.input)
-			f, err := NewFrame(b)
+			f, err := guacamole.NewFrame(b)
 
 			if (err == nil && tc.expectErr) || (err != nil && !tc.expectErr) {
 				t.Fatalf("Expected error (%t), but got: %s", tc.expectErr, err)
 			}
-			if err == nil && len(f.args) != tc.expectedArgs {
-				t.Fatalf("Expected %d args, but got %d", tc.expectedArgs, len(f.args))
+			if err == nil && len(f.Args) != tc.expectedArgs {
+				t.Fatalf("Expected %d args, but got %d", tc.expectedArgs, len(f.Args))
 			}
 		})
 	}
@@ -38,8 +39,8 @@ func TestKeyFrame(t *testing.T) {
 		name        string
 		input       string
 		expectedErr error
-		key         Element
-		pressed     Element
+		key         guacamole.Element
+		pressed     guacamole.Element
 	}{
 		{
 			name:    "Normal",
@@ -50,23 +51,23 @@ func TestKeyFrame(t *testing.T) {
 		{
 			name:        "Invalid opcode",
 			input:       "3.kez,5.10000,1.0;",
-			expectedErr: InvalidOpcodeErr,
+			expectedErr: guacamole.InvalidOpcodeErr,
 		},
 		{
 			name:        "Invalid number of args",
 			input:       "3.key,5.10000",
-			expectedErr: InvalidArgsErr,
+			expectedErr: guacamole.InvalidArgsErr,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			rf := []byte(tc.input)
-			f, err := NewFrame(rf)
+			f, err := guacamole.NewFrame(rf)
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
-			kf, err := NewKeyFrame(f)
+			kf, err := guacamole.NewKeyFrame(f)
 			if err != tc.expectedErr {
 				t.Fatalf("Expected error (%t), but got: %s", tc.expectedErr, err)
 			}
@@ -88,9 +89,9 @@ func TestMouseFrame(t *testing.T) {
 		name        string
 		input       string
 		expectedErr error
-		x           Element
-		y           Element
-		button      Element
+		x           guacamole.Element
+		y           guacamole.Element
+		button      guacamole.Element
 	}{
 		{
 			name:   "Normal",
@@ -102,23 +103,23 @@ func TestMouseFrame(t *testing.T) {
 		{
 			name:        "Invalid opcode",
 			input:       "5.mouze,3.100,4.1000,1.2;",
-			expectedErr: InvalidOpcodeErr,
+			expectedErr: guacamole.InvalidOpcodeErr,
 		},
 		{
 			name:        "Invalid number of args",
 			input:       "5.mouse,3.100,4.1000;",
-			expectedErr: InvalidArgsErr,
+			expectedErr: guacamole.InvalidArgsErr,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			rf := []byte(tc.input)
-			f, err := NewFrame(rf)
+			f, err := guacamole.NewFrame(rf)
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
-			mf, err := NewMouseFrame(f)
+			mf, err := guacamole.NewMouseFrame(f)
 			if err != tc.expectedErr {
 				t.Fatalf("Expected error (%t), but got: %s", tc.expectedErr, err)
 			}

@@ -1,8 +1,9 @@
-package guacamole
+package guacamole_test
 
 import (
 	"bufio"
 	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/svcs/guacamole"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ func TestKeyLogger(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	logpool, err := NewKeyLoggerPool(tmpDir)
+	logpool, err := guacamole.NewKeyLoggerPool(tmpDir)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
@@ -59,8 +60,8 @@ func TestKeyFrameFilter(t *testing.T) {
 		input       string
 		expectedErr error
 		expectedOk  bool
-		key         Element
-		pressed     Element
+		key         guacamole.Element
+		pressed     guacamole.Element
 	}{
 		{
 			name:       "Normal",
@@ -77,13 +78,13 @@ func TestKeyFrameFilter(t *testing.T) {
 		{
 			name:        "Invalid number of args",
 			input:       "3.key,5.10000;",
-			expectedErr: InvalidArgsErr,
+			expectedErr: guacamole.InvalidArgsErr,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			kff := KeyFrameFilter{}
+			kff := guacamole.KeyFrameFilter{}
 
 			rf := []byte(tc.input)
 			kf, ok, err := kff.Filter(rf)
@@ -115,9 +116,9 @@ func TestMouseFrameFilter(t *testing.T) {
 		input       string
 		expectedErr error
 		expectedOk  bool
-		x           Element
-		y           Element
-		button      Element
+		x           guacamole.Element
+		y           guacamole.Element
+		button      guacamole.Element
 	}{
 		{
 			name:       "Normal",
@@ -135,13 +136,13 @@ func TestMouseFrameFilter(t *testing.T) {
 		{
 			name:        "Invalid number of args",
 			input:       "5.mouse,3.100,4.1000;",
-			expectedErr: InvalidArgsErr,
+			expectedErr: guacamole.InvalidArgsErr,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			mff := MouseFrameFilter{}
+			mff := guacamole.MouseFrameFilter{}
 
 			rf := []byte(tc.input)
 			mf, ok, err := mff.Filter(rf)

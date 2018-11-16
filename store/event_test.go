@@ -5,6 +5,9 @@ import (
 
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/google/uuid"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 func TestNewTeam(t *testing.T) {
@@ -178,5 +181,23 @@ func TestDeleteToken(t *testing.T) {
 				t.Fatalf("received error when getting team by token, but expected none: %s", err)
 			}
 		})
+	}
+}
+
+func TestLogDir(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory")
+	}
+	defer os.RemoveAll(tempDir)
+
+	eventFileNamePrefix := "test-01-01-2018"
+	eventFileName := filepath.Join(tempDir, eventFileNamePrefix+".yml")
+
+	ef := store.NewEventFile(eventFileName, store.RawEventFile{})
+
+	expectedPath := filepath.Join(tempDir, eventFileNamePrefix)
+	if ef.LogDir() != expectedPath {
+		t.Fatalf("Expected log directory at '%s', but got '%s'", expectedPath, ef.LogDir())
 	}
 }

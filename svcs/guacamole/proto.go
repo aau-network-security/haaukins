@@ -20,15 +20,15 @@ func (e Element) String() string {
 }
 
 type Frame struct {
-	opcode Element
-	args   []Element
+	Opcode Element
+	Args   []Element
 }
 
 func (f *Frame) String() string {
 	s := []string{
-		f.opcode.String(),
+		f.Opcode.String(),
 	}
-	for _, arg := range f.args {
+	for _, arg := range f.Args {
 		s = append(s, arg.String())
 	}
 
@@ -37,7 +37,7 @@ func (f *Frame) String() string {
 
 func NewFrame(rawFrame RawFrame) (*Frame, error) {
 	msg := &Frame{
-		args: []Element{},
+		Args: []Element{},
 	}
 
 	s := ""
@@ -48,10 +48,10 @@ func NewFrame(rawFrame RawFrame) (*Frame, error) {
 			s = ""
 		} else if r == 44 || r == 59 {
 			// end of element || end of message
-			if msg.opcode == "" {
-				msg.opcode = Element(s)
+			if msg.Opcode == "" {
+				msg.Opcode = Element(s)
 			} else {
-				msg.args = append(msg.args, Element(s))
+				msg.Args = append(msg.Args, Element(s))
 			}
 			s = ""
 		} else {
@@ -69,15 +69,15 @@ type KeyFrame struct {
 }
 
 func NewKeyFrame(f *Frame) (*KeyFrame, error) {
-	if f.opcode != "key" {
+	if f.Opcode != "key" {
 		return nil, InvalidOpcodeErr
 	}
-	if len(f.args) != 2 {
+	if len(f.Args) != 2 {
 		return nil, InvalidArgsErr
 	}
 	return &KeyFrame{
-		Key:     f.args[0],
-		Pressed: f.args[1],
+		Key:     f.Args[0],
+		Pressed: f.Args[1],
 	}, nil
 }
 
@@ -88,16 +88,16 @@ type MouseFrame struct {
 }
 
 func NewMouseFrame(f *Frame) (*MouseFrame, error) {
-	if f.opcode != "mouse" {
+	if f.Opcode != "mouse" {
 		return nil, InvalidOpcodeErr
 	}
-	if len(f.args) != 3 {
+	if len(f.Args) != 3 {
 		return nil, InvalidArgsErr
 	}
 
 	return &MouseFrame{
-		X:      f.args[0],
-		Y:      f.args[1],
-		Button: f.args[2],
+		X:      f.Args[0],
+		Y:      f.Args[1],
+		Button: f.Args[2],
 	}, nil
 }
