@@ -774,7 +774,7 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 					errc <- err
 				}
 
-				if monitor {
+				if monitor && t.Monitor {
 					if logger != nil {
 						logger.Log(data)
 					}

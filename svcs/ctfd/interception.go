@@ -21,52 +21,73 @@ import (
 
 var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
-)
 
-type Selector struct {
-	Label   string
-	Tag     string
-	Options []string
-	lookup  map[string]struct{}
-}
-
-func NewSelector(label string, tag string, options []string) *Selector {
-	lookup := make(map[string]struct{})
-	for _, opt := range options {
-		lookup[opt] = struct{}{}
-	}
-
-	return &Selector{
-		Label:   label,
-		Tag:     tag,
-		Options: options,
-		lookup:  lookup,
-	}
-}
-
-var (
 	selectorTmpl, _ = template.New("selector").Parse(`
 <label for="{{.Tag}}">{{.Label}}</label>
 <select name="{{.Tag}}" class="form-control">
 <option></option>{{range .Options}}
 <option>{{.}}</option>{{end}}
 </select>`)
+
+	checkboxTmpl, _ = template.New("checkbox").Parse(`
+<input class="form-check-input" type="checkbox" value="{{.Tag}}" id="{{.Tag}}-checkbox" checked>
+<label class="form-check-label" for="{{.Tag}}-checkbox">
+  {{.Text}}
+</label>
+`)
 )
 
-func (s *Selector) Html() template.HTML {
+type checkbox struct {
+	Tag  string
+	Text string
+}
+
+func NewCheckbox(tag string, text string) Input {
+	return &checkbox{
+		Tag:  tag,
+		Text: text,
+	}
+}
+
+func (c *checkbox) Html() template.HTML {
+	var out bytes.Buffer
+	checkboxTmpl.Execute(&out, c)
+	return template.HTML(out.String())
+}
+
+func (c *checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
+	v := r.FormValue(c.Tag)
+
+	if team.Metadata == nil {
+		team.Metadata = map[string]string{}
+	}
+	team.Metadata[c.Tag] = v
+
+	r.Form.Del(c.Tag)
+	return nil
+}
+
+type selector struct {
+	Label   string
+	Tag     string
+	Options []string
+	lookup  map[string]struct{}
+}
+
+func (s *selector) Html() template.HTML {
 	var out bytes.Buffer
 	selectorTmpl.Execute(&out, s)
 	return template.HTML(out.String())
 }
 
-func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
+func (s *selector) ReadMetadata(r *http.Request, team *store.Team) error {
 	v := r.FormValue(s.Tag)
 	if v == "" {
-		return fmt.Errorf("Field \"%s\" cannot be empty", s.Label)
+		return fmt.Errorf("field \"%s\" cannot be empty", s.Label)
 	}
 
 	if _, ok := s.lookup[v]; !ok {
-		return fmt.Errorf("Invalid value for field \"%s\"", s.Label)
+		return fmt.Errorf("invalid value for field \"%s\"", s.Label)
 	}
 
 	r.Form.Del(s.Tag)
@@ -80,13 +101,32 @@ func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
 	return nil
 }
 
-type ExtraFields struct {
-	Selectors [][]*Selector
+func NewSelector(label string, tag string, options []string) Input {
+	lookup := make(map[string]struct{})
+	for _, opt := range options {
+		lookup[opt] = struct{}{}
+	}
+
+	return &selector{
+		Label:   label,
+		Tag:     tag,
+		Options: options,
+		lookup:  lookup,
+	}
 }
 
-func NewExtraFields(selectors [][]*Selector) *ExtraFields {
+type Input interface {
+	Html() template.HTML
+	ReadMetadata(r *http.Request, team *store.Team) error
+}
+
+type ExtraFields struct {
+	Inputs [][]Input
+}
+
+func NewExtraFields(inputs [][]Input) *ExtraFields {
 	return &ExtraFields{
-		Selectors: selectors,
+		Inputs: inputs,
 	}
 }
 
@@ -94,18 +134,18 @@ var (
 	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
 {{range .}}
 <div class="form-group row">
-{{range .}}
-<div class="col-md-{{.Width}}">
-{{.Html}}
-</div>
-{{end}}
+	{{range .}}
+	<div class="col-md-{{.Width}}">
+		{{.Html}}
+	</div>
+	{{end}}
 </div>
 {{end}}`)
 )
 
 func (ef *ExtraFields) Html() string {
 	var rows [][]interface{}
-	for _, row := range ef.Selectors {
+	for _, row := range ef.Inputs {
 		colsize := 12 / len(row)
 		var cols []interface{}
 
@@ -126,7 +166,7 @@ func (ef *ExtraFields) Html() string {
 
 func (ef *ExtraFields) ReadMetadata(r *http.Request, team *store.Team) []error {
 	var errs []error
-	for _, row := range ef.Selectors {
+	for _, row := range ef.Inputs {
 		for _, selc := range row {
 			if err := selc.ReadMetadata(r, team); err != nil {
 				errs = append(errs, err)
@@ -211,8 +251,8 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
-
-		return store.NewTeam(email, name, pass)
+		monitor := r.FormValue("monitor") != ""
+		return store.NewTeam(email, name, pass, monitor)
 	}
 
 	updateRequest := func(r *http.Request, t *store.Team) error {

@@ -439,7 +439,7 @@ func TestSelectorReadMetadata(t *testing.T) {
 }
 
 func TestExtraFields(t *testing.T) {
-	ef := ctfd.NewExtraFields([][]*ctfd.Selector{
+	ef := ctfd.NewExtraFields([][]*ctfd.selector{
 		{
 			ctfd.NewSelector("Team Size", "team-size", []string{"1", "2", "3", "4", "5", "6", "7", "8", "9+"}),
 			ctfd.NewSelector("Technology Interest", "tech-interest", []string{"We enjoy technology", "Not interested in technology"}),

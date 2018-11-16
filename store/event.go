@@ -506,7 +506,7 @@ func getFileNameForEvent(path string, tag Tag) (string, error) {
 	filename := fmt.Sprintf("%s-%s.yml", tag, now)
 	eventPath := filepath.Join(path, filename)
 
-	if _, err := os.Stat(eventPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(eventPath); os.IsNotExist(err) {
 		return filename, nil
 	}
 
@@ -514,7 +514,7 @@ func getFileNameForEvent(path string, tag Tag) (string, error) {
 		filename := fmt.Sprintf("%s-%s-%d.yml", tag, now, i)
 		eventPath := filepath.Join(path, filename)
 
-		if _, err := os.Stat(eventPath); !os.IsNotExist(err) {
+		if _, err := os.Stat(eventPath); os.IsNotExist(err) {
 			return filename, nil
 		}
 	}
