@@ -1,12 +1,63 @@
 package guacamole
 
 import (
+	"bytes"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/util"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"time"
 )
+
+var (
+	keyOpcode   = []byte("3.key")
+	mouseOpcode = []byte("5.mouse")
+)
+
+type KeyFrameFilter struct{}
+
+func (kff *KeyFrameFilter) Filter(rawFrame RawFrame) (*KeyFrame, bool, error) {
+	h := []byte(rawFrame)[:len(keyOpcode)]
+	if bytes.Compare(keyOpcode, h) != 0 {
+		return nil, false, nil
+	}
+	f, err := NewFrame(rawFrame)
+	if err != nil {
+		return nil, false, err
+	}
+	kf, err := NewKeyFrame(f)
+	if err != nil {
+		return nil, false, err
+	}
+	if kf.Pressed == "0" {
+		return nil, false, nil
+	}
+	return kf, true, nil
+}
+
+type MouseFrameFilter struct{}
+
+func (ff *MouseFrameFilter) Filter(rawFrame RawFrame) (*MouseFrame, bool, error) {
+	h := []byte(rawFrame)[:len(mouseOpcode)]
+	if bytes.Compare(mouseOpcode, h) != 0 {
+		return nil, false, nil
+	}
+	f, err := NewFrame(rawFrame)
+	if err != nil {
+		return nil, false, err
+	}
+	mf, err := NewMouseFrame(f)
+	if err != nil {
+		return nil, false, err
+	}
+	if mf.Button != "1" ||
+		mf.Button != "4" ||
+		mf.Button != "2 " {
+		// left, right, middle
+		return nil, false, nil
+	}
+	return mf, true, nil
+}
 
 type logEvent struct {
 	timestamp time.Time

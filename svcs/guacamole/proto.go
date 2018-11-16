@@ -1,20 +1,14 @@
 package guacamole
 
 import (
-	"bytes"
 	"github.com/pkg/errors"
 	"strings"
 	"unicode/utf8"
 )
 
 var (
-	FilterErr        = errors.New("opcode is filtered")
-	MalformedMsgErr  = errors.New("message is malformed")
 	InvalidOpcodeErr = errors.New("invalid opcode")
 	InvalidArgsErr   = errors.New("invalid number of args")
-
-	keyOpcode   = []byte("3.key")
-	mouseOpcode = []byte("5.mouse")
 )
 
 type RawFrame []byte
@@ -87,24 +81,6 @@ func NewKeyFrame(f *Frame) (*KeyFrame, error) {
 	}, nil
 }
 
-type KeyFrameFilter struct{}
-
-func (kff *KeyFrameFilter) Filter(rawFrame RawFrame) (*KeyFrame, bool, error) {
-	h := []byte(rawFrame)[:len(keyOpcode)]
-	if bytes.Compare(keyOpcode, h) != 0 {
-		return nil, false, nil
-	}
-	f, err := NewFrame(rawFrame)
-	if err != nil {
-		return nil, false, err
-	}
-	kf, err := NewKeyFrame(f)
-	if err != nil {
-		return nil, false, err
-	}
-	return kf, true, nil
-}
-
 type MouseFrame struct {
 	X      Element
 	Y      Element
@@ -124,22 +100,4 @@ func NewMouseFrame(f *Frame) (*MouseFrame, error) {
 		Y:      f.args[1],
 		Button: f.args[2],
 	}, nil
-}
-
-type MouseFrameFilter struct{}
-
-func (ff *MouseFrameFilter) Filter(rawFrame RawFrame) (*MouseFrame, bool, error) {
-	h := []byte(rawFrame)[:len(mouseOpcode)]
-	if bytes.Compare(mouseOpcode, h) != 0 {
-		return nil, false, nil
-	}
-	f, err := NewFrame(rawFrame)
-	if err != nil {
-		return nil, false, err
-	}
-	mf, err := NewMouseFrame(f)
-	if err != nil {
-		return nil, false, err
-	}
-	return mf, true, nil
 }
