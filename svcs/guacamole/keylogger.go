@@ -1,12 +1,10 @@
 package guacamole
 
 import (
-	"fmt"
 	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/util"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -54,27 +52,20 @@ func (k keyLogger) run() {
 	}
 }
 
-func (k keyLogger) Log(rm RawFrame) {
+func (k keyLogger) Log(rawFrame RawFrame) {
 	timestamp := time.Now()
 
 	k.ch <- logEvent{
 		timestamp: timestamp,
-		rawFrame:  rm,
+		rawFrame:  rawFrame,
 	}
 }
 
-func NewKeyLogger(path string) (KeyLogger, error) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return nil, err
-	}
-
-	logger := zerolog.New(f)
-
+func NewKeyLogger(logger *zerolog.Logger) (KeyLogger, error) {
 	c := make(chan logEvent)
 	kl := keyLogger{
 		ch:     c,
-		logger: &logger,
+		logger: logger,
 		kff:    KeyFrameFilter{},
 		mff:    MouseFrameFilter{},
 	}
@@ -87,33 +78,24 @@ type KeyLoggerPool interface {
 }
 
 type keyLoggerPool struct {
-	dir        string
-	keyloggers map[string]KeyLogger
-}
-
-func (klp keyLoggerPool) addLogger(t store.Team) error {
-	fn := fmt.Sprintf("%s.log", t.Id)
-	fp := filepath.Join(klp.dir, fn)
-	kl, err := NewKeyLogger(fp)
-	if err != nil {
-		return err
-	}
-	klp.keyloggers[t.Id] = kl
-	return nil
+	logpool util.LogPool
 }
 
 func (klp keyLoggerPool) GetLogger(t store.Team) (KeyLogger, error) {
-	if _, ok := klp.keyloggers[t.Id]; !ok {
-		if err := klp.addLogger(t); err != nil {
-			return nil, err
-		}
+	logger, err := klp.logpool.GetLogger(t.Id)
+	if err != nil {
+		return nil, err
 	}
-	return klp.keyloggers[t.Id], nil
+	return NewKeyLogger(logger)
 }
 
-func NewKeyLoggerPool(dir string) KeyLoggerPool {
-	return keyLoggerPool{
-		keyloggers: make(map[string]KeyLogger),
-		dir:        dir,
+func NewKeyLoggerPool(dir string) (KeyLoggerPool, error) {
+	logpool, err := util.NewLogPool(dir)
+	if err != nil {
+		return nil, err
 	}
+
+	return keyLoggerPool{
+		logpool: logpool,
+	}, nil
 }

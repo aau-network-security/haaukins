@@ -17,7 +17,11 @@ func TestKeyLogger(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	logpool := NewKeyLoggerPool(tmpDir)
+	logpool, err := NewKeyLoggerPool(tmpDir)
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
 	team := store.Team{
 		Id: "team",
 	}

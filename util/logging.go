@@ -1,4 +1,4 @@
-package daemon
+package util
 
 import (
 	"io"
@@ -26,11 +26,6 @@ type logConfig struct {
 }
 
 type loggingOpts func(*logConfig) error
-
-func WriteStdErr(c *logConfig) error {
-	c.writeStdErr = true
-	return nil
-}
 
 func (lp *logPool) GetLogger(name string, opts ...loggingOpts) (*zerolog.Logger, error) {
 	lp.m.Lock()
