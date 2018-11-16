@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"github.com/aau-network-security/go-ntp/virtual"
 )
 
 func init() {
@@ -368,7 +369,7 @@ type fakeEvent struct {
 	register  int
 	finished  int
 	teams     []store.Team
-	lab       fakeLab
+	lab       *fakeLab
 	conf      store.EventConfig
 	event.Event
 }
@@ -430,16 +431,24 @@ func (fe *fakeEvent) GetTeams() []store.Team {
 }
 
 func (fe *fakeEvent) GetLabByTeam(teamId string) (lab.Lab, bool) {
-	return &fe.lab, true
+	if fe.lab != nil {
+		return fe.lab, true
+	}
+	return nil, false
 }
 
 type fakeLab struct {
 	environment exercise.Environment
+	instances []virtual.InstanceInfo
 	lab.Lab
 }
 
 func (fl *fakeLab) GetEnvironment() exercise.Environment {
 	return fl.environment
+}
+
+func (fl *fakeLab) InstanceInfo() []virtual.InstanceInfo {
+	return fl.instances
 }
 
 type fakeEnvironment struct {
@@ -799,7 +808,7 @@ func TestListEventTeams(t *testing.T) {
 				},
 			}
 
-			ev := fakeEvent{conf: store.EventConfig{Tag: store.Tag(tc.tag)}, teams: []store.Team{}, lab: fakeLab{environment: &fakeEnvironment{}}}
+			ev := fakeEvent{conf: store.EventConfig{Tag: store.Tag(tc.tag)}, teams: []store.Team{}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 0; i < tc.nExpectedTeams; i++ {
 				g := store.Team{}
 				ev.teams = append(ev.teams, g)
@@ -892,7 +901,7 @@ func TestResetExercise(t *testing.T) {
 				},
 			}
 
-			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: fakeLab{environment: &fakeEnvironment{}}}
+			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 1; i <= 2; i++ {
 				g := store.Team{Id: fmt.Sprintf("team-%d", i)}
 				ev.teams = append(ev.teams, g)
@@ -1047,6 +1056,107 @@ func TestListFrontends(t *testing.T) {
 				if f.Image != tc.expectedImages[i] {
 					t.Fatalf("expected image '%s', but got '%s'", tc.expectedImages[i], f.Image)
 				}
+			}
+		})
+	}
+}
+
+func TestGetTeamInfo(t *testing.T){
+	tt := []struct {
+		name         string
+		unauthorized bool
+		eventTag     string
+		teamId       string
+		err          string
+		numInstances int
+	}{
+		{
+			name:         "Normal",
+			eventTag:     "existing-event",
+			teamId:       "existing-team",
+			numInstances: 2,
+		},
+		{
+			name: "Unauthorized",
+			unauthorized: true,
+			err: "unauthorized",
+		},
+		{
+			name: "Unknown event",
+			eventTag: "unknown-event",
+			teamId: "existing-team",
+			err: UnknownEventErr.Error(),
+		},
+		{
+			name: "Unknown team",
+			eventTag: "existing-event",
+			teamId: "unknown-team",
+			err: UnknownTeamErr.Error(),
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			lab := fakeLab{
+				instances: []virtual.InstanceInfo{
+					{ "image-1", "docker", "id-1"},
+					{ "image-2", "vbox", "id-2"},
+				},
+			}
+			ev := &fakeEvent{
+				conf: store.EventConfig{
+					Tag: "existing-event",
+				},
+			}
+			if tc.teamId == "existing-team" {
+				ev.lab = &lab
+			}
+			ep := NewEventPool("")
+			ep.AddEvent(ev)
+
+			d := &daemon{
+				eventPool: ep,
+				auth: &noAuth{
+					allowed: !tc.unauthorized,
+				},
+			}
+
+			dialer, close := getServer(d)
+			defer close()
+
+			conn, err := grpc.DialContext(ctx, "bufnet",
+				grpc.WithDialer(dialer),
+				grpc.WithInsecure(),
+				grpc.WithPerRPCCredentials(cli.Creds{Insecure: true}),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to dial bufnet: %v", err)
+			}
+			defer conn.Close()
+
+			client := pb.NewDaemonClient(conn)
+			req := &pb.GetTeamInfoRequest{
+				TeamId: tc.teamId,
+				EventTag: tc.eventTag,
+			}
+			resp, err := client.GetTeamInfo(ctx, req)
+
+			if err != nil && err != io.EOF {
+				st, ok := status.FromError(err)
+				if ok {
+					err = fmt.Errorf(st.Message())
+				}
+				if tc.err != "" && err.Error() != tc.err {
+					t.Fatalf("expected error '%s', but got '%s'", tc.err, err.Error())
+				}
+				return
+			}
+
+			if len(resp.Instances) != tc.numInstances {
+				t.Fatalf("expected %d instances, but got %d", tc.numInstances, len(resp.Instances))
 			}
 		})
 	}

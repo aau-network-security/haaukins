@@ -19,6 +19,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	yaml "gopkg.in/yaml.v2"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -37,6 +38,7 @@ var (
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	MissingSecretKey    = errors.New("Management signing key cannot be empty")
+	UnknownTeamErr 		= errors.New("Unable to find team by that id")
 
 	version string
 )
@@ -252,6 +254,9 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		ctx = withAuditLogger(ctx, logger)
 		stream = &contextStream{stream, ctx}
 
+		header := metadata.Pairs("daemon-version", version)
+		stream.SendHeader(header)
+
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
 				return handler(srv, stream)
@@ -268,6 +273,9 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		ctx, authErr := d.auth.AuthenticateContext(ctx)
 		ctx = withAuditLogger(ctx, logger)
+
+		header := metadata.Pairs("daemon-version", version)
+		grpc.SendHeader(ctx, header)
 
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
@@ -677,6 +685,33 @@ func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemory
 func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuRequest) (*pb.Empty, error) {
 	err := d.frontends.SetCpu(in.Image, float64(in.Cpu))
 	return &pb.Empty{}, err
+}
+
+func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*pb.GetTeamInfoResponse, error) {
+	t, err := store.NewTag(in.EventTag)
+	if err != nil {
+		return nil, err
+	}
+	ev, err := d.eventPool.GetEvent(t)
+	if err != nil {
+		return nil, err
+	}
+	lab, ok := ev.GetLabByTeam(in.TeamId)
+	if !ok {
+		return nil, UnknownTeamErr
+	}
+
+	var instances []*pb.GetTeamInfoResponse_Instance
+	for _, i := range lab.InstanceInfo() {
+		instance := &pb.GetTeamInfoResponse_Instance{
+			Image: i.Image,
+			Type: i.Type,
+			Id: i.Id,
+		}
+		instances = append(instances, instance)
+	}
+	return &pb.GetTeamInfoResponse{Instances: instances}, nil
+
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {

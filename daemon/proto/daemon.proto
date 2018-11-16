@@ -18,6 +18,8 @@ service Daemon {
   rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Empty) {}
   rpc SetFrontendCpu (SetFrontendCpuRequest) returns (Empty) {}
 
+  rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
+
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
 }
@@ -150,4 +152,18 @@ message SetFrontendMemoryRequest {
 message SetFrontendCpuRequest{
     string image = 1;
     float cpu =2 ;
+}
+
+message GetTeamInfoRequest {
+    string teamId = 1;
+    string eventTag = 2;
+}
+
+message GetTeamInfoResponse {
+    message Instance {
+        string Image = 1;
+        string Type = 2;
+        string Id = 3;
+    }
+    repeated Instance instances = 1;
 }
