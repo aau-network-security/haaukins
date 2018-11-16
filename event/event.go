@@ -103,8 +103,9 @@ type event struct {
 	guac   guacamole.Guacamole
 	labhub lab.Hub
 
-	labs  map[string]lab.Lab
-	store store.EventFile
+	labs          map[string]lab.Lab
+	store         store.EventFile
+	keyLoggerPool guacamole.KeyLoggerPool
 
 	guacUserStore *guacamole.GuacUserStore
 	dockerHost    docker.Host
@@ -132,6 +133,11 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 
 	dockerHost := docker.NewHost()
 
+	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.LogDir())
+	if err != nil {
+		return nil, err
+	}
+
 	ev := &event{
 		store:         ef,
 		labhub:        hub,
@@ -139,7 +145,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
-		closers:       []io.Closer{ctf, guac, hub},
+		closers:       []io.Closer{ctf, guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
 	}
 
@@ -274,7 +280,7 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
-	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore)(ev.store)
+	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool)(ev.store)
 
 	m := http.NewServeMux()
 	m.Handle("/guaclogin", guacHandler)

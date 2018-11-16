@@ -67,7 +67,7 @@ type Guacamole interface {
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	RawLogin(username, password string) ([]byte, error)
-	ProxyHandler(us *GuacUserStore) svcs.ProxyConnector
+	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector
 }
 
 type Config struct {
@@ -239,7 +239,7 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
+func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector {
 	loginFunc := func(u string, p string) (string, error) {
 		content, err := guac.RawLogin(u, p)
 		if err != nil {
@@ -265,7 +265,7 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if isWebSocket(r) {
-				websocketProxy(host, ef).ServeHTTP(w, r)
+				websocketProxy(host, ef, klp).ServeHTTP(w, r)
 				return
 			}
 
@@ -713,14 +713,8 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func websocketProxy(target string, ef store.EventFile) http.Handler {
+func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPool) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
-
-	var klp KeyLoggerPool
-	klp, err := NewKeyLoggerPool(ef.LogDir())
-	if err != nil {
-		log.Warn().Msgf("Failed to create keylogger pool")
-	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL
@@ -740,11 +734,9 @@ func websocketProxy(target string, ef store.EventFile) http.Handler {
 		}
 
 		var logger KeyLogger
-		if klp != nil {
-			logger, err = klp.GetLogger(t)
-			if err != nil {
-				log.Warn().Msg("Failed to create keylogger")
-			}
+		logger, err = keyLoggerPool.GetLogger(t)
+		if err != nil {
+			log.Warn().Msg("Failed to create keylogger")
 		}
 
 		rHeader := http.Header{}

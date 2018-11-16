@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"time"
+	"io"
 )
 
 var (
@@ -175,18 +176,23 @@ func NewKeyLogger(logger *zerolog.Logger) (KeyLogger, error) {
 
 type KeyLoggerPool interface {
 	GetLogger(t store.Team) (KeyLogger, error)
+	io.Closer
 }
 
 type keyLoggerPool struct {
 	logpool util.LogPool
 }
 
-func (klp keyLoggerPool) GetLogger(t store.Team) (KeyLogger, error) {
+func (klp *keyLoggerPool) GetLogger(t store.Team) (KeyLogger, error) {
 	logger, err := klp.logpool.GetLogger(t.Id)
 	if err != nil {
 		return nil, err
 	}
 	return NewKeyLogger(logger)
+}
+
+func (klp *keyLoggerPool) Close() error {
+	return klp.logpool.Close()
 }
 
 func NewKeyLoggerPool(dir string) (KeyLoggerPool, error) {
@@ -195,7 +201,7 @@ func NewKeyLoggerPool(dir string) (KeyLoggerPool, error) {
 		return nil, err
 	}
 
-	return keyLoggerPool{
+	return &keyLoggerPool{
 		logpool: logpool,
 	}, nil
 }
