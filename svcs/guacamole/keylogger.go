@@ -35,7 +35,8 @@ func (k keyLogger) run() {
 			k.logger.Log().
 				Time("t", event.timestamp).
 				Str("k", string(kf.Key)).
-				Str("p", string(kf.Pressed))
+				Str("p", string(kf.Pressed)).
+				Msg("key")
 			continue
 		}
 
@@ -47,7 +48,8 @@ func (k keyLogger) run() {
 				Time("t", event.timestamp).
 				Str("x", string(mf.X)).
 				Str("y", string(mf.Y)).
-				Str("b", string(mf.Button))
+				Str("b", string(mf.Button)).
+				Msg("mouse")
 		}
 	}
 }

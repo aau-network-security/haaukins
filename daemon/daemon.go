@@ -26,6 +26,7 @@ import (
 
 	"sync"
 
+	"github.com/aau-network-security/go-ntp/util"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -86,7 +87,7 @@ type daemon struct {
 	eventPool *eventPool
 	frontends store.FrontendStore
 	ehost     event.Host
-	logPool   LogPool
+	logPool   util.LogPool
 	closers   []io.Closer
 }
 
@@ -176,7 +177,7 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
-	logPool, err := NewLogPool(conf.LogDir)
+	logPool, err := util.NewLogPool(conf.LogDir)
 	if err != nil {
 		return nil, err
 	}
@@ -241,6 +242,9 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	var logger *zerolog.Logger
 	if d.logPool != nil {
 		logger, _ = d.logPool.GetLogger("audit")
+		l := *logger
+		l = l.With().Timestamp().Logger()
+		logger = &l
 	}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
