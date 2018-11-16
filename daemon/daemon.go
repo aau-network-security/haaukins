@@ -38,7 +38,7 @@ var (
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	MissingSecretKey    = errors.New("Management signing key cannot be empty")
-	UnknownTeamErr 		= errors.New("Unable to find team by that id")
+	UnknownTeamErr      = errors.New("Unable to find team by that id")
 
 	version string
 )
@@ -488,8 +488,8 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
-	ev.Close()
 	ev.Finish()
+	ev.Close()
 	return nil
 }
 
@@ -705,8 +705,8 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 	for _, i := range lab.InstanceInfo() {
 		instance := &pb.GetTeamInfoResponse_Instance{
 			Image: i.Image,
-			Type: i.Type,
-			Id: i.Id,
+			Type:  i.Type,
+			Id:    i.Id,
 		}
 		instances = append(instances, instance)
 	}

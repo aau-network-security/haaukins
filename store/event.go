@@ -78,13 +78,14 @@ type Team struct {
 	Email            string             `yaml:"email"`
 	Name             string             `yaml:"name"`
 	HashedPassword   string             `yaml:"hashed-password"`
+	Monitor          bool               `yaml:"monitor"`
 	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
 	Metadata         map[string]string  `yaml:"metadata,omitempty"`
 	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
 	ChalMap          map[Tag]*Challenge `yaml:"-"`
 }
 
-func NewTeam(email, name, password string, chals ...Challenge) Team {
+func NewTeam(email, name, password string, monitor bool, chals ...Challenge) Team {
 	now := time.Now()
 
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
@@ -100,6 +101,7 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 		Email:          email,
 		Name:           name,
 		HashedPassword: hashedPassword,
+		Monitor:        monitor,
 		ChalMap:        chalMap,
 		CreatedAt:      &now,
 	}
@@ -393,26 +395,30 @@ func NewEventFileHub(path string) (EventFileHub, error) {
 type EventFile interface {
 	TeamStore
 	EventConfigStore
-	LogDir() string
+	Dir() string
+	Archive() error
 }
 
 type eventfile struct {
-	m    sync.Mutex
-	file RawEventFile
-	path string
+	m        sync.Mutex
+	file     RawEventFile
+	dir      string
+	filename string
 
 	TeamStore
 	EventConfigStore
 }
 
-func NewEventFile(path string, file RawEventFile) *eventfile {
+func NewEventFile(dir string, filename string, file RawEventFile) *eventfile {
 	ef := &eventfile{
-		path: path,
-		file: file,
+		dir:      dir,
+		filename: filename,
+		file:     file,
 	}
 
 	ef.TeamStore = NewTeamStore(WithTeams(file.Teams), WithPostTeamHook(ef.saveTeams))
 	ef.EventConfigStore = NewEventConfigStore(file.EventConfig, ef.saveEventConfig)
+	ef.save()
 
 	return ef
 }
@@ -423,7 +429,11 @@ func (ef *eventfile) save() error {
 		return err
 	}
 
-	return ioutil.WriteFile(ef.path, bytes, 0644)
+	return ioutil.WriteFile(ef.path(), bytes, 0644)
+}
+
+func (ef *eventfile) delete() error {
+	return os.Remove(ef.path())
 }
 
 func (ef *eventfile) saveTeams(teams []Team) error {
@@ -444,11 +454,51 @@ func (ef *eventfile) saveEventConfig(conf EventConfig) error {
 	return ef.save()
 }
 
-func (ef *eventfile) LogDir() string {
-	dir, file := filepath.Split(ef.path)
-	parts := strings.Split(file, ".")
+func (ef *eventfile) path() string {
+	return filepath.Join(ef.dir, ef.filename)
+}
+
+func (ef *eventfile) Dir() string {
+	return ef.dir
+}
+
+func (ef *eventfile) archiveDir() string {
+	parts := strings.Split(ef.filename, ".")
 	relativeDir := strings.Join(parts[:len(parts)-1], ".")
-	return filepath.Join(dir, relativeDir)
+	return filepath.Join(ef.dir, relativeDir)
+}
+
+func (ef *eventfile) Archive() error {
+	ef.m.Lock()
+	defer ef.m.Unlock()
+
+	if _, err := os.Stat(ef.archiveDir()); os.IsNotExist(err) {
+		if err := os.MkdirAll(ef.archiveDir(), os.ModePerm); err != nil {
+			return err
+		}
+	}
+
+	cpy := eventfile{
+		file:     ef.file,
+		dir:      ef.archiveDir(),
+		filename: ef.filename,
+	}
+	cpy.filename = "config.yml"
+
+	cpy.file.Teams = []Team{}
+	for _, t := range ef.GetTeams() {
+		t.Name = ""
+		t.Email = ""
+		t.HashedPassword = ""
+		cpy.file.Teams = append(cpy.file.Teams, t)
+	}
+	cpy.save()
+
+	if err := ef.delete(); err != nil {
+		log.Warn().Msgf("Failed to delete old event file: %s", err)
+	}
+
+	return nil
 }
 
 func getFileNameForEvent(path string, tag Tag) (string, error) {
@@ -456,20 +506,20 @@ func getFileNameForEvent(path string, tag Tag) (string, error) {
 	filename := fmt.Sprintf("%s-%s.yml", tag, now)
 	eventPath := filepath.Join(path, filename)
 
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return eventPath, nil
+	if _, err := os.Stat(eventPath); !os.IsNotExist(err) {
+		return filename, nil
 	}
 
 	for i := 1; i < 999; i++ {
 		filename := fmt.Sprintf("%s-%s-%d.yml", tag, now, i)
 		eventPath := filepath.Join(path, filename)
 
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			return eventPath, nil
+		if _, err := os.Stat(eventPath); !os.IsNotExist(err) {
+			return filename, nil
 		}
 	}
 
-	return "", fmt.Errorf("Unable to get filename for event")
+	return "", fmt.Errorf("unable to get filename for event")
 }
 
 func (esh *eventfilehub) CreateEventFile(conf EventConfig) (EventFile, error) {
@@ -478,7 +528,7 @@ func (esh *eventfilehub) CreateEventFile(conf EventConfig) (EventFile, error) {
 		return nil, err
 	}
 
-	ef := NewEventFile(filename, RawEventFile{EventConfig: conf})
+	ef := NewEventFile(esh.path, filename, RawEventFile{EventConfig: conf})
 	if err := ef.save(); err != nil {
 		return nil, err
 	}
@@ -502,8 +552,10 @@ func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 			}
 
 			if ef.FinishedAt == nil {
+				dir, filename := filepath.Split(path)
+
 				log.Debug().Str("name", ef.Name).Msg("Found unfinished event")
-				events = append(events, NewEventFile(path, ef))
+				events = append(events, NewEventFile(dir, filename, ef))
 			}
 		}
 

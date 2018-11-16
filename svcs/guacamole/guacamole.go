@@ -24,13 +24,13 @@ import (
 )
 
 var (
-	MalformedLoginErr = errors.New("Malformed login response")
-	NoHostErr         = errors.New("Host is missing")
-	NoPortErr         = errors.New("Port is missing")
-	NoNameErr         = errors.New("Name is missing")
-	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
-	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
-	SessionErr        = errors.New("Session must exist")
+	MalformedLoginErr = errors.New("malformed login response")
+	NoHostErr         = errors.New("host is missing")
+	NoPortErr         = errors.New("port is missing")
+	NoNameErr         = errors.New("name is missing")
+	IncorrectColorErr = errors.New("colorDepth can take the following values: 8, 16, 24, 32")
+	UnexpectedRespErr = errors.New("unexpected response from Guacamole")
+	SessionErr        = errors.New("session must exist")
 
 	DefaultAdminUser = "guacadmin"
 	DefaultAdminPass = "guacadmin"

@@ -12,7 +12,7 @@ import (
 
 func TestNewTeam(t *testing.T) {
 	password := "some_password"
-	team := store.NewTeam("some name", "some@email.com", password)
+	team := store.NewTeam("some name", "some@email.com", password, false)
 
 	if team.HashedPassword == password {
 		t.Fatalf("expected password to be hashed")
@@ -26,7 +26,7 @@ func TestTeamSolveTask(t *testing.T) {
 	}
 	value := "meowwww"
 
-	team := store.NewTeam("some name", "some@email.com", "some_password", []store.Challenge{
+	team := store.NewTeam("some name", "some@email.com", "some_password", false, []store.Challenge{
 		{FlagTag: etag, FlagValue: value},
 	}...)
 
@@ -184,20 +184,32 @@ func TestDeleteToken(t *testing.T) {
 	}
 }
 
-func TestLogDir(t *testing.T) {
+func TestArchive(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatalf("Failed to create temporary directory")
 	}
 	defer os.RemoveAll(tempDir)
 
-	eventFileNamePrefix := "test-01-01-2018"
-	eventFileName := filepath.Join(tempDir, eventFileNamePrefix+".yml")
+	eventTag := "testevent"
 
-	ef := store.NewEventFile(eventFileName, store.RawEventFile{})
+	ef := store.NewEventFile(tempDir, eventTag+".yml", store.RawEventFile{})
 
-	expectedPath := filepath.Join(tempDir, eventFileNamePrefix)
-	if ef.LogDir() != expectedPath {
-		t.Fatalf("Expected log directory at '%s', but got '%s'", expectedPath, ef.LogDir())
+	team := store.NewTeam("test@email.com", "BestTeam", "1234", false)
+	if err := ef.CreateTeam(team); err != nil {
+		t.Fatalf("Unexpected error while creatingaving team")
+	}
+
+	if err := ef.Archive(); err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	archiveFile := filepath.Join(tempDir, eventTag, "config.yml")
+	if _, err := os.Stat(archiveFile); err != nil {
+		t.Fatalf("Expected '%s' to exist, but got error: %s", archiveFile, err)
+	}
+	eventFile := filepath.Join(tempDir, eventTag+".yml")
+	if _, err := os.Stat(eventFile); !os.IsNotExist(err) {
+		t.Fatalf("Expected '%s' to be removed, but it still exists: %s", eventFile, err)
 	}
 }

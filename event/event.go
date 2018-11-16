@@ -133,7 +133,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 
 	dockerHost := docker.NewHost()
 
-	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.LogDir())
+	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.Dir())
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +147,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guacUserStore: guacamole.NewGuacUserStore(),
 		closers:       []io.Closer{ctf, guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
+		keyLoggerPool: keyLoggerPool,
 	}
 
 	return ev, nil
@@ -196,6 +197,10 @@ func (ev *event) Close() error {
 		}(closer)
 	}
 	wg.Wait()
+
+	if err := ev.store.Archive(); err != nil {
+		log.Warn().Msgf("error while archiving event: %s", err)
+	}
 
 	return nil
 }
