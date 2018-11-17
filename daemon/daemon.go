@@ -696,6 +696,7 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 			Image: i.Image,
 			Type: i.Type,
 			Id: i.Id,
+			State: int32(i.State),
 		}
 		instances = append(instances, instance)
 	}
