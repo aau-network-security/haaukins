@@ -22,7 +22,7 @@ import (
 var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
 
-	selectorTmpl, _ = template.New("selector").Parse(`
+	selectorTmpl, _ = template.New("Selector").Parse(`
 <label for="{{.Tag}}">{{.Label}}</label>
 <select name="{{.Tag}}" class="form-control">
 <option></option>{{range .Options}}
@@ -37,25 +37,25 @@ var (
 `)
 )
 
-type checkbox struct {
+type Checkbox struct {
 	Tag  string
 	Text string
 }
 
-func NewCheckbox(tag string, text string) Input {
-	return &checkbox{
+func NewCheckbox(tag string, text string) *Checkbox {
+	return &Checkbox{
 		Tag:  tag,
 		Text: text,
 	}
 }
 
-func (c *checkbox) Html() template.HTML {
+func (c *Checkbox) Html() template.HTML {
 	var out bytes.Buffer
 	checkboxTmpl.Execute(&out, c)
 	return template.HTML(out.String())
 }
 
-func (c *checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
+func (c *Checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
 	formName := fmt.Sprintf("%s-checkbox", c.Tag)
 	v := r.FormValue(formName)
 
@@ -68,20 +68,20 @@ func (c *checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
 	return nil
 }
 
-type selector struct {
+type Selector struct {
 	Label   string
 	Tag     string
 	Options []string
 	lookup  map[string]struct{}
 }
 
-func (s *selector) Html() template.HTML {
+func (s *Selector) Html() template.HTML {
 	var out bytes.Buffer
 	selectorTmpl.Execute(&out, s)
 	return template.HTML(out.String())
 }
 
-func (s *selector) ReadMetadata(r *http.Request, team *store.Team) error {
+func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
 	v := r.FormValue(s.Tag)
 	if v == "" {
 		return fmt.Errorf("field \"%s\" cannot be empty", s.Label)
@@ -102,13 +102,13 @@ func (s *selector) ReadMetadata(r *http.Request, team *store.Team) error {
 	return nil
 }
 
-func NewSelector(label string, tag string, options []string) Input {
+func NewSelector(label string, tag string, options []string) *Selector {
 	lookup := make(map[string]struct{})
 	for _, opt := range options {
 		lookup[opt] = struct{}{}
 	}
 
-	return &selector{
+	return &Selector{
 		Label:   label,
 		Tag:     tag,
 		Options: options,

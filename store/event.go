@@ -420,7 +420,6 @@ func NewEventFile(dir string, filename string, file RawEventFile) *eventfile {
 
 	ef.TeamStore = NewTeamStore(WithTeams(file.Teams), WithPostTeamHook(ef.saveTeams))
 	ef.EventConfigStore = NewEventConfigStore(file.EventConfig, ef.saveEventConfig)
-	ef.save()
 
 	return ef
 }
@@ -479,9 +478,8 @@ func (ef *eventfile) Archive() error {
 	cpy := eventfile{
 		file:     ef.file,
 		dir:      ef.ArchiveDir(),
-		filename: ef.filename,
+		filename: "config.yml",
 	}
-	cpy.filename = "config.yml"
 
 	cpy.file.Teams = []Team{}
 	for _, t := range ef.GetTeams() {

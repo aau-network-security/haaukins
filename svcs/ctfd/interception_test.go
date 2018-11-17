@@ -397,8 +397,8 @@ func TestSelectorReadMetadata(t *testing.T) {
 		err  string
 	}{
 		{name: "Normal", form: &url.Values{"age": {"0-14"}}},
-		{name: "No values", err: `Field "Age" cannot be empty`},
-		{name: "Invalid value", err: `Invalid value for field "Age"`, form: &url.Values{"age": {"abc"}}},
+		{name: "No values", err: `field "Age" cannot be empty`},
+		{name: "Invalid value", err: `invalid value for field "Age"`, form: &url.Values{"age": {"abc"}}},
 	}
 
 	for _, tc := range tt {
@@ -438,14 +438,74 @@ func TestSelectorReadMetadata(t *testing.T) {
 	}
 }
 
+func TestCheckboxHtml(t *testing.T) {
+	cbox := ctfd.NewCheckbox("agree", "I agree")
+	htmlStr := cbox.Html()
+
+	doc, err := goquery.NewDocumentFromReader(
+		strings.NewReader(string(htmlStr)),
+	)
+	if err != nil {
+		t.Fatalf("unable to read html: %s", err)
+	}
+
+	if doc.Find("input[class=form-check-input]") == nil {
+		t.Fatalf("expected input with class 'form-check-input' to exist, but it does not")
+	}
+}
+
+func TestCheckboxReadMetadata(t *testing.T) {
+	cbox := ctfd.NewCheckbox("agree", "I agree")
+
+	tt := []struct {
+		name string
+		form *url.Values
+	}{
+		{name: "Normal", form: &url.Values{"consent-checkbox": {"y"}}},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "http://test.com", nil)
+			if tc.form != nil {
+				values := *tc.form
+				req = httptest.NewRequest("POST", "http://test.com", strings.NewReader(values.Encode()))
+				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			}
+
+			var team store.Team
+			if err := cbox.ReadMetadata(req, &team); err != nil {
+				t.Fatalf("unexpected error: %s", err)
+			}
+
+
+			if team.Metadata["consent"] != tc.form.Get("consent") {
+				t.Fatalf("expected team 'consent' metadata to be '%s', but got '%s'", tc.form.Get("consent"), team.Metadata["consent"])
+			}
+		})
+	}
+}
+
 func TestExtraFields(t *testing.T) {
-	ef := ctfd.NewExtraFields([][]*ctfd.selector{
+	ef := ctfd.NewExtraFields([]ctfd.InputRow{
 		{
-			ctfd.NewSelector("Team Size", "team-size", []string{"1", "2", "3", "4", "5", "6", "7", "8", "9+"}),
-			ctfd.NewSelector("Technology Interest", "tech-interest", []string{"We enjoy technology", "Not interested in technology"}),
+			Class: "form-group",
+			Inputs: []ctfd.Input{
+				ctfd.NewSelector("Team Size", "team-size", []string{"1", "2", "3", "4", "5", "6", "7", "8", "9+"}),
+				ctfd.NewSelector("Technology Interest", "tech-interest", []string{"We enjoy technology", "Not interested in technology"}),
+			},
 		},
 		{
-			ctfd.NewSelector("Hacking Experience (in total)", "hack-exp", []string{"None", "1-2 years", "3-4 years", "5-8 years", "9+ years"}),
+			Class: "form-group",
+			Inputs: []ctfd.Input{
+				ctfd.NewSelector("Hacking Experience (in total)", "hack-exp", []string{"None", "1-2 years", "3-4 years", "5-8 years", "9+ years"}),
+			},
+		},
+		{
+			Class: "form-check",
+			Inputs: []ctfd.Input{
+				ctfd.NewCheckbox("agree", "I agree"),
+			},
 		},
 	})
 

@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+		"fmt"
+	"time"
 )
 
 func TestNewTeam(t *testing.T) {
@@ -211,5 +213,41 @@ func TestArchive(t *testing.T) {
 	eventFile := filepath.Join(tempDir, eventTag+".yml")
 	if _, err := os.Stat(eventFile); !os.IsNotExist(err) {
 		t.Fatalf("Expected '%s' to be removed, but it still exists: %s", eventFile, err)
+	}
+}
+
+func TestCreateEventFile(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory")
+	}
+	defer os.RemoveAll(tempDir)
+
+	hub, err := store.NewEventFileHub(tempDir)
+	if err != nil {
+		t.Fatalf("Unexpected error while creating event file hub: %s", err)
+	}
+	ec := store.EventConfig{
+		Tag: "test",
+	}
+
+	now := time.Now().Format("02-01-06")
+
+	expectedDirs := []string{
+		fmt.Sprintf("test-%s", now),
+		fmt.Sprintf("test-%s-1", now),
+		fmt.Sprintf("test-%s-2", now),
+		fmt.Sprintf("test-%s-3", now),
+	}
+
+	for _, expectedDir := range expectedDirs {
+		ef, err := hub.CreateEventFile(ec)
+		if err != nil {
+			t.Fatalf("Unexpected error while creating first event file: %s", err)
+		}
+
+		if ef.ArchiveDir() != filepath.Join(tempDir, expectedDir) {
+			t.Fatalf("Expected archive directory '%s', but got '%s'", filepath.Join(tempDir, expectedDir), ef.ArchiveDir())
+		}
 	}
 }
