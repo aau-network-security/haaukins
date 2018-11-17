@@ -12,7 +12,7 @@ import (
 
 func TestNewTeam(t *testing.T) {
 	password := "some_password"
-	team := store.NewTeam("some name", "some@email.com", password, false)
+	team := store.NewTeam("some name", "some@email.com", password)
 
 	if team.HashedPassword == password {
 		t.Fatalf("expected password to be hashed")
@@ -26,7 +26,7 @@ func TestTeamSolveTask(t *testing.T) {
 	}
 	value := "meowwww"
 
-	team := store.NewTeam("some name", "some@email.com", "some_password", false, []store.Challenge{
+	team := store.NewTeam("some name", "some@email.com", "some_password", []store.Challenge{
 		{FlagTag: etag, FlagValue: value},
 	}...)
 
@@ -195,7 +195,7 @@ func TestArchive(t *testing.T) {
 
 	ef := store.NewEventFile(tempDir, eventTag+".yml", store.RawEventFile{})
 
-	team := store.NewTeam("test@email.com", "BestTeam", "1234", false)
+	team := store.NewTeam("test@email.com", "BestTeam", "1234")
 	if err := ef.CreateTeam(team); err != nil {
 		t.Fatalf("Unexpected error while creatingaving team")
 	}

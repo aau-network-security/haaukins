@@ -133,7 +133,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 
 	dockerHost := docker.NewHost()
 
-	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.Dir())
+	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.ArchiveDir())
 	if err != nil {
 		return nil, err
 	}

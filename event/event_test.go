@@ -191,7 +191,7 @@ func TestEvent_AssignLab(t *testing.T) {
 			}
 			ev.Start(context.Background())
 
-			team := store.NewTeam("what@ever.com", "test", "passworder", false)
+			team := store.NewTeam("what@ever.com", "test", "passworder")
 			if err := ev.AssignLab(&team); err != tc.expectedErr {
 				t.Fatalf("Unexpected error %s, expected %s", err, tc.expectedErr)
 			}

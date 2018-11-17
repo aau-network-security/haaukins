@@ -78,14 +78,13 @@ type Team struct {
 	Email            string             `yaml:"email"`
 	Name             string             `yaml:"name"`
 	HashedPassword   string             `yaml:"hashed-password"`
-	Monitor          bool               `yaml:"monitor"`
 	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
 	Metadata         map[string]string  `yaml:"metadata,omitempty"`
 	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
 	ChalMap          map[Tag]*Challenge `yaml:"-"`
 }
 
-func NewTeam(email, name, password string, monitor bool, chals ...Challenge) Team {
+func NewTeam(email, name, password string, chals ...Challenge) Team {
 	now := time.Now()
 
 	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
@@ -101,7 +100,6 @@ func NewTeam(email, name, password string, monitor bool, chals ...Challenge) Tea
 		Email:          email,
 		Name:           name,
 		HashedPassword: hashedPassword,
-		Monitor:        monitor,
 		ChalMap:        chalMap,
 		CreatedAt:      &now,
 	}
@@ -392,11 +390,15 @@ func NewEventFileHub(path string) (EventFileHub, error) {
 	}, nil
 }
 
+type Archiver interface {
+	ArchiveDir() string
+	Archive() error
+}
+
 type EventFile interface {
 	TeamStore
 	EventConfigStore
-	Dir() string
-	Archive() error
+	Archiver
 }
 
 type eventfile struct {
@@ -458,11 +460,7 @@ func (ef *eventfile) path() string {
 	return filepath.Join(ef.dir, ef.filename)
 }
 
-func (ef *eventfile) Dir() string {
-	return ef.dir
-}
-
-func (ef *eventfile) archiveDir() string {
+func (ef *eventfile) ArchiveDir() string {
 	parts := strings.Split(ef.filename, ".")
 	relativeDir := strings.Join(parts[:len(parts)-1], ".")
 	return filepath.Join(ef.dir, relativeDir)
@@ -472,15 +470,15 @@ func (ef *eventfile) Archive() error {
 	ef.m.Lock()
 	defer ef.m.Unlock()
 
-	if _, err := os.Stat(ef.archiveDir()); os.IsNotExist(err) {
-		if err := os.MkdirAll(ef.archiveDir(), os.ModePerm); err != nil {
+	if _, err := os.Stat(ef.ArchiveDir()); os.IsNotExist(err) {
+		if err := os.MkdirAll(ef.ArchiveDir(), os.ModePerm); err != nil {
 			return err
 		}
 	}
 
 	cpy := eventfile{
 		file:     ef.file,
-		dir:      ef.archiveDir(),
+		dir:      ef.ArchiveDir(),
 		filename: ef.filename,
 	}
 	cpy.filename = "config.yml"

@@ -774,7 +774,8 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 					errc <- err
 				}
 
-				if monitor && t.Monitor {
+				consent, ok := t.Metadata["consent"]
+				if monitor && ok && consent != "" {
 					if logger != nil {
 						logger.Log(data)
 					}

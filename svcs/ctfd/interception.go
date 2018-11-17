@@ -30,7 +30,7 @@ var (
 </select>`)
 
 	checkboxTmpl, _ = template.New("checkbox").Parse(`
-<input class="form-check-input" type="checkbox" value="{{.Tag}}" id="{{.Tag}}-checkbox" checked>
+<input class="form-check-input" type="checkbox" name="{{.Tag}}-checkbox" value="y" checked>
 <label class="form-check-label" for="{{.Tag}}-checkbox">
   {{.Text}}
 </label>
@@ -56,7 +56,8 @@ func (c *checkbox) Html() template.HTML {
 }
 
 func (c *checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
-	v := r.FormValue(c.Tag)
+	formName := fmt.Sprintf("%s-checkbox", c.Tag)
+	v := r.FormValue(formName)
 
 	if team.Metadata == nil {
 		team.Metadata = map[string]string{}
@@ -120,21 +121,26 @@ type Input interface {
 	ReadMetadata(r *http.Request, team *store.Team) error
 }
 
-type ExtraFields struct {
-	Inputs [][]Input
+type InputRow struct {
+	Class  string
+	Inputs []Input
 }
 
-func NewExtraFields(inputs [][]Input) *ExtraFields {
+type ExtraFields struct {
+	Rows []InputRow
+}
+
+func NewExtraFields(rows []InputRow) *ExtraFields {
 	return &ExtraFields{
-		Inputs: inputs,
+		Rows: rows,
 	}
 }
 
 var (
 	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
 {{range .}}
-<div class="form-group row">
-	{{range .}}
+<div class="{{.Class}} row">
+	{{range .Inputs}}
 	<div class="col-md-{{.Width}}">
 		{{.Html}}
 	</div>
@@ -144,19 +150,29 @@ var (
 )
 
 func (ef *ExtraFields) Html() string {
-	var rows [][]interface{}
-	for _, row := range ef.Inputs {
-		colsize := 12 / len(row)
-		var cols []interface{}
+	var rows []struct {
+		Class  string
+		Inputs []interface{}
+	}
+	for _, row := range ef.Rows {
+		colsize := 12 / len(row.Inputs)
 
-		for _, col := range row {
+		var cols []interface{}
+		for _, col := range row.Inputs {
 			cols = append(cols, struct {
 				Width int
 				Html  template.HTML
 			}{colsize, col.Html()})
 		}
 
-		rows = append(rows, cols)
+		htmlRow := struct {
+			Class  string
+			Inputs []interface{}
+		}{
+			Class:  row.Class,
+			Inputs: cols,
+		}
+		rows = append(rows, htmlRow)
 	}
 
 	var out bytes.Buffer
@@ -166,8 +182,8 @@ func (ef *ExtraFields) Html() string {
 
 func (ef *ExtraFields) ReadMetadata(r *http.Request, team *store.Team) []error {
 	var errs []error
-	for _, row := range ef.Inputs {
-		for _, selc := range row {
+	for _, row := range ef.Rows {
+		for _, selc := range row.Inputs {
 			if err := selc.ReadMetadata(r, team); err != nil {
 				errs = append(errs, err)
 			}
@@ -251,8 +267,7 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
-		monitor := r.FormValue("monitor") != ""
-		return store.NewTeam(email, name, pass, monitor)
+		return store.NewTeam(email, name, pass)
 	}
 
 	updateRequest := func(r *http.Request, t *store.Team) error {
