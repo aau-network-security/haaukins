@@ -46,7 +46,6 @@ func (ge *GuacError) Error() string {
 }
 
 type Guacamole interface {
-	docker.Identifier
 	io.Closer
 	Start(context.Context) error
 	CreateUser(username, password string) error
@@ -60,7 +59,7 @@ type Config struct {
 	AdminPass string `yaml:"admin_pass"`
 }
 
-func New(conf Config) (Guacamole, error) {
+func New(ctx context.Context, conf Config) (Guacamole, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -84,7 +83,7 @@ func New(conf Config) (Guacamole, error) {
 		conf:   conf,
 	}
 
-	if err := guac.create(); err != nil {
+	if err := guac.create(ctx); err != nil {
 		return nil, err
 	}
 
@@ -95,13 +94,8 @@ type guacamole struct {
 	conf       Config
 	token      string
 	client     *http.Client
-	web        docker.Container
 	webPort    uint
-	containers []docker.Container
-}
-
-func (guac *guacamole) ID() string {
-	return guac.web.ID()
+	containers map[string]docker.Container
 }
 
 func (guac *guacamole) Close() error {
@@ -115,101 +109,85 @@ func (guac *guacamole) GetAdminPass() string {
 	return guac.conf.AdminPass
 }
 
-func (guac *guacamole) create() error {
-	guacd, err := docker.NewContainer(docker.ContainerConfig{
+func (guac *guacamole) create(ctx context.Context) error {
+	containers := map[string]docker.Container{}
+
+	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd",
 		UseBridge: true,
 	})
-	if err != nil {
-		return err
-	}
-	guac.containers = append(guac.containers, guacd)
 
-	guacdAlias, err := guacd.BridgeAlias()
-	if err != nil {
-		return err
-	}
-
-	err = guacd.Start()
-	if err != nil {
-		return err
-	}
-
-	dbEnv := map[string]string{
-		"MYSQL_ROOT_PASSWORD": uuid.New().String(),
-		"MYSQL_DATABASE":      "guacamole_db",
-		"MYSQL_USER":          "guacamole_user",
-		"MYSQL_PASSWORD":      uuid.New().String(),
-	}
-	db, err := docker.NewContainer(docker.ContainerConfig{
-		Image:   "registry.sec-aau.dk/aau/guacamole-mysql",
-		EnvVars: dbEnv,
+	mysqlPass := uuid.New().String()
+	containers["db"] = docker.NewContainer(docker.ContainerConfig{
+		Image: "registry.sec-aau.dk/aau/guacamole-mysql",
+		EnvVars: map[string]string{
+			"MYSQL_ROOT_PASSWORD": uuid.New().String(),
+			"MYSQL_DATABASE":      "guacamole_db",
+			"MYSQL_USER":          "guacamole_user",
+			"MYSQL_PASSWORD":      mysqlPass,
+		},
 	})
-	if err != nil {
-		return err
-	}
-	guac.containers = append(guac.containers, db)
-
-	dbAlias, err := db.BridgeAlias()
-	if err != nil {
-		return err
-	}
-
-	err = db.Start()
-	if err != nil {
-		return err
-	}
-
-	webEnv := map[string]string{
-		"MYSQL_DATABASE": "guacamole_db",
-		"MYSQL_USER":     "guacamole_user",
-		"MYSQL_PASSWORD": dbEnv["MYSQL_PASSWORD"],
-		"GUACD_HOSTNAME": guacdAlias,
-		"MYSQL_HOSTNAME": dbAlias,
-	}
 
 	guac.webPort = virtual.GetAvailablePort()
-	webConf := docker.ContainerConfig{
-		Image:   "registry.sec-aau.dk/aau/guacamole",
-		EnvVars: webEnv,
+	guacdAlias := uuid.New().String()
+	dbAlias := uuid.New().String()
+	containers["web"] = docker.NewContainer(docker.ContainerConfig{
+		Image: "registry.sec-aau.dk/aau/guacamole",
+		EnvVars: map[string]string{
+			"MYSQL_DATABASE": "guacamole_db",
+			"MYSQL_USER":     "guacamole_user",
+			"MYSQL_PASSWORD": mysqlPass,
+			"GUACD_HOSTNAME": guacdAlias,
+			"MYSQL_HOSTNAME": dbAlias,
+		},
 		PortBindings: map[string]string{
 			"8080/tcp": fmt.Sprintf("127.0.0.1:%d", guac.webPort),
 		},
 		UseBridge: true,
+	})
+
+	closeAll := func() {
+		for _, c := range containers {
+			c.Close()
+		}
 	}
 
-	web, err := docker.NewContainer(webConf)
-	if err != nil {
+	for _, cname := range []string{"guacd", "db", "web"} {
+		c := containers[cname]
+
+		if err := c.Run(ctx); err != nil {
+			closeAll()
+			return err
+		}
+
+		var alias string
+		switch cname {
+		case "guacd":
+			alias = guacdAlias
+		case "db":
+			alias = dbAlias
+		}
+
+		if _, err := c.BridgeAlias(alias); err != nil {
+			closeAll()
+			return err
+		}
+	}
+
+	if err := guac.configureInstance(); err != nil {
+		closeAll()
 		return err
 	}
 
-	_, err = web.BridgeAlias()
-	if err != nil {
-		return err
-	}
-
-	err = web.Start()
-	if err != nil {
-		return err
-	}
-
-	err = guac.configureInstance()
-	if err != nil {
-		return err
-	}
-
-	guac.containers = append(guac.containers, web)
-	guac.web = web
-
+	guac.containers = containers
 	guac.stop()
 
 	return nil
 }
 
 func (guac *guacamole) Start(ctx context.Context) error {
-
 	for _, container := range guac.containers {
-		if err := container.Start(); err != nil {
+		if err := container.Start(ctx); err != nil {
 			return err
 		}
 	}
@@ -246,7 +224,6 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
 			req.Header.Add("X-Forwarded-Host", req.Host)
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
-			req.URL.Path = req.URL.Path
 		}}
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

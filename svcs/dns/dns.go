@@ -1,12 +1,14 @@
 package dns
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 
-	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"io"
+
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/rs/zerolog/log"
 )
 
@@ -77,7 +79,7 @@ func New(records []RR) (*Server, error) {
 
 	f.Sync()
 
-	cont, err := docker.NewContainer(docker.ContainerConfig{
+	cont := docker.NewContainer(docker.ContainerConfig{
 		Image: "coredns/coredns",
 		Mounts: []string{
 			fmt.Sprintf("%s:/Corefile", coreFile),
@@ -93,23 +95,19 @@ func New(records []RR) (*Server, error) {
 		},
 		Cmd: []string{"--conf", "Corefile"},
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	return &Server{
 		cont:     cont,
 		confFile: confFile,
 	}, nil
-
 }
 
 func (s *Server) Container() docker.Container {
 	return s.cont
 }
 
-func (s *Server) Start() error {
-	return s.cont.Start()
+func (s *Server) Run(ctx context.Context) error {
+	return s.cont.Run(ctx)
 }
 
 func (s *Server) Close() error {

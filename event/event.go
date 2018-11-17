@@ -35,6 +35,7 @@ type Host interface {
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
 	return &eventHost{
+		ctx:  context.Background(),
 		efh:  efh,
 		vlib: vlib,
 		elib: elib,
@@ -42,6 +43,7 @@ func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub
 }
 
 type eventHost struct {
+	ctx  context.Context
 	efh  store.EventFileHub
 	vlib vbox.Library
 	elib store.ExerciseStore
@@ -68,7 +70,7 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		return nil, err
 	}
 
-	return NewEvent(ef, hub)
+	return NewEvent(eh.ctx, ef, hub)
 }
 
 func (eh *eventHost) CreateEventFromConfig(conf store.EventConfig) (Event, error) {
@@ -112,7 +114,7 @@ type event struct {
 	closers []io.Closer
 }
 
-func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
+func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, error) {
 	conf := ef.Read()
 	ctfdConf := ctfd.Config{
 		Name:  conf.Name,
@@ -120,12 +122,12 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		Teams: ef.GetTeams(),
 	}
 
-	ctf, err := ctfd.New(ctfdConf)
+	ctf, err := ctfd.New(ctx, ctfdConf)
 	if err != nil {
 		return nil, err
 	}
 
-	guac, err := guacamole.New(guacamole.Config{})
+	guac, err := guacamole.New(ctx, guacamole.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +149,7 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	if err := ev.ctfd.Start(); err != nil {
+	if err := ev.ctfd.Start(ctx); err != nil {
 		log.
 			Error().
 			Err(err).

@@ -11,7 +11,12 @@ import (
 
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/ctfd"
+	"github.com/rs/zerolog"
 )
+
+func init() {
+	zerolog.SetGlobalLevel(zerolog.Disabled)
+}
 
 func TestRegisterInterception(t *testing.T) {
 	host := "http://sec02.lab.es.aau.dk"

@@ -1,6 +1,7 @@
 package lab
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aau-network-security/go-ntp/exercise"
@@ -22,7 +23,7 @@ type testVboxLibrary struct {
 	vbox.Library
 }
 
-func (vl *testVboxLibrary) GetCopy(store.InstanceConfig, ...vbox.VMOpt) (vbox.VM, error) {
+func (vl *testVboxLibrary) GetCopy(context.Context, store.InstanceConfig, ...vbox.VMOpt) (vbox.VM, error) {
 	return vl.vm, nil
 }
 
@@ -48,7 +49,7 @@ func TestAddFrontend(t *testing.T) {
 	}
 	conf := store.InstanceConfig{}
 
-	lab.addFrontend(conf)
+	lab.addFrontend(context.Background(), conf)
 
 	if len(lab.frontends) != 1 {
 		t.Fatalf("Expected %d frontend, but is %d", len(lab.frontends), 1)

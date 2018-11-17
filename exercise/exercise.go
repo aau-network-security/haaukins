@@ -1,6 +1,7 @@
 package exercise
 
 import (
+	"context"
 	"errors"
 	"regexp"
 
@@ -23,13 +24,16 @@ var (
 )
 
 type DockerHost interface {
-	CreateContainer(conf docker.ContainerConfig) (docker.Container, error)
+	CreateContainer(ctx context.Context, conf docker.ContainerConfig) (docker.Container, error)
 }
 
 type dockerHost struct{}
 
-func (dockerHost) CreateContainer(conf docker.ContainerConfig) (docker.Container, error) {
-	return docker.NewContainer(conf)
+func (dockerHost) CreateContainer(ctx context.Context, conf docker.ContainerConfig) (docker.Container, error) {
+	c := docker.NewContainer(conf)
+	err := c.Create(ctx)
+
+	return c, err
 }
 
 type exercise struct {
@@ -66,13 +70,13 @@ func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net d
 	}
 }
 
-func (e *exercise) Create() error {
+func (e *exercise) Create(ctx context.Context) error {
 	var machines []virtual.Instance
 	var newIps []int
 	for i, opt := range e.containerOpts {
 		opt.DockerConf.DNS = []string{e.dnsAddr}
 
-		c, err := e.dhost.CreateContainer(opt.DockerConf)
+		c, err := e.dhost.CreateContainer(ctx, opt.DockerConf)
 		if err != nil {
 			return err
 		}
@@ -111,6 +115,7 @@ func (e *exercise) Create() error {
 
 	for _, vboxConf := range e.vboxOpts {
 		vm, err := e.vlib.GetCopy(
+			ctx,
 			vboxConf.InstanceConfig,
 			vbox.SetBridge(e.net.Interface()),
 		)
@@ -129,13 +134,13 @@ func (e *exercise) Create() error {
 	return nil
 }
 
-func (e *exercise) Start() error {
+func (e *exercise) Start(ctx context.Context) error {
 	var res error
 	var wg sync.WaitGroup
 	for _, m := range e.machines {
 		wg.Add(1)
 		go func(m virtual.Instance) {
-			if err := m.Start(); err != nil && res == nil {
+			if err := m.Start(ctx); err != nil && res == nil {
 				res = err
 			}
 		}(m)
@@ -174,28 +179,16 @@ func (e *exercise) Close() error {
 	return nil
 }
 
-func (e *exercise) Restart() error {
-	if err := e.Stop(); err != nil {
-		return err
-	}
-
-	if err := e.Start(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (e *exercise) Reset() error {
+func (e *exercise) Reset(ctx context.Context) error {
 	if err := e.Close(); err != nil {
 		return err
 	}
 
-	if err := e.Create(); err != nil {
+	if err := e.Create(ctx); err != nil {
 		return err
 	}
 
-	if err := e.Start(); err != nil {
+	if err := e.Start(ctx); err != nil {
 		return err
 	}
 

@@ -36,7 +36,7 @@ var (
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	MissingSecretKey    = errors.New("Management signing key cannot be empty")
-	UnknownTeamErr 		= errors.New("Unable to find team by that id")
+	UnknownTeamErr      = errors.New("Unable to find team by that id")
 
 	version string
 )
@@ -505,7 +505,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	if err := lab.Restart(); err != nil {
+	if err := lab.Restart(resp.Context()); err != nil {
 		return err
 	}
 
@@ -553,22 +553,25 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 		// the requests has a selection of group ids
 		for _, reqTeam := range req.Teams {
 			if lab, ok := ev.GetLabByTeam(reqTeam.Id); ok {
-				if err := lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
+				if err := lab.GetEnvironment().ResetByTag(resp.Context(), req.ExerciseTag); err != nil {
 					return err
 				}
 				resp.Send(&pb.ResetExerciseStatus{TeamId: reqTeam.Id})
 			}
 		}
-	} else {
-		// all exercises should be reset
-		for _, t := range ev.GetTeams() {
-			lab, _ := ev.GetLabByTeam(t.Id)
-			if err := lab.GetEnvironment().ResetByTag(req.ExerciseTag); err != nil {
-				return err
-			}
-			resp.Send(&pb.ResetExerciseStatus{TeamId: t.Id})
-		}
+
+		return nil
 	}
+
+	// all exercises should be reset
+	for _, t := range ev.GetTeams() {
+		lab, _ := ev.GetLabByTeam(t.Id)
+		if err := lab.GetEnvironment().ResetByTag(resp.Context(), req.ExerciseTag); err != nil {
+			return err
+		}
+		resp.Send(&pb.ResetExerciseStatus{TeamId: t.Id})
+	}
+
 	return nil
 }
 
@@ -694,8 +697,8 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 	for _, i := range lab.InstanceInfo() {
 		instance := &pb.GetTeamInfoResponse_Instance{
 			Image: i.Image,
-			Type: i.Type,
-			Id: i.Id,
+			Type:  i.Type,
+			Id:    i.Id,
 		}
 		instances = append(instances, instance)
 	}
