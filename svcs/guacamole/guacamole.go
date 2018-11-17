@@ -734,9 +734,12 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 		}
 
 		var logger KeyLogger
-		logger, err = keyLoggerPool.GetLogger(t)
-		if err != nil {
-			log.Warn().Msg("Failed to create keylogger")
+		consent, ok := t.Metadata["consent"]
+		if ok && consent != "" {
+			logger, err = keyLoggerPool.GetLogger(t)
+			if err != nil {
+				log.Warn().Msg("Failed to create keylogger")
+			}
 		}
 
 		rHeader := http.Header{}
@@ -774,11 +777,8 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 					errc <- err
 				}
 
-				consent, ok := t.Metadata["consent"]
-				if monitor && ok && consent != "" {
-					if logger != nil {
-						logger.Log(data)
-					}
+				if monitor && logger != nil {
+					logger.Log(data)
 				}
 
 				if err := dst.WriteMessage(msgType, data); err != nil {
@@ -791,6 +791,11 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 		go cp(c, backend, errClient, true)
 		go cp(backend, c, errBackend, false)
 
+		log.Debug().
+			Str("id", t.Id).
+			Str("event", string(ef.Read().Tag)).
+			Msg("team connected")
+
 		var msgFormat string
 		select {
 		case err = <-errClient:
@@ -799,7 +804,13 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 			msgFormat = "Error when copying from backend to client: %s"
 		}
 
-		if e, ok := err.(*websocket.CloseError); !ok || e.Code != websocket.CloseNormalClosure {
+		e, ok := err.(*websocket.CloseError)
+		if ok && e.Code == websocket.CloseNoStatusReceived {
+			log.Debug().
+				Str("id", t.Id).
+				Str("event", string(ef.Read().Tag)).
+				Msg("team disconnected")
+		} else if !ok || e.Code != websocket.CloseNormalClosure {
 			log.Error().Msgf(msgFormat, err)
 		}
 	})
