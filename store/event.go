@@ -503,18 +503,24 @@ func (ef *eventfile) Archive() error {
 
 func getFileNameForEvent(path string, tag Tag) (string, error) {
 	now := time.Now().Format("02-01-06")
-	filename := fmt.Sprintf("%s-%s.yml", tag, now)
-	eventPath := filepath.Join(path, filename)
+	dirname := fmt.Sprintf("%s-%s", tag, now)
+	filename := fmt.Sprintf("%s.yml", dirname)
 
-	if _, err := os.Stat(eventPath); os.IsNotExist(err) {
+	_, dirErr := os.Stat(filepath.Join(path, dirname))
+	_, fileErr := os.Stat(filepath.Join(path, filename))
+
+	if os.IsNotExist(fileErr) && os.IsNotExist(dirErr) {
 		return filename, nil
 	}
 
 	for i := 1; i < 999; i++ {
-		filename := fmt.Sprintf("%s-%s-%d.yml", tag, now, i)
-		eventPath := filepath.Join(path, filename)
+		dirname := fmt.Sprintf("%s-%s-%d", tag, now, i)
+		filename := fmt.Sprintf("%s.yml", dirname)
 
-		if _, err := os.Stat(eventPath); os.IsNotExist(err) {
+		_, dirErr := os.Stat(filepath.Join(path, dirname))
+		_, fileErr := os.Stat(filepath.Join(path, filename))
+
+		if os.IsNotExist(fileErr) && os.IsNotExist(dirErr) {
 			return filename, nil
 		}
 	}
