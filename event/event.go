@@ -198,16 +198,16 @@ func (ev *event) Close() error {
 	}
 	wg.Wait()
 
-	if err := ev.store.Archive(); err != nil {
-		log.Warn().Msgf("error while archiving event: %s", err)
-	}
-
 	return nil
 }
 
 func (ev *event) Finish() {
 	now := time.Now()
 	ev.store.Finish(now)
+
+	if err := ev.store.Archive(); err != nil {
+		log.Warn().Msgf("error while archiving event: %s", err)
+	}
 }
 
 func (ev *event) AssignLab(t *store.Team) error {

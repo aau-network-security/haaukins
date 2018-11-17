@@ -488,8 +488,8 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
-	ev.Finish()
 	ev.Close()
+	ev.Finish()
 	return nil
 }
 
