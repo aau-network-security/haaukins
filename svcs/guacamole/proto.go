@@ -2,7 +2,6 @@ package guacamole
 
 import (
 	"github.com/pkg/errors"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -15,24 +14,9 @@ type RawFrame []byte
 
 type Element string
 
-func (e Element) String() string {
-	return string(e)
-}
-
 type Frame struct {
 	Opcode Element
 	Args   []Element
-}
-
-func (f *Frame) String() string {
-	s := []string{
-		f.Opcode.String(),
-	}
-	for _, arg := range f.Args {
-		s = append(s, arg.String())
-	}
-
-	return strings.Join(s, ",") + ";"
 }
 
 func NewFrame(rawFrame RawFrame) (*Frame, error) {

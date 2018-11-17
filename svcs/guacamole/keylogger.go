@@ -25,7 +25,7 @@ var (
 type KeyFrameFilterCondition func(*KeyFrame) bool
 
 type KeyFrameFilter interface {
-	Filter(RawFrame) (*KeyFrame, bool, error)
+	Filter(RawFrame) (kf *KeyFrame, ok bool, err error)
 }
 
 type keyFrameFilter struct {
@@ -66,7 +66,7 @@ func NewKeyFrameFilter(conditions ...KeyFrameFilterCondition) KeyFrameFilter {
 type MouseFrameFilterCondition func(*MouseFrame) bool
 
 type MouseFrameFilter interface {
-	Filter(RawFrame) (*MouseFrame, bool, error)
+	Filter(RawFrame) (mf *MouseFrame, ok bool, err error)
 }
 
 type mouseFrameFilter struct {
@@ -104,7 +104,7 @@ func NewMouseFrameFilter(conditions ...MouseFrameFilterCondition) MouseFrameFilt
 	}
 }
 
-type logEvent struct {
+type keyEvent struct {
 	timestamp time.Time
 	rawFrame  RawFrame
 }
@@ -114,7 +114,7 @@ type KeyLogger interface {
 }
 
 type keyLogger struct {
-	ch     chan logEvent
+	ch     chan keyEvent
 	logger *zerolog.Logger
 	kff    KeyFrameFilter
 	mff    MouseFrameFilter
@@ -153,14 +153,14 @@ func (k keyLogger) run() {
 func (k keyLogger) Log(rawFrame RawFrame) {
 	timestamp := time.Now()
 
-	k.ch <- logEvent{
+	k.ch <- keyEvent{
 		timestamp: timestamp,
 		rawFrame:  rawFrame,
 	}
 }
 
 func NewKeyLogger(logger *zerolog.Logger) (KeyLogger, error) {
-	c := make(chan logEvent)
+	c := make(chan keyEvent)
 	kff := NewKeyFrameFilter(KeyPressed)
 	mff := NewMouseFrameFilter(MouseClicked)
 

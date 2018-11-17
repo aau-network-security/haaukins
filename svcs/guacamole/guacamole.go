@@ -44,10 +44,6 @@ var (
 	}
 
 	upgrader     = websocket.Upgrader{}
-	validOpcodes = []string{
-		"key",
-		"mouse",
-	}
 )
 
 type GuacError struct {
