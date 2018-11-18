@@ -6,6 +6,7 @@ import (
 	"context"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"fmt"
+	"github.com/logrusorgru/aurora"
 )
 
 func (c *Client) CmdTeam() *cobra.Command {
@@ -20,6 +21,27 @@ func (c *Client) CmdTeam() *cobra.Command {
 	)
 
 	return cmd
+}
+
+func stateString(state int32) string {
+	circle := "●"
+
+	a := aurora.NewAurora(true)
+	var colorFunc func(interface{}) aurora.Value
+	var stateStr string
+	switch state {
+	case 0:
+		colorFunc = a.Green
+		stateStr = "running"
+	case 1:
+		colorFunc = a.Brown
+		stateStr = "not running"
+	case 2:
+		colorFunc = a.Red
+		stateStr = "error"
+	}
+
+	return fmt.Sprintf("%s %s", colorFunc(circle), stateStr)
 }
 
 func (c *Client) CmdTeamInfo() *cobra.Command {
@@ -39,19 +61,32 @@ func (c *Client) CmdTeamInfo() *cobra.Command {
 				EventTag: eventTag,
 			}
 			resp, err := c.rpcClient.GetTeamInfo(ctx, req)
-						if err != nil {
+			if err != nil {
 				PrintError(err)
 				return
 			}
 
 			f := formatter{
-				header: []string{"IMAGE NAME", "TYPE", "ID"},
-				fields: []string{"Image", "Type", "Id"},
+				header: []string{"IMAGE NAME", "TYPE", "ID", "STATE"},
+				fields: []string{"Image", "Type", "Id", "State"},
 			}
 
 			var elements []formatElement
 			for _, i := range resp.Instances {
-				elements = append(elements, i)
+				state := stateString(i.State)
+				el := struct {
+					Image string
+					Type string
+					Id string
+					State string
+				}{
+					Image: i.Image,
+					Type: i.Type,
+					Id: i.Id,
+					State: state,
+				}
+
+				elements = append(elements, el)
 			}
 
 			table, err := f.AsTable(elements)

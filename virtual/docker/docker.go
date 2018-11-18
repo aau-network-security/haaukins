@@ -463,11 +463,23 @@ func (c *container) ID() string {
 	return c.id
 }
 
+func (c *container) state() virtual.State {
+	cont, err := DefaultClient.InspectContainer(c.id)
+	if err != nil {
+		return virtual.Error
+	}
+	if cont.State.Running {
+		return virtual.Running
+	}
+	return virtual.Stopped
+}
+
 func (c *container) Info() virtual.InstanceInfo {
 	return virtual.InstanceInfo{
 		Image: c.conf.Image,
 		Type:  "docker",
 		Id:    c.ID()[0:12],
+		State: c.state(),
 	}
 }
 

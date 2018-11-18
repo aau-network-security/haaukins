@@ -19,14 +19,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"math"
+	"regexp"
 )
 
 const (
+	stateRegex = `State:\s*(.*)`
+
 	vboxBin          = "VBoxManage"
 	vboxModVM        = "modifyvm"
 	vboxStartVM      = "startvm"
 	vboxCtrlVM       = "controlvm"
 	vboxUnregisterVM = "unregistervm"
+	vboxShowVMInfo   = "showvminfo"
 )
 
 type VBoxErr struct {
@@ -293,11 +297,33 @@ func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 	return vm, nil
 }
 
+func (v *vm) state() virtual.State {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	raw, err := VBoxCmdContext(ctx, vboxShowVMInfo, v.id)
+	if err != nil {
+		return virtual.Error
+	}
+
+	r := regexp.MustCompile(stateRegex)
+	matched := r.FindSubmatch(raw)
+	if len(matched) == 0 {
+		return virtual.Error
+	}
+	if strings.Contains(string(matched[0]), "running") {
+		return virtual.Running
+	}
+
+	return virtual.Stopped
+}
+
 func (v *vm) Info() virtual.InstanceInfo {
 	return virtual.InstanceInfo{
 		Image: v.image,
-		Type: "vbox",
-		Id: v.id,
+		Type:  "vbox",
+		Id:    v.id,
+		State: v.state(),
 	}
 }
 
