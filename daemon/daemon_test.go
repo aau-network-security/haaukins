@@ -1101,8 +1101,8 @@ func TestGetTeamInfo(t *testing.T){
 
 			lab := fakeLab{
 				instances: []virtual.InstanceInfo{
-					{ "image-1", "docker", "id-1"},
-					{ "image-2", "vbox", "id-2"},
+					{ "image-1", "docker", "id-1", virtual.Running},
+					{ "image-2", "vbox", "id-2", virtual.Running},
 				},
 			}
 			ev := &fakeEvent{
