@@ -142,6 +142,9 @@ func New(conf Config) (CTFd, error) {
 			"8000/tcp": fmt.Sprintf("127.0.0.1:%d", ctf.nc.port),
 		},
 		UseBridge: true,
+		Labels: map[string]string{
+			"ntp": "ctfd",
+		},
 	}
 
 	c, err := docker.NewContainer(dconf)

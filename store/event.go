@@ -134,6 +134,19 @@ func (t *Team) SolveChallenge(tag Tag, v string) error {
 	return nil
 }
 
+func (t *Team) DataCollection() bool {
+	if t.Metadata == nil {
+		return false
+	}
+
+	v, ok := t.Metadata["data-gather"]
+	if !ok {
+		return false
+	}
+
+	return v == "ok"
+}
+
 type TeamStore interface {
 	CreateTeam(Team) error
 	GetTeamByToken(string) (Team, error)

@@ -71,6 +71,9 @@ func (e *exercise) Create() error {
 	var newIps []int
 	for i, opt := range e.containerOpts {
 		opt.DockerConf.DNS = []string{e.dnsAddr}
+		opt.DockerConf.Labels = map[string]string{
+			"ntp": "lab_exercise",
+		}
 
 		c, err := e.dhost.CreateContainer(opt.DockerConf)
 		if err != nil {

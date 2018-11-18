@@ -12,15 +12,16 @@ var (
 			CSS: aauCss,
 		},
 		"aau-survey": Theme{
-			ExtraFields: NewExtraFields([][]*Selector{
-				{
-					NewSelector("Team Size", "team-size", []string{"1", "2", "3", "4", "5", "6", "7", "8", "9+"}),
-					NewSelector("Technology Interest", "tech-interest", []string{"We enjoy technology", "Not interested in technology"}),
-				},
-				{
-					NewSelector("Hacking Experience (in total)", "hack-exp", []string{"None", "1-2 years", "3-4 years", "5-8 years", "9+ years"}),
-				},
-			}),
+			ExtraFields: NewExtraFields("We agree to allow information to be gathered for research purposes",
+				[][]*Selector{
+					{
+						NewSelector("Team Size", "team-size", []string{"1", "2", "3", "4", "5", "6", "7", "8", "9+"}),
+						NewSelector("Technology Interest", "tech-interest", []string{"We enjoy technology", "Not interested in technology"}),
+					},
+					{
+						NewSelector("Hacking Experience (in total)", "hack-exp", []string{"None", "1-2 years", "3-4 years", "5-8 years", "9+ years"}),
+					},
+				}),
 			CSS: aauCss,
 		},
 	}

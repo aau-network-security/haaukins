@@ -3,14 +3,16 @@ package exercise_test
 import (
 	"testing"
 
+	"time"
+
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/fsouza/go-dockerclient"
-	"time"
+	"github.com/rs/zerolog"
 )
 
 func init() {
-	//zerolog.SetGlobalLevel(zerolog.Disabled)
+	zerolog.SetGlobalLevel(zerolog.Disabled)
 }
 
 func TestBasicEnvironment(t *testing.T) {

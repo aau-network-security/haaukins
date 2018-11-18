@@ -55,6 +55,9 @@ func New(format func(n int) string) (*Server, error) {
 			CPU:      0.3,
 		},
 		Cmd: []string{"eth0"},
+		Labels: map[string]string{
+			"ntp": "lab_dhcpd",
+		},
 	})
 	if err != nil {
 		return nil, err

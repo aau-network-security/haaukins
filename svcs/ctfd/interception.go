@@ -81,18 +81,20 @@ func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
 }
 
 type ExtraFields struct {
-	Selectors [][]*Selector
+	Selectors    [][]*Selector
+	ConcentLabel string
 }
 
-func NewExtraFields(selectors [][]*Selector) *ExtraFields {
+func NewExtraFields(label string, selectors [][]*Selector) *ExtraFields {
 	return &ExtraFields{
-		Selectors: selectors,
+		Selectors:    selectors,
+		ConcentLabel: label,
 	}
 }
 
 var (
 	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
-{{range .}}
+{{range .Rows}}
 <div class="form-group row">
 {{range .}}
 <div class="col-md-{{.Width}}">
@@ -100,7 +102,14 @@ var (
 </div>
 {{end}}
 </div>
-{{end}}`)
+{{end}}
+<div class="form-group">
+<label>
+<input name="extra-fields" type="checkbox" value="ok" checked>
+{{.Label}}
+</label>
+</div>
+`)
 )
 
 func (ef *ExtraFields) Html() string {
@@ -120,11 +129,20 @@ func (ef *ExtraFields) Html() string {
 	}
 
 	var out bytes.Buffer
-	extraFieldsTmpl.Execute(&out, rows)
+	fmt := struct {
+		Rows  [][]interface{}
+		Label string
+	}{rows, ef.ConcentLabel}
+	extraFieldsTmpl.Execute(&out, fmt)
 	return out.String()
 }
 
 func (ef *ExtraFields) ReadMetadata(r *http.Request, team *store.Team) []error {
+	if v := r.FormValue("extra-fields"); v != "ok" {
+		return nil
+	}
+	delete(r.Form, "extra-fields")
+
 	var errs []error
 	for _, row := range ef.Selectors {
 		for _, selc := range row {
@@ -137,6 +155,8 @@ func (ef *ExtraFields) ReadMetadata(r *http.Request, team *store.Team) []error {
 	if len(errs) > 0 {
 		return errs
 	}
+
+	team.Metadata["data-gather"] = "ok"
 
 	return nil
 }
