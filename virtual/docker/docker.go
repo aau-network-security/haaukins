@@ -711,11 +711,11 @@ func newDefaultBridge(name string) *defaultBridge {
 
 func (dbr *defaultBridge) connect(cid string, alias string) (string, error) {
 	dbr.m.Lock()
-	alias, ok := dbr.containers[cid]
+	defer dbr.m.Unlock()
+	knownAlias, ok := dbr.containers[cid]
 	if ok {
-		return alias, nil
+		return knownAlias, nil
 	}
-	dbr.m.Unlock()
 
 	if alias == "" {
 		alias = strings.Replace(uuid.New().String(), "-", "", -1)
@@ -730,9 +730,7 @@ func (dbr *defaultBridge) connect(cid string, alias string) (string, error) {
 		return "", err
 	}
 
-	dbr.m.Lock()
 	dbr.containers[cid] = alias
-	dbr.m.Unlock()
 
 	return alias, nil
 }
