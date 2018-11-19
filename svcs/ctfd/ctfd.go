@@ -65,7 +65,7 @@ type ctfd struct {
 	nc       nonceClient
 	users    []*user
 	relation map[string]*user
-	flagPool *flagPool
+	flagPool *FlagPool
 }
 
 type user struct {
@@ -444,7 +444,7 @@ type team struct {
 	flags map[store.Tag]string
 }
 
-func (t *team) create(fp *flagPool) error {
+func (t *team) create(fp *FlagPool) error {
 	endpoint := t.nc.baseUrl() + "/register"
 
 	nonce, err := t.nc.getNonce(endpoint)
@@ -492,7 +492,7 @@ func (t *team) create(fp *flagPool) error {
 	return nil
 }
 
-func (t *team) solve(fp *flagPool, tag store.Tag) error {
+func (t *team) solve(fp *FlagPool, tag store.Tag) error {
 	id, err := fp.GetIdentifierByTag(tag)
 	if err != nil {
 		return err
