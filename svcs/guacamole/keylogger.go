@@ -2,12 +2,12 @@ package guacamole
 
 import (
 	"bytes"
+	"github.com/aau-network-security/go-ntp/logging"
 	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/util"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"time"
 	"io"
+	"time"
 )
 
 var (
@@ -180,7 +180,7 @@ type KeyLoggerPool interface {
 }
 
 type keyLoggerPool struct {
-	logpool util.LogPool
+	logpool logging.Pool
 }
 
 func (klp *keyLoggerPool) GetLogger(t store.Team) (KeyLogger, error) {
@@ -196,7 +196,7 @@ func (klp *keyLoggerPool) Close() error {
 }
 
 func NewKeyLoggerPool(dir string) (KeyLoggerPool, error) {
-	logpool, err := util.NewLogPool(dir)
+	logpool, err := logging.NewPool(dir)
 	if err != nil {
 		return nil, err
 	}

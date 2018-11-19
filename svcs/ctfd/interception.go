@@ -30,7 +30,7 @@ var (
 </select>`)
 
 	checkboxTmpl, _ = template.New("checkbox").Parse(`
-<input class="form-check-input" type="checkbox" name="{{.Tag}}-checkbox" value="y" checked>
+<input class="form-check-input" type="checkbox" name="{{.Tag}}-checkbox" value="ok" checked>
 <label class="form-check-label" for="{{.Tag}}-checkbox">
   {{.Text}}
 </label>

@@ -27,7 +27,7 @@ import (
 
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/util"
+	"github.com/aau-network-security/go-ntp/logging"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -89,7 +89,7 @@ type daemon struct {
 	eventPool *eventPool
 	frontends store.FrontendStore
 	ehost     event.Host
-	logPool   util.LogPool
+	logPool   logging.Pool
 	closers   []io.Closer
 }
 
@@ -179,7 +179,7 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
-	logPool, err := util.NewLogPool(conf.LogDir)
+	logPool, err := logging.NewPool(conf.LogDir)
 	if err != nil {
 		return nil, err
 	}

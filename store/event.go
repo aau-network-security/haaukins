@@ -74,14 +74,14 @@ type Challenge struct {
 }
 
 type Team struct {
-	Id               string             `yaml:"id"`
-	Email            string             `yaml:"email"`
-	Name             string             `yaml:"name"`
-	HashedPassword   string             `yaml:"hashed-password"`
-	SolvedChallenges []Challenge        `yaml:"solved-challenges,omitempty"`
-	Metadata         map[string]string  `yaml:"metadata,omitempty"`
-	CreatedAt        *time.Time         `yaml:"created-at,omitempty"`
-	ChalMap          map[Tag]Challenge  `yaml:"-"`
+	Id               string            `yaml:"id"`
+	Email            string            `yaml:"email"`
+	Name             string            `yaml:"name"`
+	HashedPassword   string            `yaml:"hashed-password"`
+	SolvedChallenges []Challenge       `yaml:"solved-challenges,omitempty"`
+	Metadata         map[string]string `yaml:"metadata,omitempty"`
+	CreatedAt        *time.Time        `yaml:"created-at,omitempty"`
+	ChalMap          map[Tag]Challenge `yaml:"-"`
 }
 
 func NewTeam(email, name, password string, chals ...Challenge) Team {
@@ -137,6 +137,17 @@ func (t *Team) AddChallenge(c Challenge) {
 		t.ChalMap = map[Tag]Challenge{}
 	}
 	t.ChalMap[c.FlagTag] = c
+}
+
+func (t *Team) DataConsent() bool {
+	if t.Metadata == nil {
+		return false
+	}
+	v, ok := t.Metadata["consent"]
+	if !ok {
+		return false
+	}
+	return v == "ok"
 }
 
 type TeamStore interface {

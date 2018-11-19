@@ -43,7 +43,7 @@ var (
 		"Upgrade",
 	}
 
-	upgrader     = websocket.Upgrader{}
+	upgrader = websocket.Upgrader{}
 )
 
 type GuacError struct {
@@ -730,8 +730,7 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 		}
 
 		var logger KeyLogger
-		consent, ok := t.Metadata["consent"]
-		if ok && consent != "" {
+		if t.DataConsent() {
 			logger, err = keyLoggerPool.GetLogger(t)
 			if err != nil {
 				log.Warn().Msg("Failed to create keylogger")
@@ -764,28 +763,36 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 
 		errClient := make(chan error, 1)
 		errBackend := make(chan error, 1)
-		cp := func(src *websocket.Conn, dst *websocket.Conn, errc chan error, monitor bool) {
-			for {
-				msgType, data, err := src.ReadMessage()
-				if err != nil {
-					m := getCloseMsg(err)
-					dst.WriteMessage(websocket.CloseMessage, m)
-					errc <- err
-				}
 
-				if monitor && logger != nil {
-					logger.Log(data)
-				}
+		cp := func(logger KeyLogger) func(src *websocket.Conn, dst *websocket.Conn, errc chan error) {
+			var actions []func(RawFrame)
+			if logger != nil {
+				actions = append(actions, logger.Log)
+			}
 
-				if err := dst.WriteMessage(msgType, data); err != nil {
-					errc <- err
-					break
+			return func(src *websocket.Conn, dst *websocket.Conn, errc chan error) {
+				for {
+					msgType, data, err := src.ReadMessage()
+					if err != nil {
+						m := getCloseMsg(err)
+						dst.WriteMessage(websocket.CloseMessage, m)
+						errc <- err
+					}
+
+					if err := dst.WriteMessage(msgType, data); err != nil {
+						errc <- err
+						break
+					}
+
+					for _, action := range actions {
+						action(data)
+					}
 				}
 			}
 		}
 
-		go cp(c, backend, errClient, true)
-		go cp(backend, c, errBackend, false)
+		go cp(logger)(c, backend, errClient)
+		go cp(nil)(backend, c, errClient)
 
 		log.Debug().
 			Str("id", t.Id).
