@@ -94,6 +94,9 @@ func New(records []RR) (*Server, error) {
 			CPU:      0.3,
 		},
 		Cmd: []string{"--conf", "Corefile"},
+		Labels: map[string]string{
+			"ntp": "lab_dns",
+		},
 	})
 
 	return &Server{

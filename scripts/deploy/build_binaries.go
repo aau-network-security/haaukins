@@ -12,7 +12,6 @@ var (
 		{Os: DARWIN, App: CLIENT},
 		{Os: LINUX, App: CLIENT},
 		{Os: WINDOWS, App: CLIENT},
-		{Os: DARWIN, App: DAEMON},
 		{Os: LINUX, App: DAEMON},
 	}
 
@@ -54,24 +53,34 @@ func (bc *buildContext) packageName() string {
 }
 
 func (bc *buildContext) linkFlags(version string) string {
-	return fmt.Sprintf("-X %s.version=%s", bc.App.ImportPath, version)
+	return fmt.Sprintf("-w -X %s.version=%s", bc.App.ImportPath, version)
 }
 
 func (bc *buildContext) build(ctx context.Context) error {
 	cmd := exec.CommandContext(
 		ctx,
 		"env",
+		"CGO_ENABLED=0",
 		fmt.Sprintf("GOOS=%s", bc.Os.Name),
-		fmt.Sprintf("GARCH=%s", bc.Arch),
+		fmt.Sprintf("GOARCH=%s", bc.Arch),
 		"go",
 		"build",
+		"-a",
+		"-tags",
+		"netgo",
 		"-ldflags",
 		bc.linkFlags(os.Getenv("GIT_TAG")),
 		"-o",
 		bc.outputFilePath(),
 		bc.packageName(),
 	)
-	return cmd.Run()
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(string(out))
+	}
+
+	return err
 }
 
 func main() {

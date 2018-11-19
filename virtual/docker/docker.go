@@ -83,6 +83,7 @@ type ContainerConfig struct {
 	Image        string
 	EnvVars      map[string]string
 	PortBindings map[string]string
+	Labels       map[string]string
 	Mounts       []string
 	Resources    *Resources
 	Cmd          []string
@@ -297,6 +298,7 @@ func (c *container) getCreateConfig() (*docker.CreateContainerOptions, error) {
 			Image:        c.conf.Image,
 			Env:          env,
 			Cmd:          c.conf.Cmd,
+			Labels:       c.conf.Labels,
 			ExposedPorts: ports,
 		},
 		HostConfig: &hostConf,
@@ -371,11 +373,23 @@ func (c *container) Stop() error {
 	return nil
 }
 
+func (c *container) state() virtual.State {
+	cont, err := DefaultClient.InspectContainer(c.id)
+	if err != nil {
+		return virtual.Error
+	}
+	if cont.State.Running {
+		return virtual.Running
+	}
+	return virtual.Stopped
+}
+
 func (c *container) Info() virtual.InstanceInfo {
 	return virtual.InstanceInfo{
 		Image: c.conf.Image,
 		Type:  "docker",
 		Id:    c.ID()[0:12],
+		State: c.state(),
 	}
 }
 

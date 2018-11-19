@@ -19,6 +19,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	yaml "gopkg.in/yaml.v2"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
@@ -26,6 +27,7 @@ import (
 
 	"sync"
 
+	"github.com/aau-network-security/go-ntp/logging"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -87,7 +89,7 @@ type daemon struct {
 	eventPool *eventPool
 	frontends store.FrontendStore
 	ehost     event.Host
-	logPool   LogPool
+	logPool   logging.Pool
 	closers   []io.Closer
 }
 
@@ -177,7 +179,7 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
-	logPool, err := NewLogPool(conf.LogDir)
+	logPool, err := logging.NewPool(conf.LogDir)
 	if err != nil {
 		return nil, err
 	}
@@ -242,12 +244,18 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	var logger *zerolog.Logger
 	if d.logPool != nil {
 		logger, _ = d.logPool.GetLogger("audit")
+		l := *logger
+		l = l.With().Timestamp().Logger()
+		logger = &l
 	}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx, authErr := d.auth.AuthenticateContext(stream.Context())
 		ctx = withAuditLogger(ctx, logger)
 		stream = &contextStream{stream, ctx}
+
+		header := metadata.Pairs("daemon-version", version)
+		stream.SendHeader(header)
 
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
@@ -265,6 +273,9 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		ctx, authErr := d.auth.AuthenticateContext(ctx)
 		ctx = withAuditLogger(ctx, logger)
+
+		header := metadata.Pairs("daemon-version", version)
+		grpc.SendHeader(ctx, header)
 
 		for _, endpoint := range nonAuth {
 			if strings.HasSuffix(info.FullMethod, endpoint) {
@@ -699,6 +710,7 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 			Image: i.Image,
 			Type:  i.Type,
 			Id:    i.Id,
+			State: int32(i.State),
 		}
 		instances = append(instances, instance)
 	}
