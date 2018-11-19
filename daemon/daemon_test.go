@@ -21,11 +21,11 @@ import (
 	"github.com/aau-network-security/go-ntp/exercise"
 	"github.com/aau-network-security/go-ntp/lab"
 	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"github.com/aau-network-security/go-ntp/virtual"
 )
 
 func init() {
@@ -439,7 +439,7 @@ func (fe *fakeEvent) GetLabByTeam(teamId string) (lab.Lab, bool) {
 
 type fakeLab struct {
 	environment exercise.Environment
-	instances []virtual.InstanceInfo
+	instances   []virtual.InstanceInfo
 	lab.Lab
 }
 
@@ -456,7 +456,7 @@ type fakeEnvironment struct {
 	exercise.Environment
 }
 
-func (fe *fakeEnvironment) ResetByTag(t string) error {
+func (fe *fakeEnvironment) ResetByTag(ctx context.Context, t string) error {
 	fe.resettedExercises += 1
 	return nil
 }
@@ -979,7 +979,6 @@ func TestListFrontends(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir, err := ioutil.TempDir("", "")
-			fmt.Println(tmpDir)
 			if err != nil {
 				t.Fatalf("failed to create temporary directory")
 			}
@@ -1061,7 +1060,7 @@ func TestListFrontends(t *testing.T) {
 	}
 }
 
-func TestGetTeamInfo(t *testing.T){
+func TestGetTeamInfo(t *testing.T) {
 	tt := []struct {
 		name         string
 		unauthorized bool
@@ -1077,21 +1076,21 @@ func TestGetTeamInfo(t *testing.T){
 			numInstances: 2,
 		},
 		{
-			name: "Unauthorized",
+			name:         "Unauthorized",
 			unauthorized: true,
-			err: "unauthorized",
+			err:          "unauthorized",
 		},
 		{
-			name: "Unknown event",
+			name:     "Unknown event",
 			eventTag: "unknown-event",
-			teamId: "existing-team",
-			err: UnknownEventErr.Error(),
+			teamId:   "existing-team",
+			err:      UnknownEventErr.Error(),
 		},
 		{
-			name: "Unknown team",
+			name:     "Unknown team",
 			eventTag: "existing-event",
-			teamId: "unknown-team",
-			err: UnknownTeamErr.Error(),
+			teamId:   "unknown-team",
+			err:      UnknownTeamErr.Error(),
 		},
 	}
 
@@ -1101,8 +1100,8 @@ func TestGetTeamInfo(t *testing.T){
 
 			lab := fakeLab{
 				instances: []virtual.InstanceInfo{
-					{ "image-1", "docker", "id-1", virtual.Running},
-					{ "image-2", "vbox", "id-2", virtual.Running},
+					{"image-1", "docker", "id-1", virtual.Running},
+					{"image-2", "vbox", "id-2", virtual.Running},
 				},
 			}
 			ev := &fakeEvent{
@@ -1139,7 +1138,7 @@ func TestGetTeamInfo(t *testing.T){
 
 			client := pb.NewDaemonClient(conn)
 			req := &pb.GetTeamInfoRequest{
-				TeamId: tc.teamId,
+				TeamId:   tc.teamId,
 				EventTag: tc.eventTag,
 			}
 			resp, err := client.GetTeamInfo(ctx, req)

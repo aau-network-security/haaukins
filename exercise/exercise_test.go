@@ -1,6 +1,7 @@
 package exercise
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aau-network-security/go-ntp/store"
@@ -45,7 +46,7 @@ type testDockerHost struct {
 	DockerHost
 }
 
-func (tdh testDockerHost) CreateContainer(conf docker.ContainerConfig) (docker.Container, error) {
+func (tdh testDockerHost) CreateContainer(ctx context.Context, conf docker.ContainerConfig) (docker.Container, error) {
 	return testContainer{}, nil
 }
 
@@ -92,7 +93,7 @@ func TestExerciseCreate(t *testing.T) {
 		DockerConfs: dockerConfs,
 	}
 	e := NewExercise(conf, testDockerHost{}, nil, &testNetwork{}, "")
-	if err := e.Create(); err != nil {
+	if err := e.Create(context.Background()); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 

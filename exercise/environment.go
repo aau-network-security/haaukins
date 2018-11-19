@@ -1,27 +1,28 @@
 package exercise
 
 import (
+	"context"
 	"io"
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/svcs/dhcp"
 	"github.com/aau-network-security/go-ntp/svcs/dns"
+	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/aau-network-security/go-ntp/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"github.com/aau-network-security/go-ntp/virtual"
 )
 
 type Environment interface {
-	Add(conf store.Exercise, updateDNS bool) error
-	ResetByTag(t string) error
+	Create(context.Context) error
+	Add(context.Context, ...store.Exercise) error
+	ResetByTag(context.Context, string) error
 	NetworkInterface() string
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
-	Start() error
+	Start(context.Context) error
 	Stop() error
-	Restart() error
 	io.Closer
 }
 
@@ -34,92 +35,70 @@ type environment struct {
 	dhcpServer *dhcp.Server
 	dnsAddr    string
 
-	lib     vbox.Library
-	closers []io.Closer
+	lib vbox.Library
 }
 
-func NewEnvironment(lib vbox.Library, exercises ...store.Exercise) (Environment, error) {
-	ee := &environment{
+func NewEnvironment(lib vbox.Library) Environment {
+	return &environment{
 		tags: make(map[store.Tag]*exercise),
 		lib:  lib,
 	}
-
-	var err error
-	ee.network, err = docker.NewNetwork()
-	if err != nil {
-		return nil, err
-	}
-
-	ee.dhcpServer, err = dhcp.New(ee.network.FormatIP)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := ee.network.Connect(ee.dhcpServer.Container(), 2); err != nil {
-		return nil, err
-	}
-
-	// we need to set the DNS server BEFORE we add our exercises
-	// else ee.dnsIP wil be "", and the resulting resolv.conf "nameserver "
-	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
-
-	for _, e := range exercises {
-		if err := ee.Add(e, false); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(exercises) > 0 {
-		if err := ee.updateDNS(); err != nil {
-			return nil, err
-		}
-	}
-	ee.closers = append(ee.closers, ee.dnsServer, ee.dhcpServer)
-
-	return ee, nil
 }
 
-func (ee *environment) Add(conf store.Exercise, updateDNS bool) error {
-	if len(conf.Tags) == 0 {
-		return MissingTagsErr
-	}
-
-	for _, t := range conf.Tags {
-		if _, ok := ee.tags[t]; ok {
-			return DuplicateTagErr
-		}
-	}
-
-	if updateDNS {
-		if err := ee.updateDNS(); err != nil {
-			return err
-		}
-	}
-
-	e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
-	if err := e.Create(); err != nil {
+func (ee *environment) Create(ctx context.Context) error {
+	network, err := docker.NewNetwork()
+	if err != nil {
 		return err
 	}
-
-	for _, t := range conf.Tags {
-		ee.tags[t] = e
-	}
-	ee.exercises = append(ee.exercises, e)
-	ee.closers = append(ee.closers, e)
+	ee.network = network
+	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
 
 	return nil
+}
+
+func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
+	for _, conf := range confs {
+		if len(conf.Tags) == 0 {
+			return MissingTagsErr
+		}
+
+		for _, t := range conf.Tags {
+			if _, ok := ee.tags[t]; ok {
+				return DuplicateTagErr
+			}
+		}
+
+		e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
+		if err := e.Create(ctx); err != nil {
+			return err
+		}
+
+		for _, t := range conf.Tags {
+			ee.tags[t] = e
+		}
+
+		ee.exercises = append(ee.exercises, e)
+	}
+
+	return ee.refreshDNS(ctx)
 }
 
 func (ee *environment) NetworkInterface() string {
 	return ee.network.Interface()
 }
 
-func (ee *environment) Start() error {
-	if err := ee.dnsServer.Start(); err != nil {
+func (ee *environment) Start(ctx context.Context) error {
+	var err error
+	ee.dhcpServer, err = dhcp.New(ee.network.FormatIP)
+	if err != nil {
 		return err
 	}
 
-	if err := ee.dhcpServer.Start(); err != nil {
+	if err := ee.dhcpServer.Run(ctx); err != nil {
+		return err
+	}
+
+	if _, err := ee.network.Connect(ee.dhcpServer.Container(), 2); err != nil {
 		return err
 	}
 
@@ -128,7 +107,7 @@ func (ee *environment) Start() error {
 	for _, ex := range ee.exercises {
 		wg.Add(1)
 		go func(e *exercise) {
-			if err := e.Start(); err != nil && res == nil {
+			if err := e.Start(ctx); err != nil && res == nil {
 				res = err
 			}
 			wg.Done()
@@ -157,21 +136,23 @@ func (ee *environment) Stop() error {
 	return nil
 }
 
-func (ee *environment) Restart() error {
-	if err := ee.Stop(); err != nil {
-		return err
-	}
-	if err := ee.Start(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (ee *environment) Close() error {
 	var wg sync.WaitGroup
 
-	for _, closer := range ee.closers {
+	var closers []io.Closer
+	if ee.dhcpServer != nil {
+		closers = append(closers, ee.dhcpServer)
+	}
+
+	if ee.dnsServer != nil {
+		closers = append(closers, ee.dnsServer)
+	}
+
+	for _, e := range ee.exercises {
+		closers = append(closers, e)
+	}
+
+	for _, closer := range closers {
 		wg.Add(1)
 		go func(c io.Closer) {
 			if err := c.Close(); err != nil {
@@ -190,7 +171,7 @@ func (ee *environment) Close() error {
 	return nil
 }
 
-func (ee *environment) ResetByTag(s string) error {
+func (ee *environment) ResetByTag(ctx context.Context, s string) error {
 	t, err := store.NewTag(s)
 	if err != nil {
 		return err
@@ -201,7 +182,7 @@ func (ee *environment) ResetByTag(s string) error {
 		return UnknownTagErr
 	}
 
-	if err := e.Reset(); err != nil {
+	if err := e.Reset(ctx); err != nil {
 		return err
 	}
 
@@ -225,8 +206,7 @@ func (ee *environment) InstanceInfo() []virtual.InstanceInfo {
 	return instances
 }
 
-
-func (ee *environment) updateDNS() error {
+func (ee *environment) refreshDNS(ctx context.Context) error {
 	if ee.dnsServer != nil {
 		if err := ee.dnsServer.Close(); err != nil {
 			return err
@@ -244,13 +224,15 @@ func (ee *environment) updateDNS() error {
 	if err != nil {
 		return err
 	}
+	ee.dnsServer = serv
+
+	if err := serv.Run(ctx); err != nil {
+		return err
+	}
 
 	if _, err := ee.network.Connect(serv.Container(), dns.PreferedIP); err != nil {
 		return err
 	}
-
-	ee.dnsServer = serv
-	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
 
 	return nil
 }

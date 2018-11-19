@@ -1,6 +1,7 @@
 package virtual
 
 import (
+	"context"
 	"io"
 	"net"
 	"strconv"
@@ -23,7 +24,9 @@ type InstanceInfo struct {
 }
 
 type Instance interface {
-	Start() error
+	Create(context.Context) error
+	Start(context.Context) error
+	Run(context.Context) error
 	Stop() error
 	Info() InstanceInfo
 	io.Closer

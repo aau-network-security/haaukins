@@ -1,6 +1,7 @@
 package exercise_test
 
 import (
+	"context"
 	"testing"
 
 	"time"
@@ -49,12 +50,17 @@ func TestBasicEnvironment(t *testing.T) {
 	}
 	preNetCount := len(networks)
 
-	env, err := exercise.NewEnvironment(nil, conf)
-	if err != nil {
+	ctx := context.Background()
+	env := exercise.NewEnvironment(nil)
+	if err := env.Create(ctx); err != nil {
 		t.Fatalf("unable to create new environment: %s", err)
 	}
 
-	err = env.Start()
+	if err := env.Add(ctx, conf); err != nil {
+		t.Fatalf("unable to add exercises to new environment: %s", err)
+	}
+
+	err = env.Start(ctx)
 	if err != nil {
 		t.Fatalf("unexpected error while starting environment: %s", err)
 	}

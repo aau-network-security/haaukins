@@ -17,6 +17,7 @@ import (
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"math"
 	"regexp"
@@ -33,6 +34,10 @@ const (
 	vboxShowVMInfo   = "showvminfo"
 )
 
+func init() {
+	zerolog.SetGlobalLevel(zerolog.Disabled)
+}
+
 type VBoxErr struct {
 	Action string
 	Output []byte
@@ -44,45 +49,47 @@ func (err *VBoxErr) Error() string {
 
 type VM interface {
 	virtual.Instance
-	virtual.ResourceResizer
-	Restart() error
 	Snapshot(string) error
-	LinkedClone(string, ...VMOpt) (VM, error)
+	LinkedClone(context.Context, string, ...VMOpt) (VM, error)
 }
 
 type vm struct {
-	image   string
 	id      string
+	path    string
+	image   string
+	opts    []VMOpt
 	running bool
 }
 
-func NewVMFromOVA(path, image string, checksum string, vmOpts ...VMOpt) (VM, error) {
-	name := fmt.Sprintf("%s{%s}", image, checksum)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	_, err := VBoxCmdContext(ctx, "import", path, "--vsys", "0", "--vmname", name)
-	if err != nil {
-		return nil, err
-	}
-
-	vm := &vm{
+func NewVMWithSum(path, image string, checksum string, vmOpts ...VMOpt) VM {
+	return &vm{
+		path:  path,
 		image: image,
-		id: name,
+		opts:  vmOpts,
+		id:    fmt.Sprintf("%s{%s}", image, checksum),
 	}
-	for _, opt := range vmOpts {
-		if err := opt(vm); err != nil {
-			return nil, err
+}
+
+func (vm *vm) Create(ctx context.Context) error {
+	_, err := VBoxCmdContext(ctx, "import", vm.path, "--vsys", "0", "--vmname", vm.id)
+	if err != nil {
+		return err
+	}
+
+	for _, opt := range vm.opts {
+		if err := opt(ctx, vm); err != nil {
+			return err
 		}
 	}
 
-	return vm, nil
+	return nil
 }
 
-func (vm *vm) Start() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func (vm *vm) Run(ctx context.Context) error {
+	return nil
+}
 
+func (vm *vm) Start(ctx context.Context) error {
 	_, err := VBoxCmdContext(ctx, vboxStartVM, vm.id, "--type", "headless")
 	if err != nil {
 		return err
@@ -98,10 +105,7 @@ func (vm *vm) Start() error {
 }
 
 func (vm *vm) Stop() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	_, err := VBoxCmdContext(ctx, vboxCtrlVM, vm.id, "poweroff")
+	_, err := VBoxCmdContext(context.Background(), vboxCtrlVM, vm.id, "poweroff")
 	if err != nil {
 		return err
 	}
@@ -116,7 +120,7 @@ func (vm *vm) Stop() error {
 }
 
 func (vm *vm) Close() error {
-	_, err := vm.ensureStopped()
+	_, err := vm.ensureStopped(nil)
 	if err != nil {
 		log.Warn().
 			Str("ID", vm.id).
@@ -138,25 +142,10 @@ func (vm *vm) Close() error {
 	return nil
 }
 
-func (vm *vm) Restart() error {
-	if err := vm.Stop(); err != nil {
-		return err
-	}
-
-	if err := vm.Start(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type VMOpt func(*vm) error
+type VMOpt func(context.Context, *vm) error
 
 func SetBridge(nic string) VMOpt {
-	return func(vm *vm) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
+	return func(ctx context.Context, vm *vm) error {
 		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
 		if err != nil {
 			return err
@@ -172,10 +161,7 @@ func SetBridge(nic string) VMOpt {
 }
 
 func SetLocalRDP(ip string, port uint) VMOpt {
-	return func(vm *vm) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-
+	return func(ctx context.Context, vm *vm) error {
 		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrde", "on")
 		if err != nil {
 			return err
@@ -210,25 +196,21 @@ func SetLocalRDP(ip string, port uint) VMOpt {
 	}
 }
 
-func (vm *vm) SetRAM(mb uint) error {
-	start, err := vm.ensureStopped()
-	if err != nil {
+func SetCPU(cores uint) VMOpt {
+	return func(ctx context.Context, vm *vm) error {
+		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--cpus", fmt.Sprintf("%d", cores))
 		return err
 	}
-	defer start()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--memory", fmt.Sprintf("%d", mb))
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
-func (vm *vm) ensureStopped() (func(), error) {
+func SetRAM(mb uint) VMOpt {
+	return func(ctx context.Context, vm *vm) error {
+		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--memory", fmt.Sprintf("%d", mb))
+		return err
+	}
+}
+
+func (vm *vm) ensureStopped(ctx context.Context) (func(), error) {
 	wasRunning := vm.running
 	if vm.running {
 		if err := vm.Stop(); err != nil {
@@ -238,29 +220,10 @@ func (vm *vm) ensureStopped() (func(), error) {
 
 	return func() {
 		if wasRunning {
-			vm.Start()
+			vm.Start(ctx)
 		}
 	}, nil
 }
-
-func (vm *vm) SetCPU(cores uint) error {
-	start, err := vm.ensureStopped()
-	if err != nil {
-		return err
-	}
-	defer start()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--cpus", fmt.Sprintf("%d", cores))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (vm *vm) Snapshot(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -273,12 +236,8 @@ func (vm *vm) Snapshot(name string) error {
 	return nil
 }
 
-func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
+func (v *vm) LinkedClone(ctx context.Context, snapshot string, vmOpts ...VMOpt) (VM, error) {
 	newID := strings.Replace(uuid.New().String(), "-", "", -1)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	_, err := VBoxCmdContext(ctx, "clonevm", v.id, "--snapshot", snapshot, "--options", "link", "--name", newID, "--register")
 	if err != nil {
 		return nil, err
@@ -286,10 +245,10 @@ func (v *vm) LinkedClone(snapshot string, vmOpts ...VMOpt) (VM, error) {
 
 	vm := &vm{
 		image: v.image,
-		id: newID,
+		id:    newID,
 	}
 	for _, opt := range vmOpts {
-		if err := opt(vm); err != nil {
+		if err := opt(ctx, vm); err != nil {
 			return nil, err
 		}
 	}
@@ -328,7 +287,7 @@ func (v *vm) Info() virtual.InstanceInfo {
 }
 
 type Library interface {
-	GetCopy(store.InstanceConfig, ...VMOpt) (VM, error)
+	GetCopy(context.Context, store.InstanceConfig, ...VMOpt) (VM, error)
 	IsAvailable(string) bool
 }
 
@@ -359,7 +318,7 @@ func (lib *vBoxLibrary) getPathFromFile(file string) string {
 	return file
 }
 
-func (lib *vBoxLibrary) GetCopy(conf store.InstanceConfig, vmOpts ...VMOpt) (VM, error) {
+func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, vmOpts ...VMOpt) (VM, error) {
 	path := lib.getPathFromFile(conf.Image)
 
 	lib.m.Lock()
@@ -382,7 +341,7 @@ func (lib *vBoxLibrary) GetCopy(conf store.InstanceConfig, vmOpts ...VMOpt) (VM,
 
 	vm, ok := lib.known[path]
 	if ok {
-		return vm.LinkedClone("origin", vmOpts...)
+		return vm.LinkedClone(ctx, "origin", vmOpts...)
 	}
 
 	sum, err := checksumOfFile(path)
@@ -394,8 +353,8 @@ func (lib *vBoxLibrary) GetCopy(conf store.InstanceConfig, vmOpts ...VMOpt) (VM,
 
 	vm, ok = VmExists(n, sum)
 	if !ok {
-		vm, err = NewVMFromOVA(path, n, sum)
-		if err != nil {
+		vm = NewVMWithSum(path, n, sum)
+		if err := vm.Create(ctx); err != nil {
 			return nil, err
 		}
 
@@ -409,16 +368,17 @@ func (lib *vBoxLibrary) GetCopy(conf store.InstanceConfig, vmOpts ...VMOpt) (VM,
 	lib.known[path] = vm
 	lib.m.Unlock()
 
-	instance, err := vm.LinkedClone("origin", vmOpts...)
-	if err != nil {
-		return nil, err
+	if conf.CPU != 0 {
+		vmOpts = append(vmOpts, SetCPU(uint(math.Ceil(conf.CPU))))
 	}
 
-	if conf.CPU != 0 {
-		instance.SetCPU(uint(math.Ceil(conf.CPU)))
-	}
 	if conf.MemoryMB != 0 {
-		instance.SetRAM(conf.MemoryMB)
+		vmOpts = append(vmOpts, SetRAM(conf.MemoryMB))
+	}
+
+	instance, err := vm.LinkedClone(ctx, "origin", vmOpts...)
+	if err != nil {
+		return nil, err
 	}
 
 	return instance, nil
@@ -464,7 +424,7 @@ func VmExists(image string, checksum string) (VM, bool) {
 	if bytes.Contains(out, []byte("\""+name+"\"")) {
 		return &vm{
 			image: image,
-			id: name,
+			id:    name,
 		}, true
 	}
 

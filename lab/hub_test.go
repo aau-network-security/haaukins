@@ -1,9 +1,11 @@
 package lab
 
 import (
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"context"
 	"testing"
 	"time"
+
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
 )
 
 type testLabHost struct {
@@ -11,7 +13,7 @@ type testLabHost struct {
 	LabHost
 }
 
-func (lh *testLabHost) NewLab(lib vbox.Library, config Config) (Lab, error) {
+func (lh *testLabHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
 	return lh.lab, nil
 }
 
@@ -21,7 +23,7 @@ type testLab struct {
 	Lab
 }
 
-func (lab *testLab) Start() error {
+func (lab *testLab) Start(ctx context.Context) error {
 	lab.started = true
 	return nil
 }
@@ -170,6 +172,7 @@ func TestHub_Close(t *testing.T) {
 		maximumSema: ms,
 		createSema:  cs,
 		buffer:      make(chan Lab, 2),
+		ctx:         context.Background(),
 	}
 
 	firstLab := testLab{}

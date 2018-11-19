@@ -1,6 +1,7 @@
 package lab
 
 import (
+	"context"
 	"math/rand"
 	"time"
 
@@ -34,42 +35,44 @@ func (conf Config) Flags() []store.FlagConfig {
 }
 
 type LabHost interface {
-	NewLab(lib vbox.Library, config Config) (Lab, error)
+	NewLab(context.Context, vbox.Library, Config) (Lab, error)
 }
 
 type labHost struct{}
 
-func (lh *labHost) NewLab(lib vbox.Library, config Config) (Lab, error) {
-	environ, err := newEnvironment(lib, config.Exercises...)
-	if err != nil {
+func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
+	env := newEnvironment(lib)
+	if err := env.Create(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := env.Add(ctx, config.Exercises...); err != nil {
 		return nil, err
 	}
 
 	dockerHost := docker.NewHost()
-
 	l := &lab{
 		tag:         generateTag(),
 		lib:         lib,
-		environment: environ,
+		environment: env,
 		dockerHost:  dockerHost,
 	}
 
 	for _, f := range config.Frontends {
-		_, err = l.addFrontend(f)
-		if err != nil {
+		if _, err := l.addFrontend(ctx, f); err != nil {
 			return nil, err
 		}
 	}
 
-	l.closers = append(l.closers, environ)
+	l.closers = append(l.closers, env)
 
 	return l, nil
 }
 
 type Lab interface {
-	Start() error
+	Start(context.Context) error
 	Stop() error
-	Restart() error
+	Restart(context.Context) error
 	GetEnvironment() exercise.Environment
 	RdpConnPorts() []uint
 	GetTag() string
@@ -88,7 +91,7 @@ type lab struct {
 	closers []io.Closer
 }
 
-func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
+func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig) (vbox.VM, error) {
 	hostIp, err := l.dockerHost.GetDockerHostIP()
 
 	if err != nil {
@@ -96,7 +99,8 @@ func (l *lab) addFrontend(conf store.InstanceConfig) (vbox.VM, error) {
 	}
 
 	rdpPort := virtual.GetAvailablePort()
-	vm, err := l.lib.GetCopy(conf,
+	vm, err := l.lib.GetCopy(ctx,
+		conf,
 		vbox.SetBridge(l.environment.NetworkInterface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
 	)
@@ -116,13 +120,13 @@ func (l *lab) GetEnvironment() exercise.Environment {
 	return l.environment
 }
 
-func (l *lab) Start() error {
-	if err := l.environment.Start(); err != nil {
+func (l *lab) Start(ctx context.Context) error {
+	if err := l.environment.Start(ctx); err != nil {
 		return err
 	}
 
 	for _, frontend := range l.frontends {
-		if err := frontend.Start(); err != nil {
+		if err := frontend.Start(ctx); err != nil {
 			return err
 		}
 	}
@@ -144,13 +148,21 @@ func (l *lab) Stop() error {
 	return nil
 }
 
-func (l *lab) Restart() error {
-	if err := l.environment.Restart(); err != nil {
+func (l *lab) Restart(ctx context.Context) error {
+	if err := l.environment.Stop(); err != nil {
+		return err
+	}
+
+	if err := l.environment.Start(ctx); err != nil {
 		return err
 	}
 
 	for _, frontend := range l.frontends {
-		if err := frontend.Restart(); err != nil {
+		if err := frontend.Stop(); err != nil {
+			return err
+		}
+
+		if err := frontend.Start(ctx); err != nil {
 			return err
 		}
 	}

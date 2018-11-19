@@ -42,7 +42,7 @@ type CTFd interface {
 	docker.Identifier
 	io.Closer
 	ProxyHandler(...func(*store.Team) error) svcs.ProxyConnector
-	Start() error
+	Start(context.Context) error
 	Stop() error
 	Flags() []store.FlagConfig
 }
@@ -74,7 +74,7 @@ type user struct {
 	password string
 }
 
-func New(conf Config) (CTFd, error) {
+func New(ctx context.Context, conf Config) (CTFd, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -147,12 +147,8 @@ func New(conf Config) (CTFd, error) {
 		},
 	}
 
-	c, err := docker.NewContainer(dconf)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.Start()
+	c := docker.NewContainer(dconf)
+	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -173,8 +169,8 @@ func New(conf Config) (CTFd, error) {
 
 }
 
-func (ctf *ctfd) Start() error {
-	return ctf.cont.Start()
+func (ctf *ctfd) Start(ctx context.Context) error {
+	return ctf.cont.Start(ctx)
 }
 
 func (ctf *ctfd) Close() error {

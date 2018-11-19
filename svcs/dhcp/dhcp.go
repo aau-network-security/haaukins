@@ -1,6 +1,7 @@
 package dhcp
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -43,7 +44,7 @@ func New(format func(n int) string) (*Server, error) {
 		return nil, err
 	}
 
-	cont, err := docker.NewContainer(docker.ContainerConfig{
+	cont := docker.NewContainer(docker.ContainerConfig{
 		Image: "networkboot/dhcpd",
 		Mounts: []string{
 			fmt.Sprintf("%s:/data/dhcpd.conf", confFile),
@@ -59,9 +60,6 @@ func New(format func(n int) string) (*Server, error) {
 			"ntp": "lab_dhcpd",
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	return &Server{
 		cont:     cont,
@@ -73,8 +71,8 @@ func (dhcp *Server) Container() docker.Container {
 	return dhcp.cont
 }
 
-func (dhcp *Server) Start() error {
-	return dhcp.cont.Start()
+func (dhcp *Server) Run(ctx context.Context) error {
+	return dhcp.cont.Run(ctx)
 }
 
 func (dhcp *Server) Close() error {

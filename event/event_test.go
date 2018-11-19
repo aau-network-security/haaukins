@@ -25,7 +25,7 @@ type testCtfd struct {
 	ctfd.CTFd
 }
 
-func (ctf *testCtfd) Start() error {
+func (ctf *testCtfd) Start(ctx context.Context) error {
 	ctf.status = STARTED
 	return nil
 }
