@@ -3,15 +3,14 @@
 package docker_test
 
 import (
-	"bytes"
+	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	ntpdocker "github.com/aau-network-security/go-ntp/virtual/docker"
 	fdocker "github.com/fsouza/go-dockerclient"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/assert"
 )
 
 var dockerClient, dockerErr = fdocker.NewClient("unix:///var/run/docker.sock")
@@ -20,6 +19,8 @@ func init() {
 	if dockerErr != nil {
 		log.Fatal().Err(dockerErr)
 	}
+
+	zerolog.SetGlobalLevel(zerolog.Disabled)
 }
 
 func testCleanup(t *testing.T, c ntpdocker.Container) func() {
@@ -31,113 +32,80 @@ func testCleanup(t *testing.T, c ntpdocker.Container) func() {
 	}
 }
 
-// tests - Create, ID, Start, Close, Close
 func TestContainerBase(t *testing.T) {
 	// testing create
-	c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+	c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
 		Image: "alpine",
 	})
+	if err := c1.Create(nil); err != nil {
+		t.Fatalf("unexpected error when creating container")
+	}
 
-	assert.Equal(t, nil, err)
-
-	// testing ID
 	containerId := c1.ID()
+	inspecCon, err := dockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("unable to inspect created container")
+	}
 
-	// Container created
-	_, err = dockerClient.InspectContainer(containerId)
-	assert.Equal(t, nil, err)
-	_, notOk := err.(*fdocker.NoSuchContainer)
-	assert.Equal(t, false, notOk)
+	if inspecCon.State.Status != "created" {
+		t.Fatalf("expected container to have status created")
+	}
 
-	// ensure it is not running after being created
-	con, err := dockerClient.InspectContainer(containerId)
-	assert.Equal(t, "created", con.State.Status)
+	err = c1.Start(nil)
+	if err != nil {
+		t.Fatalf("unable to start container")
+	}
 
-	// testing start
-	err = c1.Start()
-	assert.Equal(t, nil, err)
-	con, err = dockerClient.InspectContainer(containerId)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, "running", con.State.Status)
-	assert.Equal(t, true, con.State.Running)
+	inspecCon, err = dockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("unable to inspect running container")
+	}
 
-	// testing stop
+	if inspecCon.State.Status != "running" {
+		t.Fatalf("expected container to have status running")
+	}
+
 	err = c1.Stop()
-	assert.Equal(t, nil, err)
-	con, err = dockerClient.InspectContainer(containerId)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, "exited", con.State.Status)
-	assert.Equal(t, false, con.State.Running)
+	if err != nil {
+		t.Fatalf("unable to stop container")
+	}
 
-	// testing kill
+	inspecCon, err = dockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("unable to inspect stopped container")
+	}
+
+	if inspecCon.State.Status != "exited" {
+		t.Fatalf("expected container to have status exited")
+	}
+
 	err = c1.Close()
-	assert.Equal(t, nil, err)
+	if err != nil {
+		t.Fatalf("unable to close stopped container")
+	}
 
-	// inspecting to see if it actully killed it
 	_, err = dockerClient.InspectContainer(containerId)
-	_, notOk = err.(*fdocker.NoSuchContainer)
-	assert.Equal(t, true, notOk)
+	if _, ok := err.(*fdocker.NoSuchContainer); !ok {
+		t.Fatalf("expected container to be removed")
+	}
 }
 
-func TestLink(t *testing.T) {
-	t.Skip()
-	c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+func TestContainerContext(t *testing.T) {
+	c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
 		Image: "alpine",
 	})
-	assert.Equal(t, nil, err)
-	defer testCleanup(t, c1)()
-	c2, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
-		Image: "alpine",
-	})
-	assert.Equal(t, nil, err)
-	defer testCleanup(t, c2)()
 
-	err = c1.Start()
-	assert.Equal(t, nil, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 
-	//exec, err := dockerClient.CreateExec(fdocker.CreateExecOptions{
-	//    Container: c1.ID(),
-	//    Cmd: []string{"ls /"},
-	//    AttachStdin: true,
-	//    AttachStdout: true,
-	//})
-	//assert.Equal(t, nil, err)
-	//fmt.Println(exec)
-
-	//details, err := dockerClient.InspectExec(exec.ID)
-	//assert.Equal(t, nil, err)
-	//fmt.Println(details)
-	var dExec *fdocker.Exec
-
-	de := fdocker.CreateExecOptions{
-		AttachStderr: true,
-		AttachStdin:  true,
-		AttachStdout: true,
-		Tty:          false,
-		Cmd:          []string{"ls", "/"},
-		Container:    "9aa026aafb46",
+	if err := c1.Create(ctx); err == nil {
+		t.Fatalf("expected error when creating container with canceled context")
 	}
-	if dExec, err = dockerClient.CreateExec(de); err != nil {
-		fmt.Println(err)
-		return
-	}
-	var stdout, stderr bytes.Buffer
-	var reader = strings.NewReader("ls /")
-	execId := dExec.ID
-	opts := fdocker.StartExecOptions{
-		OutputStream: &stdout,
-		ErrorStream:  &stderr,
-		InputStream:  reader,
-		RawTerminal:  true,
-	}
-	if err = dockerClient.StartExec(execId, opts); err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println("stdout: ", stdout)
-	//<-opts.Success
-	fmt.Println(stdout.String())
 
+	containerId := c1.ID()
+	if containerId != "" {
+		t.Fatalf("expected container id to be empty")
+	}
 }
 
 // test error with host binding
@@ -204,31 +172,41 @@ func TestErrorHostBinding(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+			c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
 				Image:        "alpine",
 				PortBindings: tc.portBinding,
 			})
-
-			assert.Equal(t, tc.err, err)
-
-			if c1 == nil {
+			if err := c1.Create(nil); err != nil {
 				if tc.err == err {
 					return
 				}
-				t.Fatalf("Unexpected error: %s", err)
+
+				t.Fatalf("expected error (%v), but received: %s", tc.err, err)
+			}
+			defer c1.Close()
+
+			if tc.err != nil {
+				t.Fatalf("expected error (%v), but received none", tc.err)
 			}
 
 			con, err := dockerClient.InspectContainer(c1.ID())
-			assert.Equal(t, nil, err)
-
-			for guestPort, host := range con.HostConfig.PortBindings {
-				assert.Equal(t, tc.guestPort.Port(), guestPort.Port())
-				assert.Equal(t, tc.hostIP, host[0].HostIP)
-				assert.Equal(t, tc.hostPort, host[0].HostPort)
+			if err != nil {
+				t.Fatalf("expected no error when inspecting container")
 			}
 
-			err = c1.Close()
-			assert.Equal(t, nil, err)
+			for guestPort, host := range con.HostConfig.PortBindings {
+				if tc.guestPort.Port() != guestPort.Port() {
+					t.Errorf("unexpected guest port (expected: %s): %s", tc.guestPort.Port(), guestPort.Port())
+				}
+
+				if tc.hostIP != host[0].HostIP {
+					t.Errorf("unexpected host ip (expected: %s): %s", tc.hostIP, host[0].HostIP)
+				}
+
+				if tc.hostPort != host[0].HostPort {
+					t.Errorf("unexpected host port (expected: %s): %s", tc.hostPort, host[0].HostPort)
+				}
+			}
 		})
 	}
 }
@@ -256,28 +234,34 @@ func TestErrorMem(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+			c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
 				Image: "alpine",
 				Resources: &ntpdocker.Resources{
 					MemoryMB: tc.memory,
 					CPU:      5000,
 				}})
 
-			assert.Equal(t, tc.err, err)
-
-			if c1 == nil {
+			if err := c1.Create(nil); err != nil {
 				if tc.err == err {
 					return
 				}
-				t.Fatalf("Unexpected error: %s", err)
+
+				t.Fatalf("expected error (%v), but received: %s", tc.err, err)
+			}
+			defer c1.Close()
+
+			if tc.err != nil {
+				t.Fatalf("expected error (%v), but received none", tc.err)
 			}
 
 			con, err := dockerClient.InspectContainer(c1.ID())
-			assert.Equal(t, nil, err)
-			assert.Equal(t, tc.expected, con.HostConfig.Memory)
+			if err != nil {
+				t.Fatalf("expected no error when inspecting container")
+			}
 
-			err = c1.Close()
-			assert.Equal(t, nil, err)
+			if m := con.HostConfig.Memory; tc.expected != m {
+				t.Fatalf("unexpected amount of memory (expected: %d): %d", tc.expected, m)
+			}
 		})
 	}
 }
@@ -310,27 +294,35 @@ func TestErrorMount(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c1, err := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+			c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
 				Image:  "eyjhb/backup-rotate",
 				Mounts: []string{tc.value},
 			})
-
-			assert.Equal(t, tc.err, err)
-
-			if c1 == nil {
+			if err := c1.Create(nil); err != nil {
 				if tc.err == err {
 					return
 				}
-				t.Fatalf("Unexpected error: %s", err)
+
+				t.Fatalf("expected error (%v), but received: %s", tc.err, err)
+			}
+			defer c1.Close()
+
+			if tc.err != nil {
+				t.Fatalf("expected error (%v), but received none", tc.err)
 			}
 
 			con, err := dockerClient.InspectContainer(c1.ID())
-			assert.Equal(t, nil, err)
+			if err != nil {
+				t.Fatalf("expected no error when inspecting container")
+			}
 
-			assert.Equal(t, tc.expected, con.HostConfig.Mounts[0].Source+":"+con.HostConfig.Mounts[0].Target)
+			src := con.HostConfig.Mounts[0].Source
+			trg := con.HostConfig.Mounts[0].Target
+			combined := fmt.Sprintf("%s:%s", src, trg)
 
-			err = c1.Close()
-			assert.Equal(t, nil, err)
+			if tc.expected != combined {
+				t.Fatalf("unexpected mount (expected: %s): %s", tc.expected, combined)
+			}
 		})
 	}
 }

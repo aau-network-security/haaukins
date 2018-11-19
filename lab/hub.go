@@ -1,6 +1,7 @@
 package lab
 
 import (
+	"context"
 	"errors"
 	"io"
 	"sync"
@@ -36,6 +37,7 @@ type hub struct {
 	m           sync.Mutex
 	createSema  *semaphore
 	maximumSema *semaphore
+	ctx         context.Context
 
 	labs     []Lab
 	buffer   chan Lab
@@ -53,6 +55,7 @@ func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, err
 		conf:        conf,
 		createSema:  newSemaphore(createLimit),
 		maximumSema: newSemaphore(cap),
+		ctx:         context.Background(),
 		buffer:      make(chan Lab, available),
 		vboxLib:     vboxLib,
 		labHost:     &labHost{},
@@ -79,13 +82,13 @@ func (h *hub) addLab() error {
 	h.createSema.claim()
 	defer h.createSema.release()
 
-	lab, err := h.labHost.NewLab(h.vboxLib, h.conf)
+	lab, err := h.labHost.NewLab(h.ctx, h.vboxLib, h.conf)
 	if err != nil {
 		log.Debug().Msgf("Error while creating new lab: %s", err)
 		return err
 	}
 
-	if err := lab.Start(); err != nil {
+	if err := lab.Start(h.ctx); err != nil {
 		log.Warn().Msgf("Error while starting lab: %s", err)
 		go func(lab Lab) {
 			if err := lab.Close(); err != nil {
@@ -128,6 +131,9 @@ func (h *hub) Get() (Lab, error) {
 }
 
 func (h *hub) Close() error {
+	_, cancel := context.WithCancel(h.ctx)
+	cancel()
+
 	close(h.buffer)
 
 	var wg sync.WaitGroup

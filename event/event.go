@@ -35,6 +35,7 @@ type Host interface {
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
 	return &eventHost{
+		ctx:  context.Background(),
 		efh:  efh,
 		vlib: vlib,
 		elib: elib,
@@ -42,6 +43,7 @@ func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub
 }
 
 type eventHost struct {
+	ctx  context.Context
 	efh  store.EventFileHub
 	vlib vbox.Library
 	elib store.ExerciseStore
@@ -68,7 +70,7 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		return nil, err
 	}
 
-	return NewEvent(ef, hub)
+	return NewEvent(eh.ctx, ef, hub)
 }
 
 func (eh *eventHost) CreateEventFromConfig(conf store.EventConfig) (Event, error) {
@@ -103,8 +105,9 @@ type event struct {
 	guac   guacamole.Guacamole
 	labhub lab.Hub
 
-	labs  map[string]lab.Lab
-	store store.EventFile
+	labs          map[string]lab.Lab
+	store         store.EventFile
+	keyLoggerPool guacamole.KeyLoggerPool
 
 	guacUserStore *guacamole.GuacUserStore
 	dockerHost    docker.Host
@@ -112,7 +115,7 @@ type event struct {
 	closers []io.Closer
 }
 
-func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
+func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, error) {
 	conf := ef.Read()
 	ctfdConf := ctfd.Config{
 		Name:  conf.Name,
@@ -120,17 +123,22 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		Teams: ef.GetTeams(),
 	}
 
-	ctf, err := ctfd.New(ctfdConf)
+	ctf, err := ctfd.New(ctx, ctfdConf)
 	if err != nil {
 		return nil, err
 	}
 
-	guac, err := guacamole.New(guacamole.Config{})
+	guac, err := guacamole.New(ctx, guacamole.Config{})
 	if err != nil {
 		return nil, err
 	}
 
 	dockerHost := docker.NewHost()
+
+	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.ArchiveDir())
+	if err != nil {
+		return nil, err
+	}
 
 	ev := &event{
 		store:         ef,
@@ -139,15 +147,16 @@ func NewEvent(ef store.EventFile, hub lab.Hub) (Event, error) {
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
-		closers:       []io.Closer{ctf, guac, hub},
+		closers:       []io.Closer{ctf, guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
+		keyLoggerPool: keyLoggerPool,
 	}
 
 	return ev, nil
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	if err := ev.ctfd.Start(); err != nil {
+	if err := ev.ctfd.Start(ctx); err != nil {
 		log.
 			Error().
 			Err(err).
@@ -197,6 +206,10 @@ func (ev *event) Close() error {
 func (ev *event) Finish() {
 	now := time.Now()
 	ev.store.Finish(now)
+
+	if err := ev.store.Archive(); err != nil {
+		log.Warn().Msgf("error while archiving event: %s", err)
+	}
 }
 
 func (ev *event) AssignLab(t *store.Team) error {
@@ -270,7 +283,7 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
-	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore)(ev.store)
+	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool)(ev.store)
 
 	m := http.NewServeMux()
 	m.Handle("/guaclogin", guacHandler)

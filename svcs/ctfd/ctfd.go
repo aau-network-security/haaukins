@@ -42,7 +42,7 @@ type CTFd interface {
 	docker.Identifier
 	io.Closer
 	ProxyHandler(...func(*store.Team) error) svcs.ProxyConnector
-	Start() error
+	Start(context.Context) error
 	Stop() error
 	Flags() []store.FlagConfig
 }
@@ -52,6 +52,7 @@ type Config struct {
 	AdminUser  string `yaml:"admin_user"`
 	AdminEmail string `yaml:"admin_email"`
 	AdminPass  string `yaml:"admin_pass"`
+	Theme      string `yaml:"theme"`
 	Flags      []store.FlagConfig
 	Teams      []store.Team
 }
@@ -59,11 +60,12 @@ type Config struct {
 type ctfd struct {
 	conf     Config
 	cont     docker.Container
+	theme    Theme
 	confDir  string
 	nc       nonceClient
 	users    []*user
 	relation map[string]*user
-	flagPool *flagPool
+	flagPool *FlagPool
 }
 
 type user struct {
@@ -72,7 +74,7 @@ type user struct {
 	password string
 }
 
-func New(conf Config) (CTFd, error) {
+func New(ctx context.Context, conf Config) (CTFd, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -88,6 +90,10 @@ func New(conf Config) (CTFd, error) {
 
 	if conf.Name == "" {
 		conf.Name = "Demo"
+	}
+
+	if conf.Theme == "" {
+		conf.Theme = "aau-survey"
 	}
 
 	if conf.AdminUser == "" {
@@ -107,8 +113,14 @@ func New(conf Config) (CTFd, error) {
 		conf.AdminPass = pass
 	}
 
+	theme, ok := Themes[conf.Theme]
+	if !ok {
+		theme = Themes["aau"]
+	}
+
 	ctf := &ctfd{
 		conf:     conf,
+		theme:    theme,
 		flagPool: NewFlagPool(),
 		nc:       nc,
 		relation: make(map[string]*user),
@@ -130,14 +142,13 @@ func New(conf Config) (CTFd, error) {
 			"8000/tcp": fmt.Sprintf("127.0.0.1:%d", ctf.nc.port),
 		},
 		UseBridge: true,
+		Labels: map[string]string{
+			"ntp": "ctfd",
+		},
 	}
 
-	c, err := docker.NewContainer(dconf)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.Start()
+	c := docker.NewContainer(dconf)
+	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +169,8 @@ func New(conf Config) (CTFd, error) {
 
 }
 
-func (ctf *ctfd) Start() error {
-	return ctf.cont.Start()
+func (ctf *ctfd) Start(ctx context.Context) error {
+	return ctf.cont.Start(ctx)
 }
 
 func (ctf *ctfd) Close() error {
@@ -188,14 +199,22 @@ func (ctf *ctfd) ID() string {
 
 func (ctf *ctfd) ProxyHandler(hooks ...func(*store.Team) error) svcs.ProxyConnector {
 	origin, _ := url.Parse(ctf.nc.baseUrl())
+	regOpts := []RegisterInterceptOpts{WithRegisterHooks(hooks...)}
+
+	if ctf.theme.ExtraFields != nil {
+		regOpts = append(regOpts, WithExtraRegisterFields(ctf.theme.ExtraFields))
+	}
 
 	return func(es store.EventFile) http.Handler {
 		itc := svcs.Interceptors{
-			NewRegisterInterception(es, WithRegisterHooks(hooks...)),
+			NewRegisterInterception(es, regOpts...),
 			NewCheckFlagInterceptor(es, ctf.flagPool),
 			NewLoginInterceptor(es),
 		}
 
+		if ctf.theme.ExtraFields != nil {
+			itc = append(itc, NewSignupInterception(ctf.theme.ExtraFields))
+		}
 		return itc.Intercept(httputil.NewSingleHostReverseProxy(origin))
 	}
 }
@@ -230,7 +249,11 @@ func (ctf *ctfd) configureInstance() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
+
+	if err := ctf.addTheme(ctf.theme); err != nil {
+		return err
+	}
 
 	for id, flag := range ctf.conf.Flags {
 		value := ctf.flagPool.AddFlag(flag, id+1)
@@ -347,13 +370,81 @@ func (ctf *ctfd) createFlag(name, flag string, points uint) error {
 	return nil
 }
 
+func (ctf *ctfd) addTheme(t Theme) error {
+	endpoint := ctf.nc.baseUrl() + "/admin/config"
+
+	nonce, err := ctf.nc.getNonce(endpoint)
+	if err != nil {
+		return err
+	}
+
+	body := &bytes.Buffer{}
+	w := multipart.NewWriter(body)
+	values := map[string]string{
+		"nonce":         nonce,
+		"ctf_name":      ctf.conf.Name,
+		"ctf_logo":      "None",
+		"ctf_theme":     "core",
+		"css":           t.CSS,
+		"mailfrom_addr": "",
+		"mail_server":   "",
+		"mail_port":     "",
+		"mail_u":        "",
+		"mail_p":        "",
+		"mg_base_url":   "",
+		"mg_api_key":    "",
+		"start-month":   "",
+		"start-day":     "",
+		"start-year":    "",
+		"start-hour":    "",
+		"start-minute":  "",
+		"start":         "",
+		"end-month":     "",
+		"end-day":       "",
+		"end-year":      "",
+		"end-hour":      "",
+		"end-minute":    "",
+		"end":           "",
+		"freeze-month":  "",
+		"freeze-day":    "",
+		"freeze-year":   "",
+		"freeze-hour":   "",
+		"freeze-minute": "",
+		"freeze":        "",
+		"backup":        "",
+	}
+
+	for k, v := range values {
+		err := w.WriteField(k, v)
+		if err != nil {
+			return err
+		}
+	}
+	w.Close()
+
+	req, err := http.NewRequest("POST", endpoint, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", w.FormDataContentType())
+
+	resp, err := ctf.nc.client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
 type team struct {
 	nc    nonceClient
 	conf  store.Team
 	flags map[store.Tag]string
 }
 
-func (t *team) create(fp *flagPool) error {
+func (t *team) create(fp *FlagPool) error {
 	endpoint := t.nc.baseUrl() + "/register"
 
 	nonce, err := t.nc.getNonce(endpoint)
@@ -401,7 +492,7 @@ func (t *team) create(fp *flagPool) error {
 	return nil
 }
 
-func (t *team) solve(fp *flagPool, tag store.Tag) error {
+func (t *team) solve(fp *FlagPool, tag store.Tag) error {
 	id, err := fp.GetIdentifierByTag(tag)
 	if err != nil {
 		return err

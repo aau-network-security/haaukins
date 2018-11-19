@@ -1,4 +1,4 @@
-package daemon
+package logging
 
 import (
 	"io"
@@ -9,12 +9,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type LogPool interface {
+type Pool interface {
 	GetLogger(string, ...loggingOpts) (*zerolog.Logger, error)
 	io.Closer
 }
 
-type logPool struct {
+type pool struct {
 	m     sync.Mutex
 	dir   string
 	logs  map[string]*zerolog.Logger
@@ -27,12 +27,7 @@ type logConfig struct {
 
 type loggingOpts func(*logConfig) error
 
-func WriteStdErr(c *logConfig) error {
-	c.writeStdErr = true
-	return nil
-}
-
-func (lp *logPool) GetLogger(name string, opts ...loggingOpts) (*zerolog.Logger, error) {
+func (lp *pool) GetLogger(name string, opts ...loggingOpts) (*zerolog.Logger, error) {
 	lp.m.Lock()
 	defer lp.m.Unlock()
 
@@ -62,14 +57,14 @@ func (lp *logPool) GetLogger(name string, opts ...loggingOpts) (*zerolog.Logger,
 	}
 
 	lp.files = append(lp.files, f)
-	logger := zerolog.New(w).With().Timestamp().Logger()
+	logger := zerolog.New(w)
 
 	lp.logs[name] = &logger
 
 	return &logger, nil
 }
 
-func (lp *logPool) Close() error {
+func (lp *pool) Close() error {
 	var errs error
 	for _, f := range lp.files {
 		err := f.Close()
@@ -81,14 +76,14 @@ func (lp *logPool) Close() error {
 	return errs
 }
 
-func NewLogPool(dir string) (LogPool, error) {
+func NewPool(dir string) (Pool, error) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
-	return &logPool{
+	return &pool{
 		logs: map[string]*zerolog.Logger{},
 		dir:  dir,
 	}, nil

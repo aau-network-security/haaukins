@@ -1,20 +1,32 @@
 package virtual
 
 import (
+	"context"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 )
 
+const (
+	Running = State(0)
+	Stopped = State(1)
+	Error   = State(2)
+)
+
+type State int
+
 type InstanceInfo struct {
 	Image string
-	Type string
-	Id string
+	Type  string
+	Id    string
+	State State
 }
 
 type Instance interface {
-	Start() error
+	Create(context.Context) error
+	Start(context.Context) error
+	Run(context.Context) error
 	Stop() error
 	Info() InstanceInfo
 	io.Closer
