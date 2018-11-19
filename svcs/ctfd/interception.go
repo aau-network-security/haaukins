@@ -21,13 +21,85 @@ import (
 
 var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
+
+	selectorTmpl, _ = template.New("Selector").Parse(`
+<label for="{{.Tag}}">{{.Label}}</label>
+<select name="{{.Tag}}" class="form-control">
+<option></option>{{range .Options}}
+<option>{{.}}</option>{{end}}
+</select>`)
+
+	checkboxTmpl, _ = template.New("checkbox").Parse(`
+<input class="form-check-input" type="checkbox" name="{{.Tag}}-checkbox" value="ok" checked>
+<label class="form-check-label" for="{{.Tag}}-checkbox">
+  {{.Text}}
+</label>
+`)
 )
+
+type Checkbox struct {
+	Tag  string
+	Text string
+}
+
+func NewCheckbox(tag string, text string) *Checkbox {
+	return &Checkbox{
+		Tag:  tag,
+		Text: text,
+	}
+}
+
+func (c *Checkbox) Html() template.HTML {
+	var out bytes.Buffer
+	checkboxTmpl.Execute(&out, c)
+	return template.HTML(out.String())
+}
+
+func (c *Checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
+	formName := fmt.Sprintf("%s-checkbox", c.Tag)
+	v := r.FormValue(formName)
+
+	if team.Metadata == nil {
+		team.Metadata = map[string]string{}
+	}
+	team.Metadata[c.Tag] = v
+
+	r.Form.Del(c.Tag)
+	return nil
+}
 
 type Selector struct {
 	Label   string
 	Tag     string
 	Options []string
 	lookup  map[string]struct{}
+}
+
+func (s *Selector) Html() template.HTML {
+	var out bytes.Buffer
+	selectorTmpl.Execute(&out, s)
+	return template.HTML(out.String())
+}
+
+func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
+	v := r.FormValue(s.Tag)
+	if v == "" {
+		return fmt.Errorf("field \"%s\" cannot be empty", s.Label)
+	}
+
+	if _, ok := s.lookup[v]; !ok {
+		return fmt.Errorf("invalid value for field \"%s\"", s.Label)
+	}
+
+	r.Form.Del(s.Tag)
+
+	if team.Metadata == nil {
+		team.Metadata = map[string]string{}
+	}
+
+	team.Metadata[s.Tag] = v
+
+	return nil
 }
 
 func NewSelector(label string, tag string, options []string) *Selector {
@@ -44,79 +116,63 @@ func NewSelector(label string, tag string, options []string) *Selector {
 	}
 }
 
-var (
-	selectorTmpl, _ = template.New("selector").Parse(`
-<label for="{{.Tag}}">{{.Label}}</label>
-<select name="{{.Tag}}" class="form-control">
-<option></option>{{range .Options}}
-<option>{{.}}</option>{{end}}
-</select>`)
-)
-
-func (s *Selector) Html() template.HTML {
-	var out bytes.Buffer
-	selectorTmpl.Execute(&out, s)
-	return template.HTML(out.String())
+type Input interface {
+	Html() template.HTML
+	ReadMetadata(r *http.Request, team *store.Team) error
 }
 
-func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
-	v := r.FormValue(s.Tag)
-	if v == "" {
-		return fmt.Errorf("Field \"%s\" cannot be empty", s.Label)
-	}
-
-	if _, ok := s.lookup[v]; !ok {
-		return fmt.Errorf("Invalid value for field \"%s\"", s.Label)
-	}
-
-	r.Form.Del(s.Tag)
-
-	if team.Metadata == nil {
-		team.Metadata = map[string]string{}
-	}
-
-	team.Metadata[s.Tag] = v
-
-	return nil
+type InputRow struct {
+	Class  string
+	Inputs []Input
 }
 
 type ExtraFields struct {
-	Selectors [][]*Selector
+	Rows []InputRow
 }
 
-func NewExtraFields(selectors [][]*Selector) *ExtraFields {
+func NewExtraFields(rows []InputRow) *ExtraFields {
 	return &ExtraFields{
-		Selectors: selectors,
+		Rows: rows,
 	}
 }
 
 var (
 	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
 {{range .}}
-<div class="form-group row">
-{{range .}}
-<div class="col-md-{{.Width}}">
-{{.Html}}
-</div>
-{{end}}
+<div class="{{.Class}} row">
+	{{range .Inputs}}
+	<div class="col-md-{{.Width}}">
+		{{.Html}}
+	</div>
+	{{end}}
 </div>
 {{end}}`)
 )
 
 func (ef *ExtraFields) Html() string {
-	var rows [][]interface{}
-	for _, row := range ef.Selectors {
-		colsize := 12 / len(row)
-		var cols []interface{}
+	var rows []struct {
+		Class  string
+		Inputs []interface{}
+	}
+	for _, row := range ef.Rows {
+		colsize := 12 / len(row.Inputs)
 
-		for _, col := range row {
+		var cols []interface{}
+		for _, col := range row.Inputs {
 			cols = append(cols, struct {
 				Width int
 				Html  template.HTML
 			}{colsize, col.Html()})
 		}
 
-		rows = append(rows, cols)
+		htmlRow := struct {
+			Class  string
+			Inputs []interface{}
+		}{
+			Class:  row.Class,
+			Inputs: cols,
+		}
+		rows = append(rows, htmlRow)
 	}
 
 	var out bytes.Buffer
@@ -126,8 +182,8 @@ func (ef *ExtraFields) Html() string {
 
 func (ef *ExtraFields) ReadMetadata(r *http.Request, team *store.Team) []error {
 	var errs []error
-	for _, row := range ef.Selectors {
-		for _, selc := range row {
+	for _, row := range ef.Rows {
+		for _, selc := range row.Inputs {
 			if err := selc.ReadMetadata(r, team); err != nil {
 				errs = append(errs, err)
 			}
@@ -211,7 +267,6 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
-
 		return store.NewTeam(email, name, pass)
 	}
 
