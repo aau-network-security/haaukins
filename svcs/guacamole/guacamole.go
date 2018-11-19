@@ -6,34 +6,44 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/go-ntp/svcs"
+	"github.com/aau-network-security/go-ntp/virtual"
+	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs"
-	"github.com/aau-network-security/go-ntp/virtual"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 )
 
 var (
-	MalformedLoginErr = errors.New("Malformed login response")
-	NoHostErr         = errors.New("Host is missing")
-	NoPortErr         = errors.New("Port is missing")
-	NoNameErr         = errors.New("Name is missing")
-	IncorrectColorErr = errors.New("ColorDepth can take the following values: 8, 16, 24, 32")
-	UnexpectedRespErr = errors.New("Unexpected response from Guacamole")
+	MalformedLoginErr = errors.New("malformed login response")
+	NoHostErr         = errors.New("host is missing")
+	NoPortErr         = errors.New("port is missing")
+	NoNameErr         = errors.New("name is missing")
+	IncorrectColorErr = errors.New("colorDepth can take the following values: 8, 16, 24, 32")
+	UnexpectedRespErr = errors.New("unexpected response from Guacamole")
+	SessionErr        = errors.New("session must exist")
 
 	DefaultAdminUser = "guacadmin"
 	DefaultAdminPass = "guacadmin"
+
+	wsHeaders = []string{
+		"Sec-Websocket-Extensions",
+		"Sec-Websocket-Version",
+		"Sec-Websocket-Key",
+		"Connection",
+		"Upgrade",
+	}
+
+	upgrader = websocket.Upgrader{}
 )
 
 type GuacError struct {
@@ -53,7 +63,7 @@ type Guacamole interface {
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	RawLogin(username, password string) ([]byte, error)
-	ProxyHandler(us *GuacUserStore) svcs.ProxyConnector
+	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector
 }
 
 type Config struct {
@@ -234,7 +244,7 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
+func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector {
 	loginFunc := func(u string, p string) (string, error) {
 		content, err := guac.RawLogin(u, p)
 		if err != nil {
@@ -259,8 +269,8 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore) svcs.ProxyConnector {
 		}}
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if IsWebSocket(r) {
-				websocketProxy(host).ServeHTTP(w, r)
+			if isWebSocket(r) {
+				websocketProxy(host, ef, klp).ServeHTTP(w, r)
 				return
 			}
 
@@ -345,7 +355,7 @@ func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if err := IsExpectedStatus(resp.StatusCode); err != nil {
+	if err := isExpectedStatus(resp.StatusCode); err != nil {
 		return nil, &GuacError{action: "login", err: err}
 	}
 
@@ -373,7 +383,7 @@ func (guac *guacamole) authAction(action string, a func(string) (*http.Response,
 			return true, connErr
 		}
 
-		if err := IsExpectedStatus(status); err != nil {
+		if err := isExpectedStatus(status); err != nil {
 			return true, err
 		}
 
@@ -708,50 +718,145 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func websocketProxy(target string) http.Handler {
+func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPool) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Header.Set("Origin", origin)
-		r.Header.Add("X-Forwarded-Host", r.Host)
-		r.Host = target
+		url := r.URL
+		url.Host = target
+		url.Scheme = "ws"
 
-		d, err := net.Dial("tcp", target)
+		cookie, err := r.Cookie("session")
 		if err != nil {
-			log.Printf("Error dialing websocket backend %s: %v", target, err)
+			log.Error().Err(SessionErr)
 			return
 		}
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			return
-		}
-		nc, _, err := hj.Hijack()
+
+		t, err := ef.GetTeamByToken(cookie.Value)
 		if err != nil {
-			log.Printf("Hijack error: %v", err)
+			log.Error().Msgf("Failed to find team by token")
 			return
 		}
-		defer nc.Close()
-		defer d.Close()
 
-		err = r.Write(d)
+		var logger KeyLogger
+		if t.DataConsent() {
+			logger, err = keyLoggerPool.GetLogger(t)
+			if err != nil {
+				log.Warn().Msg("Failed to create keylogger")
+			}
+		}
+
+		rHeader := http.Header{}
+		copyHeaders(r.Header, rHeader, wsHeaders)
+		rHeader.Set("Origin", origin)
+		rHeader.Set("X-Forwarded-Host", r.Host)
+
+		backend, resp, err := websocket.DefaultDialer.Dial(url.String(), rHeader)
 		if err != nil {
-			log.Printf("Error copying request to target: %v", err)
+			log.Error().Msgf("Failed to connect target (%s): %s", url.String(), err)
 			return
 		}
+		defer backend.Close()
 
-		errc := make(chan error, 2)
-		cp := func(dst io.Writer, src io.Reader) {
-			_, err := io.Copy(dst, src)
-			errc <- err
+		upgradeHeader := http.Header{}
+		if h := resp.Header.Get("Sec-Websocket-Protocol"); h != "" {
+			upgradeHeader.Set("Sec-Websocket-Protocol", h)
 		}
-		go cp(d, nc)
-		go cp(nc, d)
 
-		<-errc
+		c, err := upgrader.Upgrade(w, r, upgradeHeader)
+		if err != nil {
+			log.Error().Msgf("Failed to upgrade connection: %s", err)
+			return
+		}
+		defer c.Close()
+
+		errClient := make(chan error, 1)
+		errBackend := make(chan error, 1)
+
+		cp := func(logger KeyLogger) func(src *websocket.Conn, dst *websocket.Conn, errc chan error) {
+			var actions []func(RawFrame)
+			if logger != nil {
+				actions = append(actions, logger.Log)
+			}
+
+			return func(src *websocket.Conn, dst *websocket.Conn, errc chan error) {
+				for {
+					msgType, data, err := src.ReadMessage()
+					if err != nil {
+						m := getCloseMsg(err)
+						dst.WriteMessage(websocket.CloseMessage, m)
+						errc <- err
+					}
+
+					if err := dst.WriteMessage(msgType, data); err != nil {
+						errc <- err
+						break
+					}
+
+					for _, action := range actions {
+						action(data)
+					}
+				}
+			}
+		}
+
+		go cp(logger)(c, backend, errClient)
+		go cp(nil)(backend, c, errClient)
+
+		log.Debug().
+			Str("id", t.Id).
+			Str("event", string(ef.Read().Tag)).
+			Msg("team connected")
+
+		var msgFormat string
+		select {
+		case err = <-errClient:
+			msgFormat = "Error when copying from client to backend: %s"
+		case err = <-errBackend:
+			msgFormat = "Error when copying from backend to client: %s"
+		}
+
+		e, ok := err.(*websocket.CloseError)
+		if ok && e.Code == websocket.CloseNoStatusReceived {
+			log.Debug().
+				Str("id", t.Id).
+				Str("event", string(ef.Read().Tag)).
+				Msg("team disconnected")
+		} else if !ok || e.Code != websocket.CloseNormalClosure {
+			log.Error().Msgf(msgFormat, err)
+		}
 	})
 }
 
-func IsWebSocket(req *http.Request) bool {
+func copyHeaders(src, dst http.Header, ignore []string) {
+	for k, vv := range src {
+		isIgnored := false
+		for _, h := range ignore {
+			if k == h {
+				isIgnored = true
+				break
+			}
+		}
+		if isIgnored {
+			continue
+		}
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
+	}
+}
+
+func getCloseMsg(err error) []byte {
+	res := websocket.FormatCloseMessage(websocket.CloseNormalClosure, fmt.Sprintf("%s", err))
+	if e, ok := err.(*websocket.CloseError); ok {
+		if e.Code != websocket.CloseNoStatusReceived {
+			res = websocket.FormatCloseMessage(e.Code, e.Text)
+		}
+	}
+	return res
+}
+
+func isWebSocket(req *http.Request) bool {
 	if upgrade := req.Header.Get("Upgrade"); upgrade != "" {
 		return upgrade == "websocket" || upgrade == "Websocket"
 	}
@@ -759,7 +864,7 @@ func IsWebSocket(req *http.Request) bool {
 	return false
 }
 
-func IsExpectedStatus(s int) error {
+func isExpectedStatus(s int) error {
 	if (s >= http.StatusOK) && (s <= 302) || s == http.StatusForbidden {
 		return nil
 	}

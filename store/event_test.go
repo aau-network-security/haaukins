@@ -2,9 +2,13 @@ package store_test
 
 import (
 	"testing"
-
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/google/uuid"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"fmt"
+	"time"
 )
 
 func TestNewTeam(t *testing.T) {
@@ -178,5 +182,71 @@ func TestDeleteToken(t *testing.T) {
 				t.Fatalf("received error when getting team by token, but expected none: %s", err)
 			}
 		})
+	}
+}
+
+func TestArchive(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory")
+	}
+	defer os.RemoveAll(tempDir)
+
+	eventTag := "testevent"
+
+	ef := store.NewEventFile(tempDir, eventTag+".yml", store.RawEventFile{})
+
+	team := store.NewTeam("test@email.com", "BestTeam", "1234")
+	if err := ef.CreateTeam(team); err != nil {
+		t.Fatalf("Unexpected error while creatingaving team")
+	}
+
+	if err := ef.Archive(); err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	archiveFile := filepath.Join(tempDir, eventTag, "config.yml")
+	if _, err := os.Stat(archiveFile); err != nil {
+		t.Fatalf("Expected '%s' to exist, but got error: %s", archiveFile, err)
+	}
+	eventFile := filepath.Join(tempDir, eventTag+".yml")
+	if _, err := os.Stat(eventFile); !os.IsNotExist(err) {
+		t.Fatalf("Expected '%s' to be removed, but it still exists: %s", eventFile, err)
+	}
+}
+
+func TestCreateEventFile(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory")
+	}
+	defer os.RemoveAll(tempDir)
+
+	hub, err := store.NewEventFileHub(tempDir)
+	if err != nil {
+		t.Fatalf("Unexpected error while creating event file hub: %s", err)
+	}
+	ec := store.EventConfig{
+		Tag: "test",
+	}
+
+	now := time.Now().Format("02-01-06")
+
+	expectedDirs := []string{
+		fmt.Sprintf("test-%s", now),
+		fmt.Sprintf("test-%s-1", now),
+		fmt.Sprintf("test-%s-2", now),
+		fmt.Sprintf("test-%s-3", now),
+	}
+
+	for _, expectedDir := range expectedDirs {
+		ef, err := hub.CreateEventFile(ec)
+		if err != nil {
+			t.Fatalf("Unexpected error while creating first event file: %s", err)
+		}
+
+		if ef.ArchiveDir() != filepath.Join(tempDir, expectedDir) {
+			t.Fatalf("Expected archive directory '%s', but got '%s'", filepath.Join(tempDir, expectedDir), ef.ArchiveDir())
+		}
 	}
 }

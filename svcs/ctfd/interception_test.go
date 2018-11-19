@@ -21,10 +21,19 @@ func init() {
 
 func TestRegisterInterception(t *testing.T) {
 	endpoint := "http://sec02.lab.es.aau.dk/register"
-	survey := ctfd.NewExtraFields("can I has concent", [][]*ctfd.Selector{
+	survey, _ := ctfd.NewExtraFields([]ctfd.InputRow{
 		{
-			ctfd.NewSelector("value1", "value1", []string{"1", "2", "3"}),
-			ctfd.NewSelector("value2", "value2", []string{"a", "b"}),
+			Class: "form-group",
+			Inputs: []ctfd.Input {
+				ctfd.NewSelector("value1", "value1", []string{"1", "2", "3"}),
+				ctfd.NewSelector("value2", "value2", []string{"a", "b"}),
+			},
+		},
+		{
+			Class: "form-check",
+			Inputs: []ctfd.Input {
+				ctfd.NewCheckbox("consent", "Can i has consent", true),
+			},
 		},
 	})
 
@@ -54,7 +63,7 @@ func TestRegisterInterception(t *testing.T) {
 				"nonce":        "random_string",
 				"value1":       "2",
 				"value2":       "b",
-				"extra-fields": "ok",
+				"consent-checkbox": "ok",
 			},
 		},
 		{
@@ -76,9 +85,9 @@ func TestRegisterInterception(t *testing.T) {
 				"password":     "some_password",
 				"nonce":        "random_string",
 				"value1":       "3",
-				"extra-fields": "ok",
+				"consent-checkbox": "ok",
 			},
-			err: `Field "value2" cannot be empty`,
+			err: `field "value2" cannot be empty`,
 		},
 		{
 			name: "Missing survey (2)",
@@ -89,9 +98,9 @@ func TestRegisterInterception(t *testing.T) {
 				"password":     "some_password",
 				"nonce":        "random_string",
 				"value2":       "b",
-				"extra-fields": "ok",
+				"consent-checkbox": "ok",
 			},
-			err: `Field "value1" cannot be empty`,
+			err: `field "value1" cannot be empty`,
 		},
 		{
 			name: "Incorrect value survey",
@@ -103,9 +112,9 @@ func TestRegisterInterception(t *testing.T) {
 				"nonce":        "random_string",
 				"value1":       "meow",
 				"value2":       "b",
-				"extra-fields": "ok",
+				"consent-checkbox": "ok",
 			},
-			err: `Invalid value for field "value1"`,
+			err: `invalid value for field "value1"`,
 		},
 	}
 
@@ -511,8 +520,8 @@ func TestSelectorReadMetadata(t *testing.T) {
 		err  string
 	}{
 		{name: "Normal", form: &url.Values{"age": {"0-14"}}},
-		{name: "No values", err: `Field "Age" cannot be empty`},
-		{name: "Invalid value", err: `Invalid value for field "Age"`, form: &url.Values{"age": {"abc"}}},
+		{name: "No values", err: `field "Age" cannot be empty`},
+		{name: "Invalid value", err: `invalid value for field "Age"`, form: &url.Values{"age": {"abc"}}},
 	}
 
 	for _, tc := range tt {
@@ -547,6 +556,65 @@ func TestSelectorReadMetadata(t *testing.T) {
 
 			if _, ok := team.Metadata["age"]; !ok {
 				t.Fatalf("expected metadata to be read")
+			}
+		})
+	}
+}
+
+func TestCheckboxHtml(t *testing.T) {
+	cbox := ctfd.NewCheckbox("agree", "I agree", true)
+	htmlStr := cbox.Html()
+
+	doc, err := goquery.NewDocumentFromReader(
+		strings.NewReader(string(htmlStr)),
+	)
+	if err != nil {
+		t.Fatalf("unable to read html: %s", err)
+	}
+
+	if doc.Find("input[class=form-check-input]") == nil {
+		t.Fatalf("expected input with class 'form-check-input' to exist, but it does not")
+	}
+}
+
+func TestCheckboxReadMetadata(t *testing.T) {
+	tt := []struct {
+		name string
+		form *url.Values
+		expectedConsent bool
+
+	}{
+		{
+			name: "Normal",
+			form: &url.Values{"consent-checkbox": {"ok"}},
+			expectedConsent: true,
+		},
+		{
+			name: "No consent given",
+			form: &url.Values{"consent-checkbox": {""}},
+			expectedConsent: false,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			cbox := ctfd.NewCheckbox("consent", "I agree", true)
+
+			req := httptest.NewRequest("POST", "http://test.com", nil)
+			if tc.form != nil {
+				values := *tc.form
+				req = httptest.NewRequest("POST", "http://test.com", strings.NewReader(values.Encode()))
+				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			}
+
+			var team store.Team
+			err := cbox.ReadMetadata(req, &team)
+			if (err != nil && tc.expectedConsent) && (err == nil && !tc.expectedConsent) {
+				t.Fatalf("unexpected error: %s", err)
+			}
+
+			if team.DataCollection() != tc.expectedConsent {
+				t.Fatalf("expected consent to be '%t', but got '%t'", tc.expectedConsent, team.DataCollection())
 			}
 		})
 	}

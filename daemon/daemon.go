@@ -27,6 +27,7 @@ import (
 
 	"sync"
 
+	"github.com/aau-network-security/go-ntp/logging"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -37,7 +38,7 @@ var (
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	MissingSecretKey    = errors.New("Management signing key cannot be empty")
-	UnknownTeamErr 		= errors.New("Unable to find team by that id")
+	UnknownTeamErr      = errors.New("Unable to find team by that id")
 
 	version string
 )
@@ -88,7 +89,7 @@ type daemon struct {
 	eventPool *eventPool
 	frontends store.FrontendStore
 	ehost     event.Host
-	logPool   LogPool
+	logPool   logging.Pool
 	closers   []io.Closer
 }
 
@@ -178,7 +179,7 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
-	logPool, err := NewLogPool(conf.LogDir)
+	logPool, err := logging.NewPool(conf.LogDir)
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +244,9 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	var logger *zerolog.Logger
 	if d.logPool != nil {
 		logger, _ = d.logPool.GetLogger("audit")
+		l := *logger
+		l = l.With().Timestamp().Logger()
+		logger = &l
 	}
 
 	streamInterceptor := func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -701,8 +705,8 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 	for _, i := range lab.InstanceInfo() {
 		instance := &pb.GetTeamInfoResponse_Instance{
 			Image: i.Image,
-			Type: i.Type,
-			Id: i.Id,
+			Type:  i.Type,
+			Id:    i.Id,
 			State: int32(i.State),
 		}
 		instances = append(instances, instance)

@@ -17,17 +17,90 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/rs/zerolog/log"
+	"github.com/pkg/errors"
 )
 
 var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
+	DuplicateConsentErr = errors.New("Cannot have more than one consent checkbox")
+	NoConsentErr = errors.New("No consent given")
+
+	selectorTmpl, _ = template.New("Selector").Parse(`
+<label for="{{.Tag}}">{{.Label}}</label>
+<select name="{{.Tag}}" class="form-control">
+<option></option>{{range .Options}}
+<option>{{.}}</option>{{end}}
+</select>`)
+
+	checkboxTmpl, _ = template.New("checkbox").Parse(`
+<input class="form-check-input" type="checkbox" name="{{.Tag}}-checkbox" value="ok" checked>
+<label class="form-check-label" for="{{.Tag}}-checkbox">
+  {{.Text}}
+</label>
+`)
 )
+
+type Checkbox struct {
+	Tag              string
+	Text             string
+	indicatesConcent bool
+}
+
+func NewCheckbox(tag string, text string, consent bool) *Checkbox {
+	return &Checkbox{
+		Tag:  tag,
+		Text: text,
+		indicatesConcent: consent,
+	}
+}
+
+func (c *Checkbox) Html() template.HTML {
+	var out bytes.Buffer
+	checkboxTmpl.Execute(&out, c)
+	return template.HTML(out.String())
+}
+
+func (c *Checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
+	formName := fmt.Sprintf("%s-checkbox", c.Tag)
+	v := r.FormValue(formName)
+	if c.indicatesConcent && v == "" {
+		return NoConsentErr
+	}
+
+	team.AddMetadata(c.Tag,v)
+
+	delete(r.Form, formName)
+	return nil
+}
 
 type Selector struct {
 	Label   string
 	Tag     string
 	Options []string
 	lookup  map[string]struct{}
+}
+
+func (s *Selector) Html() template.HTML {
+	var out bytes.Buffer
+	selectorTmpl.Execute(&out, s)
+	return template.HTML(out.String())
+}
+
+func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
+	v := r.FormValue(s.Tag)
+	if v == "" {
+		return fmt.Errorf("field \"%s\" cannot be empty", s.Label)
+	}
+
+	if _, ok := s.lookup[v]; !ok {
+		return fmt.Errorf("invalid value for field \"%s\"", s.Label)
+	}
+
+	delete(r.Form, s.Tag)
+
+	team.AddMetadata(s.Tag, v)
+
+	return nil
 }
 
 func NewSelector(label string, tag string, options []string) *Selector {
@@ -44,119 +117,111 @@ func NewSelector(label string, tag string, options []string) *Selector {
 	}
 }
 
-var (
-	selectorTmpl, _ = template.New("selector").Parse(`
-<label for="{{.Tag}}">{{.Label}}</label>
-<select name="{{.Tag}}" class="form-control">
-<option></option>{{range .Options}}
-<option>{{.}}</option>{{end}}
-</select>`)
-)
-
-func (s *Selector) Html() template.HTML {
-	var out bytes.Buffer
-	selectorTmpl.Execute(&out, s)
-	return template.HTML(out.String())
+type Input interface {
+	Html() template.HTML
+	ReadMetadata(r *http.Request, team *store.Team) error
 }
 
-func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
-	v := r.FormValue(s.Tag)
-	if v == "" {
-		return fmt.Errorf("Field \"%s\" cannot be empty", s.Label)
-	}
-
-	if _, ok := s.lookup[v]; !ok {
-		return fmt.Errorf("Invalid value for field \"%s\"", s.Label)
-	}
-
-	r.Form.Del(s.Tag)
-
-	if team.Metadata == nil {
-		team.Metadata = map[string]string{}
-	}
-
-	team.Metadata[s.Tag] = v
-
-	return nil
+type InputRow struct {
+	Class  string
+	Inputs []Input
 }
 
 type ExtraFields struct {
-	Selectors    [][]*Selector
-	ConcentLabel string
+	html string
+	inputs []Input
+	concentChecker *Checkbox
 }
 
-func NewExtraFields(label string, selectors [][]*Selector) *ExtraFields {
-	return &ExtraFields{
-		Selectors:    selectors,
-		ConcentLabel: label,
+func NewExtraFields(rows []InputRow) (*ExtraFields, error) {
+	var concentChecker *Checkbox
+
+	var inputs []Input
+	for _, row := range rows {
+		for _, input := range row.Inputs {
+			checkbox, ok := input.(*Checkbox)
+			if ok && checkbox.indicatesConcent {
+				if concentChecker != nil {
+					return nil, DuplicateConsentErr
+				}
+				concentChecker = checkbox
+				continue
+			}
+			inputs = append(inputs, input)
+		}
 	}
-}
 
-var (
-	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
-{{range .Rows}}
-<div class="form-group row">
-{{range .}}
-<div class="col-md-{{.Width}}">
-{{.Html}}
-</div>
-{{end}}
-</div>
-{{end}}
-<div class="form-group">
-<label>
-<input name="extra-fields" type="checkbox" value="ok" checked>
-{{.Label}}
-</label>
-</div>
-`)
-)
+	var htmlRows []struct {
+		Class  string
+		Inputs []interface{}
+	}
+	for _, row := range rows {
+		colsize := 12 / len(row.Inputs)
 
-func (ef *ExtraFields) Html() string {
-	var rows [][]interface{}
-	for _, row := range ef.Selectors {
-		colsize := 12 / len(row)
 		var cols []interface{}
-
-		for _, col := range row {
+		for _, col := range row.Inputs {
 			cols = append(cols, struct {
 				Width int
 				Html  template.HTML
 			}{colsize, col.Html()})
 		}
 
-		rows = append(rows, cols)
+		htmlRow := struct {
+			Class  string
+			Inputs []interface{}
+		}{
+			Class:  row.Class,
+			Inputs: cols,
+		}
+		htmlRows = append(htmlRows, htmlRow)
 	}
 
-	var out bytes.Buffer
-	fmt := struct {
-		Rows  [][]interface{}
-		Label string
-	}{rows, ef.ConcentLabel}
-	extraFieldsTmpl.Execute(&out, fmt)
-	return out.String()
+	var htmlRaw bytes.Buffer
+	if err := extraFieldsTmpl.Execute(&htmlRaw, htmlRows); err != nil {
+		return nil, err
+	}
+
+	return &ExtraFields{
+		concentChecker: concentChecker,
+		inputs:         inputs,
+		html:           htmlRaw.String(),
+	}, nil
+}
+
+var (
+	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
+{{range .}}
+<div class="{{.Class}} row">
+	{{range .Inputs}}
+	<div class="col-md-{{.Width}}">
+		{{.Html}}
+	</div>
+	{{end}}
+</div>
+{{end}}`)
+)
+
+func (ef *ExtraFields) Html() string {
+	return ef.html
 }
 
 func (ef *ExtraFields) ReadMetadata(r *http.Request, team *store.Team) []error {
-	if v := r.FormValue("extra-fields"); v != "ok" {
-		return nil
+	if ef.concentChecker != nil {
+		if err := ef.concentChecker.ReadMetadata(r, team); err != nil {
+			return nil
+		}
 	}
-	delete(r.Form, "extra-fields")
 
 	var errs []error
-	for _, row := range ef.Selectors {
-		for _, selc := range row {
-			if err := selc.ReadMetadata(r, team); err != nil {
-				errs = append(errs, err)
-			}
+	for _, input := range ef.inputs {
+		if err := input.ReadMetadata(r, team); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if len(errs) > 0 {
 		return errs
 	}
-
-	team.Metadata["data-gather"] = "ok"
 
 	return nil
 }
@@ -231,7 +296,6 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		pass := r.FormValue("password")
-
 		return store.NewTeam(email, name, pass)
 	}
 
