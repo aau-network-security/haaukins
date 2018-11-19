@@ -5,8 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"io"
+
+	"github.com/aau-network-security/go-ntp/virtual/docker"
 	"github.com/rs/zerolog/log"
 )
 
@@ -92,6 +93,9 @@ func New(records []RR) (*Server, error) {
 			CPU:      0.3,
 		},
 		Cmd: []string{"--conf", "Corefile"},
+		Labels: map[string]string{
+			"ntp": "lab_dns",
+		},
 	})
 	if err != nil {
 		return nil, err

@@ -17,10 +17,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/rs/zerolog/log"
+	"github.com/pkg/errors"
 )
 
 var (
 	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
+	DuplicateConsentErr = errors.New("Cannot have more than one consent checkbox")
+	NoConsentErr = errors.New("No consent given")
 
 	selectorTmpl, _ = template.New("Selector").Parse(`
 <label for="{{.Tag}}">{{.Label}}</label>
@@ -38,14 +41,16 @@ var (
 )
 
 type Checkbox struct {
-	Tag  string
-	Text string
+	Tag              string
+	Text             string
+	indicatesConcent bool
 }
 
-func NewCheckbox(tag string, text string) *Checkbox {
+func NewCheckbox(tag string, text string, consent bool) *Checkbox {
 	return &Checkbox{
 		Tag:  tag,
 		Text: text,
+		indicatesConcent: consent,
 	}
 }
 
@@ -58,13 +63,13 @@ func (c *Checkbox) Html() template.HTML {
 func (c *Checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
 	formName := fmt.Sprintf("%s-checkbox", c.Tag)
 	v := r.FormValue(formName)
-
-	if team.Metadata == nil {
-		team.Metadata = map[string]string{}
+	if c.indicatesConcent && v == "" {
+		return NoConsentErr
 	}
-	team.Metadata[c.Tag] = v
 
-	r.Form.Del(c.Tag)
+	team.AddMetadata(c.Tag,v)
+
+	delete(r.Form, formName)
 	return nil
 }
 
@@ -91,13 +96,9 @@ func (s *Selector) ReadMetadata(r *http.Request, team *store.Team) error {
 		return fmt.Errorf("invalid value for field \"%s\"", s.Label)
 	}
 
-	r.Form.Del(s.Tag)
+	delete(r.Form, s.Tag)
 
-	if team.Metadata == nil {
-		team.Metadata = map[string]string{}
-	}
-
-	team.Metadata[s.Tag] = v
+	team.AddMetadata(s.Tag, v)
 
 	return nil
 }
@@ -127,34 +128,34 @@ type InputRow struct {
 }
 
 type ExtraFields struct {
-	Rows []InputRow
+	html string
+	inputs []Input
+	concentChecker *Checkbox
 }
 
-func NewExtraFields(rows []InputRow) *ExtraFields {
-	return &ExtraFields{
-		Rows: rows,
+func NewExtraFields(rows []InputRow) (*ExtraFields, error) {
+	var concentChecker *Checkbox
+
+	var inputs []Input
+	for _, row := range rows {
+		for _, input := range row.Inputs {
+			checkbox, ok := input.(*Checkbox)
+			if ok && checkbox.indicatesConcent {
+				if concentChecker != nil {
+					return nil, DuplicateConsentErr
+				}
+				concentChecker = checkbox
+				continue
+			}
+			inputs = append(inputs, input)
+		}
 	}
-}
 
-var (
-	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
-{{range .}}
-<div class="{{.Class}} row">
-	{{range .Inputs}}
-	<div class="col-md-{{.Width}}">
-		{{.Html}}
-	</div>
-	{{end}}
-</div>
-{{end}}`)
-)
-
-func (ef *ExtraFields) Html() string {
-	var rows []struct {
+	var htmlRows []struct {
 		Class  string
 		Inputs []interface{}
 	}
-	for _, row := range ef.Rows {
+	for _, row := range rows {
 		colsize := 12 / len(row.Inputs)
 
 		var cols []interface{}
@@ -172,21 +173,49 @@ func (ef *ExtraFields) Html() string {
 			Class:  row.Class,
 			Inputs: cols,
 		}
-		rows = append(rows, htmlRow)
+		htmlRows = append(htmlRows, htmlRow)
 	}
 
-	var out bytes.Buffer
-	extraFieldsTmpl.Execute(&out, rows)
-	return out.String()
+	var htmlRaw bytes.Buffer
+	if err := extraFieldsTmpl.Execute(&htmlRaw, htmlRows); err != nil {
+		return nil, err
+	}
+
+	return &ExtraFields{
+		concentChecker: concentChecker,
+		inputs:         inputs,
+		html:           htmlRaw.String(),
+	}, nil
+}
+
+var (
+	extraFieldsTmpl, _ = template.New("extra-fields").Parse(`
+{{range .}}
+<div class="{{.Class}} row">
+	{{range .Inputs}}
+	<div class="col-md-{{.Width}}">
+		{{.Html}}
+	</div>
+	{{end}}
+</div>
+{{end}}`)
+)
+
+func (ef *ExtraFields) Html() string {
+	return ef.html
 }
 
 func (ef *ExtraFields) ReadMetadata(r *http.Request, team *store.Team) []error {
+	if ef.concentChecker != nil {
+		if err := ef.concentChecker.ReadMetadata(r, team); err != nil {
+			return nil
+		}
+	}
+
 	var errs []error
-	for _, row := range ef.Rows {
-		for _, selc := range row.Inputs {
-			if err := selc.ReadMetadata(r, team); err != nil {
-				errs = append(errs, err)
-			}
+	for _, input := range ef.inputs {
+		if err := input.ReadMetadata(r, team); err != nil {
+			errs = append(errs, err)
 		}
 	}
 

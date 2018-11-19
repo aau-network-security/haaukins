@@ -110,6 +110,7 @@ type ContainerConfig struct {
 	Image        string
 	EnvVars      map[string]string
 	PortBindings map[string]string
+	Labels       map[string]string
 	Mounts       []string
 	Resources    *Resources
 	Cmd          []string
@@ -246,6 +247,7 @@ func NewContainer(conf ContainerConfig) (Container, error) {
 			Image:        conf.Image,
 			Env:          env,
 			Cmd:          conf.Cmd,
+			Labels:       conf.Labels,
 			ExposedPorts: ports,
 		},
 		HostConfig: &hostConf,

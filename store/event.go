@@ -132,6 +132,26 @@ func (t *Team) SolveChallenge(tag Tag, v string) error {
 	return nil
 }
 
+func (t *Team) AddMetadata(key, value string) {
+	if t.Metadata == nil {
+		t.Metadata = map[string]string{}
+	}
+	t.Metadata[key] = value
+}
+
+func (t *Team) DataCollection() bool {
+	if t.Metadata == nil {
+		return false
+	}
+
+	v, ok := t.Metadata["consent"]
+	if !ok {
+		return false
+	}
+
+	return v == "ok"
+}
+
 func (t *Team) AddChallenge(c Challenge) {
 	if t.ChalMap == nil {
 		t.ChalMap = map[Tag]Challenge{}

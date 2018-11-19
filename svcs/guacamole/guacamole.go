@@ -129,6 +129,9 @@ func (guac *guacamole) create() error {
 	guacd, err := docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd",
 		UseBridge: true,
+		Labels: map[string]string{
+			"ntp": "guacamole_guacd",
+		},
 	})
 	if err != nil {
 		return err
@@ -154,6 +157,9 @@ func (guac *guacamole) create() error {
 	db, err := docker.NewContainer(docker.ContainerConfig{
 		Image:   "registry.sec-aau.dk/aau/guacamole-mysql",
 		EnvVars: dbEnv,
+		Labels: map[string]string{
+			"ntp": "guacamole_db",
+		},
 	})
 	if err != nil {
 		return err
@@ -186,6 +192,9 @@ func (guac *guacamole) create() error {
 			"8080/tcp": fmt.Sprintf("127.0.0.1:%d", guac.webPort),
 		},
 		UseBridge: true,
+		Labels: map[string]string{
+			"ntp": "guacamole_web",
+		},
 	}
 
 	web, err := docker.NewContainer(webConf)
