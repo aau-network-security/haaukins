@@ -37,6 +37,7 @@ var (
 	NoDigestDockerHubErr      = errors.New("Unable to get digest from docker hub")
 	NoAvailableIPsErr         = errors.New("No available IPs")
 	UnexpectedIPErr           = errors.New("Unexpected IP range")
+	ContNotCreatedErr         = errors.New("Container is not created")
 
 	Registries = map[string]docker.AuthConfiguration{
 		"": {},
@@ -68,34 +69,6 @@ func (h *host) GetDockerHostIP() (string, error) {
 	return getDockerHostIP()
 }
 
-func getDockerHostIP() (string, error) {
-	i, err := net.InterfaceByName("docker0")
-	if err != nil {
-		return "", err
-	}
-
-	addrs, err := i.Addrs()
-	if err != nil {
-		return "", err
-	}
-
-	for _, addr := range addrs {
-		switch addr.(type) {
-		case *net.IPNet:
-			rawIP, _ := addr.(*net.IPNet)
-			ip, _, err := net.ParseCIDR(rawIP.String())
-			if err != nil {
-				return "", err
-			}
-			if ip.To4() != nil {
-				return ip.String(), nil
-			}
-		}
-	}
-
-	return "", nil
-}
-
 type Identifier interface {
 	ID() string
 }
@@ -103,13 +76,14 @@ type Identifier interface {
 type Container interface {
 	Identifier
 	virtual.Instance
-	BridgeAlias() (string, error)
+	BridgeAlias(string) (string, error)
 }
 
 type ContainerConfig struct {
 	Image        string
 	EnvVars      map[string]string
 	PortBindings map[string]string
+	Labels       map[string]string
 	Mounts       []string
 	Resources    *Resources
 	Cmd          []string
@@ -121,174 +95,6 @@ type ContainerConfig struct {
 type Resources struct {
 	MemoryMB uint
 	CPU      float64
-}
-
-type container struct {
-	id      string
-	conf    ContainerConfig
-	network *docker.Network
-	linked  []Identifier
-}
-
-func NewContainer(conf ContainerConfig) (Container, error) {
-	var env []string
-	for k, v := range conf.EnvVars {
-		env = append(env, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	bindings := make(map[docker.Port][]docker.PortBinding)
-	for guestPort, hostListen := range conf.PortBindings {
-		log.Debug().
-			Str("guestPort", guestPort).
-			Str("hostListen", hostListen).
-			Msgf("Port bindings for new '%s' container", conf.Image)
-
-		hostIP := ""
-		hostPort := hostListen
-
-		if strings.Contains(guestPort, "/") == false {
-			log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
-			guestPort = guestPort + "/tcp"
-		}
-
-		if strings.Contains(hostListen, "/") {
-			return nil, InvalidHostBindingErr
-		}
-
-		if strings.Contains(hostListen, ":") {
-			parts := strings.Split(hostListen, ":")
-			if len(parts) != 2 {
-				return nil, InvalidHostBindingErr
-			}
-
-			hostIP = parts[0]
-			hostPort = parts[1]
-		}
-
-		bindings[docker.Port(guestPort)] = []docker.PortBinding{
-			{
-				HostIP:   hostIP,
-				HostPort: hostPort,
-			},
-		}
-	}
-
-	var mounts []docker.HostMount
-	for _, mount := range conf.Mounts {
-		parts := strings.Split(mount, ":")
-		if len(parts) != 2 {
-			return nil, InvalidMountErr
-		}
-		src, dest := parts[0], parts[1]
-
-		mounts = append(mounts, docker.HostMount{
-			Target: dest,
-			Source: src,
-			Type:   "bind",
-		})
-
-	}
-
-	hostIP, err := getDockerHostIP()
-	if err != nil {
-		return nil, err
-	}
-
-	hostConf := docker.HostConfig{
-		ExtraHosts:       []string{fmt.Sprintf("host:%s", hostIP)},
-		MemorySwap:       0,
-		MemorySwappiness: 0,
-	}
-
-	if conf.Resources != nil {
-		if conf.Resources.MemoryMB > 0 {
-			if conf.Resources.MemoryMB < 50 {
-				return nil, TooLowMemErr
-			}
-
-			hostConf.Memory = int64(conf.Resources.MemoryMB) * 1024 * 1024
-		}
-
-		if conf.Resources.CPU > 0 {
-			hostConf.CPUPeriod = 100000
-			hostConf.CPUQuota = int64(100000 * conf.Resources.CPU)
-		}
-	}
-
-	hostConf.PortBindings = bindings
-	hostConf.Mounts = mounts
-
-	if len(conf.DNS) > 0 {
-		resolvPath, err := getResolvFile(conf.DNS)
-		if err != nil {
-			return nil, err
-		}
-
-		hostConf.Mounts = append(hostConf.Mounts, docker.HostMount{
-			Target: "/etc/resolv.conf",
-			Source: resolvPath,
-			Type:   "bind",
-		})
-	}
-
-	ports := make(map[docker.Port]struct{})
-	for _, p := range conf.UsedPorts {
-		ports[docker.Port(p)] = struct{}{}
-	}
-
-	if err := ensureImage(conf.Image); err != nil {
-		return nil, err
-	}
-
-	createContOpts := docker.CreateContainerOptions{
-		Name: uuid.New().String(),
-		Config: &docker.Config{
-			Image:        conf.Image,
-			Env:          env,
-			Cmd:          conf.Cmd,
-			ExposedPorts: ports,
-		},
-		HostConfig: &hostConf,
-	}
-
-	cont, err := DefaultClient.CreateContainer(createContOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	if !conf.UseBridge {
-		if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
-			Container: cont.ID,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
-	log.Info().
-		Str("ID", cont.ID[0:8]).
-		Str("Image", conf.Image).
-		Msg("Created new container")
-
-	return &container{
-		id:   cont.ID,
-		conf: conf,
-	}, nil
-}
-
-func pullImage(img Image, reg docker.AuthConfiguration) error {
-
-	log.Debug().
-		Str("image", img.String()).
-		Msg("Attempting to pull image")
-
-	if err := DefaultClient.PullImage(docker.PullImageOptions{
-		Repository: img.NameWithReg(),
-		Tag:        img.Tag,
-	}, reg); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type digester interface {
@@ -333,79 +139,6 @@ func (dd dockerDigester) getDigest(img Image) (string, error) {
 	return hash, nil
 }
 
-func ensureImage(imgStr string) error {
-	img := parseImage(imgStr)
-
-	dImg, err := DefaultClient.InspectImage(img.String())
-	foundLocal := dImg != nil && err != docker.ErrNoSuchImage
-	if img.IsPublic() {
-		if !foundLocal {
-			return pullImage(img, docker.AuthConfiguration{})
-		}
-
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-
-	if !foundLocal {
-		creds, ok := Registries[img.Registry]
-		if !ok {
-			return fmt.Errorf("No credentials for registry: %s", img.Registry)
-		}
-
-		return pullImage(img, creds)
-	}
-
-	creds, ok := Registries[img.Registry]
-	if !ok {
-		log.Warn().
-			Err(err).
-			Str("image", img.String()).
-			Msg("Unknown credentials for registry of image")
-
-		return nil
-	}
-
-	dig := dockerDigester{creds}
-	var rdig string
-	for i := 0; i < 3 && rdig == ""; i++ {
-		rdig, err = dig.getDigest(img)
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		log.Warn().
-			Err(err).
-			Str("image", img.String()).
-			Msg("Failed to get remote digest")
-
-		return nil
-	}
-
-	ldig := dImg.RepoDigests[0]
-	if strings.Contains(ldig, "@") {
-		ldig = strings.Split(ldig, "@")[1]
-	}
-
-	if rdig != ldig {
-		err := pullImage(img, creds)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("image", img.String()).
-				Msg("Attempted to pull new version but failed")
-		}
-
-		return nil
-	}
-
-	return nil
-}
-
 type Image struct {
 	Registry string
 	Repo     string
@@ -432,28 +165,16 @@ func (i Image) NameWithReg() string {
 	return i.Registry + "/" + i.Repo
 }
 
-func parseImage(img string) Image {
-	tag := "latest"
-	repo := img
-	registry := ""
+type container struct {
+	id      string
+	conf    ContainerConfig
+	network *docker.Network
+	linked  []Identifier
+}
 
-	parts := strings.Split(img, ":")
-	if len(parts) == 2 {
-		repo, tag = parts[0], parts[1]
-	}
-
-	// format: reg/owner/repo
-	if strings.Count(repo, "/") > 1 {
-		parts = strings.Split(repo, "/")
-
-		registry = parts[0]
-		repo = strings.Join(parts[1:len(parts)], "/")
-	}
-
-	return Image{
-		Registry: registry,
-		Repo:     repo,
-		Tag:      tag,
+func NewContainer(conf ContainerConfig) Container {
+	return &container{
+		conf: conf,
 	}
 }
 
@@ -461,11 +182,214 @@ func (c *container) ID() string {
 	return c.id
 }
 
+func (c *container) getCreateConfig() (*docker.CreateContainerOptions, error) {
+	var env []string
+	for k, v := range c.conf.EnvVars {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	bindings := make(map[docker.Port][]docker.PortBinding)
+	for guestPort, hostListen := range c.conf.PortBindings {
+		log.Debug().
+			Str("guestPort", guestPort).
+			Str("hostListen", hostListen).
+			Msgf("Port bindings for new '%s' container", c.conf.Image)
+
+		hostIP := ""
+		hostPort := hostListen
+
+		if strings.Contains(guestPort, "/") == false {
+			log.Debug().Msgf("No protocol specified for portBind %s, defaulting to TCP.", guestPort)
+			guestPort = guestPort + "/tcp"
+		}
+
+		if strings.Contains(hostListen, "/") {
+			return nil, InvalidHostBindingErr
+		}
+
+		if strings.Contains(hostListen, ":") {
+			parts := strings.Split(hostListen, ":")
+			if len(parts) != 2 {
+				return nil, InvalidHostBindingErr
+			}
+
+			hostIP = parts[0]
+			hostPort = parts[1]
+		}
+
+		bindings[docker.Port(guestPort)] = []docker.PortBinding{
+			{
+				HostIP:   hostIP,
+				HostPort: hostPort,
+			},
+		}
+	}
+
+	var mounts []docker.HostMount
+	for _, mount := range c.conf.Mounts {
+		parts := strings.Split(mount, ":")
+		if len(parts) != 2 {
+			return nil, InvalidMountErr
+		}
+		src, dest := parts[0], parts[1]
+
+		mounts = append(mounts, docker.HostMount{
+			Target: dest,
+			Source: src,
+			Type:   "bind",
+		})
+
+	}
+
+	hostIP, err := getDockerHostIP()
+	if err != nil {
+		return nil, err
+	}
+
+	hostConf := docker.HostConfig{
+		ExtraHosts:       []string{fmt.Sprintf("host:%s", hostIP)},
+		MemorySwap:       0,
+		MemorySwappiness: 0,
+	}
+
+	if c.conf.Resources != nil {
+		if c.conf.Resources.MemoryMB > 0 {
+			if c.conf.Resources.MemoryMB < 50 {
+				return nil, TooLowMemErr
+			}
+
+			hostConf.Memory = int64(c.conf.Resources.MemoryMB) * 1024 * 1024
+		}
+
+		if c.conf.Resources.CPU > 0 {
+			hostConf.CPUPeriod = 100000
+			hostConf.CPUQuota = int64(100000 * c.conf.Resources.CPU)
+		}
+	}
+
+	hostConf.PortBindings = bindings
+	hostConf.Mounts = mounts
+
+	if len(c.conf.DNS) > 0 {
+		resolvPath, err := getResolvFile(c.conf.DNS)
+		if err != nil {
+			return nil, err
+		}
+
+		hostConf.Mounts = append(hostConf.Mounts, docker.HostMount{
+			Target: "/etc/resolv.conf",
+			Source: resolvPath,
+			Type:   "bind",
+		})
+	}
+
+	ports := make(map[docker.Port]struct{})
+	for _, p := range c.conf.UsedPorts {
+		ports[docker.Port(p)] = struct{}{}
+	}
+
+	if err := ensureImage(c.conf.Image); err != nil {
+		return nil, err
+	}
+
+	return &docker.CreateContainerOptions{
+		Name: uuid.New().String(),
+		Config: &docker.Config{
+			Image:        c.conf.Image,
+			Env:          env,
+			Cmd:          c.conf.Cmd,
+			Labels:       c.conf.Labels,
+			ExposedPorts: ports,
+		},
+		HostConfig: &hostConf,
+	}, nil
+}
+
+func (c *container) Create(ctx context.Context) error {
+	dconf, err := c.getCreateConfig()
+	if err != nil {
+		return err
+	}
+
+	dconf.Context = ctx
+	cont, err := DefaultClient.CreateContainer(*dconf)
+	if err != nil {
+		return err
+	}
+
+	if !c.conf.UseBridge {
+		if err := DefaultClient.DisconnectNetwork("bridge", docker.NetworkConnectionOptions{
+			Container: cont.ID,
+		}); err != nil {
+			return err
+		}
+	}
+
+	log.Info().
+		Str("ID", cont.ID[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Created new container")
+
+	c.id = cont.ID
+
+	return nil
+}
+
+func (c *container) Start(ctx context.Context) error {
+	if c.id == "" {
+		return ContNotCreatedErr
+	}
+
+	if err := DefaultClient.StartContainerWithContext(c.id, nil, ctx); err != nil {
+		return err
+	}
+
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Started container")
+
+	return nil
+}
+
+func (c *container) Run(ctx context.Context) error {
+	if err := c.Create(ctx); err != nil {
+		return err
+	}
+
+	return c.Start(ctx)
+}
+
+func (c *container) Stop() error {
+	if err := DefaultClient.StopContainer(c.id, 10); err != nil {
+		return err
+	}
+
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Str("Image", c.conf.Image).
+		Msg("Stopped container")
+
+	return nil
+}
+
+func (c *container) state() virtual.State {
+	cont, err := DefaultClient.InspectContainer(c.id)
+	if err != nil {
+		return virtual.Error
+	}
+	if cont.State.Running {
+		return virtual.Running
+	}
+	return virtual.Stopped
+}
+
 func (c *container) Info() virtual.InstanceInfo {
 	return virtual.InstanceInfo{
 		Image: c.conf.Image,
-		Type: "docker",
-		Id: c.ID()[0:12],
+		Type:  "docker",
+		Id:    c.ID()[0:12],
+		State: c.state(),
 	}
 }
 
@@ -504,33 +428,8 @@ func (c *container) Close() error {
 	return nil
 }
 
-func (c *container) Start() error {
-	if err := DefaultClient.StartContainer(c.id, nil); err != nil {
-		return err
-	}
-
-	log.Debug().
-		Str("ID", c.id[0:8]).
-		Str("Image", c.conf.Image).
-		Msg("Started container")
-	return nil
-}
-
-func (c *container) Stop() error {
-	if err := DefaultClient.StopContainer(c.id, 5); err != nil {
-		return err
-	}
-
-	log.Debug().
-		Str("ID", c.id[0:8]).
-		Str("Image", c.conf.Image).
-		Msg("Stopped container")
-
-	return nil
-}
-
-func (c *container) BridgeAlias() (string, error) {
-	return DefaultLinkBridge.connect(c.id)
+func (c *container) BridgeAlias(alias string) (string, error) {
+	return DefaultLinkBridge.connect(c.id, alias)
 }
 
 type network struct {
@@ -810,7 +709,7 @@ func newDefaultBridge(name string) *defaultBridge {
 	}
 }
 
-func (dbr *defaultBridge) connect(cid string) (string, error) {
+func (dbr *defaultBridge) connect(cid string, alias string) (string, error) {
 	dbr.m.Lock()
 	alias, ok := dbr.containers[cid]
 	if ok {
@@ -818,7 +717,9 @@ func (dbr *defaultBridge) connect(cid string) (string, error) {
 	}
 	dbr.m.Unlock()
 
-	alias = strings.Replace(uuid.New().String(), "-", "", -1)
+	if alias == "" {
+		alias = strings.Replace(uuid.New().String(), "-", "", -1)
+	}
 	err := DefaultClient.ConnectNetwork(dbr.id, docker.NetworkConnectionOptions{
 		Container: cid,
 		EndpointConfig: &docker.EndpointConfig{
@@ -879,4 +780,146 @@ func getResolvFile(ns []string) (string, error) {
 	}
 
 	return path, nil
+}
+
+func parseImage(img string) Image {
+	tag := "latest"
+	repo := img
+	registry := ""
+
+	parts := strings.Split(img, ":")
+	if len(parts) == 2 {
+		repo, tag = parts[0], parts[1]
+	}
+
+	// format: reg/owner/repo
+	if strings.Count(repo, "/") > 1 {
+		parts = strings.Split(repo, "/")
+
+		registry = parts[0]
+		repo = strings.Join(parts[1:len(parts)], "/")
+	}
+
+	return Image{
+		Registry: registry,
+		Repo:     repo,
+		Tag:      tag,
+	}
+}
+
+func getDockerHostIP() (string, error) {
+	i, err := net.InterfaceByName("docker0")
+	if err != nil {
+		return "", err
+	}
+
+	addrs, err := i.Addrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range addrs {
+		switch addr.(type) {
+		case *net.IPNet:
+			rawIP, _ := addr.(*net.IPNet)
+			ip, _, err := net.ParseCIDR(rawIP.String())
+			if err != nil {
+				return "", err
+			}
+			if ip.To4() != nil {
+				return ip.String(), nil
+			}
+		}
+	}
+
+	return "", nil
+}
+
+func ensureImage(imgStr string) error {
+	img := parseImage(imgStr)
+
+	dImg, err := DefaultClient.InspectImage(img.String())
+	foundLocal := dImg != nil && err != docker.ErrNoSuchImage
+	if img.IsPublic() {
+		if !foundLocal {
+			return pullImage(img, docker.AuthConfiguration{})
+		}
+
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if !foundLocal {
+		creds, ok := Registries[img.Registry]
+		if !ok {
+			return fmt.Errorf("No credentials for registry: %s", img.Registry)
+		}
+
+		return pullImage(img, creds)
+	}
+
+	creds, ok := Registries[img.Registry]
+	if !ok {
+		log.Warn().
+			Err(err).
+			Str("image", img.String()).
+			Msg("Unknown credentials for registry of image")
+
+		return nil
+	}
+
+	dig := dockerDigester{creds}
+	var rdig string
+	for i := 0; i < 3 && rdig == ""; i++ {
+		rdig, err = dig.getDigest(img)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("image", img.String()).
+			Msg("Failed to get remote digest")
+
+		return nil
+	}
+
+	ldig := dImg.RepoDigests[0]
+	if strings.Contains(ldig, "@") {
+		ldig = strings.Split(ldig, "@")[1]
+	}
+
+	if rdig != ldig {
+		err := pullImage(img, creds)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("image", img.String()).
+				Msg("Attempted to pull new version but failed")
+		}
+
+		return nil
+	}
+
+	return nil
+}
+
+func pullImage(img Image, reg docker.AuthConfiguration) error {
+
+	log.Debug().
+		Str("image", img.String()).
+		Msg("Attempting to pull image")
+
+	if err := DefaultClient.PullImage(docker.PullImageOptions{
+		Repository: img.NameWithReg(),
+		Tag:        img.Tag,
+	}, reg); err != nil {
+		return err
+	}
+
+	return nil
 }

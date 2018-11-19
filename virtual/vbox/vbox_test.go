@@ -1,15 +1,15 @@
 package vbox_test
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
-	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/assert"
 	tst "github.com/aau-network-security/go-ntp/testing"
-	)
+	"github.com/aau-network-security/go-ntp/virtual/vbox"
+)
 
 const (
 	vboxBin     = "VBoxManage"
@@ -18,17 +18,11 @@ const (
 	vboxCtrlVM  = "controlvm"
 )
 
-func init() {
-	fmt.Println("Init function!")
-	log.Debug().Msg("Init..")
-}
-
 func execute(cmd string, cmds ...string) (string, error) {
 	command := append([]string{cmd}, cmds...)
 	c := exec.Command(vboxBin, command...)
 
 	output, err := c.CombinedOutput()
-
 	if err != nil {
 		return "", err
 	}
@@ -38,50 +32,53 @@ func execute(cmd string, cmds ...string) (string, error) {
 
 func TestVmBase(t *testing.T) {
 	tst.SkipCI(t)
+	ctx := context.Background()
 
-	// new vm
-	vm, err := vbox.NewVMFromOVA("go-ntp-ova.ova", "go-ntp", "d41d8cd98f00b204e9800998ecf8427e")
-	assert.Equal(t, err, nil)
+	cs := "d41d8cd98f00b204e9800998ecf8427e"
+	vm := vbox.NewVMWithSum("go-ntp-ova.ova", "go-ntp", cs)
+	if err := vm.Create(ctx); err != nil {
+		t.Fatalf("unexpected error when creating vm: %s", err)
+	}
 
-	// check if it is created
-	cmd, err := execute("list", "vms")
-	assert.Equal(t, err, nil)
-	assert.Contains(t, cmd, "\"go-ntp\"")
+	output, err := execute("list", "vms")
+	if err != nil {
+		t.Fatalf("unexpected error when listing vms: %s", err)
+	}
 
-	// start vm
-	err = vm.Start()
-	assert.Equal(t, err, nil)
+	name := fmt.Sprintf(`"go-ntp{%s}"`, cs)
+	if !strings.Contains(output, name) {
+		t.Fatalf("expected virtual machine to have been added")
+	}
 
-	// check if it is running
-	cmd, err = execute("list", "runningvms")
-	assert.Equal(t, err, nil)
-	assert.Contains(t, cmd, "\"go-ntp\"")
+	err = vm.Start(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error when starting vm: %s", err)
+	}
 
-	// restart vm??
-	err = vm.Restart()
-	assert.Equal(t, err, nil)
+	output, err = execute("list", "runningvms")
+	if err != nil {
+		t.Fatalf("unexpected error when listing running vms: %s", err)
+	}
 
-	// check if it is running
-	cmd, err = execute("list", "runningvms")
-	assert.Equal(t, err, nil)
-	assert.Contains(t, cmd, "\"go-ntp\"")
+	if !strings.Contains(output, name) {
+		t.Fatalf("expected virtual machine to be running")
+	}
 
-	// stop vm
-	err = vm.Stop()
-	assert.Equal(t, err, nil)
+	if err := vm.Stop(); err != nil {
+		t.Fatalf("unexpected error when stopping vm: %s", err)
+	}
 
-	// check if it is running
-	cmd, err = execute("list", "runningvms")
-	assert.Equal(t, err, nil)
-	assert.NotContains(t, cmd, "\"go-ntp\"")
+	output, err = execute("list", "runningvms")
+	if strings.Contains(output, name) {
+		t.Fatalf("expected virtual machine to have been stopped")
+	}
 
-	// kill vm
-	err = vm.Close()
-	assert.Equal(t, err, nil)
+	if err := vm.Close(); err != nil {
+		t.Fatalf("unexpected error when closing vm: %s", err)
+	}
 
-	// check if it exists
-	cmd, err = execute("list", "vms")
-	assert.Equal(t, err, nil)
-	assert.NotContains(t, cmd, "\"go-ntp\"")
-
+	output, err = execute("list", "vms")
+	if strings.Contains(output, name) {
+		t.Fatalf("expected virtual machine to have been removed")
+	}
 }
