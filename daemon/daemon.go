@@ -544,8 +544,8 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
 }
 
-func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_ResetExerciseServer) error {
-	log.Ctx(resp.Context()).Info().
+func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_ResetExerciseServer) error {
+	log.Ctx(stream.Context()).Info().
 		Str("evtag", req.EventTag).
 		Str("extag", req.ExerciseTag).
 		Msg("reset exercise")
@@ -561,26 +561,33 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, resp pb.Daemon_Rese
 	}
 
 	if req.Teams != nil {
-		// the requests has a selection of group ids
 		for _, reqTeam := range req.Teams {
-			if lab, ok := ev.GetLabByTeam(reqTeam.Id); ok {
-				if err := lab.GetEnvironment().ResetByTag(resp.Context(), req.ExerciseTag); err != nil {
-					return err
-				}
-				resp.Send(&pb.ResetExerciseStatus{TeamId: reqTeam.Id})
+			lab, ok := ev.GetLabByTeam(reqTeam.Id)
+			if !ok {
+				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+				continue
 			}
+
+			if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+				return err
+			}
+			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
 		}
 
 		return nil
 	}
 
-	// all exercises should be reset
 	for _, t := range ev.GetTeams() {
-		lab, _ := ev.GetLabByTeam(t.Id)
-		if err := lab.GetEnvironment().ResetByTag(resp.Context(), req.ExerciseTag); err != nil {
+		lab, ok := ev.GetLabByTeam(t.Id)
+		if !ok {
+			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
+			continue
+		}
+
+		if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
-		resp.Send(&pb.ResetExerciseStatus{TeamId: t.Id})
+		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
 	}
 
 	return nil
@@ -678,6 +685,55 @@ func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFron
 	}
 
 	return &pb.ListFrontendsResponse{Frontends: respList}, nil
+}
+
+func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_ResetFrontendsServer) error {
+	log.Ctx(stream.Context()).Info().
+		Int("n-teams", len(req.Teams)).
+		Msg("reset frontends")
+
+	evtag, err := store.NewTag(req.EventTag)
+	if err != nil {
+		return err
+	}
+
+	ev, err := d.eventPool.GetEvent(evtag)
+	if err != nil {
+		return err
+	}
+
+	if req.Teams != nil {
+		// the requests has a selection of group ids
+		for _, reqTeam := range req.Teams {
+			lab, ok := ev.GetLabByTeam(reqTeam.Id)
+			if !ok {
+				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+				continue
+			}
+
+			if err := lab.ResetFrontends(stream.Context()); err != nil {
+				return err
+			}
+			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+		}
+
+		return nil
+	}
+
+	for _, t := range ev.GetTeams() {
+		lab, ok := ev.GetLabByTeam(t.Id)
+		if !ok {
+			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
+			continue
+		}
+
+		if err := lab.ResetFrontends(stream.Context()); err != nil {
+			return err
+		}
+		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
+	}
+
+	return nil
 }
 
 func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemoryRequest) (*pb.Empty, error) {

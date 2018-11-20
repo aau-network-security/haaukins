@@ -46,6 +46,7 @@ func TestAddFrontend(t *testing.T) {
 			vm: &testVM{},
 		},
 		environment: &testEnvironment{},
+		frontends:   map[uint]vbox.VM{},
 	}
 	conf := store.InstanceConfig{}
 

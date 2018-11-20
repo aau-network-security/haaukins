@@ -82,7 +82,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 	var (
 		evTag   string
 		teamIds []string
-		teams   []*pb.ResetExerciseRequest_Team
+		teams   []*pb.Team
 	)
 
 	cmd := &cobra.Command{
@@ -96,7 +96,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 			defer cancel()
 
 			for _, t := range teamIds {
-				teams = append(teams, &pb.ResetExerciseRequest_Team{Id: t})
+				teams = append(teams, &pb.Team{Id: t})
 			}
 
 			exTag := args[0]

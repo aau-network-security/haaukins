@@ -56,15 +56,15 @@ func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) 
 		lib:         lib,
 		environment: env,
 		dockerHost:  dockerHost,
+		frontends:   map[uint]frontendConf{},
 	}
 
 	for _, f := range config.Frontends {
-		if _, err := l.addFrontend(ctx, f); err != nil {
+		port := virtual.GetAvailablePort()
+		if _, err := l.addFrontend(ctx, f, port); err != nil {
 			return nil, err
 		}
 	}
-
-	l.closers = append(l.closers, env)
 
 	return l, nil
 }
@@ -74,6 +74,7 @@ type Lab interface {
 	Stop() error
 	Restart(context.Context) error
 	GetEnvironment() exercise.Environment
+	ResetFrontends(ctx context.Context) error
 	RdpConnPorts() []uint
 	GetTag() string
 	InstanceInfo() []virtual.InstanceInfo
@@ -81,24 +82,24 @@ type Lab interface {
 }
 
 type lab struct {
-	tag          string
-	lib          vbox.Library
-	environment  exercise.Environment
-	frontends    []vbox.VM
-	rdpConnPorts []uint
-	dockerHost   docker.Host
-
-	closers []io.Closer
+	tag         string
+	lib         vbox.Library
+	environment exercise.Environment
+	frontends   map[uint]frontendConf
+	dockerHost  docker.Host
 }
 
-func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig) (vbox.VM, error) {
-	hostIp, err := l.dockerHost.GetDockerHostIP()
+type frontendConf struct {
+	vm   vbox.VM
+	conf store.InstanceConfig
+}
 
+func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPort uint) (vbox.VM, error) {
+	hostIp, err := l.dockerHost.GetDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
 
-	rdpPort := virtual.GetAvailablePort()
 	vm, err := l.lib.GetCopy(ctx,
 		conf,
 		vbox.SetBridge(l.environment.NetworkInterface()),
@@ -107,9 +108,11 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig) (vbox.
 	if err != nil {
 		return nil, err
 	}
-	l.frontends = append(l.frontends, vm)
-	l.rdpConnPorts = append(l.rdpConnPorts, rdpPort)
-	l.closers = append(l.closers, vm)
+
+	l.frontends[rdpPort] = frontendConf{
+		vm:   vm,
+		conf: conf,
+	}
 
 	log.Debug().Msgf("Created lab frontend on port %d", rdpPort)
 
@@ -120,13 +123,42 @@ func (l *lab) GetEnvironment() exercise.Environment {
 	return l.environment
 }
 
+func (l *lab) ResetFrontends(ctx context.Context) error {
+	var errs []error
+	for p, vmConf := range l.frontends {
+		err := vmConf.vm.Close()
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		vm, err := l.addFrontend(ctx, vmConf.conf, p)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		err = vm.Start(ctx)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+	}
+
+	if len(errs) > 0 {
+		return errs[0]
+	}
+
+	return nil
+}
+
 func (l *lab) Start(ctx context.Context) error {
 	if err := l.environment.Start(ctx); err != nil {
 		return err
 	}
 
-	for _, frontend := range l.frontends {
-		if err := frontend.Start(ctx); err != nil {
+	for _, fconf := range l.frontends {
+		if err := fconf.vm.Start(ctx); err != nil {
 			return err
 		}
 	}
@@ -139,8 +171,8 @@ func (l *lab) Stop() error {
 		return err
 	}
 
-	for _, frontend := range l.frontends {
-		if err := frontend.Stop(); err != nil {
+	for _, fconf := range l.frontends {
+		if err := fconf.vm.Stop(); err != nil {
 			return err
 		}
 	}
@@ -157,12 +189,12 @@ func (l *lab) Restart(ctx context.Context) error {
 		return err
 	}
 
-	for _, frontend := range l.frontends {
-		if err := frontend.Stop(); err != nil {
+	for _, fconf := range l.frontends {
+		if err := fconf.vm.Stop(); err != nil {
 			return err
 		}
 
-		if err := frontend.Start(ctx); err != nil {
+		if err := fconf.vm.Start(ctx); err != nil {
 			return err
 		}
 	}
@@ -173,22 +205,30 @@ func (l *lab) Restart(ctx context.Context) error {
 func (l *lab) Close() error {
 	var wg sync.WaitGroup
 
-	for _, closer := range l.closers {
-		wg.Add(1)
-		go func(c io.Closer) {
-			if err := c.Close(); err != nil {
-				log.Warn().Msgf("error while closing lab: %s", err)
-			}
-			wg.Done()
-		}(closer)
+	closer := func(c io.Closer) {
+		if err := c.Close(); err != nil {
+			log.Warn().Msgf("error while closing lab: %s", err)
+		}
+		wg.Done()
 	}
+
+	if l.environment != nil {
+		wg.Add(1)
+		go closer(l.environment)
+	}
+
 	wg.Wait()
 
 	return nil
 }
 
 func (l *lab) RdpConnPorts() []uint {
-	return l.rdpConnPorts
+	var ports []uint
+	for p, _ := range l.frontends {
+		ports = append(ports, p)
+	}
+
+	return ports
 }
 
 func (l *lab) GetTag() string {
@@ -197,8 +237,8 @@ func (l *lab) GetTag() string {
 
 func (l *lab) InstanceInfo() []virtual.InstanceInfo {
 	var instances []virtual.InstanceInfo
-	for _, f := range l.frontends {
-		instances = append(instances, f.Info())
+	for _, fconf := range l.frontends {
+		instances = append(instances, fconf.vm.Info())
 	}
 	instances = append(instances, l.environment.InstanceInfo()...)
 	return instances

@@ -854,7 +854,7 @@ func TestResetExercise(t *testing.T) {
 		unauthorized bool
 		extag        string
 		evtag        string
-		teams        []*pb.ResetExerciseRequest_Team
+		teams        []*pb.Team
 		err          string
 		expected     int
 	}{
@@ -862,7 +862,7 @@ func TestResetExercise(t *testing.T) {
 			name:     "Reset specific team",
 			extag:    "sql",
 			evtag:    "tst",
-			teams:    []*pb.ResetExerciseRequest_Team{{Id: "team-1"}},
+			teams:    []*pb.Team{{Id: "team-1"}},
 			expected: 1,
 		},
 		{
@@ -876,7 +876,7 @@ func TestResetExercise(t *testing.T) {
 			name:         "Unauthorized",
 			extag:        "sql",
 			evtag:        "tst",
-			teams:        []*pb.ResetExerciseRequest_Team{{Id: "team-1"}},
+			teams:        []*pb.Team{{Id: "team-1"}},
 			unauthorized: true,
 			err:          "unauthorized",
 		},
@@ -884,7 +884,7 @@ func TestResetExercise(t *testing.T) {
 			name:  "Unknown event",
 			extag: "sql",
 			evtag: "unknown",
-			teams: []*pb.ResetExerciseRequest_Team{{Id: "team-1"}},
+			teams: []*pb.Team{{Id: "team-1"}},
 			err:   UnknownEventErr.Error(),
 		},
 	}
