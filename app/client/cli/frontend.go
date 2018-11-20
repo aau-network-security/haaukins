@@ -3,10 +3,13 @@ package cli
 import (
 	"context"
 	"fmt"
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
-	"github.com/spf13/cobra"
+	"io"
+	"log"
 	"strconv"
 	"time"
+
+	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/spf13/cobra"
 )
 
 func (c *Client) CmdFrontend() *cobra.Command {
@@ -18,7 +21,9 @@ func (c *Client) CmdFrontend() *cobra.Command {
 
 	cmd.AddCommand(
 		c.CmdFrontendList(),
-		c.CmdFrontendSet())
+		c.CmdFrontendReset(),
+		c.CmdFrontendSet(),
+	)
 
 	return cmd
 }
@@ -81,6 +86,55 @@ func (c *Client) CmdFrontendList() *cobra.Command {
 	cmd.Use = "ls"
 	cmd.Aliases = []string{"ls", "list"}
 	return &cmd
+}
+
+func (c *Client) CmdFrontendReset() *cobra.Command {
+	var (
+		teamIds []string
+		teams   []*pb.Team
+	)
+
+	cmd := &cobra.Command{
+		Use:     "reset [event tag]",
+		Short:   "Reset frontends",
+		Long:    "Reset frontends, use -t for specifying certain teams only.",
+		Example: `  ntp frontend reset demo -t d11eb89b`,
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			for _, t := range teamIds {
+				teams = append(teams, &pb.Team{Id: t})
+			}
+
+			evTag := args[0]
+			stream, err := c.rpcClient.ResetFrontends(ctx, &pb.ResetFrontendsRequest{
+				EventTag: evTag,
+				Teams:    teams,
+			})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			for {
+				msg, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					log.Fatalf(err.Error())
+				}
+
+				fmt.Printf("[%s] %s\n", msg.Status, msg.TeamId)
+			}
+		},
+	}
+
+	cmd.Flags().StringSliceVarP(&teamIds, "teams", "t", nil, "list of team ids for which to reset their frontends")
+
+	return cmd
 }
 
 func (c *Client) CmdFrontendSet() *cobra.Command {

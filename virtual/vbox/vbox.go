@@ -14,13 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"math"
+	"regexp"
+
 	"github.com/aau-network-security/go-ntp/store"
 	"github.com/aau-network-security/go-ntp/virtual"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"math"
-	"regexp"
 )
 
 const (
@@ -86,7 +87,11 @@ func (vm *vm) Create(ctx context.Context) error {
 }
 
 func (vm *vm) Run(ctx context.Context) error {
-	return nil
+	if err := vm.Create(ctx); err != nil {
+		return err
+	}
+
+	return vm.Start(ctx)
 }
 
 func (vm *vm) Start(ctx context.Context) error {

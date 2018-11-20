@@ -140,16 +140,19 @@ func (e *exercise) Create(ctx context.Context) error {
 func (e *exercise) Start(ctx context.Context) error {
 	var res error
 	var wg sync.WaitGroup
+
 	for _, m := range e.machines {
 		wg.Add(1)
 		go func(m virtual.Instance) {
 			if err := m.Start(ctx); err != nil && res == nil {
 				res = err
 			}
+
+			wg.Done()
 		}(m)
-		wg.Done()
 	}
 	wg.Wait()
+
 	return res
 }
 
