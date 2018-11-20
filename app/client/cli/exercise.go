@@ -112,7 +112,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 			}
 
 			for {
-				status, err := stream.Recv()
+				msg, err := stream.Recv()
 				if err == io.EOF {
 					break
 				}
@@ -121,7 +121,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 					log.Fatalf(err.Error())
 				}
 
-				fmt.Printf("\u2713 %s\n", status.TeamId)
+				fmt.Printf("[%s] %s\n", msg.Status, msg.TeamId)
 			}
 		},
 	}
