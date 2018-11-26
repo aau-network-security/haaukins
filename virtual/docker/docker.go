@@ -26,7 +26,9 @@ import (
 )
 
 var (
-	DefaultClient, dockerErr  = docker.NewClient("unix:///var/run/docker.sock")
+	DefaultClient *docker.Client
+	DefaultLinkBridge *defaultBridge
+
 	TooLowMemErr              = errors.New("Memory needs to be atleast 50mb")
 	InvalidHostBindingErr     = errors.New("Hostbing does not have correct format - (ip:)port")
 	InvalidMountErr           = errors.New("Incorrect mount format - src:dest")
@@ -42,14 +44,20 @@ var (
 	Registries = map[string]docker.AuthConfiguration{
 		"": {},
 	}
-	DefaultLinkBridge = newDefaultBridge("ntp-bridge")
 
 	ipPool = newIPPoolFromHost()
 )
 
 func init() {
-	if dockerErr != nil {
-		log.Fatal().Err(dockerErr)
+	var err error
+	DefaultClient, err = docker.NewClient("unix:///var/run/docker.sock")
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+
+	DefaultLinkBridge, err = newDefaultBridge("ntp-bridge")
+	if err != nil {
+		log.Fatal().Err(err)
 	}
 
 	rand.Seed(time.Now().Unix())
@@ -669,16 +677,17 @@ type defaultBridge struct {
 	containers map[string]string
 }
 
-func newDefaultBridge(name string) *defaultBridge {
+func newDefaultBridge(name string) (*defaultBridge, error) {
 	var netID string
 
 	networks, err := DefaultClient.ListNetworks()
-	if err == nil {
-		for _, n := range networks {
-			if n.Name == name {
-				netID = n.ID
-				break
-			}
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range networks {
+		if n.Name == name {
+			netID = n.ID
+			break
 		}
 	}
 
@@ -694,10 +703,7 @@ func newDefaultBridge(name string) *defaultBridge {
 
 		net, err := DefaultClient.CreateNetwork(createNetworkOpts)
 		if err != nil {
-			log.Fatal().
-				Str("bridge-name", name).
-				Msg("Unable to create default bridge")
-			return nil
+			return nil, err
 		}
 
 		netID = net.ID
@@ -706,7 +712,7 @@ func newDefaultBridge(name string) *defaultBridge {
 	return &defaultBridge{
 		id:         netID,
 		containers: map[string]string{},
-	}
+	}, nil
 }
 
 func (dbr *defaultBridge) connect(cid string, alias string) (string, error) {
