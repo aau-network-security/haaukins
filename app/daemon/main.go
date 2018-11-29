@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -58,7 +57,10 @@ func main() {
 	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
 	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
-		fmt.Printf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)
+		log.Fatal().
+			Err(err).
+			Str("file", *confFilePtr).
+			Msgf("Unable to read configuration file")
 		return
 	}
 
@@ -66,12 +68,15 @@ func main() {
 	if err != nil {
 		log.Fatal().
 			Err(err).
-			Msgf("failed to listen on management port %s", mngtPort)
+			Msgf("Failed to listen on management port %s", mngtPort)
+		return
 	}
 
 	d, err := daemon.New(c)
 	if err != nil {
-		fmt.Printf("unable to create daemon: %s\n", err)
+		log.Fatal().
+			Err(err).
+			Msg("Unable to create daemon")
 		return
 	}
 
@@ -84,7 +89,8 @@ func main() {
 	if err != nil {
 		log.Fatal().
 			Err(err).
-			Msg("failed to retrieve server options")
+			Msg("Failed to retrieve server options")
+		return
 	}
 
 	s := d.GetServer(opts...)
@@ -92,7 +98,8 @@ func main() {
 
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
-		log.Fatal().Err(err)
+		log.Fatal().
+			Err(err).
+			Msg("Failed to start accepting incoming connections")
 	}
-
 }

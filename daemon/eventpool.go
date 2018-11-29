@@ -111,15 +111,3 @@ func (ep *eventPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	mux.ServeHTTP(w, r)
 }
-
-func getHost(r *http.Request) string {
-	if r.URL.IsAbs() {
-		host := r.Host
-		// Slice off any port information.
-		if i := strings.Index(host, ":"); i != -1 {
-			host = host[:i]
-		}
-		return host
-	}
-	return r.URL.Host
-}

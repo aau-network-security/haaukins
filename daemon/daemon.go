@@ -43,6 +43,11 @@ var (
 	version string
 )
 
+type TLS struct {
+	CertFile string `yaml:"cert-file"`
+	KeyFile  string `yaml:"key-file"`
+}
+
 type Config struct {
 	Host               string                           `yaml:"host,omitempty"`
 	Port               uint                             `yaml:"port,omitempty"`
@@ -55,11 +60,11 @@ type Config struct {
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
 	Management         struct {
 		SigningKey string `yaml:"sign-key"`
-		TLS        struct {
-			CertFile string `yaml:"cert-file"`
-			KeyFile  string `yaml:"key-file"`
-		} `yaml:"tls"`
+		TLS        TLS    `yaml:"tls"`
 	} `yaml:"management,omitempty"`
+	Frontend struct {
+		TLS TLS `yaml:"tls"`
+	} `yaml:"frontend,omitempty"`
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
@@ -150,8 +155,18 @@ func New(conf *Config) (*daemon, error) {
 	vlib := vbox.NewLibrary(conf.OvaDir)
 	eventPool := NewEventPool(conf.Host)
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), eventPool); err != nil {
-			fmt.Println("Serving error", err)
+		addr := fmt.Sprintf(":%d", conf.Port)
+
+		var err error
+		if conf.Frontend.TLS.CertFile != "" && conf.Frontend.TLS.KeyFile != "" {
+			err = http.ListenAndServeTLS(addr, conf.Frontend.TLS.CertFile, conf.Frontend.TLS.KeyFile, eventPool)
+		} else {
+			err = http.ListenAndServe(addr, eventPool)
+		}
+		if err != nil {
+			log.Error().
+				Err(err).
+				Msg("Serving error")
 		}
 	}()
 
