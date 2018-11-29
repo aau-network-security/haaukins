@@ -426,11 +426,11 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 		chalNumStr := matches[1]
 		cid, _ := strconv.Atoi(chalNumStr)
 
-		flagValue := r.FormValue("key")
+		originalFlag := r.FormValue("key")
 
-		value := cfi.flagPool.TranslateFlagForTeam(t, cid, flagValue)
+		translatedFlag := cfi.flagPool.TranslateFlagForTeam(t, cid, originalFlag)
 
-		r.Form.Set("key", value)
+		r.Form.Set("key", translatedFlag)
 
 		// update body and content-length
 		formdata := r.Form.Encode()
@@ -453,17 +453,19 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 			if err != nil {
 				log.Warn().
 					Err(err).
+					Int("challenge-id", cid).
 					Msg("Unable to find challenge tag for identifier")
 				return
 			}
 
-			err = t.SolveChallenge(tag, flagValue)
+			err = t.SolveChallenge(tag, originalFlag)
 			if err != nil {
 				log.Warn().
 					Err(err).
 					Str("tag", string(tag)).
 					Str("team-id", t.Id).
-					Str("value", value).
+					Str("original", originalFlag).
+					Str("translated", translatedFlag).
 					Msg("Unable to solve challenge for team")
 				return
 			}
@@ -472,11 +474,20 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 			if err != nil {
 				log.Warn().
 					Err(err).
+					Str("tag", string(tag)).
+					Str("team-id", t.Id).
 					Msg("Unable to save team")
 				return
 			}
-		}
 
+			log.Debug().
+				Int("challenge-id", cid).
+				Str("tag", string(tag)).
+				Str("team-id", t.Id).
+				Str("original", originalFlag).
+				Str("translated", translatedFlag).
+				Msg("Successfully solved challenge")
+		}
 	})
 }
 

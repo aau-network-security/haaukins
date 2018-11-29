@@ -90,7 +90,8 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 		if err != nil {
 			log.Warn().
 				Err(err).
-				Msg("Unable to guac get user for team")
+				Str("team-id ", t.Id).
+				Msg("Unable to get guac user for team")
 			return
 		}
 
@@ -98,8 +99,8 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 		if err != nil {
 			log.Warn().
 				Err(err).
-				Msg("Login team to guacamole")
-
+				Str("team-id", t.Id).
+				Msg("Failed to login team to guacamole")
 			return
 		}
 
