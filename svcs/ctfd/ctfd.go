@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/cookiejar"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"regexp"
@@ -215,7 +214,12 @@ func (ctf *ctfd) ProxyHandler(hooks ...func(*store.Team) error) svcs.ProxyConnec
 		if ctf.theme.ExtraFields != nil {
 			itc = append(itc, NewSignupInterception(ctf.theme.ExtraFields))
 		}
-		return itc.Intercept(httputil.NewSingleHostReverseProxy(origin))
+
+		proxy := svcs.NewTlsStripReverseProxy(origin.Host)
+
+		return itc.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		}))
 	}
 }
 

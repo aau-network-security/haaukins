@@ -17,7 +17,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
@@ -239,11 +238,7 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.P
 			NewGuacTokenLoginEndpoint(us, ef, loginFunc),
 		}
 
-		proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
-			req.Header.Add("X-Forwarded-Host", req.Host)
-			req.URL.Scheme = "http"
-			req.URL.Host = origin.Host
-		}}
+		proxy := svcs.NewTlsStripReverseProxy(origin.Host)
 
 		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if isWebSocket(r) {
