@@ -30,6 +30,8 @@ import (
 	"github.com/aau-network-security/go-ntp/logging"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"net"
+	"net/url"
 )
 
 var (
@@ -48,9 +50,14 @@ type TLS struct {
 	KeyFile  string `yaml:"key-file"`
 }
 
+type Port struct {
+	Secure   int `yaml:"secure,omitempty"`
+	Insecure int `yaml:"insecure,omitempty"`
+}
+
 type Config struct {
 	Host               string                           `yaml:"host,omitempty"`
-	Port               uint                             `yaml:"port,omitempty"`
+	Port               Port                             `yaml:"port,omitempty"`
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
@@ -86,6 +93,30 @@ func NewConfigFromFile(path string) (*Config, error) {
 	return &c, nil
 }
 
+func redirectHandler(port int) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h, _, _ := net.SplitHostPort(r.Host)
+
+		u, _ := url.Parse(r.RequestURI)
+
+		u.Host = fmt.Sprintf("%s:%d", h, port)
+		u.Scheme = "https"
+
+		log.Debug().Msgf("Redirecting to %s", u.String())
+
+		http.Redirect(w, r, u.String(), http.StatusFound)
+	})
+}
+
+func redirect(listenPort, redirectPort int) {
+	addr := fmt.Sprintf(":%d", listenPort)
+	if err := http.ListenAndServe(addr, redirectHandler(redirectPort)); err != nil {
+		log.Error().
+			Err(err).
+			Msg("Failed to redirect")
+	}
+}
+
 type daemon struct {
 	conf      *Config
 	auth      Authenticator
@@ -107,8 +138,12 @@ func New(conf *Config) (*daemon, error) {
 		conf.Host = "localhost"
 	}
 
-	if conf.Port == 0 {
-		conf.Port = 80
+	if conf.Port.Insecure == 0 {
+		conf.Port.Insecure = 80
+	}
+
+	if conf.Port.Secure == 0 {
+		conf.Port.Secure = 443
 	}
 
 	if conf.OvaDir == "" {
@@ -154,19 +189,24 @@ func New(conf *Config) (*daemon, error) {
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
 	eventPool := NewEventPool(conf.Host)
-	go func() {
-		addr := fmt.Sprintf(":%d", conf.Port)
 
+	go func() {
 		var err error
 		if conf.Frontend.TLS.CertFile != "" && conf.Frontend.TLS.KeyFile != "" {
+			// secure
+			go redirect(conf.Port.Insecure, conf.Port.Secure)
+
+			addr := fmt.Sprintf(":%d", conf.Port.Secure)
 			err = http.ListenAndServeTLS(addr, conf.Frontend.TLS.CertFile, conf.Frontend.TLS.KeyFile, eventPool)
 		} else {
+			// insecure
+			addr := fmt.Sprintf(":%d", conf.Port.Insecure)
 			err = http.ListenAndServe(addr, eventPool)
 		}
 		if err != nil {
 			log.Error().
 				Err(err).
-				Msg("Serving error")
+				Msg("Failed to serve")
 		}
 	}()
 
