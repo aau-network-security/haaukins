@@ -39,7 +39,10 @@ func NewTlsStripReverseProxy(target string) httputil.ReverseProxy {
 	}, ModifyResponse: func(resp *http.Response) error {
 		location := resp.Header.Get("location")
 		if location != "" {
-			u, _ := url.Parse(location)
+			u, err := url.Parse(location)
+			if err != nil {
+				return err
+			}
 			scheme := "http"
 			if isSecure {
 				scheme = "https"

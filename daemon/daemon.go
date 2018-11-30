@@ -96,13 +96,10 @@ func NewConfigFromFile(path string) (*Config, error) {
 func redirectHandler(port int) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h, _, _ := net.SplitHostPort(r.Host)
-
 		u, _ := url.Parse(r.RequestURI)
 
 		u.Host = fmt.Sprintf("%s:%d", h, port)
 		u.Scheme = "https"
-
-		log.Debug().Msgf("Redirecting to %s", u.String())
 
 		http.Redirect(w, r, u.String(), http.StatusFound)
 	})
