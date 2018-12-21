@@ -199,7 +199,10 @@ func New(conf *Config) (*daemon, error) {
 			certmagic.CA = certmagic.LetsEncryptStagingCA
 		}
 		certmagic.DNSProvider = provider
-		certmagic.Manage(domains)
+		_, err = certmagic.Manage(domains)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	uf, err := store.NewUserFile(conf.UsersFile)

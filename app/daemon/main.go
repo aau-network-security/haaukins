@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"path/filepath"
 )
 
 const (
@@ -40,8 +41,16 @@ func handleCancel(clean func() error) {
 	}()
 }
 
-func loadFromCertmagic(host string, ext string) ([]byte, error) {
-	key := fmt.Sprintf("%s.%s", host, ext)
+func loadFromCertmagic(c *daemon.Config, ext string) ([]byte, error) {
+	ca := certmagic.LetsEncryptProductionCA
+	if c.TLS.ACME.Development {
+		ca = certmagic.LetsEncryptStagingCA
+	}
+
+	kb := certmagic.KeyBuilder{}
+	dir := filepath.Join(kb.SitePrefix(ca, c.Host.Grpc), c.Host.Grpc)
+
+	key := fmt.Sprintf("%s.%s", dir, ext)
 	if err := certmagic.DefaultStorage.Lock(key); err != nil {
 		return nil, err
 	}
@@ -50,13 +59,21 @@ func loadFromCertmagic(host string, ext string) ([]byte, error) {
 	return certmagic.DefaultStorage.Load(key)
 }
 
+func loadCert(c *daemon.Config) ([]byte, error) {
+	return loadFromCertmagic(c, "crt")
+}
+
+func loadKey(c *daemon.Config) ([]byte, error) {
+	return loadFromCertmagic(c, "key")
+}
+
 func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
 	if c.TLS.Enabled {
-		crtBytes, err := loadFromCertmagic(c.Host.Grpc, "crt")
+		crtBytes, err := loadCert(c)
 		if err != nil {
 			return nil, err
 		}
-		keyBytes, err := loadFromCertmagic(c.Host.Grpc, "key")
+		keyBytes, err := loadKey(c)
 		if err != nil {
 			return nil, err
 		}
