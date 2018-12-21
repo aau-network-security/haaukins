@@ -60,7 +60,7 @@ type Config struct {
 	} `yaml:"host,omitempty"`
 	Port struct {
 		Secure   uint `yaml:"secure,omitempty"`
-		InSecure uint `yaml:"secure,omitempty"`
+		InSecure uint `yaml:"insecure,omitempty"`
 	}
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
@@ -69,16 +69,16 @@ type Config struct {
 	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
-	SigningKey         string                           `yaml:"sign-key"`
+	SigningKey         string                           `yaml:"sign-key,omitempty"`
 	TLS                struct {
-		Enabled   bool   `yaml:"enabled,omitempty"`
-		Directory string `yaml:"directory,omitempty"`
+		Enabled   bool   `yaml:"enabled"`
+		Directory string `yaml:"directory"`
 		ACME      struct {
-			Email       string `yaml:"email,omitempty"`
-			ApiKey      string `yaml:"api-key,omitempty"`
-			Development bool   `yaml:"development,omitempty"`
-		} `yaml:"amce,omitempty"`
-	} `yaml:"tls"`
+			Email       string `yaml:"email"`
+			ApiKey      string `yaml:"api-key"`
+			Development bool   `yaml:"development"`
+		} `yaml:"acme"`
+	} `yaml:"tls,omitempty"`
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
@@ -161,14 +161,6 @@ func New(conf *Config) (*daemon, error) {
 
 	var domains []string
 	if conf.TLS.Enabled {
-		if conf.TLS.ACME.Email == "" {
-			return nil, &MissingConfigErr{"ACME email"}
-		}
-
-		if conf.TLS.ACME.ApiKey == "" {
-			return nil, &MissingConfigErr{"ACME api key"}
-		}
-
 		if conf.TLS.Directory == "" {
 			usr, err := user.Current()
 			if err != nil {
@@ -177,22 +169,22 @@ func New(conf *Config) (*daemon, error) {
 			conf.TLS.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
 		}
 
+		if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
+			return nil, err
+		}
+
+		if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
+			return nil, err
+		}
+
 		provider, err := cloudflare.NewDNSProvider()
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to create Cloudflare DNS provider")
+			return nil, err
 		}
 
 		domains = []string{
 			conf.Host.Grpc,
 			fmt.Sprintf("*.%s", conf.Host.Http),
-		}
-
-		if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
-			log.Error().Err(err).Msg("Failed to set 'CLOUDFLARE_EMAIL' env var")
-		}
-
-		if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
-			log.Error().Err(err).Msg("Failed to set 'CLOUDFLARE_API_KEY' env var")
 		}
 
 		certmagic.HTTPPort = int(conf.Port.InSecure)
