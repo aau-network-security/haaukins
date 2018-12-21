@@ -28,8 +28,11 @@ import (
 	"sync"
 
 	"github.com/aau-network-security/go-ntp/logging"
+	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/xenolf/lego/providers/dns/cloudflare"
+	"os/user"
 )
 
 var (
@@ -37,15 +40,28 @@ var (
 	UnknownEventErr     = errors.New("Unable to find event by that tag")
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
-	MissingSecretKey    = errors.New("Management signing key cannot be empty")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 
 	version string
 )
 
+type MissingConfigErr struct {
+	Option string
+}
+
+func (m *MissingConfigErr) Error() string {
+	return fmt.Sprintf("%s cannot be empty", m.Option)
+}
+
 type Config struct {
-	Host               string                           `yaml:"host,omitempty"`
-	Port               uint                             `yaml:"port,omitempty"`
+	Host struct {
+		Http string `yaml:"http,omitempty"`
+		Grpc string `yaml:"grpc,omitempty"`
+	} `yaml:"host,omitempty"`
+	Port struct {
+		Secure   uint `yaml:"secure,omitempty"`
+		InSecure uint `yaml:"secure,omitempty"`
+	}
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
@@ -53,13 +69,16 @@ type Config struct {
 	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
-	Management         struct {
-		SigningKey string `yaml:"sign-key"`
-		TLS        struct {
-			CertFile string `yaml:"cert-file"`
-			KeyFile  string `yaml:"key-file"`
-		} `yaml:"tls"`
-	} `yaml:"management,omitempty"`
+	SigningKey         string                           `yaml:"sign-key"`
+	TLS                struct {
+		Enabled   bool   `yaml:"enabled,omitempty"`
+		Directory string `yaml:"directory,omitempty"`
+		ACME      struct {
+			Email       string `yaml:"email,omitempty"`
+			ApiKey      string `yaml:"api-key,omitempty"`
+			Development bool   `yaml:"development,omitempty"`
+		} `yaml:"amce,omitempty"`
+	} `yaml:"tls"`
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
@@ -94,16 +113,24 @@ type daemon struct {
 }
 
 func New(conf *Config) (*daemon, error) {
-	if conf.Management.SigningKey == "" {
-		return nil, MissingSecretKey
+	if conf.SigningKey == "" {
+		return nil, &MissingConfigErr{"Management signing key"}
 	}
 
-	if conf.Host == "" {
-		conf.Host = "localhost"
+	if conf.Host.Http == "" {
+		conf.Host.Http = "localhost"
 	}
 
-	if conf.Port == 0 {
-		conf.Port = 80
+	if conf.Host.Grpc == "" {
+		conf.Host.Grpc = "localhost"
+	}
+
+	if conf.Port.InSecure == 0 {
+		conf.Port.InSecure = 80
+	}
+
+	if conf.Port.Secure == 0 {
+		conf.Port.Secure = 443
 	}
 
 	if conf.OvaDir == "" {
@@ -132,6 +159,57 @@ func New(conf *Config) (*daemon, error) {
 		conf.EventsDir = "events"
 	}
 
+	var domains []string
+	if conf.TLS.Enabled {
+		if conf.TLS.ACME.Email == "" {
+			return nil, &MissingConfigErr{"ACME email"}
+		}
+
+		if conf.TLS.ACME.ApiKey == "" {
+			return nil, &MissingConfigErr{"ACME api key"}
+		}
+
+		if conf.TLS.Directory == "" {
+			usr, err := user.Current()
+			if err != nil {
+				return nil, errors.New("Invalid user")
+			}
+			conf.TLS.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
+		}
+
+		provider, err := cloudflare.NewDNSProvider()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create Cloudflare DNS provider")
+		}
+
+		domains = []string{
+			conf.Host.Grpc,
+			fmt.Sprintf("*.%s", conf.Host.Http),
+		}
+
+		if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
+			log.Error().Err(err).Msg("Failed to set 'CLOUDFLARE_EMAIL' env var")
+		}
+
+		if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
+			log.Error().Err(err).Msg("Failed to set 'CLOUDFLARE_API_KEY' env var")
+		}
+
+		certmagic.HTTPPort = int(conf.Port.InSecure)
+		certmagic.HTTPSPort = int(conf.Port.Secure)
+		certmagic.Agreed = true
+		certmagic.Email = conf.TLS.ACME.Email
+		certmagic.CA = certmagic.LetsEncryptProductionCA
+		certmagic.DefaultStorage = &certmagic.FileStorage{
+			Path: conf.TLS.Directory,
+		}
+		if conf.TLS.ACME.Development {
+			certmagic.CA = certmagic.LetsEncryptStagingCA
+		}
+		certmagic.DNSProvider = provider
+		certmagic.Manage(domains)
+	}
+
 	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
@@ -148,9 +226,16 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
-	eventPool := NewEventPool(conf.Host)
+	eventPool := NewEventPool(conf.Host.Http)
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), eventPool); err != nil {
+		if conf.TLS.Enabled {
+			if err := certmagic.HTTPS(domains, eventPool); err != nil {
+				fmt.Println("Serving error", err)
+			}
+			return
+		}
+
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port.InSecure), eventPool); err != nil {
 			fmt.Println("Serving error", err)
 		}
 	}()
@@ -186,7 +271,7 @@ func New(conf *Config) (*daemon, error) {
 
 	d := &daemon{
 		conf:      conf,
-		auth:      NewAuthenticator(uf, conf.Management.SigningKey),
+		auth:      NewAuthenticator(uf, conf.SigningKey),
 		users:     uf,
 		exercises: ef,
 		eventPool: eventPool,

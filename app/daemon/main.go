@@ -11,7 +11,9 @@ import (
 	"github.com/aau-network-security/go-ntp/daemon"
 	"google.golang.org/grpc/reflection"
 
+	"crypto/tls"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -38,11 +40,33 @@ func handleCancel(clean func() error) {
 	}()
 }
 
+func loadFromCertmagic(host string, ext string) ([]byte, error) {
+	key := fmt.Sprintf("%s.%s", host, ext)
+	if err := certmagic.DefaultStorage.Lock(key); err != nil {
+		return nil, err
+	}
+	defer certmagic.DefaultStorage.Unlock(key)
+
+	return certmagic.DefaultStorage.Load(key)
+}
+
 func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
-	crt := c.Management.TLS.CertFile
-	key := c.Management.TLS.KeyFile
-	if crt != "" && key != "" {
-		creds, err := credentials.NewServerTLSFromFile(crt, key)
+	if c.TLS.Enabled {
+		crtBytes, err := loadFromCertmagic(c.Host.Grpc, "crt")
+		if err != nil {
+			return nil, err
+		}
+		keyBytes, err := loadFromCertmagic(c.Host.Grpc, "key")
+		if err != nil {
+			return nil, err
+		}
+
+		cert, err := tls.X509KeyPair(crtBytes, keyBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		creds := credentials.NewServerTLSFromCert(&cert)
 		if err != nil {
 			return nil, err
 		}
