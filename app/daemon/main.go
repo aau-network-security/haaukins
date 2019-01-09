@@ -11,14 +11,13 @@ import (
 	"github.com/aau-network-security/go-ntp/daemon"
 	"google.golang.org/grpc/reflection"
 
-	"crypto/tls"
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"path/filepath"
 )
 
 const (
@@ -41,52 +40,38 @@ func handleCancel(clean func() error) {
 	}()
 }
 
-func loadFromCertmagic(c *daemon.Config, ext string) ([]byte, error) {
-	ca := certmagic.LetsEncryptProductionCA
-	if c.TLS.ACME.Development {
-		ca = certmagic.LetsEncryptStagingCA
-	}
-
-	kb := certmagic.KeyBuilder{}
-	dir := filepath.Join(kb.SitePrefix(ca, c.Host.Grpc), c.Host.Grpc)
-
-	key := fmt.Sprintf("%s.%s", dir, ext)
-	if err := certmagic.DefaultStorage.Lock(key); err != nil {
-		return nil, err
-	}
-	defer certmagic.DefaultStorage.Unlock(key)
-
-	return certmagic.DefaultStorage.Load(key)
-}
-
-func loadCert(c *daemon.Config) ([]byte, error) {
-	return loadFromCertmagic(c, "crt")
-}
-
-func loadKey(c *daemon.Config) ([]byte, error) {
-	return loadFromCertmagic(c, "key")
-}
-
 func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
 	if c.TLS.Enabled {
-		crtBytes, err := loadCert(c)
-		if err != nil {
+		if err := os.Setenv("CLOUDFLARE_EMAIL", c.TLS.ACME.Email); err != nil {
 			return nil, err
 		}
-		keyBytes, err := loadKey(c)
+
+		if err := os.Setenv("CLOUDFLARE_API_KEY", c.TLS.ACME.ApiKey); err != nil {
+			return nil, err
+		}
+
+		provider, err := cloudflare.NewDNSProvider()
 		if err != nil {
 			return nil, err
 		}
 
-		cert, err := tls.X509KeyPair(crtBytes, keyBytes)
-		if err != nil {
+		cmConfig := certmagic.New(certmagic.Config{
+			Agreed:      true,
+			Email:       c.TLS.ACME.Email,
+			CA:          daemon.LetsEncryptEnvs[c.TLS.ACME.Development],
+			DNSProvider: provider,
+		})
+
+		domains := []string{
+			c.Host.Grpc,
+		}
+
+		if err := cmConfig.Manage(domains); err != nil {
 			return nil, err
 		}
 
+		cert := cmConfig.TLSConfig().Certificates[0]
 		creds := credentials.NewServerTLSFromCert(&cert)
-		if err != nil {
-			return nil, err
-		}
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
 	return []grpc.ServerOption{}, nil

@@ -20,7 +20,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -31,7 +31,6 @@ import (
 	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"os/user"
 )
 
@@ -43,6 +42,11 @@ var (
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 
 	version string
+
+	LetsEncryptEnvs = map[bool]string{
+		true:  certmagic.LetsEncryptStagingCA,
+		false: certmagic.LetsEncryptProductionCA,
+	}
 )
 
 type MissingConfigErr struct {
@@ -97,6 +101,66 @@ func NewConfigFromFile(path string) (*Config, error) {
 		docker.Registries[repo.ServerAddress] = repo
 	}
 
+	if c.SigningKey == "" {
+		return nil, &MissingConfigErr{"Management signing key"}
+	}
+
+	if c.Host.Http == "" {
+		c.Host.Http = "localhost"
+	}
+
+	if c.Host.Grpc == "" {
+		c.Host.Grpc = "localhost"
+	}
+
+	if c.Port.InSecure == 0 {
+		c.Port.InSecure = 80
+	}
+
+	if c.Port.Secure == 0 {
+		c.Port.Secure = 443
+	}
+
+	if c.OvaDir == "" {
+		dir, _ := os.Getwd()
+		c.OvaDir = filepath.Join(dir, "vbox")
+	}
+
+	if c.LogDir == "" {
+		dir, _ := os.Getwd()
+		c.LogDir = filepath.Join(dir, "logs")
+	}
+
+	if c.UsersFile == "" {
+		c.UsersFile = "users.yml"
+	}
+
+	if c.ExercisesFile == "" {
+		c.ExercisesFile = "exercises.yml"
+	}
+
+	if c.FrontendsFile == "" {
+		c.FrontendsFile = "frontends.yml"
+	}
+
+	if c.EventsDir == "" {
+		c.EventsDir = "events"
+	}
+
+	if c.TLS.Enabled {
+		if c.TLS.Directory == "" {
+			usr, err := user.Current()
+			if err != nil {
+				return nil, errors.New("Invalid user")
+			}
+			c.TLS.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
+		}
+
+		certmagic.DefaultStorage = &certmagic.FileStorage{
+			Path: c.TLS.Directory,
+		}
+	}
+
 	return &c, nil
 }
 
@@ -113,98 +177,6 @@ type daemon struct {
 }
 
 func New(conf *Config) (*daemon, error) {
-	if conf.SigningKey == "" {
-		return nil, &MissingConfigErr{"Management signing key"}
-	}
-
-	if conf.Host.Http == "" {
-		conf.Host.Http = "localhost"
-	}
-
-	if conf.Host.Grpc == "" {
-		conf.Host.Grpc = "localhost"
-	}
-
-	if conf.Port.InSecure == 0 {
-		conf.Port.InSecure = 80
-	}
-
-	if conf.Port.Secure == 0 {
-		conf.Port.Secure = 443
-	}
-
-	if conf.OvaDir == "" {
-		dir, _ := os.Getwd()
-		conf.OvaDir = filepath.Join(dir, "vbox")
-	}
-
-	if conf.LogDir == "" {
-		dir, _ := os.Getwd()
-		conf.LogDir = filepath.Join(dir, "logs")
-	}
-
-	if conf.UsersFile == "" {
-		conf.UsersFile = "users.yml"
-	}
-
-	if conf.ExercisesFile == "" {
-		conf.ExercisesFile = "exercises.yml"
-	}
-
-	if conf.FrontendsFile == "" {
-		conf.FrontendsFile = "frontends.yml"
-	}
-
-	if conf.EventsDir == "" {
-		conf.EventsDir = "events"
-	}
-
-	var domains []string
-	if conf.TLS.Enabled {
-		if conf.TLS.Directory == "" {
-			usr, err := user.Current()
-			if err != nil {
-				return nil, errors.New("Invalid user")
-			}
-			conf.TLS.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
-		}
-
-		if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
-			return nil, err
-		}
-
-		if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
-			return nil, err
-		}
-
-		provider, err := cloudflare.NewDNSProvider()
-		if err != nil {
-			return nil, err
-		}
-
-		domains = []string{
-			conf.Host.Grpc,
-			fmt.Sprintf("*.%s", conf.Host.Http),
-		}
-
-		certmagic.HTTPPort = int(conf.Port.InSecure)
-		certmagic.HTTPSPort = int(conf.Port.Secure)
-		certmagic.Agreed = true
-		certmagic.Email = conf.TLS.ACME.Email
-		certmagic.CA = certmagic.LetsEncryptProductionCA
-		certmagic.DefaultStorage = &certmagic.FileStorage{
-			Path: conf.TLS.Directory,
-		}
-		if conf.TLS.ACME.Development {
-			certmagic.CA = certmagic.LetsEncryptStagingCA
-		}
-		certmagic.DNSProvider = provider
-		_, err = certmagic.Manage(domains)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
@@ -224,6 +196,16 @@ func New(conf *Config) (*daemon, error) {
 	eventPool := NewEventPool(conf.Host.Http)
 	go func() {
 		if conf.TLS.Enabled {
+			domains := []string{
+				fmt.Sprintf("*.%s", conf.Host.Http),
+			}
+
+			certmagic.Agreed = true
+			certmagic.Email = conf.TLS.ACME.Email
+			certmagic.CA = LetsEncryptEnvs[conf.TLS.ACME.Development]
+			certmagic.HTTPPort = int(conf.Port.InSecure)
+			certmagic.HTTPSPort = int(conf.Port.Secure)
+
 			if err := certmagic.HTTPS(domains, eventPool); err != nil {
 				fmt.Println("Serving error", err)
 			}
