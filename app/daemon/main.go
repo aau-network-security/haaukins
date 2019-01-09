@@ -97,6 +97,8 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
+	flag.Parse()
+
 	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
 		fmt.Printf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)
