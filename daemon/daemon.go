@@ -32,6 +32,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os/user"
+	"github.com/xenolf/lego/providers/dns/cloudflare"
 )
 
 var (
@@ -156,6 +157,25 @@ func NewConfigFromFile(path string) (*Config, error) {
 			c.TLS.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
 		}
 
+		if err := os.Setenv("CLOUDFLARE_EMAIL", c.TLS.ACME.Email); err != nil {
+			return nil, err
+		}
+
+		if err := os.Setenv("CLOUDFLARE_API_KEY", c.TLS.ACME.ApiKey); err != nil {
+			return nil, err
+		}
+
+		provider, err := cloudflare.NewDNSProvider()
+		if err != nil {
+			return nil, err
+		}
+		certmagic.DNSProvider = provider
+
+		certmagic.Agreed = true
+		certmagic.Email = c.TLS.ACME.Email
+		certmagic.CA = LetsEncryptEnvs[c.TLS.ACME.Development]
+		certmagic.HTTPPort = int(c.Port.InSecure)
+		certmagic.HTTPSPort = int(c.Port.Secure)
 		certmagic.DefaultStorage = &certmagic.FileStorage{
 			Path: c.TLS.Directory,
 		}
@@ -199,12 +219,6 @@ func New(conf *Config) (*daemon, error) {
 			domains := []string{
 				fmt.Sprintf("*.%s", conf.Host.Http),
 			}
-
-			certmagic.Agreed = true
-			certmagic.Email = conf.TLS.ACME.Email
-			certmagic.CA = LetsEncryptEnvs[conf.TLS.ACME.Development]
-			certmagic.HTTPPort = int(conf.Port.InSecure)
-			certmagic.HTTPSPort = int(conf.Port.Secure)
 
 			if err := certmagic.HTTPS(domains, eventPool); err != nil {
 				fmt.Println("Serving error", err)

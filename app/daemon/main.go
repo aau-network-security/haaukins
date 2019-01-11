@@ -15,8 +15,7 @@ import (
 	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/xenolf/lego/providers/dns/cloudflare"
-	"google.golang.org/grpc"
+		"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -42,36 +41,19 @@ func handleCancel(clean func() error) {
 
 func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
 	if c.TLS.Enabled {
-		if err := os.Setenv("CLOUDFLARE_EMAIL", c.TLS.ACME.Email); err != nil {
-			return nil, err
-		}
-
-		if err := os.Setenv("CLOUDFLARE_API_KEY", c.TLS.ACME.ApiKey); err != nil {
-			return nil, err
-		}
-
-		provider, err := cloudflare.NewDNSProvider()
-		if err != nil {
-			return nil, err
-		}
-
-		cmConfig := certmagic.New(certmagic.Config{
-			Agreed:      true,
-			Email:       c.TLS.ACME.Email,
-			CA:          daemon.LetsEncryptEnvs[c.TLS.ACME.Development],
-			DNSProvider: provider,
-		})
-
 		domains := []string{
 			c.Host.Grpc,
 		}
 
-		if err := cmConfig.Manage(domains); err != nil {
+		cmConf, err := certmagic.Manage(domains)
+		if err != nil {
 			return nil, err
 		}
-
-		cert := cmConfig.TLSConfig().Certificates[0]
-		creds := credentials.NewServerTLSFromCert(&cert)
+		cert, err := cmConf.CacheManagedCertificate(c.Host.Grpc)
+		if err != nil {
+			return nil, err
+		}
+		creds := credentials.NewServerTLSFromCert(&cert.Certificate)
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
 	return []grpc.ServerOption{}, nil
