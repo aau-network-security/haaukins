@@ -12,9 +12,10 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"google.golang.org/grpc"
+		"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -39,13 +40,20 @@ func handleCancel(clean func() error) {
 }
 
 func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
-	crt := c.Management.TLS.CertFile
-	key := c.Management.TLS.KeyFile
-	if crt != "" && key != "" {
-		creds, err := credentials.NewServerTLSFromFile(crt, key)
+	if c.TLS.Enabled {
+		domains := []string{
+			c.Host.Grpc,
+		}
+
+		cmConf, err := certmagic.Manage(domains)
 		if err != nil {
 			return nil, err
 		}
+		cert, err := cmConf.CacheManagedCertificate(c.Host.Grpc)
+		if err != nil {
+			return nil, err
+		}
+		creds := credentials.NewServerTLSFromCert(&cert.Certificate)
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
 	return []grpc.ServerOption{}, nil
@@ -56,6 +64,8 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
+	flag.Parse()
+
 	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
 		fmt.Printf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)
