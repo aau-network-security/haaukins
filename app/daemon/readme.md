@@ -1,5 +1,5 @@
 # Daemon
-This is the core service of the NTP, and handles multi-hosting and tearing down of events.
+This is the core service of Haaukins, and handles multi-hosting and tearing down of events.
 Currently only one client exists for interacting with the daemon, which can be found in [client directory](../client).
 
 ## Configuration
