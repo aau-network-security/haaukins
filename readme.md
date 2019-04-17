@@ -4,7 +4,7 @@ The virtualisation platform for training of digital security.
 - [client](app/client/readme.md)
 - [daemon](app/daemon/readme.md)
 
-Not here for development, but just for controlling the platform? Visit the [Wiki](https://github.com/aau-network-security/haaukins/wiki/Getting-started). 
+Not here for development, but just for controlling the platform? Visit the [Wiki](https://github.com/aau-network-security/haaukins/wiki). 
 
 ## Running
 First, install dependencies (requiring `go 1.7` or higher):
