@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/haaukins/store"
 )
 
 type exer struct {

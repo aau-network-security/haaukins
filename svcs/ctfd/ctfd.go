@@ -20,10 +20,10 @@ import (
 
 	"io"
 
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs"
-	"github.com/aau-network-security/go-ntp/virtual"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/svcs"
+	"github.com/aau-network-security/haaukins/virtual"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )

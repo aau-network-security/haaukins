@@ -14,7 +14,7 @@ import (
 
 	"log"
 
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	color "github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"

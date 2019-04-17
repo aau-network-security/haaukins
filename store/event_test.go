@@ -1,13 +1,13 @@
 package store_test
 
 import (
-	"testing"
-	"github.com/aau-network-security/go-ntp/store"
+	"fmt"
+	"github.com/aau-network-security/haaukins/store"
 	"github.com/google/uuid"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"fmt"
+	"testing"
 	"time"
 )
 

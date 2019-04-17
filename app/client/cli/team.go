@@ -1,12 +1,12 @@
 package cli
 
 import (
+	"context"
+	"fmt"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 	"time"
-	"context"
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
-	"fmt"
-	"github.com/logrusorgru/aurora"
 )
 
 func (c *Client) CmdTeam() *cobra.Command {
@@ -57,7 +57,7 @@ func (c *Client) CmdTeamInfo() *cobra.Command {
 			teamId := args[0]
 			eventTag := args[1]
 			req := &pb.GetTeamInfoRequest{
-				TeamId: teamId,
+				TeamId:   teamId,
 				EventTag: eventTag,
 			}
 			resp, err := c.rpcClient.GetTeamInfo(ctx, req)
@@ -76,13 +76,13 @@ func (c *Client) CmdTeamInfo() *cobra.Command {
 				state := stateString(i.State)
 				el := struct {
 					Image string
-					Type string
-					Id string
+					Type  string
+					Id    string
 					State string
 				}{
 					Image: i.Image,
-					Type: i.Type,
-					Id: i.Id,
+					Type:  i.Type,
+					Id:    i.Id,
 					State: state,
 				}
 

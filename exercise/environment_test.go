@@ -6,8 +6,8 @@ import (
 
 	"time"
 
-	"github.com/aau-network-security/go-ntp/exercise"
-	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/haaukins/exercise"
+	"github.com/aau-network-security/haaukins/store"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/rs/zerolog"
 )

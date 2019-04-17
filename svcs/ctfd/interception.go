@@ -15,15 +15,15 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/rs/zerolog/log"
+	"github.com/aau-network-security/haaukins/store"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 var (
-	chalPathRegex = regexp.MustCompile(`/chal/([0-9]+)`)
+	chalPathRegex       = regexp.MustCompile(`/chal/([0-9]+)`)
 	DuplicateConsentErr = errors.New("Cannot have more than one consent checkbox")
-	NoConsentErr = errors.New("No consent given")
+	NoConsentErr        = errors.New("No consent given")
 
 	selectorTmpl, _ = template.New("Selector").Parse(`
 <label for="{{.Tag}}">{{.Label}}</label>
@@ -48,8 +48,8 @@ type Checkbox struct {
 
 func NewCheckbox(tag string, text string, consent bool) *Checkbox {
 	return &Checkbox{
-		Tag:  tag,
-		Text: text,
+		Tag:              tag,
+		Text:             text,
 		indicatesConcent: consent,
 	}
 }
@@ -67,7 +67,7 @@ func (c *Checkbox) ReadMetadata(r *http.Request, team *store.Team) error {
 		return NoConsentErr
 	}
 
-	team.AddMetadata(c.Tag,v)
+	team.AddMetadata(c.Tag, v)
 
 	delete(r.Form, formName)
 	return nil
@@ -128,8 +128,8 @@ type InputRow struct {
 }
 
 type ExtraFields struct {
-	html string
-	inputs []Input
+	html           string
+	inputs         []Input
 	concentChecker *Checkbox
 }
 

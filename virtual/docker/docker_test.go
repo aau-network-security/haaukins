@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	ntpdocker "github.com/aau-network-security/go-ntp/virtual/docker"
+	ntpdocker "github.com/aau-network-security/haaukins/virtual/docker"
 	fdocker "github.com/fsouza/go-dockerclient"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
 )
 

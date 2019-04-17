@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/aau-network-security/go-ntp/scripts/release/git"
+	"github.com/aau-network-security/haaukins/scripts/release/git"
 	"github.com/coreos/go-semver/semver"
 	"github.com/giantswarm/semver-bump/bump"
 	"github.com/giantswarm/semver-bump/storage"
