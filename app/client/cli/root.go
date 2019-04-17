@@ -14,7 +14,7 @@ import (
 
 	"log"
 
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	color "github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
@@ -46,7 +46,7 @@ func Execute() {
 	}
 	defer c.Close()
 
-	var rootCmd = &cobra.Command{Use: "ntp"}
+	var rootCmd = &cobra.Command{Use: "hkn"}
 	rootCmd.AddCommand(
 		c.CmdVersion(),
 		c.CmdUser(),
@@ -114,7 +114,7 @@ func NewClient() (*Client, error) {
 		return nil, fmt.Errorf("Unable to find home directory")
 	}
 
-	tokenFile := filepath.Join(usr.HomeDir, ".ntp_token")
+	tokenFile := filepath.Join(usr.HomeDir, ".hkn_token")
 	c := &Client{
 		TokenFile: tokenFile,
 	}
@@ -125,12 +125,12 @@ func NewClient() (*Client, error) {
 		}
 	}
 
-	host := os.Getenv("NTP_HOST")
+	host := os.Getenv("HKN_HOST")
 	if host == "" {
 		host = "cli.sec-aau.dk"
 	}
 
-	port := os.Getenv("NTP_PORT")
+	port := os.Getenv("HKN_PORT")
 	if port == "" {
 		port = "5454"
 	}
@@ -140,7 +140,7 @@ func NewClient() (*Client, error) {
 		grpc.WithUnaryInterceptor(versionCheckInterceptor),
 	}
 
-	ssl := os.Getenv("NTP_SSL_OFF")
+	ssl := os.Getenv("HKN_SSL_OFF")
 	if strings.ToLower(ssl) == "true" {
 		authCreds.Insecure = true
 		dialOpts = append(dialOpts,

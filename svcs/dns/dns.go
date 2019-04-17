@@ -8,7 +8,7 @@ import (
 
 	"io"
 
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/rs/zerolog/log"
 )
 
@@ -95,7 +95,7 @@ func New(records []RR) (*Server, error) {
 		},
 		Cmd: []string{"--conf", "Corefile"},
 		Labels: map[string]string{
-			"ntp": "lab_dns",
+			"hkn": "lab_dns",
 		},
 	})
 

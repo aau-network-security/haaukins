@@ -7,10 +7,10 @@ import (
 
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/virtual"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
 )
 
@@ -76,7 +76,7 @@ func (e *exercise) Create(ctx context.Context) error {
 	for i, opt := range e.containerOpts {
 		opt.DockerConf.DNS = []string{e.dnsAddr}
 		opt.DockerConf.Labels = map[string]string{
-			"ntp": "lab_exercise",
+			"hkn": "lab_exercise",
 		}
 
 		c, err := e.dhost.CreateContainer(ctx, opt.DockerConf)

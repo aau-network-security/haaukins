@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "invite",
 		Short:   "Create key for inviting other users (superuser only)",
-		Example: `  ntp user invite --superuser`,
+		Example: `hkn user invite --superuser`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -63,7 +63,7 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 	return &cobra.Command{
 		Use:     "signup",
 		Short:   "Signup as user",
-		Example: `  ntp user signup`,
+		Example: `hkn user signup`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				username  string
@@ -120,7 +120,7 @@ func (c *Client) CmdLoginUser() *cobra.Command {
 	return &cobra.Command{
 		Use:     "login",
 		Short:   "Login as user",
-		Example: `  ntp user login`,
+		Example: `hkn user login`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var username string
 			fmt.Print("Username: ")

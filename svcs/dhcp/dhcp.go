@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/aau-network-security/go-ntp/svcs/dns"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/svcs/dns"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 )
 
 type Server struct {
@@ -57,7 +57,7 @@ func New(format func(n int) string) (*Server, error) {
 		},
 		Cmd: []string{"eth0"},
 		Labels: map[string]string{
-			"ntp": "lab_dhcpd",
+			"hkn": "lab_dhcpd",
 		},
 	})
 

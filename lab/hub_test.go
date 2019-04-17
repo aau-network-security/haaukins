@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 )
 
 type testLabHost struct {

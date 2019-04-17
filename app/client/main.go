@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/aau-network-security/go-ntp/app/client/cli"
+	"github.com/aau-network-security/haaukins/app/client/cli"
 )
 
 func main() {

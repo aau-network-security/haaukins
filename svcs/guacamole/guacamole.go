@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs"
-	"github.com/aau-network-security/go-ntp/virtual"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/svcs"
+	"github.com/aau-network-security/haaukins/virtual"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
@@ -126,7 +126,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		Image:     "guacamole/guacd",
 		UseBridge: true,
 		Labels: map[string]string{
-			"ntp": "guacamole_guacd",
+			"hkn": "guacamole_guacd",
 		},
 	})
 
@@ -140,7 +140,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 			"MYSQL_PASSWORD":      mysqlPass,
 		},
 		Labels: map[string]string{
-			"ntp": "guacamole_db",
+			"hkn": "guacamole_db",
 		},
 	})
 
@@ -161,7 +161,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		},
 		UseBridge: true,
 		Labels: map[string]string{
-			"ntp": "guacamole_web",
+			"hkn": "guacamole_web",
 		},
 	})
 

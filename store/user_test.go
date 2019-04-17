@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/haaukins/store"
 )
 
 func TestUser(t *testing.T) {

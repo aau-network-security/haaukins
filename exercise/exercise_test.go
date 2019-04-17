@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 )
 
 func dconfFromRecords(records []store.RecordConfig) store.DockerConfig {

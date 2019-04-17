@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	color "github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 )
@@ -74,7 +74,7 @@ func (c *Client) CmdHostMonitor() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "monitor",
 		Short:   "Monitor host resources",
-		Example: `  ntp host monitor`,
+		Example: `hkn host monitor`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			stream, err := c.rpcClient.MonitorHost(ctx, &pb.Empty{})

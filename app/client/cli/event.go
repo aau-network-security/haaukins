@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create [event tag]",
 		Short:   "Create event",
-		Example: `  ntp event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali`,
+		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -94,7 +94,7 @@ func (c *Client) CmdEventStop() *cobra.Command {
 	return &cobra.Command{
 		Use:     "stop [event tag]",
 		Short:   "Stop event",
-		Example: `  ntp event stop esboot`,
+		Example: `hkn event stop esboot`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -130,7 +130,7 @@ func (c *Client) CmdEvents() *cobra.Command {
 	return &cobra.Command{
 		Use:     "events",
 		Short:   "List events",
-		Example: `  ntp event list`,
+		Example: `hkn event list`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -172,7 +172,7 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 	return &cobra.Command{
 		Use:     "teams [event tag]",
 		Short:   "Get teams for a event",
-		Example: `  ntp event teams esboot`,
+		Example: `hkn event teams esboot`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -212,7 +212,7 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 	return &cobra.Command{
 		Use:     "restart [event tag] [team id]",
 		Short:   "Restart lab for a team",
-		Example: `  ntp event restart esboot d11eb89b`,
+		Example: `hkn event restart esboot d11eb89b`,
 		Args:    cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

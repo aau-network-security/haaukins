@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs/ctfd"
-	"github.com/rs/zerolog"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/svcs/ctfd"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -27,14 +27,14 @@ func TestRegisterInterception(t *testing.T) {
 	survey, _ := ctfd.NewExtraFields([]ctfd.InputRow{
 		{
 			Class: "form-group",
-			Inputs: []ctfd.Input {
+			Inputs: []ctfd.Input{
 				ctfd.NewSelector("value1", "value1", []string{"1", "2", "3"}),
 				ctfd.NewSelector("value2", "value2", []string{"a", "b"}),
 			},
 		},
 		{
 			Class: "form-check",
-			Inputs: []ctfd.Input {
+			Inputs: []ctfd.Input{
 				ctfd.NewCheckbox("consent", "Can i has consent", true),
 			},
 		},
@@ -60,12 +60,12 @@ func TestRegisterInterception(t *testing.T) {
 			name: "Normal with fields (default)",
 			opts: []ctfd.RegisterInterceptOpts{ctfd.WithExtraRegisterFields(survey)},
 			params: map[string]string{
-				"email":        "some@email.dk",
-				"name":         "username",
-				"password":     "some_password",
-				"nonce":        "random_string",
-				"value1":       "2",
-				"value2":       "b",
+				"email":            "some@email.dk",
+				"name":             "username",
+				"password":         "some_password",
+				"nonce":            "random_string",
+				"value1":           "2",
+				"value2":           "b",
 				"consent-checkbox": "ok",
 			},
 		},
@@ -83,11 +83,11 @@ func TestRegisterInterception(t *testing.T) {
 			name: "Missing survey (1)",
 			opts: []ctfd.RegisterInterceptOpts{ctfd.WithExtraRegisterFields(survey)},
 			params: map[string]string{
-				"email":        "some@email.dk",
-				"name":         "username",
-				"password":     "some_password",
-				"nonce":        "random_string",
-				"value1":       "3",
+				"email":            "some@email.dk",
+				"name":             "username",
+				"password":         "some_password",
+				"nonce":            "random_string",
+				"value1":           "3",
 				"consent-checkbox": "ok",
 			},
 			err: `field "value2" cannot be empty`,
@@ -96,11 +96,11 @@ func TestRegisterInterception(t *testing.T) {
 			name: "Missing survey (2)",
 			opts: []ctfd.RegisterInterceptOpts{ctfd.WithExtraRegisterFields(survey)},
 			params: map[string]string{
-				"email":        "some@email.dk",
-				"name":         "username",
-				"password":     "some_password",
-				"nonce":        "random_string",
-				"value2":       "b",
+				"email":            "some@email.dk",
+				"name":             "username",
+				"password":         "some_password",
+				"nonce":            "random_string",
+				"value2":           "b",
 				"consent-checkbox": "ok",
 			},
 			err: `field "value1" cannot be empty`,
@@ -109,12 +109,12 @@ func TestRegisterInterception(t *testing.T) {
 			name: "Incorrect value survey",
 			opts: []ctfd.RegisterInterceptOpts{ctfd.WithExtraRegisterFields(survey)},
 			params: map[string]string{
-				"email":        "some@email.dk",
-				"name":         "username",
-				"password":     "some_password",
-				"nonce":        "random_string",
-				"value1":       "meow",
-				"value2":       "b",
+				"email":            "some@email.dk",
+				"name":             "username",
+				"password":         "some_password",
+				"nonce":            "random_string",
+				"value1":           "meow",
+				"value2":           "b",
 				"consent-checkbox": "ok",
 			},
 			err: `invalid value for field "value1"`,
@@ -619,19 +619,18 @@ func TestCheckboxHtml(t *testing.T) {
 
 func TestCheckboxReadMetadata(t *testing.T) {
 	tt := []struct {
-		name string
-		form *url.Values
+		name            string
+		form            *url.Values
 		expectedConsent bool
-
 	}{
 		{
-			name: "Normal",
-			form: &url.Values{"consent-checkbox": {"ok"}},
+			name:            "Normal",
+			form:            &url.Values{"consent-checkbox": {"ok"}},
 			expectedConsent: true,
 		},
 		{
-			name: "No consent given",
-			form: &url.Values{"consent-checkbox": {""}},
+			name:            "No consent given",
+			form:            &url.Values{"consent-checkbox": {""}},
 			expectedConsent: false,
 		},
 	}

@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/google/uuid"
 	yaml "gopkg.in/yaml.v2"
 )

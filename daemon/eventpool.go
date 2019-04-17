@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/event"
-	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/haaukins/event"
+	"github.com/aau-network-security/haaukins/store"
 )
 
 type eventPool struct {

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/store"
+	"github.com/aau-network-security/haaukins/store"
 )
 
 func TestEventPool(t *testing.T) {
