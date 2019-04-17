@@ -8,7 +8,7 @@ import (
 
 	"io"
 
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/rs/zerolog/log"
 )
 

@@ -7,15 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	tst "github.com/aau-network-security/go-ntp/testing"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	tst "github.com/aau-network-security/haaukins/testing"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 )
 
 const (
-	vboxBin     = "VBoxManage"
-	vboxModVM   = "modifyvm"
-	vboxStartVM = "startvm"
-	vboxCtrlVM  = "controlvm"
+	vboxBin = "VBoxManage"
 )
 
 func execute(cmd string, cmds ...string) (string, error) {
@@ -35,7 +32,7 @@ func TestVmBase(t *testing.T) {
 	ctx := context.Background()
 
 	cs := "d41d8cd98f00b204e9800998ecf8427e"
-	vm := vbox.NewVMWithSum("go-ntp-ova.ova", "go-ntp", cs)
+	vm := vbox.NewVMWithSum("haaukins-ova.ova", "haaukins", cs)
 	if err := vm.Create(ctx); err != nil {
 		t.Fatalf("unexpected error when creating vm: %s", err)
 	}
@@ -45,7 +42,7 @@ func TestVmBase(t *testing.T) {
 		t.Fatalf("unexpected error when listing vms: %s", err)
 	}
 
-	name := fmt.Sprintf(`"go-ntp{%s}"`, cs)
+	name := fmt.Sprintf(`"haaukins{%s}"`, cs)
 	if !strings.Contains(output, name) {
 		t.Fatalf("expected virtual machine to have been added")
 	}

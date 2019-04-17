@@ -19,14 +19,14 @@ import (
 
 	"io"
 
-	"github.com/aau-network-security/go-ntp/virtual"
+	"github.com/aau-network-security/haaukins/virtual"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	DefaultClient *docker.Client
+	DefaultClient     *docker.Client
 	DefaultLinkBridge *defaultBridge
 
 	TooLowMemErr              = errors.New("Memory needs to be atleast 50mb")

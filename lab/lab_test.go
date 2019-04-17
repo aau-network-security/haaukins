@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/exercise"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/aau-network-security/haaukins/exercise"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 )
 
 type testDockerHost struct {

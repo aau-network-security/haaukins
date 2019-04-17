@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/aau-network-security/go-ntp/svcs/dns"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/svcs/dns"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 )
 
 type Server struct {

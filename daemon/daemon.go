@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aau-network-security/go-ntp/event"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/aau-network-security/haaukins/event"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
@@ -22,17 +22,17 @@ import (
 	"google.golang.org/grpc/metadata"
 	"gopkg.in/yaml.v2"
 
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	dockerclient "github.com/fsouza/go-dockerclient"
 
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/logging"
+	"github.com/aau-network-security/haaukins/logging"
 	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"os/user"
 	"github.com/xenolf/lego/providers/dns/cloudflare"
+	"os/user"
 )
 
 var (

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/aau-network-security/go-ntp/daemon/proto"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/spf13/cobra"
 )
 

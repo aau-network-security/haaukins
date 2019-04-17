@@ -7,8 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
 )
 

@@ -7,10 +7,10 @@ import (
 
 	"sync"
 
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/virtual"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
-	"github.com/aau-network-security/go-ntp/virtual/vbox"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
 )
 

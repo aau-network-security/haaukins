@@ -5,12 +5,12 @@ import (
 	"io"
 	"testing"
 
-	"github.com/aau-network-security/go-ntp/exercise"
-	"github.com/aau-network-security/go-ntp/lab"
-	"github.com/aau-network-security/go-ntp/store"
-	"github.com/aau-network-security/go-ntp/svcs/ctfd"
-	"github.com/aau-network-security/go-ntp/svcs/guacamole"
-	"github.com/aau-network-security/go-ntp/virtual/docker"
+	"github.com/aau-network-security/haaukins/exercise"
+	"github.com/aau-network-security/haaukins/lab"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/svcs/ctfd"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	"github.com/aau-network-security/haaukins/virtual/docker"
 )
 
 const (

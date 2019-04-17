@@ -1,7 +1,7 @@
 package guacamole_test
 
 import (
-	"github.com/aau-network-security/go-ntp/svcs/guacamole"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"testing"
 )
 
