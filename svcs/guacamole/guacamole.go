@@ -126,7 +126,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		Image:     "guacamole/guacd",
 		UseBridge: true,
 		Labels: map[string]string{
-			"ntp": "guacamole_guacd",
+			"hkn": "guacamole_guacd",
 		},
 	})
 
@@ -140,7 +140,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 			"MYSQL_PASSWORD":      mysqlPass,
 		},
 		Labels: map[string]string{
-			"ntp": "guacamole_db",
+			"hkn": "guacamole_db",
 		},
 	})
 
@@ -161,7 +161,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		},
 		UseBridge: true,
 		Labels: map[string]string{
-			"ntp": "guacamole_web",
+			"hkn": "guacamole_web",
 		},
 	})
 

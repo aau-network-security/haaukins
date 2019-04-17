@@ -95,7 +95,7 @@ func New(records []RR) (*Server, error) {
 		},
 		Cmd: []string{"--conf", "Corefile"},
 		Labels: map[string]string{
-			"ntp": "lab_dns",
+			"hkn": "lab_dns",
 		},
 	})
 

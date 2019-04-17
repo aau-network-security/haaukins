@@ -31,7 +31,7 @@ func (c *Client) CmdExercises() *cobra.Command {
 	return &cobra.Command{
 		Use:     "exercises",
 		Short:   "List exercises",
-		Example: `  ntp exercise list`,
+		Example: `hkn exercise list`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -89,7 +89,7 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 		Use:     "reset [exercise tag]",
 		Short:   "Reset exercises",
 		Long:    "Reset exercises, use -t for specifying certain teams only.",
-		Example: `  ntp reset sql -e esboot -t d11eb89b`,
+		Example: `hkn reset sql -e esboot -t d11eb89b`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

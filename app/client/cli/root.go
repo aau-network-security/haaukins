@@ -46,7 +46,7 @@ func Execute() {
 	}
 	defer c.Close()
 
-	var rootCmd = &cobra.Command{Use: "ntp"}
+	var rootCmd = &cobra.Command{Use: "hkn"}
 	rootCmd.AddCommand(
 		c.CmdVersion(),
 		c.CmdUser(),
@@ -114,7 +114,7 @@ func NewClient() (*Client, error) {
 		return nil, fmt.Errorf("Unable to find home directory")
 	}
 
-	tokenFile := filepath.Join(usr.HomeDir, ".ntp_token")
+	tokenFile := filepath.Join(usr.HomeDir, ".hkn_token")
 	c := &Client{
 		TokenFile: tokenFile,
 	}

@@ -74,7 +74,7 @@ func (c *Client) CmdVersionClient() *cobra.Command {
 	return &cobra.Command{
 		Use:     "client",
 		Short:   "Print client version",
-		Example: `  ntp version client`,
+		Example: `hkn version client`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if version == "" {
 				fmt.Printf("client: undefined\n")
@@ -89,7 +89,7 @@ func (c *Client) CmdVersionDaemon() *cobra.Command {
 	return &cobra.Command{
 		Use:     "daemon",
 		Short:   "Print daemon version",
-		Example: `  ntp version daemon`,
+		Example: `hkn version daemon`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()

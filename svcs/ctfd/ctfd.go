@@ -143,7 +143,7 @@ func New(ctx context.Context, conf Config) (CTFd, error) {
 		},
 		UseBridge: true,
 		Labels: map[string]string{
-			"ntp": "ctfd",
+			"hkn": "ctfd",
 		},
 	}
 
