@@ -48,7 +48,7 @@ func (c *Client) CmdTeamInfo() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "info [team id] [event tag]",
 		Short:   "Get the info of a team",
-		Example: "ntp team describe azbu29c1 test-event",
+		Example: "hkn team describe azbu29c1 test-event",
 		Args:    cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)

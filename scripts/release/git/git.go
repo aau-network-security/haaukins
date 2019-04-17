@@ -101,13 +101,13 @@ func (r repo) Push(branches []*semver.Version, tags []*semver.Version) error {
 		refSpecs = append(refSpecs, spec)
 	}
 
-	keyFile := os.Getenv("NTP_RELEASE_PEMFILE")
+	keyFile := os.Getenv("HKN_RELEASE_PEMFILE")
 	if keyFile == "" {
 		curUser, err := user.Current()
 		if err != nil {
 			return err
 		}
-		fmt.Println("Environment variable 'NTP_RELEASE_PEMFILE' is not defined, using default '~/.id_rsa'")
+		fmt.Println("Environment variable 'HKN_RELEASE_PEMFILE' is not defined, using default '~/.id_rsa'")
 		keyFile = path.Join(curUser.HomeDir, ".ssh", "id_rsa")
 	}
 	auth, err := ssh.NewPublicKeysFromFile("git", keyFile, "")

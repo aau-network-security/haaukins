@@ -55,7 +55,7 @@ func init() {
 		log.Fatal().Err(err)
 	}
 
-	DefaultLinkBridge, err = newDefaultBridge("ntp-bridge")
+	DefaultLinkBridge, err = newDefaultBridge("hkn-bridge")
 	if err != nil {
 		log.Fatal().Err(err)
 	}
@@ -470,7 +470,7 @@ func NewNetwork() (Network, error) {
 			}},
 		},
 		Labels: map[string]string{
-			"ntp": "lab_network",
+			"kn": "lab_network",
 		},
 	}
 
@@ -697,7 +697,7 @@ func newDefaultBridge(name string) (*defaultBridge, error) {
 			Driver:   "bridge",
 			Internal: true,
 			Labels: map[string]string{
-				"ntp": "default_bridge",
+				"hkn": "default_bridge",
 			},
 		}
 

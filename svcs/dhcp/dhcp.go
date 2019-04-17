@@ -57,7 +57,7 @@ func New(format func(n int) string) (*Server, error) {
 		},
 		Cmd: []string{"eth0"},
 		Labels: map[string]string{
-			"ntp": "lab_dhcpd",
+			"hkn": "lab_dhcpd",
 		},
 	})
 

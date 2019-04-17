@@ -51,4 +51,4 @@ The script will do the following:
 Travis automatically creates a release on GitHub and deploys on `sec02`.
 
 Note: by default the script uses the `~/.ssh/id_rsa` key to push to GitHub.
-You can override this settings by the `NTP_RELEASE_PEMFILE` env var.
+You can override this settings by the `HKN_RELEASE_PEMFILE` env var.

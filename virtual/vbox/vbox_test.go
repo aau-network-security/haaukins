@@ -32,7 +32,7 @@ func TestVmBase(t *testing.T) {
 	ctx := context.Background()
 
 	cs := "d41d8cd98f00b204e9800998ecf8427e"
-	vm := vbox.NewVMWithSum("haaukins-ova.ova", "haaukins", cs)
+	vm := vbox.NewVMWithSum("haaukins.ova", "haaukins", cs)
 	if err := vm.Create(ctx); err != nil {
 		t.Fatalf("unexpected error when creating vm: %s", err)
 	}

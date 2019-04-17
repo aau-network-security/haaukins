@@ -32,7 +32,7 @@ func (c *Client) CmdFrontends() *cobra.Command {
 	return &cobra.Command{
 		Use:     "frontends",
 		Short:   "List available frontends",
-		Example: `  ntp frontend list`,
+		Example: `hkn frontend list`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -98,7 +98,7 @@ func (c *Client) CmdFrontendReset() *cobra.Command {
 		Use:     "reset [event tag]",
 		Short:   "Reset frontends",
 		Long:    "Reset frontends, use -t for specifying certain teams only.",
-		Example: `  ntp frontend reset demo -t d11eb89b`,
+		Example: `hkn frontend reset demo -t d11eb89b`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()

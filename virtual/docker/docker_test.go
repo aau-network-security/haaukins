@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	ntpdocker "github.com/aau-network-security/haaukins/virtual/docker"
+	hkndocker "github.com/aau-network-security/haaukins/virtual/docker"
 	fdocker "github.com/fsouza/go-dockerclient"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -23,7 +23,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
 }
 
-func testCleanup(t *testing.T, c ntpdocker.Container) func() {
+func testCleanup(t *testing.T, c hkndocker.Container) func() {
 	return func() {
 		err := c.Close()
 		if err != nil {
@@ -34,7 +34,7 @@ func testCleanup(t *testing.T, c ntpdocker.Container) func() {
 
 func TestContainerBase(t *testing.T) {
 	// testing create
-	c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+	c1 := hkndocker.NewContainer(hkndocker.ContainerConfig{
 		Image: "alpine",
 	})
 	if err := c1.Create(nil); err != nil {
@@ -91,7 +91,7 @@ func TestContainerBase(t *testing.T) {
 }
 
 func TestContainerContext(t *testing.T) {
-	c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+	c1 := hkndocker.NewContainer(hkndocker.ContainerConfig{
 		Image: "alpine",
 	})
 
@@ -159,20 +159,20 @@ func TestErrorHostBinding(t *testing.T) {
 			hostIP:      "0.0.0.0",
 			hostPort:    "80",
 			guestPort:   "8080/tcp",
-			err:         ntpdocker.InvalidHostBindingErr,
+			err:         hkndocker.InvalidHostBindingErr,
 		}, {
 			name:        "invalid protocol in host binding",
 			portBinding: map[string]string{"8080": "0.0.0.0:80/tcp"},
 			hostIP:      "",
 			hostPort:    "80",
 			guestPort:   "8080/tcp",
-			err:         ntpdocker.InvalidHostBindingErr,
+			err:         hkndocker.InvalidHostBindingErr,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+			c1 := hkndocker.NewContainer(hkndocker.ContainerConfig{
 				Image:        "alpine",
 				PortBindings: tc.portBinding,
 			})
@@ -223,7 +223,7 @@ func TestErrorMem(t *testing.T) {
 			name:     "low memory",
 			memory:   49,
 			expected: 0,
-			err:      ntpdocker.TooLowMemErr,
+			err:      hkndocker.TooLowMemErr,
 		}, {
 			name:     "exact memory",
 			memory:   50,
@@ -234,9 +234,9 @@ func TestErrorMem(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+			c1 := hkndocker.NewContainer(hkndocker.ContainerConfig{
 				Image: "alpine",
-				Resources: &ntpdocker.Resources{
+				Resources: &hkndocker.Resources{
 					MemoryMB: tc.memory,
 					CPU:      5000,
 				}})
@@ -283,18 +283,18 @@ func TestErrorMount(t *testing.T) {
 			name:     "no mount point",
 			value:    "/myextratmp",
 			expected: "/myextratmp",
-			err:      ntpdocker.InvalidMountErr,
+			err:      hkndocker.InvalidMountErr,
 		}, {
 			name:     "too many mount points",
 			value:    "/tmp:/myextratmp:/canihaveanotheroneplease",
 			expected: "/myextratmp",
-			err:      ntpdocker.InvalidMountErr,
+			err:      hkndocker.InvalidMountErr,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c1 := ntpdocker.NewContainer(ntpdocker.ContainerConfig{
+			c1 := hkndocker.NewContainer(hkndocker.ContainerConfig{
 				Image:  "eyjhb/backup-rotate",
 				Mounts: []string{tc.value},
 			})

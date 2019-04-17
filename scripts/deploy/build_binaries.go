@@ -19,8 +19,8 @@ var (
 	LINUX   = OperatingSystems{"linux", ""}
 	DARWIN  = OperatingSystems{"darwin", ""}
 
-	DAEMON = app{"daemon", "ntpd", "github.com/aau-network-security/haaukins/daemon"}
-	CLIENT = app{"client", "ntp", "github.com/aau-network-security/haaukins/app/client/cli"}
+	DAEMON = app{"daemon", "hknd", "github.com/aau-network-security/haaukins/daemon"}
+	CLIENT = app{"client", "hkn", "github.com/aau-network-security/haaukins/app/client/cli"}
 )
 
 type OperatingSystems struct {
