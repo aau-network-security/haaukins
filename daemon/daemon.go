@@ -31,12 +31,13 @@ import (
 
 	"sync"
 
+	"os/user"
+
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/xenolf/lego/providers/dns/cloudflare"
-	"os/user"
 )
 
 var (
@@ -173,14 +174,14 @@ func NewConfigFromFile(path string) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		certmagic.DNSProvider = provider
 
-		certmagic.Agreed = true
-		certmagic.Email = c.TLS.ACME.Email
-		certmagic.CA = LetsEncryptEnvs[c.TLS.ACME.Development]
+		certmagic.Default.DNSProvider = provider
+		certmagic.Default.Agreed = true
+		certmagic.Default.Email = c.TLS.ACME.Email
+		certmagic.Default.CA = LetsEncryptEnvs[c.TLS.ACME.Development]
 		certmagic.HTTPPort = int(c.Port.InSecure)
 		certmagic.HTTPSPort = int(c.Port.Secure)
-		certmagic.DefaultStorage = &certmagic.FileStorage{
+		certmagic.Default.Storage = &certmagic.FileStorage{
 			Path: c.TLS.Directory,
 		}
 	}
