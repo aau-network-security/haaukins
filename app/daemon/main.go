@@ -1,3 +1,7 @@
+// Copyright (c) 2018-2019 Aalborg University
+// Use of this source code is governed by a GPLv3
+// license that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -45,11 +49,11 @@ func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
 			c.Host.Grpc,
 		}
 
-		cmConf, err := certmagic.Manage(domains)
+		err := certmagic.Manage(domains)
 		if err != nil {
 			return nil, err
 		}
-		cert, err := cmConf.CacheManagedCertificate(c.Host.Grpc)
+		cert, err := certmagic.Default.CacheManagedCertificate(c.Host.Grpc)
 		if err != nil {
 			return nil, err
 		}
