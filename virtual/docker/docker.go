@@ -7,6 +7,7 @@ package docker
 import (
 	"context"
 	"crypto/md5"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -821,56 +822,64 @@ func getDockerHostIP() (string, error) {
 }
 
 func getDigestForImage(auth docker.AuthConfiguration, img Image) (string, error) {
-	if img.Registry == "" {
-		auth.ServerAddress = "registry.hub.docker.com"
-	}
-	// todo: set server address
+	lookupDigest := func(req *http.Request) (string, error) {
+		ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
+		defer cancel()
+		req = req.WithContext(ctx)
 
-	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", auth.ServerAddress, img.Repo, img.Tag)
-
-	req, err := http.NewRequest("HEAD", url, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-
-	// todo: set authentication based on the repository
-	if img.Repo == "" {
-		tokenUrl := fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", img.Repo)
-		tokenResp, err := http.Get(tokenUrl)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		// todo retrieve token
-		req.Header.Add("Authorization", "..")
+		hash := resp.Header.Get("Docker-Content-Digest")
+		if hash == "" {
+			return "", EmptyDigestErr
+		}
 
-	} else {
-		req.SetBasicAuth(auth.Username, auth.Password)
+		return hash, nil
 	}
 
-	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
-	defer cancel()
+	digestRequestFromURL := func(URL string) (*http.Request, error) {
+		req, err := http.NewRequest("HEAD", URL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+		return req, nil
+	}
 
-	req = req.WithContext(ctx)
+	path := fmt.Sprintf("/v2/%s/manifests/%s", img.Repo, img.Tag)
+	if img.Registry == "" {
+		resp, err := http.Get(fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", img.Repo))
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
 
-	resp, err := http.DefaultClient.Do(req)
+		var msg struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&msg); err != nil {
+			return "", err
+		}
+
+		req, err := digestRequestFromURL("https://registry.hub.docker.com" + path)
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Authorization", "Bearer "+msg.Token)
+
+		return lookupDigest(req)
+	}
+
+	req, err := digestRequestFromURL(fmt.Sprintf("https://%s%s", auth.ServerAddress, path))
 	if err != nil {
 		return "", err
 	}
+	req.SetBasicAuth(auth.Username, auth.Password)
 
-	hash := resp.Header.Get("Docker-Content-Digest")
-	if hash == "" {
-		return "", EmptyDigestErr
-	}
-
-	log.
-		Debug().
-		Str("digest", hash[0:12]).
-		Str("image", img.String()).
-		Msg("Retrieved digest")
-
-	return hash, nil
+	return lookupDigest(req)
 }
 
 func retrieveImage(auth docker.AuthConfiguration, img Image) error {
