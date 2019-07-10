@@ -935,13 +935,13 @@ func (d *daemon) Run() error {
 			certmagic.HTTPPort = int(d.conf.Port.InSecure)
 			certmagic.HTTPSPort = int(d.conf.Port.Secure)
 			if err := certmagic.HTTPS(domains, d.eventPool); err != nil {
-				log.Warn().Msgf("Serving error", err)
+				log.Warn().Msgf("Serving error: %s", err)
 			}
 			return
 		}
 
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
-			log.Warn().Msgf("Serving error", err)
+			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
 
