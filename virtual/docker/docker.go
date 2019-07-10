@@ -34,18 +34,17 @@ var (
 	DefaultClient     *docker.Client
 	DefaultLinkBridge *defaultBridge
 
-	TooLowMemErr              = errors.New("Memory needs to be atleast 50mb")
-	InvalidHostBindingErr     = errors.New("Hostbing does not have correct format - (ip:)port")
-	InvalidMountErr           = errors.New("Incorrect mount format - src:dest")
-	NoRegistriesToPullFromErr = errors.New("No registries to pull from")
-	NoImageErr                = errors.New("Unable to find image")
-	EmptyDigestErr            = errors.New("Empty digest")
-	DigestFormatErr           = errors.New("Unexpected digest format")
-	NoRemoteDigestErr         = errors.New("Unable to get digest from remote image")
-	NoAvailableIPsErr         = errors.New("No available IPs")
-	UnexpectedIPErr           = errors.New("Unexpected IP range")
-	ContNotCreatedErr         = errors.New("Container is not created")
-	DigestMismatchErr         = errors.New("digest between local and remote image do not match")
+	TooLowMemErr              = errors.New("memory needs to be atleast 50mb")
+	InvalidHostBindingErr     = errors.New("hostbing does not have correct format - (ip:)port")
+	InvalidMountErr           = errors.New("incorrect mount format - src:dest")
+	NoRegistriesToPullFromErr = errors.New("no registries to pull from")
+	NoImageErr                = errors.New("unable to find image")
+	EmptyDigestErr            = errors.New("empty digest")
+	DigestFormatErr           = errors.New("unexpected digest format")
+	NoRemoteDigestErr         = errors.New("unable to get digest from remote image")
+	NoAvailableIPsErr         = errors.New("no available IPs")
+	UnexpectedIPErr           = errors.New("unexpected IP range")
+	ContNotCreatedErr         = errors.New("container is not created")
 
 	Registries = map[string]docker.AuthConfiguration{
 		"": {},
@@ -74,7 +73,7 @@ type NoLocalDigestErr struct {
 }
 
 func (err NoLocalDigestErr) Error() string {
-	return fmt.Sprintf("Unable to get digest from local image: %s", err.img.String())
+	return fmt.Sprintf("unable to get digest from local image: %s", err.img.String())
 }
 
 type NoCredentialsErr struct {
@@ -82,7 +81,23 @@ type NoCredentialsErr struct {
 }
 
 func (err NoCredentialsErr) Error() string {
-	return fmt.Sprintf("No credentials for registry: %s", err.Registry)
+	return fmt.Sprintf("no credentials for registry: %s", err.Registry)
+}
+
+type NoLocalImageAvailableErr struct {
+	err error
+}
+
+func (err NoLocalImageAvailableErr) Error() string {
+	return fmt.Sprintf("no local image available: %s", err.err)
+}
+
+type NoRemoteImageAvailableErr struct {
+	err error
+}
+
+func (err NoRemoteImageAvailableErr) Error() string {
+	return fmt.Sprintf("failed to update local image to newest version from repository: %s", err.err)
 }
 
 type Host interface {
@@ -279,7 +294,13 @@ func (c *container) getCreateConfig() (*docker.CreateContainerOptions, error) {
 
 	img := parseImage(c.conf.Image)
 	if err := verifyLocalImageVersion(img); err != nil {
-		return nil, err
+		// we can proceed on several errors
+		switch err.(type) {
+		case NoLocalImageAvailableErr, NoCredentialsErr:
+			return nil, err
+		default:
+			log.Warn().Msgf("failed to update local Docker image: %s", err)
+		}
 	}
 
 	return &docker.CreateContainerOptions{
@@ -821,7 +842,7 @@ func getDockerHostIP() (string, error) {
 	return "", nil
 }
 
-func getDigestForImage(auth docker.AuthConfiguration, img Image) (string, error) {
+func getRemoteDigestForImage(auth docker.AuthConfiguration, img Image) (string, error) {
 	lookupDigest := func(req *http.Request) (string, error) {
 		ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
 		defer cancel()
@@ -906,7 +927,9 @@ func verifyLocalImageVersion(img Image) error {
 	localImg, err := DefaultClient.InspectImage(img.String())
 	if err != nil {
 		if err == docker.ErrNoSuchImage {
-			return retrieveImage(creds, img)
+			if err := retrieveImage(creds, img); err != nil {
+				return NoLocalImageAvailableErr{err}
+			}
 		}
 		return err
 	}
@@ -920,14 +943,14 @@ func verifyLocalImageVersion(img Image) error {
 		localDigest = strings.Split(localDigest, "@")[1]
 	}
 
-	remoteDigest, err := getDigestForImage(creds, img)
+	remoteDigest, err := getRemoteDigestForImage(creds, img)
 	if err != nil {
 		return err
 	}
 
 	if remoteDigest != localDigest {
 		if err := retrieveImage(creds, img); err != nil {
-			return DigestMismatchErr
+			return err
 		}
 	}
 
