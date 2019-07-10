@@ -7,6 +7,7 @@ package docker
 import (
 	"context"
 	"crypto/md5"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -33,17 +34,17 @@ var (
 	DefaultClient     *docker.Client
 	DefaultLinkBridge *defaultBridge
 
-	TooLowMemErr              = errors.New("Memory needs to be atleast 50mb")
-	InvalidHostBindingErr     = errors.New("Hostbing does not have correct format - (ip:)port")
-	InvalidMountErr           = errors.New("Incorrect mount format - src:dest")
-	NoRegistriesToPullFromErr = errors.New("No registries to pull from")
-	NoImageErr                = errors.New("Unable to find image")
-	EmptyDigestErr            = errors.New("Empty digest")
-	DigestFormatErr           = errors.New("Unexpected digest format")
-	NoDigestDockerHubErr      = errors.New("Unable to get digest from docker hub")
-	NoAvailableIPsErr         = errors.New("No available IPs")
-	UnexpectedIPErr           = errors.New("Unexpected IP range")
-	ContNotCreatedErr         = errors.New("Container is not created")
+	TooLowMemErr              = errors.New("memory needs to be atleast 50mb")
+	InvalidHostBindingErr     = errors.New("hostbing does not have correct format - (ip:)port")
+	InvalidMountErr           = errors.New("incorrect mount format - src:dest")
+	NoRegistriesToPullFromErr = errors.New("no registries to pull from")
+	NoImageErr                = errors.New("unable to find image")
+	EmptyDigestErr            = errors.New("empty digest")
+	DigestFormatErr           = errors.New("unexpected digest format")
+	NoRemoteDigestErr         = errors.New("unable to get digest from remote image")
+	NoAvailableIPsErr         = errors.New("no available IPs")
+	UnexpectedIPErr           = errors.New("unexpected IP range")
+	ContNotCreatedErr         = errors.New("container is not created")
 
 	Registries = map[string]docker.AuthConfiguration{
 		"": {},
@@ -65,6 +66,38 @@ func init() {
 	}
 
 	rand.Seed(time.Now().Unix())
+}
+
+type NoLocalDigestErr struct {
+	img Image
+}
+
+func (err NoLocalDigestErr) Error() string {
+	return fmt.Sprintf("unable to get digest from local image: %s", err.img.String())
+}
+
+type NoCredentialsErr struct {
+	Registry string
+}
+
+func (err NoCredentialsErr) Error() string {
+	return fmt.Sprintf("no credentials for registry: %s", err.Registry)
+}
+
+type NoLocalImageAvailableErr struct {
+	err error
+}
+
+func (err NoLocalImageAvailableErr) Error() string {
+	return fmt.Sprintf("no local image available: %s", err.err)
+}
+
+type NoRemoteImageAvailableErr struct {
+	err error
+}
+
+func (err NoRemoteImageAvailableErr) Error() string {
+	return fmt.Sprintf("failed to update local image to newest version from repository: %s", err.err)
 }
 
 type Host interface {
@@ -107,48 +140,6 @@ type ContainerConfig struct {
 type Resources struct {
 	MemoryMB uint
 	CPU      float64
-}
-
-type digester interface {
-	getDigest(img Image) (string, error)
-}
-
-type dockerDigester struct {
-	auth docker.AuthConfiguration
-}
-
-func (dd dockerDigester) getDigest(img Image) (string, error) {
-	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", dd.auth.ServerAddress, img.Repo, img.Tag)
-
-	req, err := http.NewRequest("HEAD", url, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	req.SetBasicAuth(dd.auth.Username, dd.auth.Password)
-
-	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
-	defer cancel()
-
-	req = req.WithContext(ctx)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-
-	hash := resp.Header.Get("Docker-Content-Digest")
-	if hash == "" {
-		return "", EmptyDigestErr
-	}
-
-	log.
-		Debug().
-		Str("digest", hash[0:12]).
-		Str("image", img.String()).
-		Msg("Retrieved digest")
-
-	return hash, nil
 }
 
 type Image struct {
@@ -301,8 +292,15 @@ func (c *container) getCreateConfig() (*docker.CreateContainerOptions, error) {
 		ports[docker.Port(p)] = struct{}{}
 	}
 
-	if err := ensureImage(c.conf.Image); err != nil {
-		return nil, err
+	img := parseImage(c.conf.Image)
+	if err := verifyLocalImageVersion(img); err != nil {
+		// we can proceed on several errors
+		switch err.(type) {
+		case NoLocalImageAvailableErr, NoCredentialsErr:
+			return nil, err
+		default:
+			log.Warn().Msgf("failed to update local Docker image: %s", err)
+		}
 	}
 
 	return &docker.CreateContainerOptions{
@@ -844,81 +842,68 @@ func getDockerHostIP() (string, error) {
 	return "", nil
 }
 
-func ensureImage(imgStr string) error {
-	img := parseImage(imgStr)
+func getRemoteDigestForImage(auth docker.AuthConfiguration, img Image) (string, error) {
+	lookupDigest := func(req *http.Request) (string, error) {
+		ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
+		defer cancel()
+		req = req.WithContext(ctx)
 
-	dImg, err := DefaultClient.InspectImage(img.String())
-	foundLocal := dImg != nil && err != docker.ErrNoSuchImage
-	if img.IsPublic() {
-		if !foundLocal {
-			return pullImage(img, docker.AuthConfiguration{})
-		}
-
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		return nil
-	}
-
-	if !foundLocal {
-		creds, ok := Registries[img.Registry]
-		if !ok {
-			return fmt.Errorf("No credentials for registry: %s", img.Registry)
+		hash := resp.Header.Get("Docker-Content-Digest")
+		if hash == "" {
+			return "", EmptyDigestErr
 		}
 
-		return pullImage(img, creds)
+		return hash, nil
 	}
 
-	creds, ok := Registries[img.Registry]
-	if !ok {
-		log.Warn().
-			Err(err).
-			Str("image", img.String()).
-			Msg("Unknown credentials for registry of image")
-
-		return nil
-	}
-
-	dig := dockerDigester{creds}
-	var rdig string
-	for i := 0; i < 3 && rdig == ""; i++ {
-		rdig, err = dig.getDigest(img)
-		if err == nil {
-			break
+	digestRequestFromURL := func(URL string) (*http.Request, error) {
+		req, err := http.NewRequest("HEAD", URL, nil)
+		if err != nil {
+			return nil, err
 		}
+		req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+		return req, nil
 	}
+
+	path := fmt.Sprintf("/v2/%s/manifests/%s", img.Repo, img.Tag)
+	if img.Registry == "" {
+		resp, err := http.Get(fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", img.Repo))
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+
+		var msg struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&msg); err != nil {
+			return "", err
+		}
+
+		req, err := digestRequestFromURL("https://registry.hub.docker.com" + path)
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Authorization", "Bearer "+msg.Token)
+
+		return lookupDigest(req)
+	}
+
+	req, err := digestRequestFromURL(fmt.Sprintf("https://%s%s", auth.ServerAddress, path))
 	if err != nil {
-		log.Warn().
-			Err(err).
-			Str("image", img.String()).
-			Msg("Failed to get remote digest")
-
-		return nil
+		return "", err
 	}
+	req.SetBasicAuth(auth.Username, auth.Password)
 
-	ldig := dImg.RepoDigests[0]
-	if strings.Contains(ldig, "@") {
-		ldig = strings.Split(ldig, "@")[1]
-	}
-
-	if rdig != ldig {
-		err := pullImage(img, creds)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("image", img.String()).
-				Msg("Attempted to pull new version but failed")
-		}
-
-		return nil
-	}
-
-	return nil
+	return lookupDigest(req)
 }
 
-func pullImage(img Image, reg docker.AuthConfiguration) error {
-
+func retrieveImage(auth docker.AuthConfiguration, img Image) error {
 	log.Debug().
 		Str("image", img.String()).
 		Msg("Attempting to pull image")
@@ -926,8 +911,48 @@ func pullImage(img Image, reg docker.AuthConfiguration) error {
 	if err := DefaultClient.PullImage(docker.PullImageOptions{
 		Repository: img.NameWithReg(),
 		Tag:        img.Tag,
-	}, reg); err != nil {
+	}, auth); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func verifyLocalImageVersion(img Image) error {
+	creds, ok := Registries[img.Registry]
+	if !ok {
+		return NoCredentialsErr{img.Registry}
+	}
+
+	localImg, err := DefaultClient.InspectImage(img.String())
+	if err != nil {
+		if err == docker.ErrNoSuchImage {
+			if err := retrieveImage(creds, img); err != nil {
+				return NoLocalImageAvailableErr{err}
+			}
+			return nil
+		}
+		return err
+	}
+
+	if len(localImg.RepoDigests) == 0 {
+		return NoLocalDigestErr{img}
+	}
+
+	localDigest := localImg.RepoDigests[0]
+	if strings.Contains(localDigest, "@") {
+		localDigest = strings.Split(localDigest, "@")[1]
+	}
+
+	remoteDigest, err := getRemoteDigestForImage(creds, img)
+	if err != nil {
+		return err
+	}
+
+	if remoteDigest != localDigest {
+		if err := retrieveImage(creds, img); err != nil {
+			return err
+		}
 	}
 
 	return nil

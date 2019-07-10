@@ -7,24 +7,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/aau-network-security/haaukins/daemon"
-	"google.golang.org/grpc/reflection"
-
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 const (
-	mngtPort          = ":5454"
 	defaultConfigFile = "config.yml"
 )
 
@@ -43,26 +35,6 @@ func handleCancel(clean func() error) {
 	}()
 }
 
-func optsFromConf(c *daemon.Config) ([]grpc.ServerOption, error) {
-	if c.TLS.Enabled {
-		domains := []string{
-			c.Host.Grpc,
-		}
-
-		err := certmagic.Manage(domains)
-		if err != nil {
-			return nil, err
-		}
-		cert, err := certmagic.Default.CacheManagedCertificate(c.Host.Grpc)
-		if err != nil {
-			return nil, err
-		}
-		creds := credentials.NewServerTLSFromCert(&cert.Certificate)
-		return []grpc.ServerOption{grpc.Creds(creds)}, nil
-	}
-	return []grpc.ServerOption{}, nil
-}
-
 func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
@@ -76,13 +48,6 @@ func main() {
 		return
 	}
 
-	lis, err := net.Listen("tcp", mngtPort)
-	if err != nil {
-		log.Fatal().
-			Err(err).
-			Msgf("failed to listen on management port %s", mngtPort)
-	}
-
 	d, err := daemon.New(c)
 	if err != nil {
 		fmt.Printf("unable to create daemon: %s\n", err)
@@ -94,19 +59,7 @@ func main() {
 	})
 	log.Info().Msgf("Started daemon")
 
-	opts, err := optsFromConf(c)
-	if err != nil {
-		log.Fatal().
-			Err(err).
-			Msg("failed to retrieve server options")
-	}
-
-	s := d.GetServer(opts...)
-	pb.RegisterDaemonServer(s, d)
-
-	reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
+	if err := d.Run(); err != nil {
 		log.Fatal().Err(err)
 	}
-
 }
