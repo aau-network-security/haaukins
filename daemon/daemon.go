@@ -6,9 +6,13 @@ package daemon
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,6 +50,7 @@ var (
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
+	GrpcOptsErr         = errors.New("failed to retrieve server options")
 
 	version string
 
@@ -55,12 +60,24 @@ var (
 	}
 )
 
+const (
+	mngtPort = ":5454"
+)
+
 type MissingConfigErr struct {
 	Option string
 }
 
 func (m *MissingConfigErr) Error() string {
 	return fmt.Sprintf("%s cannot be empty", m.Option)
+}
+
+type MngtPortErr struct {
+	port string
+}
+
+func (m *MngtPortErr) Error() string {
+	return fmt.Sprintf("failed to listen on management port %s", m.port)
 }
 
 type Config struct {
@@ -161,29 +178,6 @@ func NewConfigFromFile(path string) (*Config, error) {
 			}
 			c.TLS.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
 		}
-
-		if err := os.Setenv("CLOUDFLARE_EMAIL", c.TLS.ACME.Email); err != nil {
-			return nil, err
-		}
-
-		if err := os.Setenv("CLOUDFLARE_API_KEY", c.TLS.ACME.ApiKey); err != nil {
-			return nil, err
-		}
-
-		provider, err := cloudflare.NewDNSProvider()
-		if err != nil {
-			return nil, err
-		}
-
-		certmagic.Default.DNSProvider = provider
-		certmagic.Default.Agreed = true
-		certmagic.Default.Email = c.TLS.ACME.Email
-		certmagic.Default.CA = LetsEncryptEnvs[c.TLS.ACME.Development]
-		certmagic.HTTPPort = int(c.Port.InSecure)
-		certmagic.HTTPSPort = int(c.Port.Secure)
-		certmagic.Default.Storage = &certmagic.FileStorage{
-			Path: c.TLS.Directory,
-		}
 	}
 
 	return &c, nil
@@ -199,6 +193,7 @@ type daemon struct {
 	ehost     event.Host
 	logPool   logging.Pool
 	closers   []io.Closer
+	magic     *certmagic.Config
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -219,22 +214,6 @@ func New(conf *Config) (*daemon, error) {
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
 	eventPool := NewEventPool(conf.Host.Http)
-	go func() {
-		if conf.TLS.Enabled {
-			domains := []string{
-				fmt.Sprintf("*.%s", conf.Host.Http),
-			}
-
-			if err := certmagic.HTTPS(domains, eventPool); err != nil {
-				fmt.Println("Serving error", err)
-			}
-			return
-		}
-
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Port.InSecure), eventPool); err != nil {
-			fmt.Println("Serving error", err)
-		}
-	}()
 
 	if len(uf.ListUsers()) == 0 && len(uf.ListSignupKeys()) == 0 {
 		k := store.NewSignupKey()
@@ -265,6 +244,40 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
+	if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
+		return nil, err
+	}
+
+	if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
+		return nil, err
+	}
+
+	provider, err := cloudflare.NewDNSProvider()
+	if err != nil {
+		return nil, err
+	}
+
+	certmagicConf := certmagic.Config{
+		DNSProvider: provider,
+		Agreed:      true,
+		Email:       conf.TLS.ACME.Email,
+		CA:          LetsEncryptEnvs[conf.TLS.ACME.Development],
+		Storage: &certmagic.FileStorage{
+			Path: conf.TLS.Directory,
+		},
+	}
+
+	getConfigForCert := func(certmagic.Certificate) (certmagic.Config, error) {
+		return certmagicConf, nil
+	}
+
+	cacheOpts := certmagic.CacheOptions{
+		GetConfigForCert: getConfigForCert,
+	}
+	cache := certmagic.NewCache(cacheOpts)
+
+	magic := certmagic.New(cache, certmagicConf)
+
 	d := &daemon{
 		conf:      conf,
 		auth:      NewAuthenticator(uf, conf.SigningKey),
@@ -275,6 +288,7 @@ func New(conf *Config) (*daemon, error) {
 		ehost:     event.NewHost(vlib, ef, efh),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
+		magic:     magic,
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -889,4 +903,121 @@ func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) 
 
 func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error) {
 	return &pb.VersionResponse{Version: version}, nil
+}
+
+func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
+	if d.conf.TLS.Enabled {
+		cert, err := d.magic.CacheManagedCertificate(d.conf.Host.Grpc)
+		if err != nil {
+			return nil, err
+		}
+		creds := credentials.NewServerTLSFromCert(&cert.Certificate)
+		return []grpc.ServerOption{grpc.Creds(creds)}, nil
+	}
+	return []grpc.ServerOption{}, nil
+}
+
+func httpRedirectHandler(w http.ResponseWriter, r *http.Request) {
+	toURL := "https://"
+
+	requestHost, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		requestHost = r.Host
+	}
+
+	toURL += requestHost
+	toURL += r.URL.RequestURI()
+
+	w.Header().Set("Connection", "close")
+
+	http.Redirect(w, r, toURL, http.StatusMovedPermanently)
+}
+
+func (d *daemon) serveSecureFrontend() error {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	defer wg.Done()
+
+	hln, err := net.Listen("tcp", fmt.Sprintf(":%d", d.conf.Port.InSecure))
+	if err != nil {
+		return err
+	}
+
+	hsln, err := tls.Listen("tcp", fmt.Sprintf(":%d", d.conf.Port.Secure), d.magic.TLSConfig())
+	if err != nil {
+		hln.Close()
+		return err
+	}
+
+	go func() {
+		wg.Wait()
+		hln.Close()
+		hsln.Close()
+	}()
+
+	httpServer := &http.Server{
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+		IdleTimeout:       5 * time.Second,
+		Handler:           d.magic.HTTPChallengeHandler(http.HandlerFunc(httpRedirectHandler)),
+	}
+	httpsServer := &http.Server{
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       5 * time.Minute,
+		Handler:           d.eventPool,
+	}
+
+	domains := []string{
+		fmt.Sprintf("*.%s", d.conf.Host.Http),
+	}
+	log.Printf("%v Serving HTTP->HTTPS on %s and %s",
+		domains, hln.Addr(), hsln.Addr())
+
+	go httpServer.Serve(hln)
+	return httpsServer.Serve(hsln)
+}
+
+func (d *daemon) Run() error {
+	// manage certificate renewal through certmagic
+	err := certmagic.Manage([]string{
+		fmt.Sprintf("*.%s", d.conf.Host.Http),
+		d.conf.Host.Grpc,
+	})
+	if err != nil {
+		return err
+	}
+
+	// start frontend
+	go func() {
+		if d.conf.TLS.Enabled {
+			if err := d.serveSecureFrontend(); err != nil {
+				log.Warn().Msgf("Serving error", err)
+			}
+			return
+		}
+
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
+			log.Warn().Msgf("Serving error", err)
+		}
+	}()
+
+	// start gRPC daemon
+	lis, err := net.Listen("tcp", mngtPort)
+	if err != nil {
+		return &MngtPortErr{mngtPort}
+	}
+
+	opts, err := d.grpcOpts()
+	if err != nil {
+		return GrpcOptsErr
+	}
+
+	s := d.GetServer(opts...)
+	pb.RegisterDaemonServer(s, d)
+
+	reflection.Register(s)
+	return s.Serve(lis)
 }
