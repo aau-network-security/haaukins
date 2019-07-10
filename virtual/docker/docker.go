@@ -930,6 +930,7 @@ func verifyLocalImageVersion(img Image) error {
 			if err := retrieveImage(creds, img); err != nil {
 				return NoLocalImageAvailableErr{err}
 			}
+			return nil
 		}
 		return err
 	}
