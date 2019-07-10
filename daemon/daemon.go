@@ -6,7 +6,6 @@ package daemon
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -917,69 +916,6 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	return []grpc.ServerOption{}, nil
 }
 
-func httpRedirectHandler(w http.ResponseWriter, r *http.Request) {
-	toURL := "https://"
-
-	requestHost, _, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		requestHost = r.Host
-	}
-
-	toURL += requestHost
-	toURL += r.URL.RequestURI()
-
-	w.Header().Set("Connection", "close")
-
-	http.Redirect(w, r, toURL, http.StatusMovedPermanently)
-}
-
-func (d *daemon) serveSecureFrontend() error {
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	defer wg.Done()
-
-	hln, err := net.Listen("tcp", fmt.Sprintf(":%d", d.conf.Port.InSecure))
-	if err != nil {
-		return err
-	}
-
-	hsln, err := tls.Listen("tcp", fmt.Sprintf(":%d", d.conf.Port.Secure), d.magic.TLSConfig())
-	if err != nil {
-		hln.Close()
-		return err
-	}
-
-	go func() {
-		wg.Wait()
-		hln.Close()
-		hsln.Close()
-	}()
-
-	httpServer := &http.Server{
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       5 * time.Second,
-		WriteTimeout:      5 * time.Second,
-		IdleTimeout:       5 * time.Second,
-		Handler:           d.magic.HTTPChallengeHandler(http.HandlerFunc(httpRedirectHandler)),
-	}
-	httpsServer := &http.Server{
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      2 * time.Minute,
-		IdleTimeout:       5 * time.Minute,
-		Handler:           d.eventPool,
-	}
-
-	domains := []string{
-		fmt.Sprintf("*.%s", d.conf.Host.Http),
-	}
-	log.Printf("%v Serving HTTP->HTTPS on %s and %s",
-		domains, hln.Addr(), hsln.Addr())
-
-	go httpServer.Serve(hln)
-	return httpsServer.Serve(hsln)
-}
-
 func (d *daemon) Run() error {
 	// manage certificate renewal through certmagic
 	err := certmagic.Manage([]string{
@@ -993,7 +929,12 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
-			if err := d.serveSecureFrontend(); err != nil {
+			domains := []string{
+				fmt.Sprintf("*.%s", d.conf.Host.Http),
+			}
+			certmagic.HTTPPort = int(d.conf.Port.InSecure)
+			certmagic.HTTPSPort = int(d.conf.Port.Secure)
+			if err := certmagic.HTTPS(domains, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error", err)
 			}
 			return
