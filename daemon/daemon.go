@@ -7,8 +7,21 @@ package daemon
 import (
 	"context"
 	"fmt"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"github.com/aau-network-security/haaukins/event"
+	"github.com/aau-network-security/haaukins/lab"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
+	dockerclient "github.com/fsouza/go-dockerclient"
+	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"net"
@@ -17,21 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/aau-network-security/haaukins/event"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
-	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-	"gopkg.in/yaml.v2"
-
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	dockerclient "github.com/fsouza/go-dockerclient"
-
+	//progressbar "github.com/cheggaaa/pb/v3"
 	"sync"
 
 	"os/user"
@@ -60,7 +59,8 @@ var (
 )
 
 const (
-	mngtPort = ":5454"
+	MAINCONFIG_PATH = "/scratch/configs/"
+	mngtPort        = ":5454"
 )
 
 type MissingConfigErr struct {
@@ -132,7 +132,7 @@ func NewConfigFromFile(path string) (*Config, error) {
 	}
 
 	if c.Host.Grpc == "" {
-		c.Host.Grpc = "localhost"
+		c.Host.Grpc = "cli.sec-aau.dk"
 	}
 
 	if c.Port.InSecure == 0 {
@@ -154,15 +154,15 @@ func NewConfigFromFile(path string) (*Config, error) {
 	}
 
 	if c.UsersFile == "" {
-		c.UsersFile = "users.yml"
+		c.UsersFile = MAINCONFIG_PATH + "/users.yml"
 	}
 
 	if c.ExercisesFile == "" {
-		c.ExercisesFile = "exercises.yml"
+		c.ExercisesFile = MAINCONFIG_PATH + "/exercises.yml"
 	}
 
 	if c.FrontendsFile == "" {
-		c.FrontendsFile = "frontends.yml"
+		c.FrontendsFile = MAINCONFIG_PATH + "/frontends.yml"
 	}
 
 	if c.EventsDir == "" {
@@ -194,6 +194,8 @@ type daemon struct {
 	closers   []io.Closer
 	magic     *certmagic.Config
 }
+
+
 
 func New(conf *Config) (*daemon, error) {
 	uf, err := store.NewUserFile(conf.UsersFile)
@@ -466,6 +468,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}, nil
 }
 
+// todo: READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
 func (d *daemon) createEventFromEventFile(ef store.EventFile) error {
 	ev, err := d.ehost.CreateEventFromEventFile(ef)
 	if err != nil {
@@ -476,6 +479,8 @@ func (d *daemon) createEventFromEventFile(ef store.EventFile) error {
 	return d.createEvent(ev)
 }
 
+
+//todo: DOES NOT CREATE EVENT, IT READS CONFIGURATION FILE FROM HOST AND CALL CREATEEVENT FUNCITON WITHHIN IT
 func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
 	ev, err := d.ehost.CreateEventFromConfig(conf)
 	if err != nil {
@@ -485,6 +490,8 @@ func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
 
 	return d.createEvent(ev)
 }
+
+// todo: INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 
 func (d *daemon) createEvent(ev event.Event) error {
 	conf := ev.GetConfig()
@@ -508,7 +515,32 @@ func (d *daemon) createEvent(ev event.Event) error {
 	return nil
 }
 
+
+
+
+// todo: DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
+
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+	// Since there are more than one goroutines
+	// there should be synchronization of them
+	// to be able to send data back to client
+	// goroutines should be waited
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var m sync.Mutex
+	m.Lock()
+
+	go func() {
+		defer wg.Done()
+		m.Unlock()
+		for message:= range lab.Status{
+			resp.Send(&pb.EventStatus{Status:message})
+			// weak solution to close channel but it is a solution
+			if strings.Contains(message,"100.00%") {
+				close(lab.Status)
+			}
+		}
+	}( )
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -528,7 +560,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 		tags[i] = t
 	}
-
 	evtag, _ := store.NewTag(req.Tag)
 	conf := store.EventConfig{
 		Name:      req.Name,
@@ -547,6 +578,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	_, err := d.eventPool.GetEvent(evtag)
+
+
 	if err == nil {
 		return DuplicateEventErr
 	}
@@ -559,7 +592,36 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	return d.createEventFromConfig(conf)
+	ev, err := d.ehost.CreateEventFromConfig(conf)
+	conf_ := ev.GetConfig()
+
+	var frontendNames []string
+	for _, f := range conf_.Lab.Frontends {
+		frontendNames = append(frontendNames, f.Image)
+	}
+	log.Info().
+		Str("Name", conf_.Name).
+		Str("Tag", string(conf.Tag)).
+		Int("Available", conf_.Available).
+		Int("Capacity", conf_.Capacity).
+		Strs("Frontends", frontendNames).
+		Msg("Creating event")
+
+	// this goroutine will initialize CTFd module
+	// while other one getting information from
+	// lab.Status
+	go func() {
+		defer wg.Done()
+		m.Lock()
+		ev.Start(context.TODO())
+	}()
+
+	d.eventPool.AddEvent(ev)
+	// when all goroutines are done
+	// communication between
+	// server and client will be finished
+	wg.Wait()
+	return  nil
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
@@ -868,6 +930,8 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 
 }
 
+
+
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
 	for {
 		var cpuErr string
@@ -917,18 +981,15 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 }
 
 func (d *daemon) Run() error {
-	// manage certificate renewal through certmagic
-	err := certmagic.Manage([]string{
-		fmt.Sprintf("*.%s", d.conf.Host.Http),
-		d.conf.Host.Grpc,
-	})
-	if err != nil {
-		return err
-	}
 
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
+			// manage certificate renewal through certmagic
+			certmagic.Manage([]string{
+				fmt.Sprintf("*.%s", d.conf.Host.Http),
+				d.conf.Host.Grpc,
+			})
 			domains := []string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 			}
@@ -937,6 +998,7 @@ func (d *daemon) Run() error {
 			if err := certmagic.HTTPS(domains, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
+
 			return
 		}
 
@@ -950,15 +1012,17 @@ func (d *daemon) Run() error {
 	if err != nil {
 		return &MngtPortErr{mngtPort}
 	}
+	log.Info().Msg("gRPC daemon has been started  ! on port :5454")
 
 	opts, err := d.grpcOpts()
 	if err != nil {
 		return GrpcOptsErr
 	}
-
 	s := d.GetServer(opts...)
 	pb.RegisterDaemonServer(s, d)
 
 	reflection.Register(s)
+	log.Info().Msg("Reflection Registration is called.... ")
+
 	return s.Serve(lis)
 }
