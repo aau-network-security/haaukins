@@ -11,7 +11,6 @@ import (
 
 	"io"
 	"sync"
-
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
@@ -42,7 +41,9 @@ type LabHost interface {
 	NewLab(context.Context, vbox.Library, Config) (Lab, error)
 }
 
-type labHost struct{}
+type labHost struct{
+
+}
 
 func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
 	env := newEnvironment(lib)
@@ -98,13 +99,16 @@ type frontendConf struct {
 	conf store.InstanceConfig
 }
 
+
+
 func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPort uint) (vbox.VM, error) {
 	hostIp, err := l.dockerHost.GetDockerHostIP()
 	if err != nil {
 		return nil, err
 	}
 
-	vm, err := l.lib.GetCopy(ctx,
+	vm, err := l.lib.GetCopy(
+		ctx,
 		conf,
 		vbox.SetBridge(l.environment.NetworkInterface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
@@ -160,13 +164,11 @@ func (l *lab) Start(ctx context.Context) error {
 	if err := l.environment.Start(ctx); err != nil {
 		return err
 	}
-
 	for _, fconf := range l.frontends {
 		if err := fconf.vm.Start(ctx); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 

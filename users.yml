@@ -1,0 +1,5 @@
+users:
+- username: mrturkmen
+  hashed-password: $2a$10$ELt9.MFhEOm7BgJMUxLOtOBvIcudnOhxcFHRCzkW5oshGyRrfq/cC
+  super-user: true
+  created-at: 2019-07-22T10:46:24.396260226Z

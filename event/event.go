@@ -11,9 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"io"
-	"sync"
-
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/ctfd"
@@ -21,6 +18,10 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
+	//progressbar "github.com/cheggaaa/pb/v3"
+	//pb "github.com/aau-network-security/haaukins/daemon/proto"
 )
 
 var (
@@ -102,6 +103,7 @@ type Event interface {
 	GetTeams() []store.Team
 	GetHub() lab.Hub
 	GetLabByTeam(teamId string) (lab.Lab, bool)
+
 }
 
 type event struct {
@@ -160,6 +162,7 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, erro
 }
 
 func (ev *event) Start(ctx context.Context) error {
+	log.Info().Msg("Starting CTFD container from initial point")
 	if err := ev.ctfd.Start(ctx); err != nil {
 		log.
 			Error().
@@ -168,6 +171,7 @@ func (ev *event) Start(ctx context.Context) error {
 
 		return StartingCtfdErr
 	}
+	log.Info().Msg("Starting GUAC container from initial point")
 
 	if err := ev.guac.Start(ctx); err != nil {
 		log.
@@ -178,13 +182,21 @@ func (ev *event) Start(ctx context.Context) error {
 		return StartingGuacErr
 	}
 
+
+	if len(ev.store.GetTeams()) ==0 {
+		log.Warn().Msg("Teams not found, so assigning lab to team function is skipping....")
+	}else {
+		log.Warn().Str("Team 0 ",ev.store.GetTeams()[0].Name).Msg("0 indexed team....")
+	}
 	for _, team := range ev.store.GetTeams() {
-		if err := ev.AssignLab(&team); err != nil {
-			fmt.Println("Issue assigning lab: ", err)
+		if err := ev.AssignLab(&team);
+		err != nil {
+			//log.Error().Msg("Error while issuing error to team.. Check out assignlab function... ")
 			return err
 		}
 
 		ev.store.SaveTeam(team)
+
 	}
 
 	return nil
@@ -237,6 +249,9 @@ func (ev *event) AssignLab(t *store.Team) error {
 	}
 
 	if err := ev.guac.CreateUser(u.Username, u.Password); err != nil {
+		log.
+			Error().
+			Msg("Error while creating guac user ... ")
 		return err
 	}
 
@@ -266,6 +281,7 @@ func (ev *event) AssignLab(t *store.Team) error {
 
 	ev.labs[t.Id] = lab
 
+	fmt.Printf("Instance Info:  %+v\n", ev.labs[t.Id].InstanceInfo())
 	chals := lab.GetEnvironment().Challenges()
 	for _, chal := range chals {
 		t.AddChallenge(chal)

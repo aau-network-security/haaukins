@@ -55,6 +55,37 @@ type GuacError struct {
 	err    error
 }
 
+type Config struct {
+	AdminPass string `yaml:"admin_pass"`
+}
+
+
+type guacamole struct {
+	conf       Config
+	token      string
+	client     *http.Client
+	webPort    uint
+	containers map[string]docker.Container
+}
+
+
+type createUserAttributes struct {
+	Disabled          string  `json:"disabled"`
+	Expired           string  `json:"expired"`
+	AccessWindowStart string  `json:"access-window-start"`
+	AccessWindowEnd   string  `json:"access-window-end"`
+	ValidFrom         string  `json:"valid-from"`
+	ValidUntil        string  `json:"valid-until"`
+	TimeZone          *string `json:"timezone"`
+}
+
+type createUserInput struct {
+	Username   string               `json:"username"`
+	Password   string               `json:"password"`
+	Attributes createUserAttributes `json:"attributes"`
+}
+
+
 func (ge *GuacError) Error() string {
 	return fmt.Sprintf("guacamole: trying to %s. failed: %s", ge.action, ge.err)
 }
@@ -69,9 +100,6 @@ type Guacamole interface {
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector
 }
 
-type Config struct {
-	AdminPass string `yaml:"admin_pass"`
-}
 
 func New(ctx context.Context, conf Config) (Guacamole, error) {
 	jar, err := cookiejar.New(nil)
@@ -104,14 +132,6 @@ func New(ctx context.Context, conf Config) (Guacamole, error) {
 	return guac, nil
 }
 
-type guacamole struct {
-	conf       Config
-	token      string
-	client     *http.Client
-	webPort    uint
-	containers map[string]docker.Container
-}
-
 func (guac *guacamole) Close() error {
 	for _, c := range guac.containers {
 		c.Close()
@@ -134,7 +154,8 @@ func (guac *guacamole) create(ctx context.Context) error {
 		},
 	})
 
-	mysqlPass := uuid.New().String()
+	mysqlPass := "deneme"
+	//mysqlPass := uuid.New().String()
 	containers["db"] = docker.NewContainer(docker.ContainerConfig{
 		Image: "registry.sec-aau.dk/aau/guacamole-mysql",
 		EnvVars: map[string]string{
@@ -243,20 +264,22 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.P
 			NewGuacTokenLoginEndpoint(us, ef, loginFunc),
 		}
 
-		proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
-			req.Header.Add("X-Forwarded-Host", req.Host)
-			req.URL.Scheme = "http"
-			req.URL.Host = origin.Host
-		}}
+		proxy := &httputil.ReverseProxy{
+			Director: func(req *http.Request) {
+				req.Header.Add("X-Forwarded-Host", req.Host)
+				req.URL.Scheme = "http"
+				req.URL.Host = origin.Host
+			}}
 
-		return interceptors.Intercept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if isWebSocket(r) {
-				websocketProxy(host, ef, klp).ServeHTTP(w, r)
-				return
-			}
+		return interceptors.Intercept(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				if isWebSocket(r) {
+					websocketProxy(host, ef, klp).ServeHTTP(w, r)
+					return
+				}
 
-			proxy.ServeHTTP(w, r)
-		}))
+				proxy.ServeHTTP(w, r)
+			}))
 	}
 }
 
@@ -316,6 +339,8 @@ func (guac *guacamole) login(username, password string) (string, error) {
 
 	return *output.AuthToken, nil
 }
+
+
 
 func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 	form := url.Values{
@@ -453,21 +478,6 @@ func (guac *guacamole) changeAdminPass(newPass string) error {
 	return nil
 }
 
-type createUserAttributes struct {
-	Disabled          string  `json:"disabled"`
-	Expired           string  `json:"expired"`
-	AccessWindowStart string  `json:"access-window-start"`
-	AccessWindowEnd   string  `json:"access-window-end"`
-	ValidFrom         string  `json:"valid-from"`
-	ValidUntil        string  `json:"valid-until"`
-	TimeZone          *string `json:"timezone"`
-}
-
-type createUserInput struct {
-	Username   string               `json:"username"`
-	Password   string               `json:"password"`
-	Attributes createUserAttributes `json:"attributes"`
-}
 
 func (guac *guacamole) CreateUser(username, password string) error {
 	action := func(t string) (*http.Response, error) {

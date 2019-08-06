@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	defaultConfigFile = "config.yml"
+	MAINCONFIG_PATH   = "/scratch/configs/"
+	defaultConfigFile = MAINCONFIG_PATH + "config.yml"
 )
 
 func handleCancel(clean func() error) {
@@ -48,6 +49,7 @@ func main() {
 		return
 	}
 
+
 	d, err := daemon.New(c)
 	if err != nil {
 		fmt.Printf("unable to create daemon: %s\n", err)
@@ -62,4 +64,6 @@ func main() {
 	if err := d.Run(); err != nil {
 		log.Fatal().Err(err)
 	}
+
+
 }

@@ -51,9 +51,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-			defer cancel()
-
+			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
 				Name:      name,
@@ -63,22 +61,20 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Capacity:  int32(capacity),
 				Available: int32(available),
 			})
-
 			if err != nil {
 				PrintError(err)
 				return
 			}
-
 			for {
-				_, err := stream.Recv()
+				statusReport, err := stream.Recv()
 				if err == io.EOF {
 					break
 				}
-
 				if err != nil {
 					PrintError(err)
 					return
 				}
+				fmt.Println(statusReport.Status)
 			}
 
 		},

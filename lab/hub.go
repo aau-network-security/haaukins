@@ -7,16 +7,22 @@ package lab
 import (
 	"context"
 	"errors"
+	progressbar "github.com/cheggaaa/pb/v3"
+	//"fmt"
+	//"fmt"
+	//"github.com/docker/docker/daemon"
 	"io"
 	"sync"
 	"sync/atomic"
-
+	//pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
 )
 
+
 var (
+	Status   = make(chan string,5)
 	AvailableSizeErr   = errors.New("Available cannot be larger than capacity")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
@@ -66,14 +72,19 @@ func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, err
 	}
 
 	log.Debug().Msgf("Instantiating %d lab(s)", available)
+	pgBar := progressbar.New(available)
 	for i := 0; i < available; i++ {
 		go func() {
-			if err := h.addLab(); err != nil {
+			err := h.addLab();
+			if err !=nil{
+				Status <- "Error while creating lab. Exiting..."
+				close(Status)
 				log.Warn().Msgf("error while adding lab: %s", err)
 			}
+			Status<-pgBar.Increment().String()
 		}()
 	}
-
+	Status <- pgBar.Finish().String()
 	return h, nil
 }
 

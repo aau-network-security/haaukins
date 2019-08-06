@@ -84,7 +84,7 @@ func versionCheckInterceptor(ctx context.Context, method string, req interface{}
 
 	ok, err := isClientVersionLessThan(daemonVersion)
 	if err != nil {
-		return fmt.Errorf("Unable to read daemon's version: %s", err)
+		return nil
 	}
 
 	if ok {
@@ -131,7 +131,7 @@ func NewClient() (*Client, error) {
 
 	host := os.Getenv("HKN_HOST")
 	if host == "" {
-		host = "cli.sec-aau.dk"
+		host = "localhost"
 	}
 
 	port := os.Getenv("HKN_PORT")
