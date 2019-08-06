@@ -132,7 +132,7 @@ func NewConfigFromFile(path string) (*Config, error) {
 	}
 
 	if c.Host.Grpc == "" {
-		c.Host.Grpc = "cli.sec-aau.dk"
+		c.Host.Grpc = "localhost"
 	}
 
 	if c.Port.InSecure == 0 {
@@ -154,15 +154,15 @@ func NewConfigFromFile(path string) (*Config, error) {
 	}
 
 	if c.UsersFile == "" {
-		c.UsersFile = MAINCONFIG_PATH + "/users.yml"
+		c.UsersFile = "users.yml"
 	}
 
 	if c.ExercisesFile == "" {
-		c.ExercisesFile = MAINCONFIG_PATH + "/exercises.yml"
+		c.ExercisesFile = "exercises.yml"
 	}
 
 	if c.FrontendsFile == "" {
-		c.FrontendsFile = MAINCONFIG_PATH + "/frontends.yml"
+		c.FrontendsFile =  "frontends.yml"
 	}
 
 	if c.EventsDir == "" {

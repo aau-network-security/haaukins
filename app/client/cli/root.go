@@ -131,7 +131,7 @@ func NewClient() (*Client, error) {
 
 	host := os.Getenv("HKN_HOST")
 	if host == "" {
-		host = "localhost"
+		host = "cli.sec-aau.dk"
 	}
 
 	port := os.Getenv("HKN_PORT")
