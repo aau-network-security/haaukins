@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/ctfd"
@@ -20,11 +19,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"io"
 	"sync"
-<<<<<<< HEAD
-	//progressbar "github.com/cheggaaa/pb/v3"
-	//pb "github.com/aau-network-security/haaukins/daemon/proto"
-=======
-
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/ctfd"
@@ -32,7 +26,6 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
->>>>>>> 18402a531eaf753f1c7e963b0c1bf5fa0c1c631c
 )
 
 var (

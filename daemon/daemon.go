@@ -59,7 +59,6 @@ var (
 )
 
 const (
-	MAINCONFIG_PATH = "/scratch/configs/"
 	mngtPort        = ":5454"
 )
 

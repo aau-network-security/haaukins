@@ -11,10 +11,6 @@ import (
 
 	"io"
 	"sync"
-<<<<<<< HEAD
-=======
-
->>>>>>> 18402a531eaf753f1c7e963b0c1bf5fa0c1c631c
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
