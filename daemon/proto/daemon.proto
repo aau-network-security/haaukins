@@ -18,16 +18,16 @@ service Daemon {
   rpc ResetFrontends (ResetFrontendsRequest) returns (stream ResetTeamStatus) {}
   rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Empty) {}
   rpc SetFrontendCpu (SetFrontendCpuRequest) returns (Empty) {}
-
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
-
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
 }
 
+
 message Team {
   string Id = 1;
 }
+
 
 message LoginUserRequest {
   string username = 1;
@@ -120,9 +120,10 @@ message StopEventRequest {
 }
 
 message EventStatus {
-  string entity = 1;
+  string  entity = 1;
   string status = 2;
 }
+
 
 message MonitorHostResponse {
   float MemoryPercent = 1;
