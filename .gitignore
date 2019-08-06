@@ -1,5 +1,7 @@
 auth.json
 auth.yml
+users.yml
+audit.log
 
 # GoLand
 .idea
@@ -10,7 +12,6 @@ auth.yml
 *.dll
 *.so
 *.dylib
-
 # Test binary, build with `go test -c`
 *.test
 

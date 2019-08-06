@@ -8,7 +8,6 @@ import (
 	"context"
 	"math/rand"
 	"time"
-
 	"io"
 	"sync"
 	"github.com/aau-network-security/haaukins/exercise"

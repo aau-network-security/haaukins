@@ -154,8 +154,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		},
 	})
 
-	mysqlPass := "deneme"
-	//mysqlPass := uuid.New().String()
+	mysqlPass := uuid.New().String()
 	containers["db"] = docker.NewContainer(docker.ContainerConfig{
 		Image: "registry.sec-aau.dk/aau/guacamole-mysql",
 		EnvVars: map[string]string{

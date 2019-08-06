@@ -84,7 +84,7 @@ func versionCheckInterceptor(ctx context.Context, method string, req interface{}
 
 	ok, err := isClientVersionLessThan(daemonVersion)
 	if err != nil {
-		return nil
+		return fmt.Errorf("Unable to read daemon's version: %s", err)
 	}
 
 	if ok {

@@ -8,9 +8,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aau-network-security/haaukins/lab"
 	"net/http"
 	"time"
-	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/ctfd"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
@@ -19,13 +19,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"io"
 	"sync"
-	"github.com/aau-network-security/haaukins/lab"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs/ctfd"
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
-	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
-	"github.com/rs/zerolog/log"
 )
 
 var (

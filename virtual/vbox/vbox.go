@@ -55,7 +55,7 @@ func (err *VBoxErr) Error() string {
 type VM interface {
 	virtual.Instance
 	Snapshot(string) error
-	LinkedClone(context.Context, string, ...VMOpt) (VM, error) // what is LinkedClone ?
+	LinkedClone(context.Context, string, ...VMOpt) (VM, error)
 }
 
 type Library interface {

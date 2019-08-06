@@ -18,7 +18,7 @@ import (
 
 
 var (
-	Status   = make(chan string,5)
+	Status   = make(chan string)
 	AvailableSizeErr   = errors.New("Available cannot be larger than capacity")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")

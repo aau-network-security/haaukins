@@ -30,11 +30,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	//progressbar "github.com/cheggaaa/pb/v3"
 	"sync"
-
 	"os/user"
-
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/mholt/certmagic"
 	"github.com/rs/zerolog"
@@ -526,12 +523,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	// goroutines should be waited
 	var wg sync.WaitGroup
 	wg.Add(2)
-	var m sync.Mutex
-	m.Lock()
 
 	go func() {
 		defer wg.Done()
-		m.Unlock()
+
 		for message:= range lab.Status{
 			resp.Send(&pb.EventStatus{Status:message})
 			// weak solution to close channel but it is a solution
@@ -611,7 +606,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	// lab.Status
 	go func() {
 		defer wg.Done()
-		m.Lock()
 		ev.Start(context.TODO())
 	}()
 
