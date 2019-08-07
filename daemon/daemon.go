@@ -9,14 +9,18 @@ import (
 	"fmt"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/event"
-	"github.com/aau-network-security/haaukins/lab"
+	"github.com/aau-network-security/haaukins/logging"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	dockerclient "github.com/fsouza/go-dockerclient"
+	"github.com/mholt/certmagic"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -27,16 +31,11 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
-	"time"
 	"sync"
-	"os/user"
-	"github.com/aau-network-security/haaukins/logging"
-	"github.com/mholt/certmagic"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/xenolf/lego/providers/dns/cloudflare"
+	"time"
 )
 
 var (
@@ -56,7 +55,7 @@ var (
 )
 
 const (
-	mngtPort        = ":5454"
+	mngtPort = ":5454"
 )
 
 type MissingConfigErr struct {
@@ -158,7 +157,7 @@ func NewConfigFromFile(path string) (*Config, error) {
 	}
 
 	if c.FrontendsFile == "" {
-		c.FrontendsFile =  "frontends.yml"
+		c.FrontendsFile = "frontends.yml"
 	}
 
 	if c.EventsDir == "" {
@@ -190,8 +189,6 @@ type daemon struct {
 	closers   []io.Closer
 	magic     *certmagic.Config
 }
-
-
 
 func New(conf *Config) (*daemon, error) {
 	uf, err := store.NewUserFile(conf.UsersFile)
@@ -294,7 +291,7 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	for _, ef := range eventFiles {
-		err := d.createEventFromEventFile(ef)
+		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
 			return nil, err
 		}
@@ -465,8 +462,8 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 }
 
 // todo: READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
-func (d *daemon) createEventFromEventFile(ef store.EventFile) error {
-	ev, err := d.ehost.CreateEventFromEventFile(ef)
+func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFile) error {
+	ev, err := d.ehost.CreateEventFromEventFile(ctx, ef)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from file")
 		return err
@@ -475,10 +472,9 @@ func (d *daemon) createEventFromEventFile(ef store.EventFile) error {
 	return d.createEvent(ev)
 }
 
-
 //todo: DOES NOT CREATE EVENT, IT READS CONFIGURATION FILE FROM HOST AND CALL CREATEEVENT FUNCITON WITHHIN IT
-func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
-	ev, err := d.ehost.CreateEventFromConfig(conf)
+func (d *daemon) createEventFromConfig(ctx context.Context, conf store.EventConfig) error {
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event")
 		return err
@@ -511,8 +507,16 @@ func (d *daemon) createEvent(ev event.Event) error {
 	return nil
 }
 
+type GrpcLogger struct {
+	resp pb.Daemon_CreateEventServer
+}
 
-
+func (l *GrpcLogger) Msg(msg string) error {
+	s := pb.LabStatus{
+		ErrorMessage: msg,
+	}
+	return l.resp.Send(&s)
+}
 
 // todo: DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
@@ -521,20 +525,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	// there should be synchronization of them
 	// to be able to send data back to client
 	// goroutines should be waited
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-
-		for message:= range lab.Status{
-			resp.Send(&pb.EventStatus{Status:message})
-			// weak solution to close channel but it is a solution
-			if strings.Contains(message,"100.00%") {
-				close(lab.Status)
-			}
-		}
-	}( )
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -573,7 +563,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 	_, err := d.eventPool.GetEvent(evtag)
 
-
 	if err == nil {
 		return DuplicateEventErr
 	}
@@ -586,7 +575,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	ev, err := d.ehost.CreateEventFromConfig(conf)
+	l := GrpcLogger{resp: resp}
+	ctx := context.WithValue(resp.Context(), "grpc_logger", l)
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	conf_ := ev.GetConfig()
 
 	var frontendNames []string
@@ -604,17 +595,13 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	// this goroutine will initialize CTFd module
 	// while other one getting information from
 	// lab.Status
-	go func() {
-		defer wg.Done()
-		ev.Start(context.TODO())
-	}()
+	go ev.Start(ctx)
 
 	d.eventPool.AddEvent(ev)
 	// when all goroutines are done
 	// communication between
 	// server and client will be finished
-	wg.Wait()
-	return  nil
+	return nil
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
@@ -922,8 +909,6 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 	return &pb.GetTeamInfoResponse{Instances: instances}, nil
 
 }
-
-
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
 	for {

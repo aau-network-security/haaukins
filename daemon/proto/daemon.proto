@@ -5,7 +5,7 @@ service Daemon {
   rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {}
   rpc InviteUser (InviteUserRequest) returns (InviteUserResponse) {}
 
-  rpc CreateEvent (CreateEventRequest) returns (stream EventStatus) {}
+  rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
@@ -124,6 +124,9 @@ message EventStatus {
   string status = 2;
 }
 
+message LabStatus {
+  string errorMessage = 2;
+}
 
 message MonitorHostResponse {
   float MemoryPercent = 1;

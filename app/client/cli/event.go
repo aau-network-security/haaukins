@@ -8,10 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	progressbar "github.com/cheggaaa/pb/v3"
+	"github.com/spf13/cobra"
 	"io"
 	"time"
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -64,8 +65,9 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				PrintError(err)
 				return
 			}
+			pb := progressbar.New(available)
 			for {
-				statusReport, err := stream.Recv()
+				labStatus, err := stream.Recv()
 				if err == io.EOF {
 					break
 				}
@@ -73,9 +75,12 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 					PrintError(err)
 					return
 				}
-				fmt.Println(statusReport.Status)
+				if labStatus.ErrorMessage != "" {
+					fmt.Println(labStatus.ErrorMessage)
+				}
+				pb.Increment()
 			}
-
+			pb.Finish()
 		},
 	}
 

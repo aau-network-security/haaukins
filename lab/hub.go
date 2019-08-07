@@ -7,18 +7,16 @@ package lab
 import (
 	"context"
 	"errors"
-	progressbar "github.com/cheggaaa/pb/v3"
-	"io"
-	"sync"
-	"sync/atomic"
+	"github.com/aau-network-security/haaukins/daemon"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
+	"sync/atomic"
 )
 
-
 var (
-	Status   = make(chan string)
 	AvailableSizeErr   = errors.New("Available cannot be larger than capacity")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
@@ -50,7 +48,21 @@ type hub struct {
 	numbLabs int32
 }
 
-func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
+func loggerFromCtx(ctx context.Context) *daemon.GrpcLogger {
+	val := ctx.Value("grpc_logger")
+	if val == nil {
+		return nil
+	}
+
+	l, ok := val.(daemon.GrpcLogger)
+	if !ok {
+		return nil
+	}
+
+	return &l
+}
+
+func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
 	if available > cap {
 		return nil, AvailableSizeErr
 	}
@@ -67,20 +79,25 @@ func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, err
 		labHost:     &labHost{},
 	}
 
+	grpcLogger := loggerFromCtx(ctx)
 	log.Debug().Msgf("Instantiating %d lab(s)", available)
-	pgBar := progressbar.New(available)
 	for i := 0; i < available; i++ {
 		go func() {
-			err := h.addLab();
-			if err !=nil{
-				Status <- "Error while creating lab. Exiting..."
-				close(Status)
+			err := h.addLab()
+			if grpcLogger != nil {
+				msg := ""
+				if err != nil {
+					msg = err.Error()
+				}
+				if err := grpcLogger.Msg(msg); err != nil {
+					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
+				}
+			}
+			if err != nil {
 				log.Warn().Msgf("error while adding lab: %s", err)
 			}
-			Status<-pgBar.Increment().String()
 		}()
 	}
-	Status <- pgBar.Finish().String()
 	return h, nil
 }
 
