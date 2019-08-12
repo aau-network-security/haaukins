@@ -274,8 +274,6 @@ func (ev *event) AssignLab(t *store.Team) error {
 	}
 
 	ev.labs[t.Id] = lab
-
-	fmt.Printf("Instance Info:  %+v\n", ev.labs[t.Id].InstanceInfo())
 	chals := lab.GetEnvironment().Challenges()
 	for _, chal := range chals {
 		t.AddChallenge(chal)

@@ -517,14 +517,6 @@ func (l *GrpcLogger) Msg(msg string) error {
 	}
 	return l.resp.Send(&s)
 }
-func SetCtx(key string,ctx context.Context,loggerInstance *GrpcLogger) context.Context{
-	return context.WithValue(ctx,"grpc_logger",&loggerInstance)
-}
-func GetCtx(key string, ctx context.Context) (GrpcLogger, bool){
-	val,ok := ctx.Value(key).(GrpcLogger)
-	return val,ok
-}
-
 // todo: DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
@@ -580,8 +572,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	loggerInstance := &GrpcLogger{resp: resp}
-	//ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
-	ctx :=SetCtx("grpc_logger",resp.Context(),loggerInstance)
+	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	conf_ := ev.GetConfig()
 

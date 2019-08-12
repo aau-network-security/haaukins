@@ -6,7 +6,6 @@ package lab
 
 import (
 	"context"
-	"github.com/aau-network-security/haaukins/logging"
 	"testing"
 	"time"
 
@@ -183,7 +182,7 @@ func (l *TestLogger) Msg(msg string) error  {
 
 func TestNewHub(t *testing.T){
 	l := &TestLogger{}
-	ctx := context.WithValue(context.TODO(), logging.GRPC_LOGGER_KEY, l)
+	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
 	ms := newSemaphore(5)
 	cs := newSemaphore(6)
 
@@ -198,11 +197,12 @@ func TestNewHub(t *testing.T){
 		},
 		numbLabs:BUFFERSIZE,
 	}
-
-	if err:=h.init(ctx,5); err!=nil {
+	available:=5
+	if err:=h.init(ctx,available); err!=nil {
 		t.Fatalf("Error on init function ! %d ",l.count)
 	}
-	if l.count != 5 {
+	// +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
+	if l.count !=  available+1{
 		t.Fatalf("Something wrong with the implementation ! %d ",l.count)
 	}
 }

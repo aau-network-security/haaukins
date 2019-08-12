@@ -100,7 +100,7 @@ func (h *hub) init(ctx context.Context, available int) error {
 	}
 	// Sometime initializing CTFD module might take longer than expected,
 	// in this particular moment users are notified with a small message.
-	//grpcLogger.Msg("\n----> Labs are ready to use... \n----> Last steps :) be patience ...  ")
+	grpcLogger.Msg("\n----> Labs are ready to use... \n----> Last steps :) be patience ...  ")
 	wg.Wait()
 	return nil
 }

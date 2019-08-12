@@ -13,9 +13,7 @@ import (
 
 	"github.com/rs/zerolog"
 )
-var (
-	GRPC_LOGGER_KEY = "grpc_logger"
-)
+
 type Pool interface {
 	GetLogger(string, ...loggingOpts) (*zerolog.Logger, error)
 	io.Closer
@@ -26,7 +24,7 @@ type GrpcLogging interface {
 }
 
 func LoggerFromCtx(ctx context.Context) GrpcLogging {
-	val := ctx.Value(GRPC_LOGGER_KEY)
+	val := ctx.Value("grpc_logger")
 	if val == nil {
 		return nil
 	}
