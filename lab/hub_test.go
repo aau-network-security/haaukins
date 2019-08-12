@@ -180,7 +180,7 @@ func (l *TestLogger) Msg(msg string)  {
 }
 
 func TestNewHub(t *testing.T){
-	l := &TestLogger{1}
+	l := &TestLogger{}
 	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
 	ms := newSemaphore(5)
 	cs := newSemaphore(6)
