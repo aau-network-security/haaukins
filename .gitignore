@@ -23,3 +23,4 @@ app/daemon/logs/
 build/
 app/daemon/events/
 travis_deploy_key
+logs/

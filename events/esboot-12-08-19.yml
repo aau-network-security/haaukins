@@ -1,0 +1,12 @@
+name: ame
+tag: esboot
+available: 9
+capacity: 10
+lab:
+  frontends:
+  - image: linux
+    memoryMB: 256
+    cpu: 1
+  exercises:
+  - scan
+started-at: 2019-08-12T13:16:32.133304954Z
