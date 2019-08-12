@@ -357,11 +357,11 @@ type fakeEventHost struct {
 	event event.Event
 }
 
-func (eh fakeEventHost) CreateEventFromConfig(context.Context,store.EventConfig) (event.Event, error) {
+func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (event.Event, error) {
 	return eh.event, nil
 }
 
-func (eh fakeEventHost) CreateEventFromEventFile(context.Context,store.EventFile) (event.Event, error) {
+func (eh fakeEventHost) CreateEventFromEventFile(context.Context, store.EventFile) (event.Event, error) {
 	return eh.event, nil
 }
 
@@ -623,9 +623,7 @@ func TestStopEvent(t *testing.T) {
 				},
 			}
 
-			if err := d.createEvent(&ev); err != nil {
-				t.Fatalf("expected no error when adding event")
-			}
+			d.startEvent(&ev)
 
 			dialer, close := getServer(d)
 			defer close()
@@ -730,9 +728,7 @@ func TestListEvents(t *testing.T) {
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *ev
 				tempEvent.conf = store.EventConfig{Tag: store.Tag(fmt.Sprintf("tst-%d", i))}
-				if err := d.createEvent(&tempEvent); err != nil {
-					t.Fatalf("expected no error when adding event")
-				}
+				d.startEvent(&tempEvent)
 			}
 
 			dialer, close := getServer(d)
