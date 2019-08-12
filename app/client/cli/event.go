@@ -2,17 +2,18 @@
 // Use of this source code is governed by a GPLv3
 // license that can be found in the LICENSE file.
 
+
 package cli
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	pbar "github.com/schollz/progressbar"
+	"github.com/spf13/cobra"
 	"io"
 	"time"
-
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -51,9 +52,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-			defer cancel()
-
+			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
 				Name:      name,
@@ -63,24 +62,36 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Capacity:  int32(capacity),
 				Available: int32(available),
 			})
-
 			if err != nil {
 				PrintError(err)
 				return
 			}
-
+			// progress bar library changed
+			// now it does not create stack of progress bar,
+			// once anything is received from daemon.
+			bar:= pbar.New(available)
+			bar.RenderBlank()
 			for {
-				_, err := stream.Recv()
+				labStatus, err := stream.Recv()
 				if err == io.EOF {
 					break
 				}
-
 				if err != nil {
 					PrintError(err)
 					return
 				}
+				if labStatus.ErrorMessage != "" {
+					fmt.Println(labStatus.ErrorMessage)
+					// Once we have got error, error message will be displayed
+					// and support information will be shown on client terminal.
+					// todo : it might be good idea to create unique case id and print it out to client
+					// todo : once user is trying to contact with us they can communicate with error message and case id.
+					// sometime, it is not required to shutdown event from scratch if any error occured during cloning VM,
+					// server might also can send notification about the error.
+				}
+				bar.Add(1)
 			}
-
+			bar.Finish()
 		},
 	}
 

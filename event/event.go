@@ -8,12 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"time"
-
-	"io"
-	"sync"
-
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/ctfd"
@@ -21,6 +15,10 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"io"
+	"net/http"
+	"sync"
+	"time"
 )
 
 var (
@@ -33,8 +31,8 @@ var (
 )
 
 type Host interface {
-	CreateEventFromConfig(store.EventConfig) (Event, error)
-	CreateEventFromEventFile(store.EventFile) (Event, error)
+	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
+	CreateEventFromEventFile(context.Context, store.EventFile) (Event, error)
 }
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
@@ -53,7 +51,7 @@ type eventHost struct {
 	elib store.ExerciseStore
 }
 
-func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error) {
+func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.EventFile) (Event, error) {
 	conf := ef.Read()
 	if err := conf.Validate(); err != nil {
 		return nil, err
@@ -69,7 +67,7 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		Frontends: conf.Lab.Frontends,
 	}
 
-	hub, err := lab.NewHub(labConf, eh.vlib, conf.Available, conf.Capacity)
+	hub, err := lab.NewHub(ctx, labConf, eh.vlib, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +75,13 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 	return NewEvent(eh.ctx, ef, hub)
 }
 
-func (eh *eventHost) CreateEventFromConfig(conf store.EventConfig) (Event, error) {
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
 	ef, err := eh.efh.CreateEventFile(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return eh.CreateEventFromEventFile(ef)
+	return eh.CreateEventFromEventFile(ctx, ef)
 }
 
 type Auth struct {
@@ -160,6 +158,7 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, erro
 }
 
 func (ev *event) Start(ctx context.Context) error {
+	log.Info().Msg("Starting CTFD container from initial point")
 	if err := ev.ctfd.Start(ctx); err != nil {
 		log.
 			Error().
@@ -168,6 +167,7 @@ func (ev *event) Start(ctx context.Context) error {
 
 		return StartingCtfdErr
 	}
+	log.Info().Msg("Starting GUAC container from initial point")
 
 	if err := ev.guac.Start(ctx); err != nil {
 		log.
@@ -178,13 +178,19 @@ func (ev *event) Start(ctx context.Context) error {
 		return StartingGuacErr
 	}
 
+	if len(ev.store.GetTeams()) == 0 {
+		log.Warn().Msg("Teams not found, so assigning lab to team function is skipping....")
+	} else {
+		log.Warn().Str("Team 0 ", ev.store.GetTeams()[0].Name).Msg("0 indexed team....")
+	}
 	for _, team := range ev.store.GetTeams() {
 		if err := ev.AssignLab(&team); err != nil {
-			fmt.Println("Issue assigning lab: ", err)
+			//log.Error().Msg("Error while issuing error to team.. Check out assignlab function... ")
 			return err
 		}
 
 		ev.store.SaveTeam(team)
+
 	}
 
 	return nil
@@ -237,6 +243,9 @@ func (ev *event) AssignLab(t *store.Team) error {
 	}
 
 	if err := ev.guac.CreateUser(u.Username, u.Password); err != nil {
+		log.
+			Error().
+			Msg("Error while creating guac user ... ")
 		return err
 	}
 
@@ -265,7 +274,6 @@ func (ev *event) AssignLab(t *store.Team) error {
 	}
 
 	ev.labs[t.Id] = lab
-
 	chals := lab.GetEnvironment().Challenges()
 	for _, chal := range chals {
 		t.AddChallenge(chal)

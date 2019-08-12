@@ -57,12 +57,12 @@ func init() {
 	var err error
 	DefaultClient, err = docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Fatal().Err(err).Msg("")
 	}
 
 	DefaultLinkBridge, err = newDefaultBridge("hkn-bridge")
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Fatal().Err(err).Msg("Error creating default bridge")
 	}
 
 	rand.Seed(time.Now().Unix())

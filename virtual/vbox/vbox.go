@@ -58,6 +58,19 @@ type VM interface {
 	LinkedClone(context.Context, string, ...VMOpt) (VM, error)
 }
 
+type Library interface {
+	GetCopy(context.Context, store.InstanceConfig, ...VMOpt) (VM, error)
+	IsAvailable(string) bool
+}
+
+type vBoxLibrary struct {
+	m     sync.Mutex
+	pwd   string
+	known map[string]VM
+	locks map[string]*sync.Mutex
+}
+
+// VM information is stored in a struct
 type vm struct {
 	id      string
 	path    string
@@ -75,6 +88,7 @@ func NewVMWithSum(path, image string, checksum string, vmOpts ...VMOpt) VM {
 	}
 }
 
+// Creating VM
 func (vm *vm) Create(ctx context.Context) error {
 	_, err := VBoxCmdContext(ctx, "import", vm.path, "--vsys", "0", "--vmname", vm.id)
 	if err != nil {
@@ -89,7 +103,7 @@ func (vm *vm) Create(ctx context.Context) error {
 
 	return nil
 }
-
+// when Run is called, it calls Create function within it.
 func (vm *vm) Run(ctx context.Context) error {
 	if err := vm.Create(ctx); err != nil {
 		return err
@@ -151,6 +165,7 @@ func (vm *vm) Close() error {
 	return nil
 }
 
+// Todo : What is the purpose of VMOpt function, it just returns error
 type VMOpt func(context.Context, *vm) error
 
 func SetBridge(nic string) VMOpt {
@@ -295,18 +310,6 @@ func (v *vm) Info() virtual.InstanceInfo {
 	}
 }
 
-type Library interface {
-	GetCopy(context.Context, store.InstanceConfig, ...VMOpt) (VM, error)
-	IsAvailable(string) bool
-}
-
-type vBoxLibrary struct {
-	m     sync.Mutex
-	pwd   string
-	known map[string]VM
-	locks map[string]*sync.Mutex
-}
-
 func NewLibrary(pwd string) Library {
 	return &vBoxLibrary{
 		pwd:   pwd,
@@ -440,6 +443,7 @@ func VmExists(image string, checksum string) (VM, bool) {
 	return nil, false
 }
 
+//
 func VBoxCmdContext(ctx context.Context, cmd string, cmds ...string) ([]byte, error) {
 	command := append([]string{cmd}, cmds...)
 

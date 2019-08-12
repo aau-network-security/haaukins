@@ -7,13 +7,14 @@ package lab
 import (
 	"context"
 	"errors"
-	"io"
-	"sync"
-	"sync/atomic"
+	"github.com/aau-network-security/haaukins/logging"
 
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"io"
+	"sync"
+	"sync/atomic"
 )
 
 var (
@@ -23,6 +24,7 @@ var (
 )
 
 const BUFFERSIZE = 5
+
 
 type Hub interface {
 	Get() (Lab, error)
@@ -48,11 +50,11 @@ type hub struct {
 	numbLabs int32
 }
 
-func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
+
+func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
 	if available > cap {
 		return nil, AvailableSizeErr
 	}
-
 	createLimit := 3
 	h := &hub{
 		labs:        []Lab{},
@@ -64,19 +66,46 @@ func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, err
 		vboxLib:     vboxLib,
 		labHost:     &labHost{},
 	}
-
-	log.Debug().Msgf("Instantiating %d lab(s)", available)
-	for i := 0; i < available; i++ {
-		go func() {
-			if err := h.addLab(); err != nil {
-				log.Warn().Msgf("error while adding lab: %s", err)
-			}
-		}()
-	}
+	h.init(ctx, available)
 
 	return h, nil
 }
 
+
+func (h *hub) init(ctx context.Context, available int) error {
+	grpcLogger := logging.LoggerFromCtx(ctx)
+	log.Debug().Msgf("Instantiating %d lab(s)", available)
+	var wg sync.WaitGroup
+	wg.Add(available)
+	for i := 0; i < available; i++ {
+		go func() {
+			defer wg.Done()
+			err := h.addLab()
+			if grpcLogger != nil {
+				msg := ""
+				if err != nil {
+					// todo: instead of sending error message to client terminal,
+					//  the error message can be shorted and simplified to show on client terminal...
+					//  (Update: created as issue ! )
+					//msg = err.Error()
+					log.Error().Msgf("Error happened while adding VM into lab environment %s",err.Error())
+				}
+				if err := grpcLogger.Msg(msg); err != nil {
+					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
+				}
+			}
+			if err != nil {
+				log.Warn().Msgf("error while adding lab: %s", err)
+			}
+		}()
+
+	}
+	wg.Wait()
+	// Sometime initializing CTFD module might take longer than expected,
+	// in this particular moment users are notified with a small message.
+	grpcLogger.Msg("\n----> Labs are ready to use... \n----> Last steps :) be patience ...  ")
+	return nil
+}
 func (h *hub) addLab() error {
 	if h.maximumSema.available() == 0 {
 		return MaximumLabsErr

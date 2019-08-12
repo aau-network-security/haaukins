@@ -6,6 +6,7 @@ package guacamole
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -34,9 +35,8 @@ func NewGuacUserStore() *GuacUserStore {
 }
 
 func (us *GuacUserStore) CreateUserForTeam(tid string, u GuacUser) {
-	us.m.Lock()
-	defer us.m.Unlock()
-
+	us.m.RLock()
+	defer us.m.RUnlock()
 	us.teams[tid] = u
 }
 
@@ -45,6 +45,8 @@ func (us *GuacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
 	defer us.m.RUnlock()
 
 	u, ok := us.teams[tid]
+	//fmt.Println(&u)
+	//fmt.Println(u)
 	if !ok {
 		return nil, UnknownTeamIdErr
 	}
@@ -75,41 +77,47 @@ func (*guacTokenLoginEndpoint) ValidRequest(r *http.Request) bool {
 }
 
 func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie("session")
-		if err != nil {
-			return
-		}
+	return http.HandlerFunc(
 
-		session := c.Value
-		t, err := gtl.teamStore.GetTeamByToken(session)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Msg("Unable to find team by token")
-			return
-		}
+		func(w http.ResponseWriter, r *http.Request) {
+			c, err := r.Cookie("session")
+			if err != nil {
+				return
+			}
 
-		u, err := gtl.users.GetUserForTeam(t.Id)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("team-id ", t.Id).
-				Msg("Unable to get guac user for team")
-			return
-		}
+			//fmt.Println(c)
+			session := c.Value
+			//fmt.Println(session)
+			t, err := gtl.teamStore.GetTeamByToken(session)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Msg("Unable to find team by token")
+				return
+			}
+			fmt.Println(t)
+			//   usrname , password
+			// {"guac","asdfasdfe"}
+			u, err := gtl.users.GetUserForTeam(t.Id)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("team-id ", t.Id).
+					Msg("Unable to get guac user for team")
+				return
+			}
 
-		token, err := gtl.loginFunc(u.Username, u.Password)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("team-id", t.Id).
-				Msg("Failed to login team to guacamole")
-			return
-		}
+			token, err := gtl.loginFunc(u.Username, u.Password)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("team-id", t.Id).
+					Msg("Failed to login team to guacamole")
+				return
+			}
 
-		authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
-		http.SetCookie(w, &authC)
-		http.Redirect(w, r, "/guacamole", http.StatusFound)
-	})
+			authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
+			http.SetCookie(w, &authC)
+			http.Redirect(w, r, "/guacamole", http.StatusFound)
+		})
 }
