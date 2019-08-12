@@ -21,5 +21,7 @@ audit.log
 app/daemon/*.yml
 app/daemon/logs/
 build/
+events/
 app/daemon/events/
 travis_deploy_key
+logs/
