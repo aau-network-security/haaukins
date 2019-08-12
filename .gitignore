@@ -17,7 +17,7 @@ audit.log
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-
+*.log
 app/daemon/*.yml
 app/daemon/logs/
 build/
