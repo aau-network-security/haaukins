@@ -86,7 +86,9 @@ func (h *hub) init(ctx context.Context, available int) error {
 				if err != nil {
 					// todo: instead of sending error message to client terminal,
 					//  the error message can be shorted and simplified to show on client terminal...
-					msg = err.Error()
+					//  (Update: created as issue ! )
+					//msg = err.Error()
+					log.Error().Msgf("Error happened while adding VM into lab environment ",err.Error())
 				}
 				if err := grpcLogger.Msg(msg); err != nil {
 					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
@@ -98,7 +100,6 @@ func (h *hub) init(ctx context.Context, available int) error {
 		}()
 
 	}
-
 	wg.Wait()
 	// Sometime initializing CTFD module might take longer than expected,
 	// in this particular moment users are notified with a small message.
