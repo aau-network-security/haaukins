@@ -1,7 +1,7 @@
 auth.json
 auth.yml
 users.yml
-logs/audit.log
+audit.log
 
 # GoLand
 .idea

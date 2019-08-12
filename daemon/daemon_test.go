@@ -357,11 +357,11 @@ type fakeEventHost struct {
 	event event.Event
 }
 
-func (eh fakeEventHost) CreateEventFromConfig(store.EventConfig) (event.Event, error) {
+func (eh fakeEventHost) CreateEventFromConfig(context.Context,store.EventConfig) (event.Event, error) {
 	return eh.event, nil
 }
 
-func (eh fakeEventHost) CreateEventFromEventFile(store.EventFile) (event.Event, error) {
+func (eh fakeEventHost) CreateEventFromEventFile(context.Context,store.EventFile) (event.Event, error) {
 	return eh.event, nil
 }
 

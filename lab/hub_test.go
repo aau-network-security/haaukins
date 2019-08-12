@@ -6,6 +6,7 @@ package lab
 
 import (
 	"context"
+	"github.com/aau-network-security/haaukins/logging"
 	"testing"
 	"time"
 
@@ -175,13 +176,14 @@ type TestLogger struct {
 	count int
 }
 
-func (l *TestLogger) Msg(msg string)  {
+func (l *TestLogger) Msg(msg string) error  {
      l.count++
+     return nil
 }
 
 func TestNewHub(t *testing.T){
 	l := &TestLogger{}
-	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
+	ctx := context.WithValue(context.TODO(), logging.GRPC_LOGGER_KEY, l)
 	ms := newSemaphore(5)
 	cs := newSemaphore(6)
 
@@ -194,10 +196,11 @@ func TestNewHub(t *testing.T){
 		labHost:&testLabHost{
 			lab:&testLab{},
 		},
+		numbLabs:BUFFERSIZE,
 	}
 
 	if err:=h.init(ctx,5); err!=nil {
-		t.Fatalf("Something wrong with the implementation ! %d ",l.count)
+		t.Fatalf("Error on init function ! %d ",l.count)
 	}
 	if l.count != 5 {
 		t.Fatalf("Something wrong with the implementation ! %d ",l.count)
