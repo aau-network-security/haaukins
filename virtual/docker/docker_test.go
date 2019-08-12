@@ -21,7 +21,7 @@ var dockerClient, dockerErr = fdocker.NewClient("unix:///var/run/docker.sock")
 
 func init() {
 	if dockerErr != nil {
-		log.Fatal().Err(dockerErr)
+		log.Fatal().Err(dockerErr).Msg("")
 	}
 
 	zerolog.SetGlobalLevel(zerolog.Disabled)
