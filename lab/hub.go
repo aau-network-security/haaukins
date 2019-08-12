@@ -88,7 +88,7 @@ func (h *hub) init(ctx context.Context, available int) error {
 					//  the error message can be shorted and simplified to show on client terminal...
 					//  (Update: created as issue ! )
 					//msg = err.Error()
-					log.Error().Msgf("Error happened while adding VM into lab environment ",err.Error())
+					log.Error().Msgf("Error happened while adding VM into lab environment %s",err.Error())
 				}
 				if err := grpcLogger.Msg(msg); err != nil {
 					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
