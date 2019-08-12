@@ -60,6 +60,6 @@ func main() {
 	log.Info().Msgf("Started daemon")
 
 	if err := d.Run(); err != nil {
-		log.Fatal().Err(err)
+		log.Fatal().Err(err).Msg("")
 	}
 }

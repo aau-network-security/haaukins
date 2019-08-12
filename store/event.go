@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"crypto/sha256"
-
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
@@ -135,6 +134,7 @@ func (t *Team) SolveChallenge(tag Tag, v string) error {
 
 	return nil
 }
+
 
 func (t *Team) AddMetadata(key, value string) {
 	if t.Metadata == nil {
@@ -371,6 +371,7 @@ func NewEventConfigStore(conf EventConfig, hooks ...func(EventConfig) error) *ev
 		hooks: hooks,
 	}
 }
+
 
 func (es *eventconfigstore) Read() EventConfig {
 	es.m.Lock()

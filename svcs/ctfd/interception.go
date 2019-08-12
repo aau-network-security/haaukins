@@ -503,10 +503,10 @@ func (cfi *checkFlagInterception) getTeamFromSession(r *http.Request) (store.Tea
 
 	session := c.Value
 	t, err := cfi.teamStore.GetTeamByToken(session)
+	log.Info().Str("team-id", t.Id).Msg("GetTeamByToken (Session cookie counted as token)")
 	if err != nil {
 		return store.Team{}, err
 	}
-
 	return t, nil
 }
 

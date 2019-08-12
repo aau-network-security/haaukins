@@ -7,40 +7,35 @@ package daemon
 import (
 	"context"
 	"fmt"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"github.com/aau-network-security/haaukins/event"
+	"github.com/aau-network-security/haaukins/logging"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
+	dockerclient "github.com/fsouza/go-dockerclient"
+	"github.com/mholt/certmagic"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/xenolf/lego/providers/dns/cloudflare"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/aau-network-security/haaukins/event"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
-	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-	"gopkg.in/yaml.v2"
-
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	dockerclient "github.com/fsouza/go-dockerclient"
-
 	"sync"
-
-	"os/user"
-
-	"github.com/aau-network-security/haaukins/logging"
-	"github.com/mholt/certmagic"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/xenolf/lego/providers/dns/cloudflare"
+	"time"
 )
 
 var (
@@ -296,7 +291,7 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	for _, ef := range eventFiles {
-		err := d.createEventFromEventFile(ef)
+		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
 			return nil, err
 		}
@@ -466,27 +461,20 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}, nil
 }
 
-func (d *daemon) createEventFromEventFile(ef store.EventFile) error {
-	ev, err := d.ehost.CreateEventFromEventFile(ef)
+// todo: READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
+func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFile) error {
+	ev, err := d.ehost.CreateEventFromEventFile(ctx, ef)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from file")
 		return err
 	}
 
-	return d.createEvent(ev)
+	d.startEvent(ev)
+	return nil
 }
 
-func (d *daemon) createEventFromConfig(conf store.EventConfig) error {
-	ev, err := d.ehost.CreateEventFromConfig(conf)
-	if err != nil {
-		log.Error().Err(err).Msg("Error creating event")
-		return err
-	}
-
-	return d.createEvent(ev)
-}
-
-func (d *daemon) createEvent(ev event.Event) error {
+// todo: INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
+func (d *daemon) startEvent(ev event.Event) {
 	conf := ev.GetConfig()
 
 	var frontendNames []string
@@ -504,11 +492,23 @@ func (d *daemon) createEvent(ev event.Event) error {
 	go ev.Start(context.TODO())
 
 	d.eventPool.AddEvent(ev)
-
-	return nil
 }
 
+type GrpcLogger struct {
+	resp pb.Daemon_CreateEventServer
+}
+
+func (l *GrpcLogger) Msg(msg string) error {
+	s := pb.LabStatus{
+		ErrorMessage: msg,
+	}
+	return l.resp.Send(&s)
+}
+
+// todo: DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
+
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -528,7 +528,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 		tags[i] = t
 	}
-
 	evtag, _ := store.NewTag(req.Tag)
 	conf := store.EventConfig{
 		Name:      req.Name,
@@ -547,6 +546,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	_, err := d.eventPool.GetEvent(evtag)
+
 	if err == nil {
 		return DuplicateEventErr
 	}
@@ -559,7 +559,15 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	return d.createEventFromConfig(conf)
+	loggerInstance := &GrpcLogger{resp: resp}
+	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
+	if err != nil {
+		return err
+	}
+
+	d.startEvent(ev)
+	return nil
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
@@ -917,18 +925,15 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 }
 
 func (d *daemon) Run() error {
-	// manage certificate renewal through certmagic
-	err := certmagic.Manage([]string{
-		fmt.Sprintf("*.%s", d.conf.Host.Http),
-		d.conf.Host.Grpc,
-	})
-	if err != nil {
-		return err
-	}
 
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
+			// manage certificate renewal through certmagic
+			certmagic.Manage([]string{
+				fmt.Sprintf("*.%s", d.conf.Host.Http),
+				d.conf.Host.Grpc,
+			})
 			domains := []string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 			}
@@ -937,6 +942,7 @@ func (d *daemon) Run() error {
 			if err := certmagic.HTTPS(domains, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
+
 			return
 		}
 
@@ -950,15 +956,17 @@ func (d *daemon) Run() error {
 	if err != nil {
 		return &MngtPortErr{mngtPort}
 	}
+	log.Info().Msg("gRPC daemon has been started  ! on port :5454")
 
 	opts, err := d.grpcOpts()
 	if err != nil {
 		return GrpcOptsErr
 	}
-
 	s := d.GetServer(opts...)
 	pb.RegisterDaemonServer(s, d)
 
 	reflection.Register(s)
+	log.Info().Msg("Reflection Registration is called.... ")
+
 	return s.Serve(lis)
 }

@@ -21,6 +21,7 @@ type Interceptors []Interception
 
 func (inter Interceptors) Intercept(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		for _, i := range inter {
 			if i.ValidRequest(r) {
 				i.Intercept(next).ServeHTTP(w, r)
