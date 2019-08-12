@@ -7,7 +7,8 @@ package lab
 import (
 	"context"
 	"errors"
-	"github.com/aau-network-security/haaukins/daemon"
+	"github.com/aau-network-security/haaukins/logging"
+
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
@@ -23,6 +24,7 @@ var (
 )
 
 const BUFFERSIZE = 5
+
 
 type Hub interface {
 	Get() (Lab, error)
@@ -48,25 +50,11 @@ type hub struct {
 	numbLabs int32
 }
 
-func loggerFromCtx(ctx context.Context) *daemon.GrpcLogger {
-	val := ctx.Value("grpc_logger")
-	if val == nil {
-		return nil
-	}
-
-	l, ok := val.(daemon.GrpcLogger)
-	if !ok {
-		return nil
-	}
-
-	return &l
-}
 
 func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
 	if available > cap {
 		return nil, AvailableSizeErr
 	}
-
 	createLimit := 3
 	h := &hub{
 		labs:        []Lab{},
@@ -78,15 +66,26 @@ func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available in
 		vboxLib:     vboxLib,
 		labHost:     &labHost{},
 	}
+	h.init(ctx, available)
 
-	grpcLogger := loggerFromCtx(ctx)
+	return h, nil
+}
+
+
+func (h *hub) init(ctx context.Context, available int) error {
+	grpcLogger := logging.LoggerFromCtx(ctx)
 	log.Debug().Msgf("Instantiating %d lab(s)", available)
+	var wg sync.WaitGroup
+	wg.Add(available)
 	for i := 0; i < available; i++ {
 		go func() {
+			defer wg.Done()
 			err := h.addLab()
 			if grpcLogger != nil {
 				msg := ""
 				if err != nil {
+					// todo: instead of sending error message to client terminal,
+					//  the error message can be shorted and simplified to show on client terminal...
 					msg = err.Error()
 				}
 				if err := grpcLogger.Msg(msg); err != nil {
@@ -97,10 +96,14 @@ func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available in
 				log.Warn().Msgf("error while adding lab: %s", err)
 			}
 		}()
-	}
-	return h, nil
-}
 
+	}
+	wg.Wait()
+	// Sometime initializing CTFD module might take longer than expected,
+	// in this particular moment users are notified with a small message. :)
+	grpcLogger.Msg("\n----> Labs are ready to use... \n----> Last steps :) be patience ...  ")
+	return nil
+}
 func (h *hub) addLab() error {
 	if h.maximumSema.available() == 0 {
 		return MaximumLabsErr

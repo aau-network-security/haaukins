@@ -2,6 +2,7 @@
 // Use of this source code is governed by a GPLv3
 // license that can be found in the LICENSE file.
 
+
 package cli
 
 import (
@@ -9,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	progressbar "github.com/cheggaaa/pb/v3"
+	pbar "github.com/schollz/progressbar"
 	"github.com/spf13/cobra"
 	"io"
 	"time"
@@ -65,7 +66,11 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				PrintError(err)
 				return
 			}
-			pb := progressbar.New(available)
+			// progress bar library changed
+			// now it does not create stack of progress bar,
+			// once anything is received from daemon.
+			bar:= pbar.New(available)
+			bar.RenderBlank()
 			for {
 				labStatus, err := stream.Recv()
 				if err == io.EOF {
@@ -77,10 +82,16 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				}
 				if labStatus.ErrorMessage != "" {
 					fmt.Println(labStatus.ErrorMessage)
+					// Once we have got error, error message will be displayed
+					// and support information will be shown on client terminal.
+					// todo : it might be good idea to create unique case id and print it out to client
+					// todo : once user is trying to contact with us they can communicate with error message and case id.
+					// sometime, it is not required to shutdown event from scratch if any error occured during cloning VM,
+					// server might also can send notification about the error.
 				}
-				pb.Increment()
+				bar.Add(1)
 			}
-			pb.Finish()
+			bar.Finish()
 		},
 	}
 

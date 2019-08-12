@@ -37,6 +37,7 @@ func (lab *testLab) Close() error {
 	return nil
 }
 
+
 func TestHub_addLab(t *testing.T) {
 	tt := []struct {
 		name         string
@@ -168,6 +169,41 @@ func TestHub_Get(t *testing.T) {
 		})
 	}
 }
+
+
+type TestLogger struct {
+	count int
+}
+
+func (l *TestLogger) Msg(msg string)  {
+     l.count++
+}
+
+func TestNewHub(t *testing.T){
+	l := &TestLogger{1}
+	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
+	ms := newSemaphore(5)
+	cs := newSemaphore(6)
+
+	h := &hub{
+		maximumSema:ms,
+		createSema:cs,
+		ctx:ctx,
+		buffer:make(chan Lab,5),
+		vboxLib:nil,
+		labHost:&testLabHost{
+			lab:&testLab{},
+		},
+	}
+
+	if err:=h.init(ctx,5); err!=nil {
+		t.Fatalf("Something wrong with the implementation ! %d ",l.count)
+	}
+	if l.count != 5 {
+		t.Fatalf("Something wrong with the implementation ! %d ",l.count)
+	}
+}
+
 
 func TestHub_Close(t *testing.T) {
 	ms := newSemaphore(2)

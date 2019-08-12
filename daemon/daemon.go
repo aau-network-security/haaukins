@@ -521,10 +521,7 @@ func (l *GrpcLogger) Msg(msg string) error {
 // todo: DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-	// Since there are more than one goroutines
-	// there should be synchronization of them
-	// to be able to send data back to client
-	// goroutines should be waited
+
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -575,8 +572,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	l := GrpcLogger{resp: resp}
-	ctx := context.WithValue(resp.Context(), "grpc_logger", l)
+	loggerInstance := &GrpcLogger{resp: resp}
+	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	conf_ := ev.GetConfig()
 
@@ -586,21 +583,22 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 	log.Info().
 		Str("Name", conf_.Name).
-		Str("Tag", string(conf.Tag)).
+		Str("Tag", string(conf_.Tag)).
 		Int("Available", conf_.Available).
 		Int("Capacity", conf_.Capacity).
-		Strs("Frontends", frontendNames).
+		Strs("Frontends",frontendNames).
 		Msg("Creating event")
 
-	// this goroutine will initialize CTFd module
-	// while other one getting information from
-	// lab.Status
-	go ev.Start(ctx)
+    // passing ctx which we used above,creates error when CTFD container start to created
+    // hence following context function is used...
+	go ev.Start(context.TODO())
+
+	/*
+	Note that there are other goroutines when adjusting labs in hub.go file.
+	*/
 
 	d.eventPool.AddEvent(ev)
-	// when all goroutines are done
-	// communication between
-	// server and client will be finished
+
 	return nil
 }
 

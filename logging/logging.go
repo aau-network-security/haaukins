@@ -5,6 +5,7 @@
 package logging
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,6 +17,24 @@ import (
 type Pool interface {
 	GetLogger(string, ...loggingOpts) (*zerolog.Logger, error)
 	io.Closer
+}
+
+type GrpcLogging interface {
+	Msg(msg string) error
+}
+
+func LoggerFromCtx(ctx context.Context) GrpcLogging {
+	val := ctx.Value("grpc_logger")
+	if val == nil {
+		return nil
+	}
+
+	l, ok := val.(GrpcLogging)
+	if !ok {
+		return nil
+	}
+
+	return l
 }
 
 type pool struct {
