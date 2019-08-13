@@ -164,8 +164,6 @@ func (vm *vm) Close() error {
 
 	return nil
 }
-
-// Todo : What is the purpose of VMOpt function, it just returns error
 type VMOpt func(context.Context, *vm) error
 
 func SetBridge(nic string) VMOpt {
