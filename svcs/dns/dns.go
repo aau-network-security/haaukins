@@ -82,9 +82,8 @@ func New(records []RR) (*Server, error) {
 	c.Write([]byte(coreFileContent))
 
 	f.Sync()
-
 	cont := docker.NewContainer(docker.ContainerConfig{
-		Image: "coredns/coredns",
+		Image: "coredns/coredns:1.6.1",
 		Mounts: []string{
 			fmt.Sprintf("%s:/Corefile", coreFile),
 			fmt.Sprintf("%s:/zonefile", confFile),
