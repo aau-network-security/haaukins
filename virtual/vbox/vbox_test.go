@@ -91,8 +91,8 @@ func TestVmBase(t *testing.T) {
 
 func TestSetRAM(t *testing.T) {
 	tst.SkipCI(t)
-	re := regexp.MustCompile(`memory=[1-9]*`)
-	memorysize:=256
+	re := regexp.MustCompile(`memory=[1-9][0-9]*`)
+	memorysize:=1024
 	ctx := context.Background()
 	cs := "d41d8cd98f00b204e9800998ecf8427e"
 	vm := vbox.NewVMWithSum("haaukins.ova", "haaukins", cs)
@@ -108,6 +108,7 @@ func TestSetRAM(t *testing.T) {
 	if err!=nil{
 		t.Fatalf("Error happened while retrieving information about ram %s",err)
 	}
+
 	result := (strings.Split(string(re.Find(b)),"="))
 	if len(result)==2 {
 		memSize, err := strconv.Atoi(result[1])
@@ -116,12 +117,11 @@ func TestSetRAM(t *testing.T) {
 		}
 		if memSize != memorysize {
 			t.Fatalf("memory could not be set corretly %d", memSize)
-
 		}
 		vm.Close()
 		linkedCloneVM.Close()
 	}else {
-		t.Fatalf("Error while splitting retrieved information from vboxmanage")
+		t.Fatalf("Error while splitting retrieved information from vboxmanage, memory in proper %s",result[1])
 	}
 
 
