@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -18,6 +20,7 @@ import (
 const (
 	vboxBin = "VBoxManage"
 )
+
 
 func execute(cmd string, cmds ...string) (string, error) {
 	command := append([]string{cmd}, cmds...)
@@ -82,4 +85,45 @@ func TestVmBase(t *testing.T) {
 	if strings.Contains(output, name) {
 		t.Fatalf("expected virtual machine to have been removed")
 	}
+
+}
+
+
+func TestSetRAM(t *testing.T) {
+	tst.SkipCI(t)
+	re := regexp.MustCompile(`memory=[0-9]*`)
+	memorysize:=256
+	ctx := context.Background()
+	cs := "d41d8cd98f00b204e9800998ecf8427e"
+	vm := vbox.NewVMWithSum("haaukins.ova", "haaukins", cs)
+	vm.Create(ctx)
+	vm.Snapshot("test_haaukins")
+
+	linkedCloneVM,err := vm.LinkedClone(ctx,"test_haaukins",vbox.SetRAM(uint(memorysize)))
+	if err != nil {
+		t.Fatalf("Linked clone could not created %s ", err)
+	}
+
+	b,err:= vbox.VBoxCmdContext(ctx,"showvminfo",linkedCloneVM.Info().Id,"--machinereadable")
+	if err!=nil{
+		t.Fatalf("Error happened while retrieving information about ram %s",err)
+	}
+	result := (strings.Split(string(re.Find(b)),"="))
+	if len(result)==2 {
+		memSize, err := strconv.Atoi(result[1])
+		if err != nil {
+			t.Fatalf("Error happened while converting memory into int %s", err)
+		}
+		if memSize != memorysize {
+			t.Fatalf("memory could not be set corretly %d", memSize)
+
+		}
+		vm.Close()
+		linkedCloneVM.Close()
+	}else {
+		t.Fatalf("Error while splitting retrieved information from vboxmanage")
+	}
+
+
+
 }
