@@ -91,7 +91,7 @@ func TestVmBase(t *testing.T) {
 
 func TestSetRAM(t *testing.T) {
 	tst.SkipCI(t)
-	re := regexp.MustCompile(`memory=[0-9]*`)
+	re := regexp.MustCompile(`memory=[1-9]*`)
 	memorysize:=256
 	ctx := context.Background()
 	cs := "d41d8cd98f00b204e9800998ecf8427e"
