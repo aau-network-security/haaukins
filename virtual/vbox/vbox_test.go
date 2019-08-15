@@ -85,13 +85,12 @@ func TestVmBase(t *testing.T) {
 	if strings.Contains(output, name) {
 		t.Fatalf("expected virtual machine to have been removed")
 	}
-
 }
 
-
-func TestSetRAM(t *testing.T) {
+func TestSetRAMandCPU(t *testing.T) {
 	tst.SkipCI(t)
-	re := regexp.MustCompile(`memory=[1-9][0-9]*`)
+	ramre := regexp.MustCompile(`memory=[1-9][0-9]*`)
+	cpure := regexp.MustCompile(`cpus=[0-9]*`)
 	memorysize:=1024
 	ctx := context.Background()
 	cs := "d41d8cd98f00b204e9800998ecf8427e"
@@ -99,7 +98,7 @@ func TestSetRAM(t *testing.T) {
 	vm.Create(ctx)
 	vm.Snapshot("test_haaukins")
 
-	linkedCloneVM,err := vm.LinkedClone(ctx,"test_haaukins",vbox.SetRAM(uint(memorysize)))
+	linkedCloneVM,err := vm.LinkedClone(ctx,"test_haaukins",vbox.SetRAM(uint(memorysize)),vbox.SetCPU(uint(2)))
 	if err != nil {
 		t.Fatalf("Linked clone could not created %s ", err)
 	}
@@ -108,8 +107,25 @@ func TestSetRAM(t *testing.T) {
 	if err!=nil{
 		t.Fatalf("Error happened while retrieving information about ram %s",err)
 	}
+	cpuInfo := strings.Split(string(cpure.Find(b)), "=")
+	if len(cpuInfo) != 2 {
+		t.Fatalf("Splitting info error, there is something wrong with adjusting CPU")
+		vm.Close()
+		linkedCloneVM.Close()
+	}
+	numberOfCpu, err := strconv.Atoi(cpuInfo[1])
+	if err != nil {
+		t.Fatalf("Converting error string to int ... %s", err)
+		vm.Close()
+		linkedCloneVM.Close()
+	}
 
-	result := (strings.Split(string(re.Find(b)),"="))
+	if numberOfCpu <= 0 {
+		t.Fatalf("Error, invalid number of CPU ")
+		vm.Close()
+		linkedCloneVM.Close()
+	}
+	result := (strings.Split(string(ramre.Find(b)),"="))
 	if len(result)==2 {
 		memSize, err := strconv.Atoi(result[1])
 		if err != nil {
@@ -123,7 +139,6 @@ func TestSetRAM(t *testing.T) {
 	}else {
 		t.Fatalf("Error while splitting retrieved information from vboxmanage, memory in proper %s",result[1])
 	}
-
-
-
 }
+
+

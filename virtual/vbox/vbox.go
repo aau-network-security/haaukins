@@ -248,7 +248,7 @@ func (vm *vm) ensureStopped(ctx context.Context) (func(), error) {
 		}
 	}, nil
 }
-func (vm *vm) Snapshot(name string) error {
+func (vm *vm) Snapshot(name string) error  {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
