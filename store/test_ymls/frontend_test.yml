@@ -1,4 +1,0 @@
-frontends:
-  - image: kali
-    memoryMB: 4096
-    cpu: 2.0
