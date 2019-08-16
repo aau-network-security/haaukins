@@ -140,5 +140,3 @@ func TestSetRAMandCPU(t *testing.T) {
 		t.Fatalf("Error while splitting retrieved information from vboxmanage, memory in proper %s",result[1])
 	}
 }
-
-
