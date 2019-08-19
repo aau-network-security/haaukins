@@ -32,6 +32,7 @@ type Hub interface {
 	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
+	AttachHook(hook func() error)
 	io.Closer
 }
 
@@ -48,8 +49,9 @@ type hub struct {
 	labs     []Lab
 	buffer   chan Lab
 	numbLabs int32
-}
 
+	hooks []func() error
+}
 
 func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
 	if available > cap {
@@ -65,12 +67,16 @@ func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available in
 		buffer:      make(chan Lab, available),
 		vboxLib:     vboxLib,
 		labHost:     &labHost{},
+		hooks:       []func() error{},
 	}
 	h.init(ctx, available)
 
 	return h, nil
 }
 
+func (h *hub) AttachHook(hook func() error) {
+	h.hooks = append(h.hooks, hook)
+}
 
 func (h *hub) init(ctx context.Context, available int) error {
 	grpcLogger := logging.LoggerFromCtx(ctx)
@@ -140,7 +146,7 @@ func (h *hub) addLab() error {
 		// sending on closed channel
 	}
 
-	return nil
+	return h.runHooks()
 }
 
 func (h *hub) Available() int32 {
@@ -210,6 +216,16 @@ func (h *hub) GetLabByTag(tag string) (Lab, error) {
 		}
 	}
 	return nil, CouldNotFindLabErr
+}
+
+func (h *hub) runHooks() error {
+	for _, h := range h.hooks {
+		if err := h(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type rsrc struct{}

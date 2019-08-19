@@ -115,6 +115,8 @@ type event struct {
 	dockerHost    docker.Host
 
 	closers []io.Closer
+
+	teamQueue chan *store.Team
 }
 
 func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, error) {
@@ -152,7 +154,12 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, erro
 		closers:       []io.Closer{ctf, guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
 		keyLoggerPool: keyLoggerPool,
+		teamQueue:     make(chan *store.Team, conf.Capacity),
 	}
+
+	hub.AttachHook(func() error {
+		return ev.processQueue()
+	})
 
 	return ev, nil
 }
@@ -284,15 +291,8 @@ func (ev *event) AssignLab(t *store.Team) error {
 
 func (ev *event) Handler() http.Handler {
 	reghook := func(t *store.Team) error {
-		if ev.labhub.Available() == 0 {
-			return lab.CouldNotFindLabErr
-		}
-
-		if err := ev.AssignLab(t); err != nil {
-			return err
-		}
-
-		return nil
+		ev.teamQueue <- t
+		return ev.processQueue()
 	}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool)(ev.store)
@@ -304,6 +304,25 @@ func (ev *event) Handler() http.Handler {
 	m.Handle("/", ev.ctfd.ProxyHandler(reghook)(ev.store))
 
 	return m
+}
+
+func (ev *event) processQueue() error {
+	if ev.labhub.Available() == 0 {
+		return lab.CouldNotFindLabErr
+	}
+
+	select {
+	case t := <-ev.teamQueue:
+		log.Debug().Msgf("Assigning team %s to lab", t.Id)
+		if err := ev.AssignLab(t); err != nil {
+			log.Error().Err(err).Msgf("Error assigning lab to team %s", t.Id)
+			return err
+		}
+	default:
+		return nil
+	}
+
+	return nil
 }
 
 func (ev *event) GetHub() lab.Hub {
