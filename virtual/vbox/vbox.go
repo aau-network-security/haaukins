@@ -246,7 +246,7 @@ func (vm *vm) ensureStopped(ctx context.Context) (func(), error) {
 		}
 	}, nil
 }
-func (vm *vm) Snapshot(name string) error {
+func (vm *vm) Snapshot(name string) error  {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -351,9 +351,10 @@ func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, 
 
 	vm, ok := lib.known[path]
 	if ok {
-		return vm.LinkedClone(ctx, "origin", vmOpts...)
+		return vm.LinkedClone(ctx, "origin", vmOpts...) // if ok==true then VM will be linked without the ram value which is exist on configuration file
+														// vbox.SetRAM(conf.memoryMB) on addFrontend function in lab.go fixes the problem...
 	}
-
+	// if ok==false, then following codes will be run, in that case there will be no problem because at the end instance returns with specified VMOpts parameter.
 	sum, err := checksumOfFile(path)
 	if err != nil {
 		return nil, err

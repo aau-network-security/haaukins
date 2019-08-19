@@ -580,18 +580,18 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	if err != nil {
 		return err
 	}
-
+	// retrieve tag of event from event pool
 	ev, err := d.eventPool.GetEvent(evtag)
 	if err != nil {
 		return err
 	}
-
+	// tag of the event is removed from eventPool
 	if err := d.eventPool.RemoveEvent(evtag); err != nil {
 		return err
 	}
 
 	ev.Close()
-	ev.Finish()
+	ev.Finish()  // Finishing and archiving event....
 	return nil
 }
 
