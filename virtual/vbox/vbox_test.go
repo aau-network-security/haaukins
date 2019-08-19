@@ -100,29 +100,32 @@ func TestSetRAMandCPU(t *testing.T) {
 
 	linkedCloneVM,err := vm.LinkedClone(ctx,"test_haaukins",vbox.SetRAM(uint(memorysize)),vbox.SetCPU(uint(2)))
 	if err != nil {
+		defer vm.Close()
 		t.Fatalf("Linked clone could not created %s ", err)
 	}
 
 	b,err:= vbox.VBoxCmdContext(ctx,"showvminfo",linkedCloneVM.Info().Id,"--machinereadable")
 	if err!=nil{
+		defer vm.Close()
+		linkedCloneVM.Close()
 		t.Fatalf("Error happened while retrieving information about ram %s",err)
 	}
 	cpuInfo := strings.Split(string(cpure.Find(b)), "=")
 	if len(cpuInfo) != 2 {
 		t.Fatalf("Splitting info error, there is something wrong with adjusting CPU")
-		vm.Close()
+		defer vm.Close()
 		linkedCloneVM.Close()
 	}
 	numberOfCpu, err := strconv.Atoi(cpuInfo[1])
 	if err != nil {
 		t.Fatalf("Converting error string to int ... %s", err)
-		vm.Close()
+		defer vm.Close()
 		linkedCloneVM.Close()
 	}
 
 	if numberOfCpu <= 0 {
 		t.Fatalf("Error, invalid number of CPU ")
-		vm.Close()
+		defer vm.Close()
 		linkedCloneVM.Close()
 	}
 	result := (strings.Split(string(ramre.Find(b)),"="))
@@ -134,7 +137,7 @@ func TestSetRAMandCPU(t *testing.T) {
 		if memSize != memorysize {
 			t.Fatalf("memory could not be set corretly %d", memSize)
 		}
-		vm.Close()
+		defer vm.Close()
 		linkedCloneVM.Close()
 	}else {
 		t.Fatalf("Error while splitting retrieved information from vboxmanage, memory in proper %s",result[1])
