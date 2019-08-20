@@ -8,7 +8,6 @@ import (
 	"context"
 	"math/rand"
 	"time"
-	"io"
 	"sync"
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/store"
@@ -82,7 +81,7 @@ type Lab interface {
 	RdpConnPorts() []uint
 	GetTag() string
 	InstanceInfo() []virtual.InstanceInfo
-	io.Closer
+	Close() error
 }
 
 type lab struct {
@@ -208,24 +207,26 @@ func (l *lab) Restart(ctx context.Context) error {
 	return nil
 }
 
-func (l *lab) Close() error {
+func (l *lab) Close() error{
 	var wg sync.WaitGroup
-
-	closer := func(c io.Closer) {
-		if err := c.Close(); err != nil {
-			log.Warn().Msgf("error while closing lab: %s", err)
-		}
-		wg.Done()
-	}
-
-	if l.environment != nil {
-		wg.Add(1)
-		go closer(l.environment)
-	}
-
+	 for _, lab  := range l.frontends {
+	 	wg.Add(1)
+	 	go func (){
+	 		// closing VMs....
+	 		defer wg.Done()
+			if err := lab.vm.Close(); err!=nil{
+				log.Error().Msgf("Error on Close function in lab.go %s",err)
+			}
+		}()
+	 }
+	 go func() {
+	 	// closing environment containers...
+		 if err := l.environment.Close(); err!=nil {
+			 log.Error().Msgf("Error while closing environment containers %s",err)
+		 }
+	 }()
 	wg.Wait()
-
-	return nil
+	 return nil
 }
 
 func (l *lab) RdpConnPorts() []uint {
