@@ -93,6 +93,8 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 				log.Warn().
 					Err(err).
 					Msg("Unable to find team by token")
+				/* Write error to user */
+				reportHttpError(w, "Unable to connect to lab: ", err)
 				return
 			}
 			fmt.Println(t)
@@ -104,6 +106,8 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 					Err(err).
 					Str("team-id ", t.Id).
 					Msg("Unable to get guac user for team")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("Lab is not ready, please try again in a couple of minutes"))
 				return
 			}
 
@@ -113,6 +117,7 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 					Err(err).
 					Str("team-id", t.Id).
 					Msg("Failed to login team to guacamole")
+				reportHttpError(w, "Unable to connect to lab: ", err)
 				return
 			}
 
@@ -120,4 +125,10 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			http.SetCookie(w, &authC)
 			http.Redirect(w, r, "/guacamole", http.StatusFound)
 		})
+}
+
+func reportHttpError(w http.ResponseWriter, msg string, err error) {
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Write([]byte(msg))
+	w.Write([]byte(err.Error()))
 }

@@ -307,8 +307,9 @@ func (ev *event) Handler() http.Handler {
 }
 
 func (ev *event) processQueue() error {
+	/* Check if we have labs to assign */
 	if ev.labhub.Available() == 0 {
-		return lab.CouldNotFindLabErr
+		return nil
 	}
 
 	select {
