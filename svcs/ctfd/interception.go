@@ -369,7 +369,12 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 			}
 
 			if err := updateRequest(r, &t); err != nil {
-				mods = append(mods, WithAppendErrors([]error{err}))
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("An error has occured, account could not be created\n\n"))
+				w.Write([]byte(err.Error()))
+				return
+
+				//mods = append(mods, WithAppendErrors([]error{err}))
 			}
 
 			resp, _ := recordAndServe(next, r, w, mods...)

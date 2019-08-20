@@ -291,6 +291,10 @@ func (ev *event) AssignLab(t *store.Team) error {
 
 func (ev *event) Handler() http.Handler {
 	reghook := func(t *store.Team) error {
+		if len(ev.labhub.GetLabs())+len(ev.teamQueue) >= ev.GetConfig().Capacity {
+			return lab.MaximumLabsErr
+		}
+
 		ev.teamQueue <- t
 		return ev.processQueue()
 	}
