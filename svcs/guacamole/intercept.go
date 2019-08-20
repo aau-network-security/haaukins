@@ -259,8 +259,6 @@ func (us *GuacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
 	defer us.m.RUnlock()
 
 	u, ok := us.teams[tid]
-	//fmt.Println(&u)
-	//fmt.Println(u)
 	if !ok {
 		return nil, UnknownTeamIdErr
 	}
@@ -317,7 +315,6 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 					Msg("Unable to get guac user for team")
 				w.WriteHeader(http.StatusServiceUnavailable)
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			// todo: NICE HTML RENDERING....
 				w.Write([]byte(waitingHTMLTemplate))
 				return
 			}
