@@ -209,25 +209,31 @@ func (l *lab) Restart(ctx context.Context) error {
 
 func (l *lab) Close() error{
 	var wg sync.WaitGroup
+
 	 for _, lab  := range l.frontends {
 	 	wg.Add(1)
-	 	go func (){
+	 	go func (vm vbox.VM){
 	 		// closing VMs....
 	 		defer wg.Done()
-			if err := lab.vm.Close(); err!=nil{
+			if err := vm.Close(); err!=nil{
 				log.Error().Msgf("Error on Close function in lab.go %s",err)
 			}
-		}()
+		}(lab.vm)
 	 }
-	 go func() {
+	wg.Add(1)
+	 go func(environment exercise.Environment) {
 	 	// closing environment containers...
-		 if err := l.environment.Close(); err!=nil {
+		 defer wg.Done()
+		 if err := environment.Close(); err!=nil {
 			 log.Error().Msgf("Error while closing environment containers %s",err)
 		 }
-	 }()
+
+	 }(l.environment)
 	wg.Wait()
 	 return nil
 }
+
+
 
 func (l *lab) RdpConnPorts() []uint {
 	var ports []uint
