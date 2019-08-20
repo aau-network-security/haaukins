@@ -176,7 +176,6 @@ func (h *hub) Close() error {
 	for _, l := range h.labs {
 		wg.Add(1)
 		go func(l Lab) {
-			log.Info().Msg("lab is closing function is called !")
 			if err := l.Close(); err != nil {
 				log.Warn().Msgf("error while closing hub: %s", err)
 			}
@@ -186,7 +185,6 @@ func (h *hub) Close() error {
 	for l := range h.buffer {
 		wg.Add(1)
 		go func(l Lab) {
-			log.Info().Msg("Buffer is closing function is called ! ")
 			if err := l.Close(); err != nil {
 				log.Warn().Msgf("error while closing hub: %s", err)
 			}

@@ -130,6 +130,7 @@ func (vm *vm) Start(ctx context.Context) error {
 func (vm *vm) Stop() error {
 	_, err := VBoxCmdContext(context.Background(), vboxCtrlVM, vm.id, "poweroff")
 	if err != nil {
+		log.Error().Msgf("Error while shutting down VM %s",err)
 		return err
 	}
 
