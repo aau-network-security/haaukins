@@ -461,7 +461,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}, nil
 }
 
-// todo: READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
+//READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
 func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFile) error {
 	ev, err := d.ehost.CreateEventFromEventFile(ctx, ef)
 	if err != nil {
@@ -473,7 +473,7 @@ func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFil
 	return nil
 }
 
-// todo: INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
+// INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 func (d *daemon) startEvent(ev event.Event) {
 	conf := ev.GetConfig()
 
@@ -505,7 +505,7 @@ func (l *GrpcLogger) Msg(msg string) error {
 	return l.resp.Send(&s)
 }
 
-// todo: DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
+// DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
 
@@ -580,18 +580,18 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	if err != nil {
 		return err
 	}
-
+	// retrieve tag of event from event pool
 	ev, err := d.eventPool.GetEvent(evtag)
 	if err != nil {
 		return err
 	}
-
+	// tag of the event is removed from eventPool
 	if err := d.eventPool.RemoveEvent(evtag); err != nil {
 		return err
 	}
 
 	ev.Close()
-	ev.Finish()
+	ev.Finish()  // Finishing and archiving event....
 	return nil
 }
 

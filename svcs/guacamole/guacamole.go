@@ -145,9 +145,8 @@ func (guac *guacamole) GetAdminPass() string {
 
 func (guac *guacamole) create(ctx context.Context) error {
 	containers := map[string]docker.Container{}
-
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
-		Image:     "guacamole/guacd",
+		Image:     "guacamole/guacd:1.0.0",
 		UseBridge: true,
 		Labels: map[string]string{
 			"hkn": "guacamole_guacd",
