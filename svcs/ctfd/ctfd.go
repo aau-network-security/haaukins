@@ -262,13 +262,13 @@ func (ctf *ctfd) configureInstance() error {
 	for id, flag := range ctf.conf.Flags {
 		value := ctf.flagPool.AddFlag(flag, id+1)
 
-		if err := ctf.createFlag(flag.Name, value, flag.Points); err != nil {
+		if err := ctf.createFlag(flag.Name, value.String(), flag.Points); err != nil {
 			return err
 		}
 
 		log.Debug().
 			Str("name", flag.Name).
-			Bool("static", flag.Static != "").
+			Bool("static", flag.StaticValue != "").
 			Uint("points", flag.Points).
 			Msg("Flag created")
 	}
@@ -488,7 +488,7 @@ func (t *team) create(fp *FlagPool) error {
 	defer resp.Body.Close()
 
 	for _, chal := range t.conf.SolvedChallenges {
-		if err := t.solve(fp, chal.FlagTag); err != nil {
+		if err := t.solve(fp, chal.Tag); err != nil {
 			return err
 		}
 	}
@@ -502,7 +502,7 @@ func (t *team) solve(fp *FlagPool, tag store.Tag) error {
 		return err
 	}
 
-	flagval, err := fp.GetFlagByTag(tag)
+	flag, err := fp.GetFlagByTag(tag)
 	if err != nil {
 		return err
 	}
@@ -518,7 +518,7 @@ func (t *team) solve(fp *FlagPool, tag store.Tag) error {
 	w := multipart.NewWriter(body)
 
 	values := map[string]string{
-		"key":   flagval,
+		"key":   flag.String(),
 		"nonce": nonce,
 	}
 

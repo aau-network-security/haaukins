@@ -7,8 +7,8 @@ package ctfd
 import (
 	"sync"
 
+	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/store"
-	"github.com/google/uuid"
 )
 
 type FlagPool struct {
@@ -18,13 +18,13 @@ type FlagPool struct {
 }
 
 type activeFlagConfig struct {
-	CTFdFlag       string
+	CTFdFlag       haaukins.Flag
 	CTFdIdentifier int
 	store.FlagConfig
 }
 
 func (afc *activeFlagConfig) IsStatic() bool {
-	return afc.FlagConfig.Static != ""
+	return afc.FlagConfig.StaticValue != ""
 }
 
 func NewFlagPool() *FlagPool {
@@ -34,21 +34,22 @@ func NewFlagPool() *FlagPool {
 	}
 }
 
-func (fp *FlagPool) AddFlag(flag store.FlagConfig, cid int) string {
+func (fp *FlagPool) AddFlag(conf store.FlagConfig, cid int) haaukins.Flag {
 	fp.m.Lock()
 	defer fp.m.Unlock()
 
-	value := flag.Static
-	if value == "" {
-		value = uuid.New().String()
+	var flag haaukins.Flag
+	flag, _ = haaukins.NewFlagStatic(conf.StaticValue)
+	if conf.StaticValue == "" {
+		flag = haaukins.NewFlagShort()
 	}
 
-	fconf := activeFlagConfig{value, cid, flag}
+	fconf := activeFlagConfig{flag, cid, conf}
 
-	fp.tags[flag.Tag] = &fconf
+	fp.tags[conf.Tag] = &fconf
 	fp.ids[cid] = &fconf
 
-	return value
+	return flag
 }
 
 func (fp *FlagPool) GetIdentifierByTag(t store.Tag) (int, error) {
@@ -63,13 +64,13 @@ func (fp *FlagPool) GetIdentifierByTag(t store.Tag) (int, error) {
 	return conf.CTFdIdentifier, nil
 }
 
-func (fp *FlagPool) GetFlagByTag(t store.Tag) (string, error) {
+func (fp *FlagPool) GetFlagByTag(t store.Tag) (haaukins.Flag, error) {
 	fp.m.RLock()
 	defer fp.m.RUnlock()
 
 	conf, ok := fp.tags[t]
 	if !ok {
-		return "", store.UnknownChallengeErr
+		return nil, store.UnknownChallengeErr
 	}
 
 	return conf.CTFdFlag, nil
@@ -97,12 +98,12 @@ func (fp *FlagPool) TranslateFlagForTeam(t store.Team, cid int, value string) st
 	}
 
 	if chal.IsStatic() {
-		return chal.CTFdFlag
+		return chal.CTFdFlag.String()
 	}
 
 	if err := t.IsCorrectFlag(chal.Tag, value); err != nil {
 		return ""
 	}
 
-	return chal.CTFdFlag
+	return chal.CTFdFlag.String()
 }

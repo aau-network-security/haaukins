@@ -276,7 +276,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			}
 
 			if n := rand.Intn(1); n > 0 {
-				flag.Static = uuid.New().String()
+				flag.StaticValue = uuid.New().String()
 			}
 
 			flags = append(flags, flag)
@@ -288,7 +288,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			EnvVar: "tst",
 		}
 		if static {
-			flag.Static = value
+			flag.StaticValue = value
 		}
 
 		flags = append(flags, flag)
@@ -302,7 +302,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			flag := flags[i]
 			ctfval := fp.AddFlag(flag, v)
 			if flag.Tag == flagtag {
-				ctfdValue = ctfval
+				ctfdValue = ctfval.String()
 			}
 		}
 
@@ -349,7 +349,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 			req.AddCookie(&http.Cookie{Name: "session", Value: knownSession})
 
 			if tc.flagValue != "" {
-				team.AddChallenge(store.Challenge{FlagTag: flagtag, FlagValue: tc.flagValue})
+				team.AddChallenge(store.Challenge{Tag: flagtag, Flag: tc.flagValue})
 				ts.SaveTeam(team)
 			}
 
@@ -402,7 +402,7 @@ func TestCheckFlagInterceptor(t *testing.T) {
 
 			inSolvedChallenges := false
 			for _, c := range team.SolvedChallenges {
-				if c.FlagTag == flagtag {
+				if c.Tag == flagtag {
 					inSolvedChallenges = true
 					break
 				}
