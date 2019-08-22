@@ -18,13 +18,10 @@ import (
 func TestVerifyFlag(t *testing.T) {
 	skey := "someTestingKey"
 	validFlag := haaukins.Flag(uuid.New())
-	teams := []*haaukins.Team{
-		haaukins.NewTeam("test@aau.dk", "TesterTeam", "secretpass", map[haaukins.Flag]haaukins.Challenge{
-			validFlag: haaukins.Challenge{},
-		}),
-	}
+	team := haaukins.NewTeam("test@aau.dk", "TesterTeam", "secretpass")
+	team.AddChallenge(haaukins.Challenge{}, validFlag)
 
-	validToken, err := amigo.GetTokenForTeam([]byte(skey), teams[0])
+	validToken, err := amigo.GetTokenForTeam([]byte(skey), team)
 	if err != nil {
 		t.Fatalf("unable to get token: %s", err)
 	}
@@ -73,7 +70,7 @@ func TestVerifyFlag(t *testing.T) {
 		Status string `json:"status"`
 	}
 
-	ts := store.NewTeamStore(teams...)
+	ts := store.NewTeamStore(team)
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			am := amigo.NewAmigo(ts, skey, tc.opts...)
@@ -83,6 +80,7 @@ func TestVerifyFlag(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not create request: %s", err)
 			}
+			req.Header.Add("Content-Type", "application/json")
 			if tc.cookie != nil {
 				req.AddCookie(tc.cookie)
 			}
@@ -111,7 +109,7 @@ func TestVerifyFlag(t *testing.T) {
 			}
 
 			if r.Err != "" {
-				t.Fatalf("expexted no errors to occur, but received: %s", r.Err)
+				t.Fatalf("expected no errors to occur, but received: %s", r.Err)
 			}
 
 			if r.Status != "ok" {

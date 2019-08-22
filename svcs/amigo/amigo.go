@@ -4,28 +4,46 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"text/template"
+	"time"
 
 	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/google/uuid"
 )
 
 const (
-	ID_KEY = "I"
+	ID_KEY       = "I"
+	TEAMNAME_KEY = "TN"
 )
 
 var (
-	ErrReadBodyTooLarge   = errors.New("request body is too large")
-	ErrUnauthorized       = errors.New("requires authentication")
-	ErrInvalidTokenFormat = errors.New("invalid token format")
-	ErrInvalidFlag        = errors.New("invalid flag")
+	ErrReadBodyTooLarge     = errors.New("request body is too large")
+	ErrUnauthorized         = errors.New("requires authentication")
+	ErrInvalidTokenFormat   = errors.New("invalid token format")
+	ErrInvalidFlag          = errors.New("invalid flag")
+	ErrIncorrectCredentials = errors.New("Credentials does not match")
 )
+
+type siteInfo struct {
+	EventName string
+	Team      *team
+	Content   interface{}
+}
+
+type team struct {
+	Id   string
+	Name string
+}
 
 type Amigo struct {
 	maxReadBytes int64
 	signingKey   []byte
+	cookieTTL    int
+	globalInfo   siteInfo
+	challenges   []haaukins.Challenge
 	teamStore    store.TeamStore
 }
 
@@ -37,11 +55,16 @@ func WithMaxReadBytes(b int64) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.TeamStore, key string, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.TeamStore, chals []haaukins.Challenge, key string, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(key),
+		challenges:   chals,
+		cookieTTL:    int((7 * 24 * time.Hour).Seconds()), // A week
 		teamStore:    ts,
+		globalInfo: siteInfo{
+			EventName: "Test Event",
+		},
 	}
 
 	for _, opt := range opts {
@@ -51,10 +74,62 @@ func NewAmigo(ts store.TeamStore, key string, opts ...AmigoOpt) *Amigo {
 	return am
 }
 
+func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
+	info := am.globalInfo
+
+	c, err := r.Cookie("session")
+	if err != nil {
+		return info
+	}
+
+	team, err := am.getTeamInfoFromToken(c.Value)
+	if err != nil {
+		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
+		return info
+	}
+
+	info.Team = team
+	return info
+}
+
 func (am *Amigo) Handler() http.Handler {
+	sb := newScoreboard(am.teamStore, am.challenges...)
+	go sb.run()
 	m := http.NewServeMux()
+
+	m.HandleFunc("/", am.handleIndex())
+	m.HandleFunc("/signup", am.handleSignup())
+	m.HandleFunc("/login", am.handleLogin())
+	m.HandleFunc("/logout", am.handleLogout())
+	m.HandleFunc("/scores", sb.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+
+	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir("/home/tpanum/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/public"))))
+
 	return m
+}
+
+func (am *Amigo) handleIndex() http.HandlerFunc {
+	tmpl, err := template.ParseFiles(
+		"resources/private/base.tmpl.html",
+		"resources/private/navbar.tmpl.html",
+		"resources/private/index.tmpl.html",
+	)
+	if err != nil {
+		log.Println("error index tmpl: ", err)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		data := am.getSiteInfo(w, r)
+		if err := tmpl.Execute(w, data); err != nil {
+			log.Println("template err index: ", err)
+		}
+	}
 }
 
 func (am *Amigo) handleFlagVerify() http.HandlerFunc {
@@ -66,7 +141,7 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 		Status string `json:"status"`
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
 		team, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			replyJsonRequestErr(w, err)
@@ -79,12 +154,11 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 			return
 		}
 
-		uid, err := uuid.Parse(msg.Flag)
+		flag, err := haaukins.NewFlagFromString(msg.Flag)
 		if err != nil {
 			replyJson(http.StatusOK, w, errReply{ErrInvalidFlag.Error()})
 			return
 		}
-		flag := haaukins.Flag(uid)
 
 		if err := team.VerifyFlag(flag); err != nil {
 			replyJson(http.StatusOK, w, errReply{err.Error()})
@@ -93,6 +167,246 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+func (am *Amigo) handleSignup() http.HandlerFunc {
+	get := am.handleSignupGET()
+	post := am.handleSignupPOST()
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			get(w, r)
+			return
+
+		case http.MethodPost:
+			post(w, r)
+			return
+		}
+
+		http.NotFound(w, r)
+	}
+}
+
+func (am *Amigo) handleSignupGET() http.HandlerFunc {
+	tmpl, err := template.ParseFiles(
+		"resources/private/base.tmpl.html",
+		"resources/private/navbar.tmpl.html",
+		"resources/private/signup.tmpl.html",
+	)
+	if err != nil {
+		log.Println("error index tmpl: ", err)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := tmpl.Execute(w, am.globalInfo); err != nil {
+			log.Println("template err signup: ", err)
+		}
+	}
+}
+
+func (am *Amigo) handleSignupPOST() http.HandlerFunc {
+	tmpl, err := template.ParseFiles(
+		"resources/private/base.tmpl.html",
+		"resources/private/navbar.tmpl.html",
+		"resources/private/signup.tmpl.html",
+	)
+	if err != nil {
+		log.Println("error index tmpl: ", err)
+	}
+
+	type signupData struct {
+		Email       string
+		TeamName    string
+		Password    string
+		SignupError string
+	}
+
+	readParams := func(r *http.Request) (signupData, error) {
+		data := signupData{
+			Email:    r.PostFormValue("email"),
+			TeamName: r.PostFormValue("team-name"),
+			Password: r.PostFormValue("password"),
+		}
+
+		if data.Email == "" {
+			return data, fmt.Errorf("Email cannot be empty")
+		}
+
+		if data.TeamName == "" {
+			return data, fmt.Errorf("Team Name cannot be empty")
+		}
+
+		if len(data.Password) <= 5 {
+			return data, fmt.Errorf("Password needs to be at least six characters")
+		}
+
+		if data.Password != r.PostFormValue("password-repeat") {
+			return data, fmt.Errorf("Password needs to match")
+		}
+
+		return data, nil
+	}
+
+	displayErr := func(w http.ResponseWriter, params signupData, err error) {
+		tmplData := am.globalInfo
+		params.SignupError = err.Error()
+		tmplData.Content = params
+		if err := tmpl.Execute(w, tmplData); err != nil {
+			log.Println("template err signup: ", err)
+		}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, am.maxReadBytes)
+		params, err := readParams(r)
+		if err != nil {
+			displayErr(w, params, err)
+			return
+		}
+
+		t := haaukins.NewTeam(params.Email, params.TeamName, params.Password)
+
+		// assign lab !!!
+
+		if err := am.teamStore.SaveTeam(t); err != nil {
+			displayErr(w, params, err)
+			return
+		}
+
+		if err := am.loginTeam(w, r, t); err != nil {
+			displayErr(w, params, err)
+			return
+		}
+	}
+}
+
+func (am *Amigo) handleLogin() http.HandlerFunc {
+	get := am.handleLoginGET()
+	post := am.handleLoginPOST()
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			get(w, r)
+			return
+
+		case http.MethodPost:
+			post(w, r)
+			return
+		}
+
+		http.NotFound(w, r)
+	}
+}
+
+func (am *Amigo) handleLoginGET() http.HandlerFunc {
+	tmpl, err := template.ParseFiles(
+		"resources/private/base.tmpl.html",
+		"resources/private/navbar.tmpl.html",
+		"resources/private/login.tmpl.html",
+	)
+	if err != nil {
+		log.Println("error login tmpl: ", err)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := tmpl.Execute(w, am.globalInfo); err != nil {
+			log.Println("template err login: ", err)
+		}
+	}
+}
+
+func (am *Amigo) handleLoginPOST() http.HandlerFunc {
+	tmpl, err := template.ParseFiles(
+		"resources/private/base.tmpl.html",
+		"resources/private/navbar.tmpl.html",
+		"resources/private/login.tmpl.html",
+	)
+	if err != nil {
+		log.Println("error login tmpl: ", err)
+	}
+
+	type loginData struct {
+		Email      string
+		Password   string
+		LoginError string
+	}
+
+	readParams := func(r *http.Request) (loginData, error) {
+		data := loginData{
+			Email:    r.PostFormValue("email"),
+			Password: r.PostFormValue("password"),
+		}
+
+		if data.Email == "" {
+			return data, fmt.Errorf("Email cannot be empty")
+		}
+
+		if data.Password == "" {
+			return data, fmt.Errorf("Password cannot be empty")
+		}
+
+		return data, nil
+	}
+
+	displayErr := func(w http.ResponseWriter, params loginData, err error) {
+		tmplData := am.globalInfo
+		params.LoginError = err.Error()
+		tmplData.Content = params
+		if err := tmpl.Execute(w, tmplData); err != nil {
+			log.Println("template err login: ", err)
+		}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, am.maxReadBytes)
+		params, err := readParams(r)
+		if err != nil {
+			displayErr(w, params, err)
+			return
+		}
+
+		t, err := am.teamStore.GetTeamByEmail(params.Email)
+		if err != nil {
+			displayErr(w, params, ErrIncorrectCredentials)
+			return
+		}
+
+		if t.IsPasswordEqual(params.Password) == false {
+			displayErr(w, params, ErrIncorrectCredentials)
+			return
+		}
+
+		if err := am.loginTeam(w, r, t); err != nil {
+			displayErr(w, params, err)
+			return
+		}
+	}
+}
+
+func (am *Amigo) handleLogout() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
+}
+
+func (am *Amigo) loginTeam(w http.ResponseWriter, r *http.Request, t *haaukins.Team) error {
+	token, err := GetTokenForTeam(am.signingKey, t)
+	if err != nil {
+		return err
+	}
+
+	http.SetCookie(w, &http.Cookie{Name: "session", Value: token, MaxAge: am.cookieTTL})
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+	return nil
 }
 
 func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*haaukins.Team, error) {
@@ -100,40 +414,20 @@ func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*ha
 	if err != nil {
 		return nil, ErrUnauthorized
 	}
-	token := c.Value
 
-	replyErr := func(err error) (*haaukins.Team, error) {
-		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: 0})
+	team, err := am.getTeamInfoFromToken(c.Value)
+	if err != nil {
+		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
 		return nil, err
 	}
 
-	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return am.signingKey, nil
-	})
+	t, err := am.teamStore.GetTeamByID(team.Id)
 	if err != nil {
-		return replyErr(err)
+		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
+		return nil, err
 	}
 
-	claims, ok := jwtToken.Claims.(jwt.MapClaims)
-	if !ok || !jwtToken.Valid {
-		return replyErr(ErrInvalidTokenFormat)
-	}
-
-	id, ok := claims[ID_KEY].(string)
-	if !ok {
-		return replyErr(ErrInvalidTokenFormat)
-	}
-
-	team, err := am.teamStore.GetTeamByID(id)
-	if err != nil {
-		return replyErr(err)
-	}
-
-	return team, nil
+	return t, nil
 }
 
 func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes int64) error {
@@ -169,7 +463,8 @@ func replyJsonRequestErr(w http.ResponseWriter, err error) error {
 
 func GetTokenForTeam(key []byte, t *haaukins.Team) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		ID_KEY: t.Id,
+		ID_KEY:       t.ID(),
+		TEAMNAME_KEY: t.Name(),
 	})
 
 	tokenStr, err := token.SignedString(key)
@@ -178,4 +473,66 @@ func GetTokenForTeam(key []byte, t *haaukins.Team) (string, error) {
 	}
 
 	return tokenStr, nil
+}
+
+func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
+	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return am.signingKey, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := jwtToken.Claims.(jwt.MapClaims)
+	if !ok || !jwtToken.Valid {
+		return nil, ErrInvalidTokenFormat
+	}
+
+	id, ok := claims[ID_KEY].(string)
+	if !ok {
+		return nil, ErrInvalidTokenFormat
+	}
+
+	name, ok := claims[TEAMNAME_KEY].(string)
+	if !ok {
+		return nil, ErrInvalidTokenFormat
+	}
+
+	return &team{Id: id, Name: name}, nil
+}
+
+type Middleware func(http.HandlerFunc) http.HandlerFunc
+
+func GETEndpoint(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func POSTEndpoint(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
 }

@@ -1,0 +1,36 @@
+{{ define "navbar" }}
+<nav id="mainbar" class="navbar" role="navigation" aria-label="main navigation">
+    <div class="container">
+	<div class="navbar-brand">
+	    <a class="navbar-item" href="/">
+		{{ .EventName }}
+	    </a>
+	</div>
+	<div class="navbar-menu">
+	    <div class="navbar-end">
+		{{ if .Team}}
+		<div class="navbar-item">
+		    <p>{{ .Team.Name }}</p>
+		    <div class="buttons">
+			<a class="button is-light" href="/logout">
+			    Logout
+			</a>
+		    </div>
+		</div>
+		{{ else }}
+		<div class="navbar-item">
+		    <div class="buttons">
+			<a class="button is-primary" href="/signup">
+			    <strong>Sign up</strong>
+			</a>
+			<a class="button is-light" href="/login">
+			    Log in
+			</a>
+		    </div>
+		</div>
+		{{ end }}
+	    </div>
+	</div>
+    </div>
+</nav>
+{{end}}

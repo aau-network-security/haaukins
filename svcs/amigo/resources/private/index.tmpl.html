@@ -1,0 +1,25 @@
+{{ define "content" }}
+<section class="section">
+    <div class="container">
+	{{ if .Team}}
+	<div id="flagbox" class="centerbox has-text-centered">
+	    <h1 class="title">Check your flag</h1>
+	    <div id="flagchecker"></div>
+	    <p class="help">Submit the flags you find in the field above to complete a challenge</p>
+	</div>
+	{{ else }}
+	<h1 class="title">
+	    Welcome!
+	</h1>
+	<p class="subtitle">
+	    Currently there is <strong>2 teams</strong> working on <strong>4 exercises</strong> and <strong>Testerz</strong> seems to be in the lead!
+	</p>
+	{{ end }}
+    </div>
+</section>
+<section class="section">
+    <div class="container">
+	<div id="scoreboard"></div>
+    </div>
+</section>
+{{ end }}

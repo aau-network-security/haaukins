@@ -1,0 +1,71 @@
+@charset "utf-8";
+
+// theme colors
+$aaublue1: #211A52;
+$aaublue2: #3a3489;
+$aaublue3: #594fbf;
+$aauorange: #FF9900;
+
+$silver: #c9c9c9;
+$bronze: #cc861d;
+
+$bulmalightgrey: #dbdbdb;
+
+// update bulma colors
+$primary: $aauorange;
+$link: $aauorange;
+
+.is-silver {
+    color: $silver !important;
+}
+
+.is-bronze {
+    color: $bronze !important;
+}
+
+#mainbar {
+    background: $aaublue1;
+
+    .navbar-item {
+	color: #fff;
+    }
+}
+
+$footerheight: 6rem;
+
+#content {
+    padding-bottom: $footerheight;
+
+    .form {
+	padding: 30px;
+	max-width: 460px;
+	margin: 0 auto;
+	border: 1px solid $bulmalightgrey;
+	border-radius: 12px;
+    }
+
+    .centerbox {
+	border: 1px solid $bulmalightgrey;
+	border-radius: 4px;
+	margin: 0 auto;
+    }
+
+    #flagbox {
+	max-width: 500px;
+	padding: 20px;
+    }
+}
+
+footer {
+    padding: 0 !important;
+    position: absolute;
+    bottom: 0;
+    height: $footerheight;
+    width: 100%;
+
+    p {
+	padding: 1.5rem 0;
+    }
+}
+
+@import "./bulma-0.7.5/bulma.sass";
