@@ -4,252 +4,219 @@
 
 package lab
 
-import (
-	"context"
-	"testing"
-	"time"
+// type testLabHost struct {
+// 	lab Lab
+// 	LabHost
+// }
 
-	"github.com/aau-network-security/haaukins/virtual/vbox"
-)
+// func (lh *testLabHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
+// 	return lh.lab, nil
+// }
 
-type testLabHost struct {
-	lab Lab
-	LabHost
-}
+// type testLab struct {
+// 	started bool
+// 	closed  bool
+// 	Lab
+// }
 
-func (lh *testLabHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
-	return lh.lab, nil
-}
+// func (lab *testLab) Start(ctx context.Context) error {
+// 	lab.started = true
+// 	return nil
+// }
 
-type testLab struct {
-	started bool
-	closed  bool
-	Lab
-}
+// func (lab *testLab) Close() error {
+// 	lab.closed = true
+// 	return nil
+// }
 
-func (lab *testLab) Start(ctx context.Context) error {
-	lab.started = true
-	return nil
-}
+// func TestHub_addLab(t *testing.T) {
+// 	tt := []struct {
+// 		name         string
+// 		capacity     int
+// 		expectedErr  error
+// 		expectedLabs int32
+// 	}{
+// 		{
+// 			name:         "Normal",
+// 			capacity:     1,
+// 			expectedErr:  nil,
+// 			expectedLabs: 1,
+// 		},
+// 		{
+// 			name:         "Maximum labs reached",
+// 			capacity:     0,
+// 			expectedErr:  MaximumLabsErr,
+// 			expectedLabs: 0,
+// 		},
+// 	}
 
-func (lab *testLab) Close() error {
-	lab.closed = true
-	return nil
-}
+// 	for _, tc := range tt {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			ms := newSemaphore(tc.capacity)
+// 			cs := newSemaphore(tc.capacity)
+// 			lab := testLab{}
+// 			lh := testLabHost{
+// 				lab: &lab,
+// 			}
+// 			hub := hub{
+// 				maximumSema: ms,
+// 				createSema:  cs,
+// 				labHost:     &lh,
+// 				buffer:      make(chan Lab, tc.capacity),
+// 			}
 
+// 			if err := hub.addLab(); err != tc.expectedErr {
+// 				t.Fatalf("Expected error %s, but got %s", tc.expectedErr, err)
+// 			}
 
-func TestHub_addLab(t *testing.T) {
-	tt := []struct {
-		name         string
-		capacity     int
-		expectedErr  error
-		expectedLabs int32
-	}{
-		{
-			name:         "Normal",
-			capacity:     1,
-			expectedErr:  nil,
-			expectedLabs: 1,
-		},
-		{
-			name:         "Maximum labs reached",
-			capacity:     0,
-			expectedErr:  MaximumLabsErr,
-			expectedLabs: 0,
-		},
-	}
+// 			if hub.Available() != tc.expectedLabs {
+// 				t.Fatalf("Expected %d available lab(s), but is %d", tc.expectedLabs, hub.Available())
+// 			}
 
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			ms := newSemaphore(tc.capacity)
-			cs := newSemaphore(tc.capacity)
-			lab := testLab{}
-			lh := testLabHost{
-				lab: &lab,
-			}
-			hub := hub{
-				maximumSema: ms,
-				createSema:  cs,
-				labHost:     &lh,
-				buffer:      make(chan Lab, tc.capacity),
-			}
+// 			if tc.expectedErr == nil && !lab.started {
+// 				t.Fatalf("Expected lab to be started, but it didn't")
+// 			}
+// 		})
+// 	}
 
-			if err := hub.addLab(); err != tc.expectedErr {
-				t.Fatalf("Expected error %s, but got %s", tc.expectedErr, err)
-			}
+// }
 
-			if hub.Available() != tc.expectedLabs {
-				t.Fatalf("Expected %d available lab(s), but is %d", tc.expectedLabs, hub.Available())
-			}
+// func TestHub_Get(t *testing.T) {
+// 	tt := []struct {
+// 		name              string
+// 		cap               int
+// 		start             int
+// 		getCount          int
+// 		expectedAvailable int32
+// 		expectedErr       error
+// 	}{
+// 		{
+// 			name:              "Normal",
+// 			cap:               5,
+// 			start:             5,
+// 			getCount:          5,
+// 			expectedAvailable: 0,
+// 			expectedErr:       MaximumLabsErr,
+// 		},
+// 		{
+// 			name:              "Buffer works",
+// 			cap:               15,
+// 			start:             10,
+// 			getCount:          4,
+// 			expectedAvailable: 6,
+// 			expectedErr:       nil,
+// 		},
+// 		{
+// 			name:              "Capacity hit",
+// 			cap:               12,
+// 			start:             10,
+// 			getCount:          10,
+// 			expectedAvailable: 2,
+// 			expectedErr:       nil,
+// 		},
+// 		{
+// 			name:              "Buffer larger than initial size",
+// 			cap:               10,
+// 			start:             3,
+// 			getCount:          1,
+// 			expectedAvailable: 3,
+// 			expectedErr:       nil,
+// 		},
+// 	}
 
-			if tc.expectedErr == nil && !lab.started {
-				t.Fatalf("Expected lab to be started, but it didn't")
-			}
-		})
-	}
+// 	for _, tc := range tt {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			ms := newSemaphore(tc.cap)
+// 			cs := newSemaphore(tc.cap)
+// 			lh := testLabHost{
+// 				lab: &testLab{},
+// 			}
+// 			hub := hub{
+// 				maximumSema: ms,
+// 				createSema:  cs,
+// 				labHost:     &lh,
+// 				buffer:      make(chan Lab, tc.start),
+// 			}
+// 			for i := 0; i < tc.start; i++ {
+// 				hub.addLab()
+// 			}
 
-}
+// 			for i := 0; i < tc.getCount; i++ {
+// 				if _, err := hub.Get(); err != nil {
+// 					t.Fatalf("Unexpected error: %s", err)
+// 				}
+// 			}
 
-func TestHub_Get(t *testing.T) {
-	tt := []struct {
-		name              string
-		cap               int
-		start             int
-		getCount          int
-		expectedAvailable int32
-		expectedErr       error
-	}{
-		{
-			name:              "Normal",
-			cap:               5,
-			start:             5,
-			getCount:          5,
-			expectedAvailable: 0,
-			expectedErr:       MaximumLabsErr,
-		},
-		{
-			name:              "Buffer works",
-			cap:               15,
-			start:             10,
-			getCount:          4,
-			expectedAvailable: 6,
-			expectedErr:       nil,
-		},
-		{
-			name:              "Capacity hit",
-			cap:               12,
-			start:             10,
-			getCount:          10,
-			expectedAvailable: 2,
-			expectedErr:       nil,
-		},
-		{
-			name:              "Buffer larger than initial size",
-			cap:               10,
-			start:             3,
-			getCount:          1,
-			expectedAvailable: 3,
-			expectedErr:       nil,
-		},
-	}
+// 			time.Sleep(1 * time.Millisecond)
 
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			ms := newSemaphore(tc.cap)
-			cs := newSemaphore(tc.cap)
-			lh := testLabHost{
-				lab: &testLab{},
-			}
-			hub := hub{
-				maximumSema: ms,
-				createSema:  cs,
-				labHost:     &lh,
-				buffer:      make(chan Lab, tc.start),
-			}
-			for i := 0; i < tc.start; i++ {
-				hub.addLab()
-			}
+// 			if hub.Available() != tc.expectedAvailable {
+// 				t.Fatalf("Expected %d labs available, but go %d", tc.expectedAvailable, hub.Available())
+// 			}
 
-			for i := 0; i < tc.getCount; i++ {
-				if _, err := hub.Get(); err != nil {
-					t.Fatalf("Unexpected error: %s", err)
-				}
-			}
+// 			if _, err := hub.Get(); err != tc.expectedErr {
+// 				t.Fatalf("Expected error '%s', but got '%s'", tc.expectedErr, err)
+// 			}
 
-			time.Sleep(1 * time.Millisecond)
+// 		})
+// 	}
+// }
 
-			if hub.Available() != tc.expectedAvailable {
-				t.Fatalf("Expected %d labs available, but go %d", tc.expectedAvailable, hub.Available())
-			}
+// type TestLogger struct {
+// 	count int
+// }
 
-			if _, err := hub.Get(); err != tc.expectedErr {
-				t.Fatalf("Expected error '%s', but got '%s'", tc.expectedErr, err)
-			}
+// func (l *TestLogger) Msg(msg string) error {
+// 	l.count++
+// 	return nil
+// }
 
-		})
-	}
-}
+// func TestNewHub(t *testing.T) {
+// 	h := NewHub(nil, Config{}, nil, avail, cap, WithLabHost(lh LabHost))
 
+// }
 
-type TestLogger struct {
-	count int
-}
+// func TestHub_Close(t *testing.T) {
+// 	ms := newSemaphore(2)
+// 	cs := newSemaphore(3)
+// 	hub := hub{
+// 		maximumSema: ms,
+// 		createSema:  cs,
+// 		buffer:      make(chan Lab, 2),
+// 		ctx:         context.Background(),
+// 	}
 
-func (l *TestLogger) Msg(msg string) error  {
-     l.count++
-     return nil
-}
+// 	firstLab := testLab{}
+// 	secondLab := testLab{}
 
-func TestNewHub(t *testing.T){
-	l := &TestLogger{}
-	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
-	ms := newSemaphore(5)
-	cs := newSemaphore(6)
+// 	labs := []Lab{&firstLab, &secondLab}
+// 	for _, l := range labs {
+// 		lh := testLabHost{
+// 			lab: l,
+// 		}
+// 		hub.labHost = &lh
+// 		hub.addLab()
+// 	}
 
-	h := &hub{
-		maximumSema:ms,
-		createSema:cs,
-		ctx:ctx,
-		buffer:make(chan Lab,5),
-		vboxLib:nil,
-		labHost:&testLabHost{
-			lab:&testLab{},
-		},
-		numbLabs:BUFFERSIZE,
-	}
-	available:=5
-	if err:=h.init(ctx,available); err!=nil {
-		t.Fatalf("Error on init function ! %d ",l.count)
-	}
-	// +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
-	if l.count !=  available+1{
-		t.Fatalf("Something wrong with the implementation ! %d ",l.count)
-	}
-}
+// 	_, err := hub.Get()
+// 	if err != nil {
+// 		t.Fatalf("Unexpected error: %s", err)
+// 	}
 
+// 	if !firstLab.started {
+// 		t.Fatalf("Expected the first lab to be started, but it isn't")
+// 	}
 
-func TestHub_Close(t *testing.T) {
-	ms := newSemaphore(2)
-	cs := newSemaphore(3)
-	hub := hub{
-		maximumSema: ms,
-		createSema:  cs,
-		buffer:      make(chan Lab, 2),
-		ctx:         context.Background(),
-	}
+// 	hub.Close()
 
-	firstLab := testLab{}
-	secondLab := testLab{}
+// 	if !firstLab.closed {
+// 		t.Fatalf("Expected the first lab to be closed, but it isn't")
+// 	}
 
-	labs := []Lab{&firstLab, &secondLab}
-	for _, l := range labs {
-		lh := testLabHost{
-			lab: l,
-		}
-		hub.labHost = &lh
-		hub.addLab()
-	}
+// 	if !secondLab.closed {
+// 		t.Fatalf("Expected the second lab to be closed, but it isn't")
+// 	}
 
-	_, err := hub.Get()
-	if err != nil {
-		t.Fatalf("Unexpected error: %s", err)
-	}
-
-	if !firstLab.started {
-		t.Fatalf("Expected the first lab to be started, but it isn't")
-	}
-
-	hub.Close()
-
-	if !firstLab.closed {
-		t.Fatalf("Expected the first lab to be closed, but it isn't")
-	}
-
-	if !secondLab.closed {
-		t.Fatalf("Expected the second lab to be closed, but it isn't")
-	}
-
-	if len(hub.buffer) != 0 {
-		t.Fatalf("Expected the hub buffer to be empty, but it isn't")
-	}
-}
+// 	if len(hub.buffer) != 0 {
+// 		t.Fatalf("Expected the hub buffer to be empty, but it isn't")
+// 	}
+// }

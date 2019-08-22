@@ -7,28 +7,27 @@ package lab
 import (
 	"context"
 	"errors"
-	"github.com/aau-network-security/haaukins/logging"
+
+	"io"
+	"sync"
 
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"io"
-	"sync"
-	"sync/atomic"
 )
 
 var (
 	AvailableSizeErr   = errors.New("Available cannot be larger than capacity")
 	MaximumLabsErr     = errors.New("Maximum amount of labs reached")
+	NoLabsAvailableErr = errors.New("No labs available at the moment")
 	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
 )
 
 const BUFFERSIZE = 5
 
-
 type Hub interface {
 	Get() (Lab, error)
-	Available() int32
+	Available() int
 	Flags() []store.FlagConfig
 	GetLabs() []Lab
 	GetLabByTag(tag string) (Lab, error)
@@ -37,148 +36,142 @@ type Hub interface {
 }
 
 type hub struct {
+	m sync.Mutex // for lab []Lab
+
 	vboxLib vbox.Library
 	conf    Config
 	labHost LabHost
+	labs    []Lab
 
-	m           sync.Mutex
-	createSema  *semaphore
-	maximumSema *semaphore
-	ctx         context.Context
-
-	labs     []Lab
-	buffer   chan Lab
-	numbLabs int32
+	queue  chan Lab
+	ready  chan struct{}
+	stop   chan struct{}
+	hooksC chan func() error
 
 	hooks []func() error
 }
 
-func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available int, cap int) (Hub, error) {
+type hubOpt func(*hub)
+
+func WithLabHost(lh LabHost) func(*hub) {
+	return func(h *hub) {
+		h.labHost = lh
+	}
+}
+
+func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available int, cap int, opts ...hubOpt) (*hub, error) {
 	if available > cap {
 		return nil, AvailableSizeErr
 	}
-	createLimit := 3
+
+	var hooks []func() error
+	hooksC := make(chan func() error)
+	queue := make(chan Lab, available)
+	ready := make(chan struct{})
+	stop := make(chan struct{})
+
+	var n int
+	go func() {
+		defer close(ready)
+
+		for {
+			select {
+			case ready <- struct{}{}:
+				n += 1
+				if n == cap {
+					return
+				}
+
+			case <-stop:
+				return
+
+			case hook := <-hooksC:
+				hooks = append(hooks, hook)
+			}
+		}
+	}()
+
 	h := &hub{
-		labs:        []Lab{},
-		conf:        conf,
-		createSema:  newSemaphore(createLimit),
-		maximumSema: newSemaphore(cap),
-		ctx:         context.Background(),
-		buffer:      make(chan Lab, available),
-		vboxLib:     vboxLib,
-		labHost:     &labHost{},
-		hooks:       []func() error{},
+		conf:    conf,
+		vboxLib: vboxLib,
+		labHost: &labHost{},
+		hooks:   hooks,
+
+		queue:  queue,
+		ready:  ready,
+		stop:   stop,
+		hooksC: hooksC,
 	}
-	h.init(ctx, available)
+
+	for i := 0; i < 2; i++ {
+		go h.addWorker()
+	}
 
 	return h, nil
 }
 
+func (h *hub) addWorker() {
+	for range h.ready {
+		lab, err := h.createLab()
+		if err != nil {
+			continue
+		}
+
+		h.m.Lock()
+		h.labs = append(h.labs, lab)
+		h.m.Unlock()
+
+		h.queue <- lab
+	}
+}
+
 func (h *hub) AttachHook(hook func() error) {
-	h.hooks = append(h.hooks, hook)
+	h.hooksC <- hook
 }
 
-func (h *hub) init(ctx context.Context, available int) error {
-	grpcLogger := logging.LoggerFromCtx(ctx)
-	log.Debug().Msgf("Instantiating %d lab(s)", available)
-	var wg sync.WaitGroup
-	wg.Add(available)
-	for i := 0; i < available; i++ {
-		go func() {
-			defer wg.Done()
-			err := h.addLab()
-			if grpcLogger != nil {
-				msg := ""
-				if err != nil {
-					// todo: instead of sending error message to client terminal,
-					//  the error message can be shorted and simplified to show on client terminal...
-					//  sentry will take place
-					//msg = err.Error()
-					log.Error().Msgf("Error happened while adding VM into lab environment %s",err.Error())
-				}
-				if err := grpcLogger.Msg(msg); err != nil {
-					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
-				}
-			}
-			if err != nil {
-				log.Warn().Msgf("error while adding lab: %s", err)
-			}
-		}()
-
-	}
-	wg.Wait()
-	// Sometime initializing CTFD module might take longer than expected,
-	// in this particular moment users are notified with a small message.
-	if grpcLogger!=nil { // if daemon tries to launch unfinished events then grpcLogger will be nil, at this point ignore it
-		grpcLogger.Msg("\n----> Labs are ready to use... \n----> Last steps :) be patience ...  ")
-	}
-	return nil
-}
-func (h *hub) addLab() error {
-	if h.maximumSema.available() == 0 {
-		return MaximumLabsErr
-	}
-
-	h.maximumSema.claim()
-	h.createSema.claim()
-	defer h.createSema.release()
-
-	lab, err := h.labHost.NewLab(h.ctx, h.vboxLib, h.conf)
+func (h *hub) createLab() (Lab, error) {
+	ctx := context.Background()
+	lab, err := h.labHost.NewLab(ctx, h.vboxLib, h.conf)
 	if err != nil {
 		log.Debug().Msgf("Error while creating new lab: %s", err)
-		return err
+		return nil, err
 	}
 
-	if err := lab.Start(h.ctx); err != nil {
+	if err := lab.Start(ctx); err != nil {
 		log.Warn().Msgf("Error while starting lab: %s", err)
-		go func(lab Lab) {
-			if err := lab.Close(); err != nil {
-				log.Warn().Msgf("Error while closing lab: %s", err)
-			}
-		}(lab)
-		return err
+		if err := lab.Close(); err != nil {
+			log.Warn().Msgf("Error while closing lab: %s", err)
+		}
+		return nil, err
 	}
 
-	select {
-	case h.buffer <- lab:
-		atomic.AddInt32(&h.numbLabs, 1)
-	default:
-		// sending on closed channel
+	if err := h.runHooks(); err != nil {
+		log.Warn().Msgf("Error while running lab hooks: %s", err)
+		return nil, err
 	}
 
-	return h.runHooks()
+	return lab, nil
 }
 
-func (h *hub) Available() int32 {
-	return atomic.LoadInt32(&h.numbLabs)
+func (h *hub) Available() int {
+	return len(h.queue)
 }
 
 func (h *hub) Get() (Lab, error) {
 	select {
-	case lab := <-h.buffer:
-		atomic.AddInt32(&h.numbLabs, -1)
-		if atomic.LoadInt32(&h.numbLabs) < BUFFERSIZE {
-			go func() {
-				if err := h.addLab(); err != nil {
-					log.Warn().Msgf("Error while add lab: %s", err)
-				}
-			}()
-		}
-		h.labs = append(h.labs, lab)
+	case lab := <-h.queue:
 		return lab, nil
 	default:
-		return nil, MaximumLabsErr
+		return nil, NoLabsAvailableErr
 	}
 }
 
 func (h *hub) Close() error {
-	_, cancel := context.WithCancel(h.ctx)
-	cancel()
-
-	close(h.buffer)
+	close(h.stop)
+	close(h.queue)
 
 	var wg sync.WaitGroup
-
+	h.m.Lock()
 	for _, l := range h.labs {
 		wg.Add(1)
 		go func(l Lab) {
@@ -188,16 +181,8 @@ func (h *hub) Close() error {
 			wg.Done()
 		}(l)
 	}
-	for l := range h.buffer {
-		wg.Add(1)
-		go func(l Lab) {
-			if err := l.Close(); err != nil {
-				log.Warn().Msgf("error while closing hub: %s", err)
-			}
-			wg.Done()
-		}(l)
-	}
 	wg.Wait()
+	h.m.Unlock()
 	return nil
 }
 
@@ -226,33 +211,4 @@ func (h *hub) runHooks() error {
 	}
 
 	return nil
-}
-
-type rsrc struct{}
-
-type semaphore struct {
-	r chan rsrc
-}
-
-func newSemaphore(n int) *semaphore {
-	c := make(chan rsrc, n)
-	for i := 0; i < n; i++ {
-		c <- rsrc{}
-	}
-
-	return &semaphore{
-		r: c,
-	}
-}
-
-func (s *semaphore) claim() rsrc {
-	return <-s.r
-}
-
-func (s *semaphore) available() int {
-	return len(s.r)
-}
-
-func (s *semaphore) release() {
-	s.r <- rsrc{}
 }
