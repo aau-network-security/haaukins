@@ -6,211 +6,103 @@ package lab
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
-
-	"github.com/aau-network-security/haaukins/virtual/vbox"
 )
 
-type testLabHost struct {
-	lab Lab
-	LabHost
-}
-
-func (lh *testLabHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
-	return lh.lab, nil
-}
-
 type testLab struct {
-	started bool
-	closed  bool
-	Lab
+	started chan<- bool
+	closed  chan<- bool
 }
 
-func (lab *testLab) Start(ctx context.Context) error {
-	lab.started = true
+func (tl *testLab) Close() error {
+	tl.closed <- true
 	return nil
 }
 
-func (lab *testLab) Close() error {
-	lab.closed = true
+func (tl *testLab) Start(context.Context) error {
+	tl.started <- true
 	return nil
 }
 
-func TestHub_addLab(t *testing.T) {
+type testCreator struct {
+	m       sync.Mutex
+	lab     Lab
+	started int
+}
+
+func (c *testCreator) NewLab(context.Context) (Lab, error) {
+	c.m.Lock()
+	c.started += 1
+	c.m.Unlock()
+
+	return c.lab, nil
+
+}
+
+func TestHub(t *testing.T) {
 	tt := []struct {
-		name         string
-		capacity     int
-		expectedErr  error
-		expectedLabs int32
+		name string
+		buf  int
+		cap  int
 	}{
 		{
-			name:         "Normal",
-			capacity:     1,
-			expectedErr:  nil,
-			expectedLabs: 1,
-		},
-		{
-			name:         "Maximum labs reached",
-			capacity:     0,
-			expectedErr:  MaximumLabsErr,
-			expectedLabs: 0,
+			name: "Normal",
+			buf:  5,
+			cap:  10,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			ms := newSemaphore(tc.capacity)
-			cs := newSemaphore(tc.capacity)
-			lab := testLab{}
-			lh := testLabHost{
-				lab: &lab,
-			}
-			hub := hub{
-				maximumSema: ms,
-				createSema:  cs,
-				labHost:     &lh,
-				buffer:      make(chan Lab, tc.capacity),
+			started := make(chan bool, 1000)
+			closed := make(chan bool, 1000)
+
+			c := &testCreator{lab: &testLab{started, closed}}
+			h, err := NewHub(c, tc.buf, tc.cap)
+			if err != nil {
+				t.Fatalf("unable to create hub: %s", err)
 			}
 
-			if err := hub.addLab(); err != tc.expectedErr {
-				t.Fatalf("Expected error %s, but got %s", tc.expectedErr, err)
+			startedLabs := readAmountChan(started, tc.buf, time.Second)
+			if startedLabs != tc.buf {
+				t.Fatalf("expected %d to be available, but %d are started", tc.buf, startedLabs)
 			}
 
-			if hub.Available() != tc.expectedLabs {
-				t.Fatalf("Expected %d available lab(s), but is %d", tc.expectedLabs, hub.Available())
+			for i := 0; i < tc.cap; i++ {
+				<-h.Queue()
 			}
 
-			if tc.expectedErr == nil && !lab.started {
-				t.Fatalf("Expected lab to be started, but it didn't")
-			}
-		})
-	}
-
-}
-
-func TestHub_Get(t *testing.T) {
-	tt := []struct {
-		name              string
-		cap               int
-		start             int
-		getCount          int
-		expectedAvailable int32
-		expectedErr       error
-	}{
-		{
-			name:              "Normal",
-			cap:               5,
-			start:             5,
-			getCount:          5,
-			expectedAvailable: 0,
-			expectedErr:       MaximumLabsErr,
-		},
-		{
-			name:              "Buffer works",
-			cap:               15,
-			start:             10,
-			getCount:          4,
-			expectedAvailable: 6,
-			expectedErr:       nil,
-		},
-		{
-			name:              "Capacity hit",
-			cap:               12,
-			start:             10,
-			getCount:          10,
-			expectedAvailable: 2,
-			expectedErr:       nil,
-		},
-		{
-			name:              "Buffer larger than initial size",
-			cap:               10,
-			start:             3,
-			getCount:          1,
-			expectedAvailable: 3,
-			expectedErr:       nil,
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			ms := newSemaphore(tc.cap)
-			cs := newSemaphore(tc.cap)
-			lh := testLabHost{
-				lab: &testLab{},
-			}
-			hub := hub{
-				maximumSema: ms,
-				createSema:  cs,
-				labHost:     &lh,
-				buffer:      make(chan Lab, tc.start),
-			}
-			for i := 0; i < tc.start; i++ {
-				hub.addLab()
+			additionalStarts := tc.cap - tc.buf
+			startedLabsAfterQueue := readAmountChan(started, additionalStarts, time.Second)
+			if startedLabsAfterQueue != additionalStarts {
+				t.Fatalf("expected %d to be started, after fetching entire queue, but %d are started", additionalStarts, startedLabsAfterQueue)
 			}
 
-			for i := 0; i < tc.getCount; i++ {
-				if _, err := hub.Get(); err != nil {
-					t.Fatalf("Unexpected error: %s", err)
-				}
-			}
-
-			time.Sleep(1 * time.Millisecond)
-
-			if hub.Available() != tc.expectedAvailable {
-				t.Fatalf("Expected %d labs available, but go %d", tc.expectedAvailable, hub.Available())
-			}
-
-			if _, err := hub.Get(); err != tc.expectedErr {
-				t.Fatalf("Expected error '%s', but got '%s'", tc.expectedErr, err)
+			_, ok := <-h.Queue()
+			if ok {
+				t.Fatalf("expected queue to be closed")
 			}
 
 		})
 	}
 }
 
-func TestHub_Close(t *testing.T) {
-	ms := newSemaphore(2)
-	cs := newSemaphore(3)
-	hub := hub{
-		maximumSema: ms,
-		createSema:  cs,
-		buffer:      make(chan Lab, 2),
-		ctx:         context.Background(),
-	}
+func readAmountChan(c <-chan bool, amount int, wait time.Duration) int {
+	var n int
 
-	firstLab := testLab{}
-	secondLab := testLab{}
+	for {
+		select {
+		case <-c:
+			n += 1
+			if n == amount {
+				return n + len(c)
+			}
 
-	labs := []Lab{&firstLab, &secondLab}
-	for _, l := range labs {
-		lh := testLabHost{
-			lab: l,
+		case <-time.After(wait):
+			return n
 		}
-		hub.labHost = &lh
-		hub.addLab()
-	}
 
-	_, err := hub.Get()
-	if err != nil {
-		t.Fatalf("Unexpected error: %s", err)
-	}
-
-	if !firstLab.started {
-		t.Fatalf("Expected the first lab to be started, but it isn't")
-	}
-
-	hub.Close()
-
-	if !firstLab.closed {
-		t.Fatalf("Expected the first lab to be closed, but it isn't")
-	}
-
-	if !secondLab.closed {
-		t.Fatalf("Expected the second lab to be closed, but it isn't")
-	}
-
-	if len(hub.buffer) != 0 {
-		t.Fatalf("Expected the hub buffer to be empty, but it isn't")
 	}
 }

@@ -38,11 +38,14 @@ func (conf Config) Flags() []store.FlagConfig {
 	return res
 }
 
-type LabHost interface {
-	NewLab(context.Context, vbox.Library, Config) (Lab, error)
+type Creator interface {
+	NewLab(context.Context) (Lab, error)
 }
 
-type labHost struct{}
+type labHost struct {
+	vlib vbox.Library
+	conf Config
+}
 
 func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
 	env := newEnvironment(lib)
@@ -75,13 +78,13 @@ func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) 
 
 type Lab interface {
 	Start(context.Context) error
-	Stop() error
-	Restart(context.Context) error
-	GetEnvironment() exercise.Environment
-	ResetFrontends(ctx context.Context) error
-	RdpConnPorts() []uint
-	GetTag() string
-	InstanceInfo() []virtual.InstanceInfo
+	// Stop() error
+	// Restart(context.Context) error
+	// GetEnvironment() exercise.Environment
+	// ResetFrontends(ctx context.Context) error
+	// RdpConnPorts() []uint
+	// GetTag() string
+	// InstanceInfo() []virtual.InstanceInfo
 	io.Closer
 }
 
