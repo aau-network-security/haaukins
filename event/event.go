@@ -237,6 +237,10 @@ func (ev *event) AssignLab(t *store.Team) error {
 	}
 
 	if err := ev.guac.CreateUser(u.Username, u.Password); err != nil {
+		log.
+			Debug().
+			Str("err", err.Error()).
+			Msg("Unable to create guacamole user")
 		return err
 	}
 

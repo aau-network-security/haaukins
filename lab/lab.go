@@ -108,6 +108,7 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPor
 		conf,
 		vbox.SetBridge(l.environment.NetworkInterface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
+		vbox.SetRAM(conf.MemoryMB),
 	)
 	if err != nil {
 		return nil, err
