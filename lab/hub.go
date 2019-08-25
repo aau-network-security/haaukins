@@ -66,13 +66,17 @@ func NewHub(conf Config, vboxLib vbox.Library, available int, cap int) (Hub, err
 	}
 
 	log.Debug().Msgf("Instantiating %d lab(s)", available)
+	var wg sync.WaitGroup
 	for i := 0; i < available; i++ {
+		wg.Add(1)
 		go func() {
 			if err := h.addLab(); err != nil {
 				log.Warn().Msgf("error while adding lab: %s", err)
 			}
+			wg.Done()
 		}()
 	}
+	wg.Wait()
 
 	return h, nil
 }
