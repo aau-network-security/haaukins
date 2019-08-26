@@ -56,6 +56,7 @@ var (
 
 const (
 	mngtPort = ":5454"
+	dateTimeFormat = "2006-01-02 15:04:05"
 )
 
 type MissingConfigErr struct {
@@ -375,7 +376,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 			return nil, authErr
 		}
 
-		return handler(ctx, req)
+  		return handler(ctx, req)
 	}
 
 	opts = append([]grpc.ServerOption{
@@ -699,14 +700,13 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
-
 		events = append(events, &pb.ListEventsResponse_Events{
 			Name:          conf.Name,
 			Tag:           string(conf.Tag),
 			TeamCount:     int32(len(event.GetTeams())),
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
-			CreationTime : conf.StartedAt.Format("2006-01-02 15:04:05"),
+			CreationTime : conf.StartedAt.Format(dateTimeFormat),
 		})
 	}
 
