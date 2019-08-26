@@ -157,8 +157,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "# EXERCISES", "CAPACITY"},
-				fields: []string{"Tag", "Name", "TeamCount", "ExerciseCount", "Capacity"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "# EXERCISES", "CAPACITY","CREATION TIME"},
+				fields: []string{"Tag", "Name", "TeamCount", "ExerciseCount", "Capacity", "CreationTime"},
 			}
 
 			var elements []formatElement

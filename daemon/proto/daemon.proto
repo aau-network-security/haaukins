@@ -71,6 +71,7 @@ message ListEventsResponse {
     int32 teamCount = 3;
     int32 exerciseCount = 4;
     int32 capacity = 5;
+    string creationTime = 6;
   }
 
   repeated Events events = 1;

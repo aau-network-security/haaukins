@@ -57,6 +57,7 @@ func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.Even
 		return nil, err
 	}
 
+
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
 		return nil, err
@@ -201,6 +202,7 @@ func (ev *event) Start(ctx context.Context) error {
 		ev.store.SaveTeam(team)
 
 	}
+
 
 	return nil
 }

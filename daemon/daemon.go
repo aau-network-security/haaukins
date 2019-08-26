@@ -289,7 +289,6 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	for _, ef := range eventFiles {
 		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
@@ -707,6 +706,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			TeamCount:     int32(len(event.GetTeams())),
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
+			CreationTime : conf.StartedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 

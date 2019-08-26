@@ -57,6 +57,7 @@ func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available in
 	if available > cap {
 		return nil, AvailableSizeErr
 	}
+	// todo: add event name to context
 	createLimit := 3
 	h := &hub{
 		labs:        []Lab{},
