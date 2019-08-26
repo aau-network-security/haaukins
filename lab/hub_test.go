@@ -6,6 +6,7 @@ package lab
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -46,11 +47,19 @@ func TestHub(t *testing.T) {
 		name string
 		buf  int
 		cap  int
+		read int
 	}{
 		{
 			name: "Normal",
 			buf:  5,
 			cap:  10,
+			read: 3,
+		},
+		{
+			name: "Normal (max cap)",
+			buf:  5,
+			cap:  10,
+			read: 10,
 		},
 	}
 
@@ -65,26 +74,38 @@ func TestHub(t *testing.T) {
 				t.Fatalf("unable to create hub: %s", err)
 			}
 
-			startedLabs := readAmountChan(started, tc.buf, time.Second)
-			if startedLabs != tc.buf {
-				t.Fatalf("expected %d to be available, but %d are started", tc.buf, startedLabs)
+			startedLabsForBuffer := readAmountChan(started, tc.buf, time.Second)
+			if startedLabsForBuffer != tc.buf {
+				t.Fatalf("expected %d to be available, but %d are started", tc.buf, startedLabsForBuffer)
 			}
 
-			for i := 0; i < tc.cap; i++ {
+			for i := 0; i < tc.read; i++ {
 				<-h.Queue()
 			}
 
-			additionalStarts := tc.cap - tc.buf
-			startedLabsAfterQueue := readAmountChan(started, additionalStarts, time.Second)
-			if startedLabsAfterQueue != additionalStarts {
-				t.Fatalf("expected %d to be started, after fetching entire queue, but %d are started", additionalStarts, startedLabsAfterQueue)
+			maxStarts := tc.cap - tc.buf
+			startsAfterConsuming := MinInt(tc.read, maxStarts)
+			startedLabsAfterQueue := readAmountChan(started, startsAfterConsuming, time.Second)
+			if startedLabsAfterQueue != startsAfterConsuming {
+				t.Fatalf("expected %d to be started, after fetching entire queue, but %d are started", startsAfterConsuming, startedLabsAfterQueue)
 			}
 
-			_, ok := <-h.Queue()
-			if ok {
-				t.Fatalf("expected queue to be closed")
+			if tc.read+tc.buf >= tc.cap {
+				_, ok := <-h.Queue()
+				if ok {
+					t.Fatalf("expected queue to be closed")
+				}
 			}
 
+			if err := h.Close(); err != nil {
+				t.Fatalf("expected error to be nil, but received: %s", err)
+			}
+
+			expectedClosedLabs := MinInt(tc.buf+tc.read, tc.cap)
+			closedLabsAfterQueue := readAmountChan(closed, expectedClosedLabs, time.Second)
+			if closedLabsAfterQueue != expectedClosedLabs {
+				t.Fatalf("expected %d to be closed, after stopping lab hub, but %d were closed", expectedClosedLabs, closedLabsAfterQueue)
+			}
 		})
 	}
 }
@@ -105,4 +126,8 @@ func readAmountChan(c <-chan bool, amount int, wait time.Duration) int {
 		}
 
 	}
+}
+
+func MinInt(i, j int) int {
+	return int(math.Min(float64(i), float64(j)))
 }

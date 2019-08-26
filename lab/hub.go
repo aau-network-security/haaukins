@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync"
 )
 
 var (
@@ -41,9 +42,11 @@ func NewHub(creator Creator, buffer int, cap int) (Hub, error) {
 	labs := make(chan Lab, buffer-workerAmount)
 	queue := make(chan Lab, buffer-workerAmount)
 
+	var wg sync.WaitGroup
 	worker := func() {
 		ctx := context.Background()
 		for range ready {
+			wg.Add(1)
 			lab, err := creator.NewLab(ctx)
 			if err != nil {
 				// log error
@@ -52,12 +55,9 @@ func NewHub(creator Creator, buffer int, cap int) (Hub, error) {
 			if err := lab.Start(ctx); err != nil {
 				// log error
 			}
+			wg.Done()
 
-			select {
-			case labs <- lab:
-			case <-stop:
-				lab.Close()
-			}
+			labs <- lab
 		}
 	}
 
@@ -67,33 +67,60 @@ func NewHub(creator Creator, buffer int, cap int) (Hub, error) {
 	}
 
 	go func() {
+		permOnce := func(f func()) func() {
+			var once sync.Once
+			return func() {
+				once.Do(f)
+			}
+		}
+
+		queueCloser := permOnce(func() { close(queue) })
+		labsCloser := permOnce(func() { close(labs) })
+		readyCloser := permOnce(func() { close(ready) })
+
+		defer queueCloser()
+		defer readyCloser()
+
 		var startedLabs []Lab
-
-		defer close(queue)
-		defer close(labs)
-
 		for {
 			select {
 			case lab := <-labs:
 				startedLabs = append(startedLabs, lab)
-				queue <- lab
+				select {
+				case queue <- lab:
+				case <-stop:
+					continue
+				}
 
+				// minus one, as one worker is inactive
 				labsStarting := len(startedLabs) + workerAmount - 1
 				if labsStarting == cap {
-					close(ready)
+					readyCloser()
 					continue
 				}
 
 				if len(startedLabs) == cap {
-					close(queue)
+					queueCloser()
 					continue
 				}
 
 				ready <- struct{}{}
 
 			case <-stop:
+				// wait for workers to finish starting labs
+				wg.Wait()
+				// close lab chan and iterate its content
+				labsCloser()
+				for l := range labs {
+					if err := l.Close(); err != nil {
+						// log error
+					}
+				}
+
 				for _, l := range startedLabs {
-					l.Close()
+					if err := l.Close(); err != nil {
+						// log error
+					}
 				}
 				return
 			}
