@@ -42,31 +42,31 @@ type Creator interface {
 	NewLab(context.Context) (Lab, error)
 }
 
-type labHost struct {
-	vlib vbox.Library
-	conf Config
+type LabHost struct {
+	Vlib vbox.Library
+	Conf Config
 }
 
-func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
-	env := newEnvironment(lib)
+func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
+	env := newEnvironment(lh.Vlib)
 	if err := env.Create(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := env.Add(ctx, config.Exercises...); err != nil {
+	if err := env.Add(ctx, lh.Conf.Exercises...); err != nil {
 		return nil, err
 	}
 
 	dockerHost := docker.NewHost()
 	l := &lab{
 		tag:         generateTag(),
-		lib:         lib,
+		lib:         lh.Vlib,
 		environment: env,
 		dockerHost:  dockerHost,
 		frontends:   map[uint]frontendConf{},
 	}
 
-	for _, f := range config.Frontends {
+	for _, f := range lh.Conf.Frontends {
 		port := virtual.GetAvailablePort()
 		if _, err := l.addFrontend(ctx, f, port); err != nil {
 			return nil, err
@@ -78,13 +78,13 @@ func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) 
 
 type Lab interface {
 	Start(context.Context) error
-	// Stop() error
-	// Restart(context.Context) error
-	// GetEnvironment() exercise.Environment
-	// ResetFrontends(ctx context.Context) error
-	// RdpConnPorts() []uint
-	// GetTag() string
-	// InstanceInfo() []virtual.InstanceInfo
+	Stop() error
+	Restart(context.Context) error
+	Environment() exercise.Environment
+	ResetFrontends(ctx context.Context) error
+	RdpConnPorts() []uint
+	Tag() string
+	InstanceInfo() []virtual.InstanceInfo
 	io.Closer
 }
 
@@ -127,7 +127,7 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPor
 	return vm, nil
 }
 
-func (l *lab) GetEnvironment() exercise.Environment {
+func (l *lab) Environment() exercise.Environment {
 	return l.environment
 }
 
@@ -239,7 +239,7 @@ func (l *lab) RdpConnPorts() []uint {
 	return ports
 }
 
-func (l *lab) GetTag() string {
+func (l *lab) Tag() string {
 	return l.tag
 }
 

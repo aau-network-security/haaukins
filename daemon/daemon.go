@@ -7,8 +7,6 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/reflection"
 	"io"
 	"io/ioutil"
 	"net"
@@ -17,6 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/store"
@@ -605,7 +606,6 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	}
 
 	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
-
 	if err != nil {
 		return err
 	}
@@ -662,7 +662,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 				continue
 			}
 
-			if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
 			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
@@ -678,7 +678,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 			continue
 		}
 
-		if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})

@@ -447,7 +447,7 @@ type fakeLab struct {
 	lab.Lab
 }
 
-func (fl *fakeLab) GetEnvironment() exercise.Environment {
+func (fl *fakeLab) Environment() exercise.Environment {
 	return fl.environment
 }
 

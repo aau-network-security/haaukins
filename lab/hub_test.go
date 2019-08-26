@@ -10,6 +10,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aau-network-security/haaukins/exercise"
+	"github.com/aau-network-security/haaukins/virtual"
+	"github.com/google/uuid"
 )
 
 type testLab struct {
@@ -24,6 +28,34 @@ func (tl *testLab) Close() error {
 
 func (tl *testLab) Start(context.Context) error {
 	tl.started <- true
+	return nil
+}
+
+func (tl *testLab) Stop() error {
+	return nil
+}
+
+func (tl *testLab) Restart(context.Context) error {
+	return nil
+}
+
+func (tl *testLab) Environment() exercise.Environment {
+	return nil
+}
+
+func (tl *testLab) ResetFrontends(context.Context) error {
+	return nil
+}
+
+func (tl *testLab) Tag() string {
+	return uuid.New().String()
+}
+
+func (tl *testLab) InstanceInfo() []virtual.InstanceInfo {
+	return nil
+}
+
+func (tl *testLab) RdpConnPorts() []uint {
 	return nil
 }
 

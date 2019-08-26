@@ -30,6 +30,9 @@ var (
 	StartingRevErr  = errors.New("error while starting reverse proxy")
 	EmptyNameErr    = errors.New("event requires a name")
 	EmptyTagErr     = errors.New("event requires a tag")
+
+	ErrMaxLabs         = errors.New("maximum amount of allowed labs has been reached")
+	ErrNoAvailableLabs = errors.New("no labs available in the queue")
 )
 
 type Host interface {
@@ -69,12 +72,16 @@ func (eh *eventHost) CreateEventFromEventFile(ef store.EventFile) (Event, error)
 		Frontends: conf.Lab.Frontends,
 	}
 
-	hub, err := lab.NewHub(labConf, eh.vlib, conf.Available, conf.Capacity)
+	lh := lab.LabHost{
+		Vlib: eh.vlib,
+		Conf: labConf,
+	}
+	hub, err := lab.NewHub(&lh, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewEvent(eh.ctx, ef, hub)
+	return NewEvent(eh.ctx, ef, hub, labConf.Flags())
 }
 
 func (eh *eventHost) CreateEventFromConfig(conf store.EventConfig) (Event, error) {
@@ -95,7 +102,7 @@ type Event interface {
 	Start(context.Context) error
 	Close() error
 	Finish()
-	AssignLab(*store.Team) error
+	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
 
 	GetConfig() store.EventConfig
@@ -119,11 +126,11 @@ type event struct {
 	closers []io.Closer
 }
 
-func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, error) {
+func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []store.FlagConfig) (Event, error) {
 	conf := ef.Read()
 	ctfdConf := ctfd.Config{
 		Name:  conf.Name,
-		Flags: hub.Flags(),
+		Flags: flags,
 		Teams: ef.GetTeams(),
 	}
 
@@ -179,7 +186,12 @@ func (ev *event) Start(ctx context.Context) error {
 	}
 
 	for _, team := range ev.store.GetTeams() {
-		if err := ev.AssignLab(&team); err != nil {
+		lab, ok := <-ev.labhub.Queue()
+		if !ok {
+			return ErrMaxLabs
+		}
+
+		if err := ev.AssignLab(&team, lab); err != nil {
 			fmt.Println("Issue assigning lab: ", err)
 			return err
 		}
@@ -216,12 +228,7 @@ func (ev *event) Finish() {
 	}
 }
 
-func (ev *event) AssignLab(t *store.Team) error {
-	lab, err := ev.labhub.Get()
-	if err != nil {
-		return err
-	}
-
+func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.
@@ -270,7 +277,7 @@ func (ev *event) AssignLab(t *store.Team) error {
 
 	ev.labs[t.Id] = lab
 
-	chals := lab.GetEnvironment().Challenges()
+	chals := lab.Environment().Challenges()
 	for _, chal := range chals {
 		t.AddChallenge(chal)
 	}
@@ -280,12 +287,17 @@ func (ev *event) AssignLab(t *store.Team) error {
 
 func (ev *event) Handler() http.Handler {
 	reghook := func(t *store.Team) error {
-		if ev.labhub.Available() == 0 {
-			return lab.CouldNotFindLabErr
-		}
+		select {
+		case lab, ok := <-ev.labhub.Queue():
+			if !ok {
+				return ErrMaxLabs
+			}
 
-		if err := ev.AssignLab(t); err != nil {
-			return err
+			if err := ev.AssignLab(t, lab); err != nil {
+				return err
+			}
+		default:
+			return ErrNoAvailableLabs
 		}
 
 		return nil

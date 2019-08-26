@@ -7,31 +7,28 @@ package lab
 import (
 	"context"
 	"errors"
-	"io"
 	"sync"
 )
 
 var (
-	ErrBufferSize      = errors.New("Buffer cannot be larger than capacity")
-	ErrMaxLabs         = errors.New("Maximum amount of labs reached")
-	ErrNoLabsAvailable = errors.New("No labs available at the current time")
-	CouldNotFindLabErr = errors.New("Could not find lab by the specified tag")
+	ErrBufferSize = errors.New("Buffer cannot be larger than capacity")
+	ErrNoLabByTag = errors.New("Could not find lab by the specified tag")
 )
-
-const BUFFERSIZE = 5
 
 type Hub interface {
 	Queue() <-chan Lab
-	io.Closer
+	Close() error
+	GetLabByTag(string) (Lab, error)
 }
 
 type hub struct {
 	creator Creator
 	queue   <-chan Lab
+	labs    map[string]Lab
 	stop    chan struct{}
 }
 
-func NewHub(creator Creator, buffer int, cap int) (Hub, error) {
+func NewHub(creator Creator, buffer int, cap int) (*hub, error) {
 	workerAmount := 2
 	if buffer < workerAmount {
 		buffer = workerAmount
@@ -66,6 +63,7 @@ func NewHub(creator Creator, buffer int, cap int) (Hub, error) {
 		ready <- struct{}{}
 	}
 
+	startedLabs := map[string]Lab{}
 	go func() {
 		permOnce := func(f func()) func() {
 			var once sync.Once
@@ -81,11 +79,10 @@ func NewHub(creator Creator, buffer int, cap int) (Hub, error) {
 		defer queueCloser()
 		defer readyCloser()
 
-		var startedLabs []Lab
 		for {
 			select {
 			case lab := <-labs:
-				startedLabs = append(startedLabs, lab)
+				startedLabs[lab.Tag()] = lab
 				select {
 				case queue <- lab:
 				case <-stop:
@@ -131,6 +128,7 @@ func NewHub(creator Creator, buffer int, cap int) (Hub, error) {
 		creator: creator,
 		queue:   queue,
 		stop:    stop,
+		labs:    startedLabs,
 	}, nil
 }
 
@@ -141,4 +139,13 @@ func (h *hub) Queue() <-chan Lab {
 func (h *hub) Close() error {
 	close(h.stop)
 	return nil
+}
+
+func (h *hub) GetLabByTag(t string) (Lab, error) {
+	lab, ok := h.labs[t]
+	if !ok {
+		return nil, ErrNoLabByTag
+	}
+
+	return lab, nil
 }
