@@ -703,8 +703,6 @@ func TestListEvents(t *testing.T) {
 		count        int
 		err          string
 	}{
-		//{name: "Normal", count: 1},
-		//{name: "Normal three events", count: 3},
 		{name: "Unauthorized", unauthorized: true, count: 1, err: "unauthorized"},
 	}
 

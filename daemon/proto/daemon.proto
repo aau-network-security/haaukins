@@ -91,7 +91,7 @@ message ListEventTeamsResponse {
 
 message RestartTeamLabRequest {
   string eventTag = 1;
-  string labTag = 2;
+  string teamId = 2;
 }
 
 message ResetExerciseRequest {
