@@ -56,7 +56,7 @@ var (
 
 const (
 	mngtPort = ":5454"
-	dateTimeFormat = "2006-01-02 15:04:05"
+	displayTimeFormat = "2006-01-02 15:04:05"
 )
 
 type MissingConfigErr struct {
