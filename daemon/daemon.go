@@ -599,7 +599,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	log.Ctx(resp.Context()).
 		Info().
 		Str("event", req.EventTag).
-		Str("lab", req.LabTag).
+		Str("lab", req.TeamId).
 		Msg("restart lab")
 
 	evtag, err := store.NewTag(req.EventTag)
@@ -612,10 +612,9 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
-
-	if err != nil {
-		return err
+ 	lab,ok:=ev.GetLabByTeam(req.TeamId);
+	if !ok {
+		return  UnknownTeamErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
