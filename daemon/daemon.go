@@ -705,7 +705,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			TeamCount:     int32(len(event.GetTeams())),
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
-			CreationTime : conf.StartedAt.Format(dateTimeFormat),
+			CreationTime : conf.StartedAt.Format(displayTimeFormat),
 		})
 	}
 
