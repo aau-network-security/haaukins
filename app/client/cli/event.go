@@ -2,7 +2,6 @@
 // Use of this source code is governed by a GPLv3
 // license that can be found in the LICENSE file.
 
-
 package cli
 
 import (
@@ -69,7 +68,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 			// progress bar library changed
 			// now it does not create stack of progress bar,
 			// once anything is received from daemon.
-			bar:= pbar.New(available)
+			bar := pbar.New(available)
 			bar.RenderBlank()
 			for {
 				labStatus, err := stream.Recv()
@@ -157,7 +156,7 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "# EXERCISES", "CAPACITY","CREATION TIME"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "# EXERCISES", "CAPACITY", "CREATION TIME"},
 				fields: []string{"Tag", "Name", "TeamCount", "ExerciseCount", "Capacity", "CreationTime"},
 			}
 
@@ -234,11 +233,11 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 			defer cancel()
 
 			eventTag := args[0]
-			labTag := args[1]
+			teamId := args[1]
 
 			stream, err := c.rpcClient.RestartTeamLab(ctx, &pb.RestartTeamLabRequest{
 				EventTag: eventTag,
-				LabTag:   labTag,
+				TeamId:   teamId,
 			})
 
 			if err != nil {
