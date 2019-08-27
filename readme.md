@@ -1,4 +1,7 @@
 # Haaukins
+
+[![Build Status](https://travis-ci.com/aau-network-security/haaukins.svg?branch=master)](https://travis-ci.com/aau-network-security/haaukins)  [![Go Report Card](https://goreportcard.com/badge/github.com/aau-network-security/haaukins)](https://goreportcard.com/report/github.com/aau-network-security/haaukins) [![GoDoc](https://godoc.org/github.com/aau-network-security/haaukins?status.svg)](https://godoc.org/github.com/aau-network-security/haaukins)
+
 The virtualisation platform for training of digital security.
 `Haaukins` consists of two major components:
 - [client](app/client/readme.md)
