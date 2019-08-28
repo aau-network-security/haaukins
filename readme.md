@@ -1,6 +1,6 @@
 # Haaukins
 
-[![Build Status](https://travis-ci.com/aau-network-security/haaukins.svg?branch=master)](https://travis-ci.com/aau-network-security/haaukins)  [![Go Report Card](https://goreportcard.com/badge/github.com/aau-network-security/haaukins)](https://goreportcard.com/report/github.com/aau-network-security/haaukins) [![GoDoc](https://godoc.org/github.com/aau-network-security/haaukins?status.svg)](https://godoc.org/github.com/aau-network-security/haaukins)
+[![Build Status](https://travis-ci.com/aau-network-security/haaukins.svg?branch=master)](https://travis-ci.com/aau-network-security/haaukins)  [![Go Report Card](https://goreportcard.com/badge/github.com/aau-network-security/haaukins)](https://goreportcard.com/report/github.com/aau-network-security/haaukins) [![GoDoc](https://godoc.org/github.com/aau-network-security/haaukins?status.svg)](https://godoc.org/github.com/aau-network-security/haaukins) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 The virtualisation platform for training of digital security.
 `Haaukins` consists of two major components:
