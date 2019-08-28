@@ -71,6 +71,7 @@ message ListEventsResponse {
     int32 teamCount = 3;
     int32 exerciseCount = 4;
     int32 capacity = 5;
+    string creationTime = 6;
   }
 
   repeated Events events = 1;
@@ -90,7 +91,7 @@ message ListEventTeamsResponse {
 
 message RestartTeamLabRequest {
   string eventTag = 1;
-  string labTag = 2;
+  string teamId = 2;
 }
 
 message ResetExerciseRequest {

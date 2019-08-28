@@ -193,7 +193,7 @@ func TestEvent_AssignLab(t *testing.T) {
 				dockerHost:    &testDockerHost{},
 				store:         &testEventFile{},
 			}
-			 ev.Start(context.Background())
+			ev.Start(context.Background())
 
 			team := store.NewTeam("what@ever.com", "test", "passworder")
 			if err := ev.AssignLab(&team); err != tc.expectedErr {

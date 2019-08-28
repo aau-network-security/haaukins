@@ -55,7 +55,8 @@ var (
 )
 
 const (
-	mngtPort = ":5454"
+	mngtPort          = ":5454"
+	displayTimeFormat = "2006-01-02 15:04:05"
 )
 
 type MissingConfigErr struct {
@@ -289,7 +290,6 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	for _, ef := range eventFiles {
 		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
@@ -591,7 +591,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	}
 
 	ev.Close()
-	ev.Finish()  // Finishing and archiving event....
+	ev.Finish() // Finishing and archiving event....
 	return nil
 }
 
@@ -599,7 +599,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	log.Ctx(resp.Context()).
 		Info().
 		Str("event", req.EventTag).
-		Str("lab", req.LabTag).
+		Str("lab", req.TeamId).
 		Msg("restart lab")
 
 	evtag, err := store.NewTag(req.EventTag)
@@ -612,10 +612,9 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
-
-	if err != nil {
-		return err
+	lab, ok := ev.GetLabByTeam(req.TeamId)
+	if !ok {
+		return UnknownTeamErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
@@ -700,13 +699,13 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
-
 		events = append(events, &pb.ListEventsResponse_Events{
 			Name:          conf.Name,
 			Tag:           string(conf.Tag),
 			TeamCount:     int32(len(event.GetTeams())),
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
+			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
 		})
 	}
 

@@ -702,12 +702,12 @@ func TestListEvents(t *testing.T) {
 		unauthorized bool
 		count        int
 		err          string
+		startedTime  string
 	}{
 		{name: "Normal", count: 1},
 		{name: "Normal three events", count: 3},
 		{name: "Unauthorized", unauthorized: true, count: 1, err: "unauthorized"},
 	}
-
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := &fakeEvent{}
@@ -724,10 +724,10 @@ func TestListEvents(t *testing.T) {
 					event: ev,
 				},
 			}
-
+			startedAt, _ := time.Parse(tc.startedTime, displayTimeFormat)
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *ev
-				tempEvent.conf = store.EventConfig{Tag: store.Tag(fmt.Sprintf("tst-%d", i))}
+				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i))}
 				d.startEvent(&tempEvent)
 			}
 
@@ -744,7 +744,6 @@ func TestListEvents(t *testing.T) {
 				t.Fatalf("failed to dial bufnet: %v", err)
 			}
 			defer conn.Close()
-
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.ListEvents(ctx, &pb.ListEventsRequest{})
 			if err != nil {
@@ -779,6 +778,7 @@ func TestListEvents(t *testing.T) {
 			if n := len(resp.Events); n != tc.count {
 				t.Fatalf("unexpected amount of events (expected: %d), received: %d", tc.count, n)
 			}
+
 		})
 	}
 }
