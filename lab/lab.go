@@ -6,9 +6,6 @@ package lab
 
 import (
 	"context"
-	"math/rand"
-	"time"
-	"sync"
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
@@ -16,6 +13,9 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 var (
@@ -39,8 +39,7 @@ type LabHost interface {
 	NewLab(context.Context, vbox.Library, Config) (Lab, error)
 }
 
-type labHost struct{
-
+type labHost struct {
 }
 
 func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
@@ -96,8 +95,6 @@ type frontendConf struct {
 	vm   vbox.VM
 	conf store.InstanceConfig
 }
-
-
 
 func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPort uint) (vbox.VM, error) {
 	hostIp, err := l.dockerHost.GetDockerHostIP()
@@ -207,33 +204,31 @@ func (l *lab) Restart(ctx context.Context) error {
 	return nil
 }
 
-func (l *lab) Close() error{
+func (l *lab) Close() error {
 	var wg sync.WaitGroup
 
-	 for _, lab  := range l.frontends {
-	 	wg.Add(1)
-	 	go func (vm vbox.VM){
-	 		// closing VMs....
-	 		defer wg.Done()
-			if err := vm.Close(); err!=nil{
-				log.Error().Msgf("Error on Close function in lab.go %s",err)
+	for _, lab := range l.frontends {
+		wg.Add(1)
+		go func(vm vbox.VM) {
+			// closing VMs....
+			defer wg.Done()
+			if err := vm.Close(); err != nil {
+				log.Error().Msgf("Error on Close function in lab.go %s", err)
 			}
 		}(lab.vm)
-	 }
+	}
 	wg.Add(1)
-	 go func(environment exercise.Environment) {
-	 	// closing environment containers...
-		 defer wg.Done()
-		 if err := environment.Close(); err!=nil {
-			 log.Error().Msgf("Error while closing environment containers %s",err)
-		 }
+	go func(environment exercise.Environment) {
+		// closing environment containers...
+		defer wg.Done()
+		if err := environment.Close(); err != nil {
+			log.Error().Msgf("Error while closing environment containers %s", err)
+		}
 
-	 }(l.environment)
+	}(l.environment)
 	wg.Wait()
-	 return nil
+	return nil
 }
-
-
 
 func (l *lab) RdpConnPorts() []uint {
 	var ports []uint

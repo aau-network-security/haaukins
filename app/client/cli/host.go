@@ -7,10 +7,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	color "github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
+	"io"
 )
 
 func (c *Client) CmdHost() *cobra.Command {

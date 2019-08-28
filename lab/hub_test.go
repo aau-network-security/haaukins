@@ -37,7 +37,6 @@ func (lab *testLab) Close() error {
 	return nil
 }
 
-
 func TestHub_addLab(t *testing.T) {
 	tt := []struct {
 		name         string
@@ -170,43 +169,41 @@ func TestHub_Get(t *testing.T) {
 	}
 }
 
-
 type TestLogger struct {
 	count int
 }
 
-func (l *TestLogger) Msg(msg string) error  {
-     l.count++
-     return nil
+func (l *TestLogger) Msg(msg string) error {
+	l.count++
+	return nil
 }
 
-func TestNewHub(t *testing.T){
+func TestNewHub(t *testing.T) {
 	l := &TestLogger{}
 	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
 	ms := newSemaphore(5)
 	cs := newSemaphore(6)
 
 	h := &hub{
-		maximumSema:ms,
-		createSema:cs,
-		ctx:ctx,
-		buffer:make(chan Lab,5),
-		vboxLib:nil,
-		labHost:&testLabHost{
-			lab:&testLab{},
+		maximumSema: ms,
+		createSema:  cs,
+		ctx:         ctx,
+		buffer:      make(chan Lab, 5),
+		vboxLib:     nil,
+		labHost: &testLabHost{
+			lab: &testLab{},
 		},
-		numbLabs:BUFFERSIZE,
+		numbLabs: BUFFERSIZE,
 	}
-	available:=5
-	if err:=h.init(ctx,available); err!=nil {
-		t.Fatalf("Error on init function ! %d ",l.count)
+	available := 5
+	if err := h.init(ctx, available); err != nil {
+		t.Fatalf("Error on init function ! %d ", l.count)
 	}
 	// +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
-	if l.count !=  available+1{
-		t.Fatalf("Something wrong with the implementation ! %d ",l.count)
+	if l.count != available+1 {
+		t.Fatalf("Something wrong with the implementation ! %d ", l.count)
 	}
 }
-
 
 func TestHub_Close(t *testing.T) {
 	ms := newSemaphore(2)

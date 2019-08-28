@@ -135,7 +135,6 @@ func (t *Team) SolveChallenge(tag Tag, v string) error {
 	return nil
 }
 
-
 func (t *Team) AddMetadata(key, value string) {
 	if t.Metadata == nil {
 		t.Metadata = map[string]string{}
@@ -371,7 +370,6 @@ func NewEventConfigStore(conf EventConfig, hooks ...func(EventConfig) error) *ev
 		hooks: hooks,
 	}
 }
-
 
 func (es *eventconfigstore) Read() EventConfig {
 	es.m.Lock()

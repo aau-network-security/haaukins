@@ -25,7 +25,6 @@ var (
 
 const BUFFERSIZE = 5
 
-
 type Hub interface {
 	Get() (Lab, error)
 	Available() int32
@@ -57,6 +56,7 @@ func NewHub(ctx context.Context, conf Config, vboxLib vbox.Library, available in
 	if available > cap {
 		return nil, AvailableSizeErr
 	}
+	// todo: add event name to context
 	createLimit := 3
 	h := &hub{
 		labs:        []Lab{},
@@ -94,7 +94,7 @@ func (h *hub) init(ctx context.Context, available int) error {
 					//  the error message can be shorted and simplified to show on client terminal...
 					//  sentry will take place
 					//msg = err.Error()
-					log.Error().Msgf("Error happened while adding VM into lab environment %s",err.Error())
+					log.Error().Msgf("Error happened while adding VM into lab environment %s", err.Error())
 				}
 				if err := grpcLogger.Msg(msg); err != nil {
 					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
@@ -109,7 +109,7 @@ func (h *hub) init(ctx context.Context, available int) error {
 	wg.Wait()
 	// Sometime initializing CTFD module might take longer than expected,
 	// in this particular moment users are notified with a small message.
-	if grpcLogger!=nil { // if daemon tries to launch unfinished events then grpcLogger will be nil, at this point ignore it
+	if grpcLogger != nil { // if daemon tries to launch unfinished events then grpcLogger will be nil, at this point ignore it
 		grpcLogger.Msg("\n----> Labs are ready to use... \n----> Last steps :) be patience ...  ")
 	}
 	return nil
