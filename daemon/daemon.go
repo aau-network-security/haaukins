@@ -55,7 +55,7 @@ var (
 )
 
 const (
-	mngtPort = ":5454"
+	mngtPort          = ":5454"
 	displayTimeFormat = "2006-01-02 15:04:05"
 )
 
@@ -376,7 +376,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 			return nil, authErr
 		}
 
-  		return handler(ctx, req)
+		return handler(ctx, req)
 	}
 
 	opts = append([]grpc.ServerOption{
@@ -591,7 +591,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	}
 
 	ev.Close()
-	ev.Finish()  // Finishing and archiving event....
+	ev.Finish() // Finishing and archiving event....
 	return nil
 }
 
@@ -612,9 +612,9 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
- 	lab,ok:=ev.GetLabByTeam(req.TeamId);
+	lab, ok := ev.GetLabByTeam(req.TeamId)
 	if !ok {
-		return  UnknownTeamErr
+		return UnknownTeamErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
@@ -705,7 +705,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			TeamCount:     int32(len(event.GetTeams())),
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
-			CreationTime : conf.StartedAt.Format(displayTimeFormat),
+			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
 		})
 	}
 

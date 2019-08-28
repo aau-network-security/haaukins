@@ -57,7 +57,6 @@ func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.Even
 		return nil, err
 	}
 
-
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
 		return nil, err
@@ -195,14 +194,12 @@ func (ev *event) Start(ctx context.Context) error {
 
 		ev.teamQueue <- team
 		if err := ev.processQueue(); err != nil {
-			//log.Error().Err(err).Msg("Error while issuing error to team.. Check out assignlab function... ")
 			return err
 		}
 
 		ev.store.SaveTeam(team)
 
 	}
-
 
 	return nil
 }

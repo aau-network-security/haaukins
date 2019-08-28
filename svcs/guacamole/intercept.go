@@ -12,9 +12,10 @@ import (
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
 )
+
 const waitingHTMLTemplate = `
 <html lang="en" dir="ltr">
-		  <meta http-equiv="refresh" content="10" />
+		  <meta http-equiv="refresh" content="60" />
 		  <head>
 			<style>
 				html, body {
@@ -130,6 +131,7 @@ Virtualized Environment
 </html>
 
 `
+
 var (
 	UnknownTeamIdErr = errors.New("Unknown team id")
 )
@@ -211,10 +213,10 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			}
 			u, err := gtl.users.GetUserForTeam(t.Id)
 			if err != nil {
-				//log.Warn().
-				//	Err(err).
-				//	Str("team-id ", t.Id).
-				//	Msg("Unable to get guac user for team")
+				log.Warn().
+					Err(err).
+					Str("team-id ", t.Id).
+					Msg("Unable to get guac user for team")
 				w.WriteHeader(http.StatusServiceUnavailable)
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.Write([]byte(waitingHTMLTemplate))
