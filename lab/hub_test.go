@@ -6,6 +6,7 @@ package lab
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -170,10 +171,13 @@ func TestHub_Get(t *testing.T) {
 }
 
 type TestLogger struct {
+	sync.Mutex
 	count int
 }
 
 func (l *TestLogger) Msg(msg string) error {
+	l.Lock()
+	defer l.Unlock()
 	l.count++
 	return nil
 }
@@ -183,7 +187,6 @@ func TestNewHub(t *testing.T) {
 	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
 	ms := newSemaphore(5)
 	cs := newSemaphore(6)
-
 	h := &hub{
 		maximumSema: ms,
 		createSema:  cs,
