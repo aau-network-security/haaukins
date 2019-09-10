@@ -229,9 +229,11 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 		Example: `hkn event restart esboot d11eb89b`,
 		Args:    cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-			defer cancel()
-
+			// timeout value is removed because when command is used for an event 1 min
+			// was not enough to restart all resources that team has. So, it stops all resources
+			// then the communicaton between client and daemon exited after 1 min, then the stopped
+			// resources could not start again properly.
+			ctx  := context.Background()
 			eventTag := args[0]
 			teamId := args[1]
 
