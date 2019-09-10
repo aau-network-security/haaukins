@@ -6,7 +6,7 @@ package lab
 
 import (
 	"context"
-	"github.com/aau-network-security/haaukins/logging"
+	"sync"
 	"testing"
 	"time"
 
@@ -147,7 +147,9 @@ func TestHub_Get(t *testing.T) {
 				buffer:      make(chan Lab, tc.start),
 			}
 			for i := 0; i < tc.start; i++ {
-				hub.addLab()
+				if err := hub.addLab(); err != nil {
+					t.Fatalf("Unexpected error while adding lab: %s", err)
+				}
 			}
 
 			for i := 0; i < tc.getCount; i++ {
@@ -171,10 +173,13 @@ func TestHub_Get(t *testing.T) {
 }
 
 type TestLogger struct {
+	sync.Mutex
 	count int
 }
 
 func (l *TestLogger) Msg(msg string) error {
+	l.Lock()
+	defer l.Unlock()
 	l.count++
 	return nil
 }
@@ -200,19 +205,11 @@ func TestNewHub(t *testing.T) {
 	if err := h.init(ctx, available); err != nil {
 		t.Fatalf("Error on init function ! %d ", l.count)
 	}
-	 grpcLogger := logging.LoggerFromCtx(ctx)
-	 if grpcLogger!=nil{
-		 // +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
-		 if l.count != available+1 {
-			 t.Fatalf("Something wrong with the implementation ! %d ", l.count)
-		 }
-	 }else {
-	 	// when unfinished events found there will be no grpcLogger which streams information back to client
-	 	// in this case l.count will be equivalent to available.
-		 if l.count != available {
-			 t.Fatalf("Something wrong with the implementation ! %d ", l.count)
-		 }
-	 }
+
+	// +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
+	if l.count != available+1 {
+		t.Fatalf("Something wrong with the implementation ! %d ", l.count)
+	}
 
 }
 
@@ -235,7 +232,9 @@ func TestHub_Close(t *testing.T) {
 			lab: l,
 		}
 		hub.labHost = &lh
-		hub.addLab()
+		if err := hub.addLab(); err != nil {
+			t.Fatalf("Unexpected error while adding lab: %s", err)
+		}
 	}
 
 	_, err := hub.Get()
@@ -247,7 +246,9 @@ func TestHub_Close(t *testing.T) {
 		t.Fatalf("Expected the first lab to be started, but it isn't")
 	}
 
-	hub.Close()
+	if err := hub.Close(); err != nil {
+		t.Fatalf("Error closing while closin hub %s", err)
+	}
 
 	if !firstLab.closed {
 		t.Fatalf("Expected the first lab to be closed, but it isn't")
