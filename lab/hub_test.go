@@ -6,6 +6,7 @@ package lab
 
 import (
 	"context"
+	"github.com/aau-network-security/haaukins/logging"
 	"testing"
 	"time"
 
@@ -199,10 +200,20 @@ func TestNewHub(t *testing.T) {
 	if err := h.init(ctx, available); err != nil {
 		t.Fatalf("Error on init function ! %d ", l.count)
 	}
-	// +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
-	if l.count != available+1 {
-		t.Fatalf("Something wrong with the implementation ! %d ", l.count)
-	}
+	 grpcLogger := logging.LoggerFromCtx(ctx)
+	 if grpcLogger!=nil{
+		 // +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
+		 if l.count != available+1 {
+			 t.Fatalf("Something wrong with the implementation ! %d ", l.count)
+		 }
+	 }else {
+	 	// when unfinished events found there will be no grpcLogger which streams information back to client
+	 	// in this case l.count will be equivalent to available.
+		 if l.count != available {
+			 t.Fatalf("Something wrong with the implementation ! %d ", l.count)
+		 }
+	 }
+
 }
 
 func TestHub_Close(t *testing.T) {
