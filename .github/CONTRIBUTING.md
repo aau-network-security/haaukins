@@ -8,15 +8,17 @@ We are always thrilled to receive pull requests, and do our best to process them
 
 If your pull request is not accepted on the first try, don't be discouraged! If there's a problem with the implementation, hopefully you received feedback on what to improve.
 
-## Conventions 
+## Contributing Rules 
 
-Fork the repo and make your changes on your fork in a feature branch. Haaukins developments is based on [Git Feature Branch Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow)
+
+In order to contribute Haaukins, you can fork the repo and make your changes on your fork in a feature branch. 
+Haaukins developments is based on [Git Feature Branch Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow)
 
 - For bug fixes and feature requests, the name of branch that you will work on should follow the convention [XXXX]-something, XXXX refers to issue number. 
 
 - There should be a naming convention (function names and variable names should follow defined pattern such as getName(private) or GetName (public).
 
-- Having clean formatted codes are always easy to review, hence the changes on branch require to have `gofmt` to format the code. 
+- Use gofmt to ensure code formatting that is easy to read.
 
 - Commit messages should start with capitalized letter and follow short summary of the changes. Commits which are fixing or closing an issue should include reference to it, such as `Closes #[XXXX]` or `Fixes #[XXXX]` 
 
@@ -24,13 +26,11 @@ Fork the repo and make your changes on your fork in a feature branch. Haaukins d
 
 - Have descriptive comments on changes.
 
-## For Maintainers
-
 ### Code Review Process 
 
 - All changes to the master branch must be through Pull Requests, and all PRs must be approved by at least one maintainer, who must be different from the creator of the PR. 
 
-- Pull requests should be made into version branch instead of master, since latest version will be identical with master branch, having pull request to version branch will bump version according to changes.
+- Pull requests should be made into version branch instead of master, since there will be a next version branch when previous release took place, for instance if a patch version is released recently called 1.6.3, then new branch 1.6.4 will be automatically created and it will be identical to 1.6.3. So when a new feature branch created, pull requests should take branch 1.6.4 as base target branch. 
 
 ## Create Issue... 
 
