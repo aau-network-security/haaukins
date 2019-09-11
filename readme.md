@@ -1,4 +1,5 @@
 
+
 <p align="center"> <img src="https://htmmhw.am.files.1drv.com/y4myCMonnjXvUy8ekRggNEz7_4RosFe7MF6cG8BDb13RfIaOfEi8a7c6LU37vbLT8OFBHc_I0uEurjLLLSHjqHgSyySLW6f6TdbcNqSJN7j4TCM46UG_z5T15M6kjxlp8bi9fHrOLqKrBoKV6vTpSCL8TjmqIVYGwWxPFZo0VHuf12fSaTZG1prJPwo8bDJzEIl7WcTvlxmgCDwX4--M7IrVw?width=700&height=200&cropmode=none" width="700" height="200" />
 <div align="center">
 
@@ -33,13 +34,6 @@
 
 Haaukins is a highly accessible and automated virtualization platform for security education, it has three main components (Docker, Virtualbox and Golang), the communication and orchestration between the components managed using Go programming language. The main reason of having Go environment to manage and deploy something on Haaukins platform is that Go’s easy concurrency and parallelism mechanism.
 &nbsp;
-
-=======
-# Haaukins
-
-[![Build Status](https://travis-ci.com/aau-network-security/haaukins.svg?branch=master)](https://travis-ci.com/aau-network-security/haaukins)  [![Go Report Card](https://goreportcard.com/badge/github.com/aau-network-security/haaukins)](https://goreportcard.com/report/github.com/aau-network-security/haaukins) [![GoDoc](https://godoc.org/github.com/aau-network-security/haaukins?status.svg)](https://godoc.org/github.com/aau-network-security/haaukins) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-
-The virtualisation platform for training of digital security.
 
 `Haaukins` consists of two major components:
 - [client](app/client/readme.md)
