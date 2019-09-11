@@ -6,6 +6,7 @@ package lab
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -146,7 +147,9 @@ func TestHub_Get(t *testing.T) {
 				buffer:      make(chan Lab, tc.start),
 			}
 			for i := 0; i < tc.start; i++ {
-				hub.addLab()
+				if err := hub.addLab(); err != nil {
+					t.Fatalf("Unexpected error while adding lab: %s", err)
+				}
 			}
 
 			for i := 0; i < tc.getCount; i++ {
@@ -170,10 +173,13 @@ func TestHub_Get(t *testing.T) {
 }
 
 type TestLogger struct {
+	sync.Mutex
 	count int
 }
 
 func (l *TestLogger) Msg(msg string) error {
+	l.Lock()
+	defer l.Unlock()
 	l.count++
 	return nil
 }
@@ -183,7 +189,6 @@ func TestNewHub(t *testing.T) {
 	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
 	ms := newSemaphore(5)
 	cs := newSemaphore(6)
-
 	h := &hub{
 		maximumSema: ms,
 		createSema:  cs,
@@ -199,10 +204,12 @@ func TestNewHub(t *testing.T) {
 	if err := h.init(ctx, available); err != nil {
 		t.Fatalf("Error on init function ! %d ", l.count)
 	}
+
 	// +1 comes from the last message which is sent to client when labs are ready and containers start to fire up...
 	if l.count != available+1 {
 		t.Fatalf("Something wrong with the implementation ! %d ", l.count)
 	}
+
 }
 
 func TestHub_Close(t *testing.T) {
@@ -224,7 +231,9 @@ func TestHub_Close(t *testing.T) {
 			lab: l,
 		}
 		hub.labHost = &lh
-		hub.addLab()
+		if err := hub.addLab(); err != nil {
+			t.Fatalf("Unexpected error while adding lab: %s", err)
+		}
 	}
 
 	_, err := hub.Get()
@@ -236,7 +245,9 @@ func TestHub_Close(t *testing.T) {
 		t.Fatalf("Expected the first lab to be started, but it isn't")
 	}
 
-	hub.Close()
+	if err := hub.Close(); err != nil {
+		t.Fatalf("Error closing while closin hub %s", err)
+	}
 
 	if !firstLab.closed {
 		t.Fatalf("Expected the first lab to be closed, but it isn't")
