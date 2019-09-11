@@ -1,6 +1,6 @@
 
 
-<p align="center"> <img src="https://htmmhw.am.files.1drv.com/y4myCMonnjXvUy8ekRggNEz7_4RosFe7MF6cG8BDb13RfIaOfEi8a7c6LU37vbLT8OFBHc_I0uEurjLLLSHjqHgSyySLW6f6TdbcNqSJN7j4TCM46UG_z5T15M6kjxlp8bi9fHrOLqKrBoKV6vTpSCL8TjmqIVYGwWxPFZo0VHuf12fSaTZG1prJPwo8bDJzEIl7WcTvlxmgCDwX4--M7IrVw?width=700&height=200&cropmode=none" width="700" height="200" />
+<p align="center"> <img src="https://htm0hw.am.files.1drv.com/y4m6NwG1XLFs2TEfUQIe9RnDjCD5NHTCfLOeULfWoCYZnWNNl0WMuzxWs-nJuYiUXIDPSNQ8BUpnTHEitBKkipco5Cp3HCwnxBUPvNP0pBBHhxv-Loo5nOM4AncBzvCDq6GNdFSdIVTUgorMePAiYTIF-4tpNvdgySIr1xBap16GvJd7_UFoZ75bSpyW676amseGvq8NHNECjdf8y8Gzg-0yw?width=660&height=201&cropmode=none" width="660" height="201" />
 <div align="center">
 
 <a href="https://beta.ntp-event.dk">
@@ -270,7 +270,7 @@ $ hkn event stop --help
 ### Restart Team Lab
 
 ```console
-$hkn event restart -h
+$ hkn event restart -h
 
 Restart lab for a team
 
