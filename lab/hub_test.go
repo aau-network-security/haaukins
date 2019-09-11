@@ -189,7 +189,6 @@ func TestNewHub(t *testing.T) {
 	ctx := context.WithValue(context.TODO(), "grpc_logger", l)
 	ms := newSemaphore(5)
 	cs := newSemaphore(6)
-
 	h := &hub{
 		maximumSema: ms,
 		createSema:  cs,
