@@ -14,7 +14,7 @@
   </a>
   <a href="https://github.com/aau-network-security/haaukins/releases">
     <img src="https://godoc.org/github.com/aau-network-security/haaukins?status.svg" alt="GitHub release">
-  </a
+  </a>
    <a href="https://www.gnu.org/licenses/gpl-3.0Â">
     <img src="https://img.shields.io/badge/License-GPLv3-blue.svg?longCache=true&style=flat-square" alt="licence">
   </a>
@@ -27,7 +27,7 @@
   <img src=https://img.shields.io/github/forks/aau-network-security/haaukins >
   </a>
   <a href="https://github.com/aau-network-security/haaukins/stargazers">
-  <img src=https://img.shields.io/github/stars/aau-network-security/haaukins>
+  <img src=https://img.shields.io/github/stars/aau-network-security/haaukins></a>
   </div>
   </div>
 &nbsp;
