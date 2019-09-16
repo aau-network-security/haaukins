@@ -1,6 +1,7 @@
 
 
-<p align="center"> <img src="https://htm0hw.am.files.1drv.com/y4m6NwG1XLFs2TEfUQIe9RnDjCD5NHTCfLOeULfWoCYZnWNNl0WMuzxWs-nJuYiUXIDPSNQ8BUpnTHEitBKkipco5Cp3HCwnxBUPvNP0pBBHhxv-Loo5nOM4AncBzvCDq6GNdFSdIVTUgorMePAiYTIF-4tpNvdgySIr1xBap16GvJd7_UFoZ75bSpyW676amseGvq8NHNECjdf8y8Gzg-0yw?width=660&height=201&cropmode=none" width="660" height="201" />
+<p align="center"> 
+<img src="https://htm1hw.am.files.1drv.com/y4mvyTs9BXGlVGtwKHKGP0NCB7XjcL4o0JzYkxMz59gyWe4EJQ_CXfhe0O6-FHTWXgn-0xKo3ufwa7iJg2uJ_aEwDPVGgOnfGQhqEfSDhZPJk2gzALrF20JXP-Kp3y9oCmWRfKJ4xHNRG_qcwL2DJ4U_RzbqFOqy9CvZa6bKxSB9u6S4hmgmzEz5tZkYBgQ3hEoFcwDpley399HYw1av0IsYA?width=1184&height=1184&cropmode=none" width="350" height="350" />
 <div align="center">
 
 <a href="https://beta.ntp-event.dk">
@@ -32,25 +33,17 @@
   </div>
 &nbsp;
 
-Haaukins is a highly accessible and automated virtualization platform for security education, it has three main components (Docker, Virtualbox and Golang), the communication and orchestration between the components managed using Go programming language. The main reason of having Go environment to manage and deploy something on Haaukins platform is that Go’s easy concurrency and parallelism mechanism.
+<h1 style="text-align: center;">
+Haaukins 
+</h1>
+Haaukins is a highly accessible and automated virtualization platform for security education, it has three main components (Docker, Virtualbox and Golang), the communication and orchestration between the components managed using Go programming language. The main reason of having Go environment to manage and deploy something on Haaukins platform is that Go’s easy concurrency and parallelism mechanism. Want to get more insight about architecture of Haaukins visit [architecture page](https://github.com/aau-network-security/haaukins/wiki/Architecture-of-Haaukins)
 &nbsp;
-
-`Haaukins` consists of two major components:
-- [client](app/client/readme.md)
-- [daemon](app/daemon/readme.md)
 
 Our primary aim to involve anyone who desire to learn capturing the flag concept in cyber security which is widely accepted approach to learn how to find vulnerability on a system. Despite of all existing platform, Haaukins provides its own virtualized environment to you with operating system which designed to find vulnerabilities
 
 * [Installation](#installation)
+* [Prerequisites](#prerequisites)
 * [Getting Dependencies](#getting-dependencies)
-* [Getting Started](#getting-started)
-  * [Invite user](#invite-user)
-  * [Start an event](#start-an-event)
-  * [List events](#list-events)
-  * [List event teams](#list-event-teams)
-  * [Stop an event]($stop-an-event)
-  * [Restart team lab](#restart-team-lab)
-* [Haaukins architecture](#haaukins-architecture)
 * [Testing](#testing)
 * [Re-compile proto](#re-compile-proto)
 * [Known issues](#known-issues)
@@ -59,9 +52,7 @@ Our primary aim to involve anyone who desire to learn capturing the flag concept
 * [License](#license)
 
 
-## __Installation__
-
-### Prerequisites
+## __Prerequisites__
 
 The following dependencies are required and must be installed separately in order to run daemon in your local environment.
 
@@ -69,27 +60,25 @@ The following dependencies are required and must be installed separately in orde
 * Docker
 * Go 1.11+
 
+There is no prerequisites for installing client to your environment. 
+
 > **Note**: Linux can be used in virtualized environment as well.
 
-### Install
+## __Installation__
 
-To install daemon or client of Haaukins,  there are some options, via binary files, which are ready to use, visit [Releases](https://github.com/aau-network-security/haaukins/releases) page.
+To install daemon or client of Haaukins,  there are some options, via binary files, which are ready to use, visit [releases](https://github.com/aau-network-security/haaukins/releases) page.
 
-#### Client
+More information about installation process, checkout following pages ; 
 
-Just download proper version of binary then locate it to somewhere that the path of binary defined on your bash profile.
+* [Installation for client](https://github.com/aau-network-security/haaukins/wiki/Installation) 
 
-Need more information on installing Haaukins client, have a look over [here](https://github.com/aau-network-security/haaukins/wiki/Installation)
 
-#### Daemon
+* [Configuration for daemon](https://github.com/aau-network-security/haaukins/wiki/Configuring-the-daemon)
+  - There are some configuration files to configure daemon, those configuration files should be in same directory with the binary file that you have just downloaded from [releases](https://github.com/aau-network-security/haaukins/releases) page. 
+  
+  - Want to try daemon on you local computer with pre-configured vagrant file check out this [repo](https://github.com/aau-network-security/sec0x) for more information. 
 
-In order to run daemon on your local environment, there are couple of preliminary information that you should keep in mind.
 
-First of all, all [prerequisites](#Prerequisites) should be installed and [GOPATH & GOROOT](https://golang.org/doc/install) set properly.
-
-There are some configuration files to configure daemon, those configuration files should be in same directory with the binary file that you have just downloaded from [releases](https://github.com/aau-network-security/haaukins/releases) page. (More info can be found [here](https://github.com/aau-network-security/haaukins/wiki/Configuring-the-daemon))
-
-If you would like to run Haaukins in development stage than you should specify some environment variables before running `app/daemon/main.go`.
 
 ## __Getting Dependencies__
 
@@ -97,198 +86,8 @@ Install dependencies (requiring `go 1.7` or higher):
 
 ```bash
 go get ./...
-```
-#### Running for development purposes
-
-Make sure that you have pre-configured box installed in your local computer by given instructions from the repo [sec0x](https://github.com/aau-network-security/sec0x)
-
-Set some required environment variables into your bash profile before running the box under vagrant
 
 ```
-export VMDKS=...
-export VMDKS=...
-export CONFIGS=...
-export FRNTENDS=....
-```
-After having set of given variables in your bash profile, you are good to go !
-
-```
-HKN_HOST=localhost HKN_SSL_OFF=true go run app/client/main.go event create boot -n "Boot " -a 5 -c 10 -e xss,scan,hb,phish -f kali
-
-```
-**Regarding to flags on command *
-
-```
-(-n or --name): Title of the event
-(-a or --available): Requested number of labs
-(-c or --capacity): Capacity of requested event
-(-e or --exercises): Set of exercise tags (which are defined under exercise.yml file)
-(-f or --frontend) : Virtual machine to use
-```
-
-
-## __Getting Started__
-
-
-```
-Usage:
-
-hkn [command] [...]
-
-Usage:
-  hkn [command]
-
-Available Commands:
-  event       Actions to perform on events
-  events      List events
-  exercise    Actions to perform on exercises
-  exercises   List exercises
-  frontend    Actions to perform on frontends
-  frontends   List available frontends
-  help        Help about any command
-  host        Actions to perform on host
-  team        Actions to perform on teams
-  user        Actions to perform on users
-  version     Print version
-
-Flags:
-  -h, --help   help for hkn
-
-```
-
-### Invite user
-
-Users have right to create,update,stop and list events should be invited by us, the invitation process take place in following format
-
-```console 
-$ hkn user invite --help
-Create key for inviting other users (superuser only)
-
-Usage:
-  hkn user invite [flags]
-
-Examples:
-hkn user invite --superuser
-
-Flags:
-  -h, --help         help for invite
-  -s, --super-user   indicates if the signup key will create a super user
-
-```
-When we created an invitation, random string will be produced in our console, etc `073a5ba4-69d7-sn34-8a4c-24124145` then that key can be used by user as sign up key, to get help how to do it, try following command 
-
-```console 
-$ hkn user signup --help
-Signup as user
-
-Usage:
-  hkn user signup [flags]
-
-Examples:
-hkn user signup
-
-Flags:
-  -h, --help   help for signup
-
-```
-When you type `hkn user signup`, Haaukins will ask following field to create a user on server who may have limited or full access depending on situation. 
-```console 
-$ hkn user signup 
-
-  Signup key: <the-key-given-by-administrator>
-  Username: 
-  Password:
-  Password (again):
-
-```
-
-
-### Start an event
-
-Starting an event is really easy when you have access to server [see more information how to gain access](#how-to-gain-grant),
-
-```console
-$ hkn event create example -n "Example Event " -a 10 -c 20 -e xss,scan,hb,phish -f kali
-
-60% |████████████████████████                |  [32s:4s]
-
-
-```
-__Example run of starting an event command:__
-
-<a href="https://asciinema.org/a/YdCOBU82yHrt5Y90JdFgGtNM0" target="_blank"><img src="https://asciinema.org/a/YdCOBU82yHrt5Y90JdFgGtNM0.svg" /></a>
-
-
-### List events
-
-```console
-$ hkn event list
-
-EVENT TAG     NAME                  # TEAM   # EXERCISES   CAPACITY   CREATION TIME
-natctfevent   National CTF event    1         4             2          2019-05-08 10:40:26
-boot          Boot                  4         4             10         2018-12-11 23:16:01
-aauctf        CTF event             7         4             10         2019-07-09 08:38:17
-
-```
-
-### List Event Teams
-
-```console
-$ hkn event teams --help
-
-  Get teams for a event
-
-  Usage:
-   hkn event teams [event tag] [flags]
-
-  Examples:
-  hkn event teams esboot
-
-  Flags:
-   -h, --help   help for teams
-
-```
-
-### Stop an event
-
-```console
-$ hkn event stop --help
-
-  Stop event
-
-  Usage:
-    hkn event stop [event tag] [flags]
-
-  Examples:
-  hkn event stop esboot
-
-  Flags:
-    -h, --help   help for stop
-
-```
-
-### Restart Team Lab
-
-```console
-$ hkn event restart -h
-
-Restart lab for a team
-
-Usage:
-  hkn event restart [event tag] [team id] [flags]
-
-Examples:
-hkn event restart esboot d11eb89b
-
-Flags:
-  -h, --help   help for restart
-
-
-```
-
-## __Haaukins Architecture__
-
-Haaukins consists of three main components which are Docker, Virtualbox and Go Programming. The internal communication and design of Haaukins can be viewed over [architecture page](https://github.com/aau-network-security/haaukins/wiki/Architecture-of-Haaukins)
 
 ## __Testing__
 
@@ -348,4 +147,4 @@ After having your application, we will back to you as soon as possible
 
 [GNU](https://github.com/aau-network-security/haaukins/blob/master/LICENSE)
 
-Copyright (c) 2018-present, Haaukins
+Copyright (c) 2019-present, Haaukins
