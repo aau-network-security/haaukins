@@ -87,7 +87,7 @@ func (fp *FlagPool) GetTagByIdentifier(id int) (store.Tag, error) {
 	return conf.Tag, nil
 }
 
-func (fp *FlagPool) TranslateFlagForTeam(t store.Team, cid int, value string) string {
+func (fp *FlagPool) TranslateFlagForTeam(t *store.Team, cid int, value string) string {
 	fp.m.RLock()
 	defer fp.m.RUnlock()
 

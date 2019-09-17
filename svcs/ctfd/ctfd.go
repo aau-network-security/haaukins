@@ -268,6 +268,9 @@ func (ctf *ctfd) configureInstance() error {
 
 		log.Debug().
 			Str("name", flag.Name).
+			Str("Flag Tag ",string(flag.Tag)).
+			Str("Flag Value",value).
+			Str("Flag Static",flag.Static).
 			Bool("static", flag.Static != "").
 			Uint("points", flag.Points).
 			Msg("Flag created")

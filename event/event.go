@@ -116,7 +116,7 @@ type event struct {
 
 	closers []io.Closer
 
-	teamQueue chan store.Team
+	teamQueue chan *store.Team
 }
 
 func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, error) {
@@ -154,7 +154,7 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub) (Event, erro
 		closers:       []io.Closer{ctf, guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
 		keyLoggerPool: keyLoggerPool,
-		teamQueue:     make(chan store.Team, conf.Capacity),
+		teamQueue:     make(chan *store.Team, conf.Capacity),
 	}
 
 	hub.AttachHook(func() error {
@@ -192,7 +192,7 @@ func (ev *event) Start(ctx context.Context) error {
 	}
 	for _, team := range ev.store.GetTeams() {
 
-		ev.teamQueue <- team
+		ev.teamQueue <- &team
 		if err := ev.processQueue(); err != nil {
 			return err
 		}
@@ -286,7 +286,6 @@ func (ev *event) AssignLab(t *store.Team) error {
 	for _, chal := range chals {
 		t.AddChallenge(chal)
 	}
-
 	return nil
 }
 
@@ -296,7 +295,7 @@ func (ev *event) Handler() http.Handler {
 			return lab.MaximumLabsErr
 		}
 
-		ev.teamQueue <- *t
+		ev.teamQueue <- t
 		return ev.processQueue()
 	}
 
@@ -320,7 +319,7 @@ func (ev *event) processQueue() error {
 	select {
 	case t := <-ev.teamQueue:
 		log.Debug().Msgf("Assigning team %s to lab", t.Id)
-		if err := ev.AssignLab(&t); err != nil {
+		if err := ev.AssignLab(t); err != nil {
 			log.Error().Err(err).Msgf("Error assigning lab to team %s", t.Id)
 			return err
 		}

@@ -160,6 +160,8 @@ func (t *Team) AddChallenge(c Challenge) {
 		t.ChalMap = map[Tag]Challenge{}
 	}
 	t.ChalMap[c.FlagTag] = c
+	log.Info().Str("FlagValue",c.FlagValue).Str("FlagTag", string(c.FlagTag)).Msg("From AddChallenge")
+
 }
 
 func (t *Team) DataConsent() bool {

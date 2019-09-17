@@ -435,9 +435,10 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 		chalNumStr := matches[1]
 		cid, _ := strconv.Atoi(chalNumStr)
 
+
 		originalFlag := r.FormValue("key")
 
-		translatedFlag := cfi.flagPool.TranslateFlagForTeam(t, cid, originalFlag)
+		translatedFlag := cfi.flagPool.TranslateFlagForTeam(&t, cid, originalFlag)
 
 		r.Form.Set("key", translatedFlag)
 
