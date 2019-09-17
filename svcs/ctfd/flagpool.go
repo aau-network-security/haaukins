@@ -93,15 +93,11 @@ func (fp *FlagPool) TranslateFlagForTeam(t *store.Team, cid int, value string) s
 
 	chal, ok := fp.ids[cid]
 	if !ok {
-		return ""
-	}
-
-	if chal.IsStatic() {
-		return chal.CTFdFlag
+		return "Challenge cannot be retrievend from flag pool ! "
 	}
 
 	if err := t.IsCorrectFlag(chal.Tag, value); err != nil {
-		return ""
+		return "Error happened on checking flag ! "+ err.Error()
 	}
 
 	return chal.CTFdFlag
