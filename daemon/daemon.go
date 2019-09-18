@@ -14,7 +14,7 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/mholt/certmagic"
+	"github.com/mrturkmen06/certmagic"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
