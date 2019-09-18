@@ -37,7 +37,7 @@ func TestBasicEnvironment(t *testing.T) {
 		},
 	}
 
-	dclient, err := docker.NewClient("sud")
+	dclient, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		t.Fatalf("unable to access docker environment: %s", err)
 	}
