@@ -280,6 +280,9 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	chals := lab.Environment().Challenges()
 	for _, chal := range chals {
 		t.AddChallenge(chal)
+		log.Info().Str("chal-tag",string(chal.FlagTag)).
+			Str("chal-val",chal.FlagValue).
+			Msgf("Flag is created for team %s [assignlab function] ",t.Name)
 	}
 
 	return nil
