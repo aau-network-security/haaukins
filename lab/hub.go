@@ -7,6 +7,7 @@ package lab
 import (
 	"context"
 	"errors"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
@@ -46,11 +47,11 @@ func NewHub(creator Creator, buffer int, cap int) (*hub, error) {
 			wg.Add(1)
 			lab, err := creator.NewLab(ctx)
 			if err != nil {
-				// log error
+				log.Error().Msgf("Error while creating new lab %s",err.Error())
 			}
 
 			if err := lab.Start(ctx); err != nil {
-				// log error
+				log.Error().Msgf("Error while starting lab %s",err.Error())
 			}
 			wg.Done()
 
@@ -110,13 +111,13 @@ func NewHub(creator Creator, buffer int, cap int) (*hub, error) {
 				labsCloser()
 				for l := range labs {
 					if err := l.Close(); err != nil {
-						// log error
+						log.Error().Msgf("Error while closing ready labs %s",err.Error())
 					}
 				}
 
 				for _, l := range startedLabs {
 					if err := l.Close(); err != nil {
-						// log error
+						log.Error().Msgf("Error while closing started labs %s",err.Error())
 					}
 				}
 				return
