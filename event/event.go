@@ -8,6 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
+	"io"
+	"sync"
+
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/ctfd"
@@ -15,10 +21,6 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
-	"io"
-	"net/http"
-	"sync"
-	"time"
 )
 
 var (
@@ -34,8 +36,8 @@ var (
 )
 
 type Host interface {
-	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
-	CreateEventFromEventFile(context.Context, store.EventFile) (Event, error)
+	CreateEventFromConfig(context.Context,store.EventConfig) (Event, error)
+	CreateEventFromEventFile(context.Context,store.EventFile) (Event, error)
 }
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
@@ -54,7 +56,7 @@ type eventHost struct {
 	elib store.ExerciseStore
 }
 
-func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.EventFile) (Event, error) {
+func (eh *eventHost) CreateEventFromEventFile(ctx context.Context,ef store.EventFile) (Event, error) {
 	conf := ef.Read()
 	if err := conf.Validate(); err != nil {
 		return nil, err
@@ -82,13 +84,13 @@ func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.Even
 	return NewEvent(eh.ctx, ef, hub, labConf.Flags())
 }
 
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context,conf store.EventConfig) (Event, error) {
 	ef, err := eh.efh.CreateEventFile(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return eh.CreateEventFromEventFile(ctx, ef)
+	return eh.CreateEventFromEventFile(ctx,ef)
 }
 
 type Auth struct {
@@ -122,8 +124,6 @@ type event struct {
 	dockerHost    docker.Host
 
 	closers []io.Closer
-
-	teamQueue chan store.Team
 }
 
 func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []store.FlagConfig) (Event, error) {
@@ -161,18 +161,12 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 		closers:       []io.Closer{ctf, guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
 		keyLoggerPool: keyLoggerPool,
-		teamQueue:     make(chan store.Team, conf.Capacity),
 	}
-
-	hub.AttachHook(func() error {
-		return ev.processQueue()
-	})
 
 	return ev, nil
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	log.Info().Msg("Starting CTFD container from initial point")
 	if err := ev.ctfd.Start(ctx); err != nil {
 		log.
 			Error().
@@ -181,7 +175,6 @@ func (ev *event) Start(ctx context.Context) error {
 
 		return StartingCtfdErr
 	}
-	log.Info().Msg("Starting GUAC container from initial point")
 
 	if err := ev.guac.Start(ctx); err != nil {
 		log.
@@ -192,11 +185,6 @@ func (ev *event) Start(ctx context.Context) error {
 		return StartingGuacErr
 	}
 
-	if len(ev.store.GetTeams()) == 0 {
-		log.Warn().Msg("Teams not found, so assigning lab to team function is skipping....")
-	} else {
-		log.Warn().Str("Team 0 ", ev.store.GetTeams()[0].Name).Msg("0 indexed team....")
-	}
 	for _, team := range ev.store.GetTeams() {
 		lab, ok := <-ev.labhub.Queue()
 		if !ok {
@@ -209,7 +197,6 @@ func (ev *event) Start(ctx context.Context) error {
 		}
 
 		ev.store.SaveTeam(team)
-
 	}
 
 	return nil
@@ -313,8 +300,7 @@ func (ev *event) Handler() http.Handler {
 			return ErrNoAvailableLabs
 		}
 
-		ev.teamQueue <- *t
-		return ev.processQueue()
+		return nil
 	}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool)(ev.store)
@@ -326,26 +312,6 @@ func (ev *event) Handler() http.Handler {
 	m.Handle("/", ev.ctfd.ProxyHandler(reghook)(ev.store))
 
 	return m
-}
-
-func (ev *event) processQueue() error {
-	/* Check if we have labs to assign */
-	if ev.labhub.Available() == 0 {
-		return nil
-	}
-
-	select {
-	case t := <-ev.teamQueue:
-		log.Debug().Msgf("Assigning team %s to lab", t.Id)
-		if err := ev.AssignLab(&t); err != nil {
-			log.Error().Err(err).Msgf("Error assigning lab to team %s", t.Id)
-			return err
-		}
-	default:
-		return nil
-	}
-
-	return nil
 }
 
 func (ev *event) GetHub() lab.Hub {

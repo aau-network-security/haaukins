@@ -7,18 +7,7 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
-
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/reflection"
-
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/aau-network-security/haaukins/store"
@@ -623,7 +612,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
+	lab, err := ev.GetHub().GetLabByTag(req.TeamId)
 	if err != nil {
 		return err
 	}
