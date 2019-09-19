@@ -98,7 +98,7 @@ go get ./...
 
 ## __Testing__
 
-Make sure that you are in `.../aau-network-security/haaukins/` directory, to run all test files, following command can be used
+Make sure that you are in `$GOPATH/src/github.com/aau-network-security/haaukins/` directory, to run all test files, following command can be used
 
 ```bash
 go test -v -short ./...
