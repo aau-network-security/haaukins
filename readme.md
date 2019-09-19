@@ -57,7 +57,7 @@ The following dependencies are required and must be installed separately in orde
 
 * Linux
 * Docker
-* Go 1.11+
+* Go 1.13+
 
 There is no prerequisites for installing client to your environment. 
 
@@ -77,11 +77,19 @@ More information about installation process, checkout following pages ;
   
   - Want to try daemon on you local computer with pre-configured vagrant file check out this [repo](https://github.com/aau-network-security/sec0x) for more information. 
 
-
+Development purposes 
 
 ## __Getting Dependencies__
 
-Install dependencies (requiring `go 1.7` or higher):
+Since Haaukins does not include any dependency management in itself, it is required to get project to your `$GOPATH` for development purposes . Run following command on your terminal and open Haaukins project as described below; 
+
+```bash 
+ go get -u github.com/aau-network-security/haaukins 
+```
+Change directory to  __`$GOPATH/src/github.com/aau-network-security/haaukins/`__
+
+
+Install dependencies (requiring `go 1.13` or higher):
 
 ```bash
 go get ./...
@@ -100,7 +108,7 @@ go test -v -short ./...
 
 Haaukins platform uses gRPC on communication of client and daemon, so after updating the protocol buffer specification (i.e. daemon/proto/daemon.proto), corresponding golang code generation is done by doing the following:
 ```bash
-cd daemon
+cd $GOPATH/src/github.com/aau-network-security/haaukins/daemon/
 protoc -I proto/ proto/daemon.proto --go_out=plugins=grpc:proto
 ```
 
@@ -108,9 +116,9 @@ protoc -I proto/ proto/daemon.proto --go_out=plugins=grpc:proto
 
 In order to release a new version, run the `script/release/release.go` script as follows (choose depending on type of release):
 ```bash
-$ go run script/release/release.go major
-$ go run script/release/release.go minor
-$ go run script/release/release.go patch
+$ go run $GOPATH/src/github.com/aau-network-security/haaukins/scripts/release/release.go major
+$ go run $GOPATH/src/github.com/aau-network-security/haaukins/scripts/release/release.go minor
+$ go run $GOPATH/src/github.com/aau-network-security/haaukins/scripts/release/release.go patch
 ```
 The script will do the following:
 
