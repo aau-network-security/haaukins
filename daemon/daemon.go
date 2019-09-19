@@ -612,7 +612,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.TeamId)
+	lab, err := ev.GetHub().GetLabByTag(req.EventTag)
 	if err != nil {
 		return err
 	}
@@ -625,7 +625,6 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 }
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
-
 	var exercises []*pb.ListExercisesResponse_Exercise
 
 	for _, e := range d.exercises.ListExercises() {

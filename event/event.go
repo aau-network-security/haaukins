@@ -211,7 +211,7 @@ func (ev *event) Close() error {
 			if err := c.Close(); err != nil {
 				log.Warn().Msgf("error while closing event '%s': %s", ev.GetConfig().Name, err)
 			}
-			wg.Done()
+			defer wg.Done()
 		}(closer)
 	}
 	wg.Wait()
