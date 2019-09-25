@@ -53,9 +53,19 @@ func NewHub(creator Creator, buffer int, cap int) (*hub, error) {
 			if err := lab.Start(ctx); err != nil {
 				log.Error().Msgf("Error while starting lab %s",err.Error())
 			}
-			wg.Done()
 
-			labs <- lab
+			select {
+			case labs <- lab:
+				wg.Done()
+			case <-stop:
+				wg.Done()
+
+				/* Delete lab as it wasn't added to the lab queue */
+				if err := lab.Close(); err != nil {
+					log.Error().Msgf("Error while closing lab %s", err.Error())
+				}
+				break
+			}
 		}
 	}
 
