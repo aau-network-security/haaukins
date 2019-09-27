@@ -3,7 +3,7 @@ dist: trusty
 
 language: go
 go:
-- '1.11'
+- '1.13'
 
 services:
 - docker
@@ -15,13 +15,14 @@ cache:
 env:
   global:
     GIT_TAG=$(git describe --tags)
-    GOCACHE=off
 
 before_install:
 - openssl aes-256-cbc -K $encrypted_a30037d67e8c_key -iv $encrypted_a30037d67e8c_iv -in travis_deploy_key.enc -out ./travis_deploy_key -d
 
 install:
 - go get -t ./...
+
+script: go test -v -race ./... --count 5
 
 before_deploy:
 - go run ./scripts/deploy/build_binaries.go

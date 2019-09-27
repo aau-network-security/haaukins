@@ -1,4 +1,5 @@
 // Copyright (c) 2018-2019 Aalborg University
+
 // Use of this source code is governed by a GPLv3
 // license that can be found in the LICENSE file.
 
@@ -85,7 +86,7 @@ func (lab *testLab) RdpConnPorts() []uint {
 	return lab.rdpPorts
 }
 
-func (lab *testLab) GetEnvironment() exercise.Environment {
+func (lab *testLab) Environment() exercise.Environment {
 	return &testEnvironment{}
 }
 
@@ -96,13 +97,17 @@ type testLabHub struct {
 	lab.Hub
 }
 
-func (hub *testLabHub) Get() (lab.Lab, error) {
-	return hub.lab, hub.err
+func (hub *testLabHub) Queue() <-chan lab.Lab {
+	return nil
 }
 
 func (hub *testLabHub) Close() error {
 	hub.status = CLOSED
 	return nil
+}
+
+func (hub *testLabHub) GetLabByTag(string) (lab.Lab, error) {
+	return nil, nil
 }
 
 type testDockerHost struct {
@@ -162,46 +167,6 @@ func TestEvent_StartAndClose(t *testing.T) {
 			}
 			if hub.status != CLOSED {
 				t.Fatalf("Expected LabHub to be stopped, but hasn't")
-			}
-		})
-	}
-}
-
-func TestEvent_AssignLab(t *testing.T) {
-	tt := []struct {
-		name         string
-		hubErr       error
-		expectedErr  error
-		expectedLabs int
-	}{
-		{name: "Normal", expectedLabs: 1},
-		{name: "No labs available", hubErr: lab.CouldNotFindLabErr, expectedErr: lab.CouldNotFindLabErr, expectedLabs: 0},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			l := testLab{rdpPorts: []uint{1}}
-			hub := testLabHub{lab: &l, err: tc.hubErr}
-			labs := make(map[string]lab.Lab)
-
-			ev := event{
-				ctfd:          &testCtfd{},
-				guac:          &testGuac{},
-				labhub:        &hub,
-				labs:          labs,
-				guacUserStore: guacamole.NewGuacUserStore(),
-				dockerHost:    &testDockerHost{},
-				store:         &testEventFile{},
-			}
-			ev.Start(context.Background())
-
-			team := store.NewTeam("what@ever.com", "test", "passworder")
-			if err := ev.AssignLab(&team); err != tc.expectedErr {
-				t.Fatalf("Unexpected error %s, expected %s", err, tc.expectedErr)
-			}
-
-			if len(labs) != tc.expectedLabs {
-				t.Fatalf("Expected %d lab(s) in event, but is %d", tc.expectedLabs, len(labs))
 			}
 		})
 	}
