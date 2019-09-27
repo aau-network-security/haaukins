@@ -55,13 +55,17 @@ func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, err
 			if err := lab.Start(ctx); err != nil {
 				log.Error().Msgf("Error while starting lab %s",err.Error())
 			}
-			wg.Done()
-			labs <- lab
-			if grpcLogger != nil {
-				msg := ""
-				if err := grpcLogger.Msg(msg); err != nil {
-					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
+			select {
+			case labs <- lab:
+				wg.Done()
+			case <-stop:
+				wg.Done()
+
+				/* Delete lab as it wasn't added to the lab queue */
+				if err := lab.Close(); err != nil {
+					log.Error().Msgf("Error while closing lab %s", err.Error())
 				}
+				break
 			}
 		}
 	}
