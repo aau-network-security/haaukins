@@ -67,6 +67,12 @@ func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, err
 				}
 				break
 			}
+			if grpcLogger != nil {
+				msg := ""
+				if err := grpcLogger.Msg(msg); err != nil {
+					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
+				}
+			}
 		}
 	}
 
