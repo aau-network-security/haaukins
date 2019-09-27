@@ -7,6 +7,8 @@ package lab
 import (
 	"context"
 	"errors"
+	"github.com/aau-network-security/haaukins/logging"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
@@ -28,11 +30,12 @@ type hub struct {
 	stop    chan struct{}
 }
 
-func NewHub(creator Creator, buffer int, cap int) (*hub, error) {
+func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, error) {
 	workerAmount := 2
 	if buffer < workerAmount {
 		buffer = workerAmount
 	}
+	grpcLogger:=logging.LoggerFromCtx(ctx)
 
 	ready := make(chan struct{})
 	stop := make(chan struct{})
@@ -46,21 +49,37 @@ func NewHub(creator Creator, buffer int, cap int) (*hub, error) {
 			wg.Add(1)
 			lab, err := creator.NewLab(ctx)
 			if err != nil {
-				// log error
+				log.Error().Msgf("Error while creating new lab %s",err.Error())
 			}
 
 			if err := lab.Start(ctx); err != nil {
-				// log error
+				log.Error().Msgf("Error while starting lab %s",err.Error())
 			}
-			wg.Done()
+			select {
+			case labs <- lab:
+				wg.Done()
+			case <-stop:
+				wg.Done()
 
-			labs <- lab
+				/* Delete lab as it wasn't added to the lab queue */
+				if err := lab.Close(); err != nil {
+					log.Error().Msgf("Error while closing lab %s", err.Error())
+				}
+				break
+			}
+			if grpcLogger != nil {
+				msg := ""
+				if err := grpcLogger.Msg(msg); err != nil {
+					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
+				}
+			}
 		}
 	}
 
 	for i := 0; i < workerAmount; i++ {
 		go worker()
 		ready <- struct{}{}
+
 	}
 
 	startedLabs := map[string]Lab{}
@@ -110,13 +129,13 @@ func NewHub(creator Creator, buffer int, cap int) (*hub, error) {
 				labsCloser()
 				for l := range labs {
 					if err := l.Close(); err != nil {
-						// log error
+						log.Error().Msgf("Error while closing ready labs %s",err.Error())
 					}
 				}
 
 				for _, l := range startedLabs {
 					if err := l.Close(); err != nil {
-						// log error
+						log.Error().Msgf("Error while closing started labs %s",err.Error())
 					}
 				}
 				return

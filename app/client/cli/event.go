@@ -111,9 +111,7 @@ func (c *Client) CmdEventStop() *cobra.Command {
 		Example: `hkn event stop esboot`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
+			ctx:=context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.StopEvent(ctx, &pb.StopEventRequest{
 				Tag: tag,
