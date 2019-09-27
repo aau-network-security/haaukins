@@ -416,7 +416,6 @@ type EventFileHub interface {
 
 type eventfilehub struct {
 	m sync.Mutex
-
 	path string
 }
 
