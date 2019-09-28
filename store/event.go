@@ -102,7 +102,10 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 	}
 	for _, chal := range chals {
 		t.AddChallenge(chal)
-	}
+		log.Info().Str("chal-tag",string(chal.FlagTag)).
+			Str("chal-val",chal.FlagValue).
+			Msgf("Flag is created for team %s ",t.Name)
+		}
 	return t
 }
 
@@ -413,7 +416,6 @@ type EventFileHub interface {
 
 type eventfilehub struct {
 	m sync.Mutex
-
 	path string
 }
 

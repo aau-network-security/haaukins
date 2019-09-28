@@ -612,9 +612,9 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, ok := ev.GetLabByTeam(req.TeamId)
-	if !ok {
-		return UnknownTeamErr
+	lab, err := ev.GetHub().GetLabByTag(req.EventTag)
+	if err != nil {
+		return err
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
@@ -625,7 +625,6 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 }
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
-
 	var exercises []*pb.ListExercisesResponse_Exercise
 
 	for _, e := range d.exercises.ListExercises() {
@@ -669,7 +668,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 				continue
 			}
 
-			if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
 			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
@@ -685,7 +684,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 			continue
 		}
 
-		if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})

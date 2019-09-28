@@ -96,10 +96,6 @@ func (fp *FlagPool) TranslateFlagForTeam(t store.Team, cid int, value string) st
 		return ""
 	}
 
-	if chal.IsStatic() {
-		return chal.CTFdFlag
-	}
-
 	if err := t.IsCorrectFlag(chal.Tag, value); err != nil {
 		return ""
 	}
