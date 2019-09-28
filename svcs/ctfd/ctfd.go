@@ -262,7 +262,7 @@ func (ctf *ctfd) configureInstance() error {
 	for id, flag := range ctf.conf.Flags {
 		value := ctf.flagPool.AddFlag(flag, id+1)
 
-		if err := ctf.createFlag( value, &flag); err != nil {
+		if err := ctf.createFlag(flag.Name,value,flag.Description,flag.Category,flag.Points); err != nil {
 			return err
 		}
 
@@ -329,7 +329,7 @@ func (nc *nonceClient) getNonce(path string) (string, error) {
 	return string(matches[0][1]), nil
 }
 
-func (ctf *ctfd) createFlag(flagValue string,flagConfig *store.FlagConfig) error {
+func (ctf *ctfd) createFlag(name,flagValue,description,category string,points uint) error {
 	endpoint := ctf.nc.baseUrl() + "/admin/chal/new"
 
 	nonce, err := ctf.nc.getNonce(endpoint)
@@ -340,13 +340,13 @@ func (ctf *ctfd) createFlag(flagValue string,flagConfig *store.FlagConfig) error
 	body := &bytes.Buffer{}
 	w := multipart.NewWriter(body)
 	values := map[string]string{
-		"name":         flagConfig.Name,
-		"value":        fmt.Sprintf("%d", flagConfig.Points),
+		"name":         name,
+		"value":        fmt.Sprintf("%d", points),
 		"key":          flagValue,
 		"nonce":        nonce,
 		"key_type[0]":  "static",
-		"category":     flagConfig.Category,
-		"description":  flagConfig.Description,
+		"category":     category,
+		"description":  description,
 		"max_attempts": "",
 		"chaltype":     "standard",
 	}
