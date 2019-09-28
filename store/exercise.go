@@ -164,6 +164,8 @@ type FlagConfig struct {
 	EnvVar string `yaml:"env"`
 	Static string `yaml:"static"`
 	Points uint   `yaml:"points"`
+	Description string `yaml:"description"`
+	Category string `yaml:"category"`
 }
 
 func (fc FlagConfig) Validate() error {
