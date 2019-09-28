@@ -99,9 +99,9 @@ func TestHub(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			started := make(chan bool, 1000)
 			closed := make(chan bool, 1000)
-
+			ctx:=context.Background()
 			c := &testCreator{lab: &testLab{started, closed}}
-			h, err := NewHub(c, tc.buf, tc.cap)
+			h, err := NewHub(ctx,c, tc.buf, tc.cap)
 			if err != nil {
 				t.Fatalf("unable to create hub: %s", err)
 			}

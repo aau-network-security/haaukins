@@ -76,7 +76,7 @@ func (eh *eventHost) CreateEventFromEventFile(ctx context.Context,ef store.Event
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
-	hub, err := lab.NewHub(&lh, conf.Available, conf.Capacity)
+	hub, err := lab.NewHub(ctx,&lh, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
 	}
