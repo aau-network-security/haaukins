@@ -1,9 +1,7 @@
 
-
 <p align="center"> 
-<img src="https://htm1hw.am.files.1drv.com/y4mvyTs9BXGlVGtwKHKGP0NCB7XjcL4o0JzYkxMz59gyWe4EJQ_CXfhe0O6-FHTWXgn-0xKo3ufwa7iJg2uJ_aEwDPVGgOnfGQhqEfSDhZPJk2gzALrF20JXP-Kp3y9oCmWRfKJ4xHNRG_qcwL2DJ4U_RzbqFOqy9CvZa6bKxSB9u6S4hmgmzEz5tZkYBgQ3hEoFcwDpley399HYw1av0IsYA?width=1184&height=1184&cropmode=none" width="250" height="250" />
+<img src=".github/logo/blue240px.png"  />
 <div align="center">
-
 <a href="https://beta.ntp-event.dk">
   <img src=https://img.shields.io/badge/platform-try%20haaukins-brightgreen>
   </a>
@@ -40,15 +38,17 @@ Haaukins is a highly accessible and automated virtualization platform for securi
 
 Our primary aim to involve anyone who desire to learn capturing the flag concept in cyber security which is widely accepted approach to learn how to find vulnerability on a system. Despite of all existing platform, Haaukins provides its own virtualized environment to you with operating system which designed to find vulnerabilities
 
-* [Installation](#installation)
-* [Prerequisites](#prerequisites)
-* [Getting Dependencies](#getting-dependencies)
-* [Testing](#testing)
-* [Re-compile proto](#re-compile-proto)
-* [Known issues](#known-issues)
-* [Contributing](#contributing)
-* [Event requests](#event-requests)
-* [License](#license)
+- [__Prerequisites__](#prerequisites)
+- [__Installation__](#installation)
+- [__Getting Dependencies__](#getting-dependencies)
+- [__Testing__](#testing)
+- [__Re-compile proto__](#re-compile-proto)
+- [__Version release__](#version-release)
+- [__Known issues__](#known-issues)
+- [__Contributing__](#contributing)
+- [__Event requests__](#event-requests)
+  - [Event Requests Form](#event-requests-form)
+- [__License__](#license)
 
 
 ## __Prerequisites__
