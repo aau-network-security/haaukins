@@ -730,6 +730,10 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 			Name:  t.Name,
 			Email: t.Email,
 		})
+
+		if t.AccessedAt != nil {
+			eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+		}
 	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil

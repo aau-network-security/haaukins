@@ -85,6 +85,7 @@ message ListEventTeamsResponse {
     string Id = 1;
     string Name = 2;
     string Email = 3;
+    string AccessedAt = 4;
   }
   repeated Teams teams = 1;
 }
