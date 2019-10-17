@@ -63,4 +63,46 @@ const (
 select.form-control {
    height: inherit !important;
 }`
+	teamExistsTemplate = `
+			<html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>An error occured</title>
+        <style>
+        @import url('https://fonts.googleapis.com/css?family=Roboto+Mono');
+        
+        html, body {
+          font-family: 'Roboto Mono', monospace;
+          font-size: 16px;
+          text-align: center;
+        }
+        
+        html {
+          box-sizing: border-box;
+          user-select: none;
+        }
+        
+        body {
+          background-color: #000;
+        }
+        
+        p {
+          color:#fff;
+          font-size: 24px;
+          letter-spacing: .2px;
+          margin: 0px;
+          padding-top: 400px;
+        }
+    </style>
+    </head>
+    
+    <body>
+<p > 500
+  <br> You can give feedback through following <a href="https://forms.gle/TR41yHqA1LKofgR27">form</a>.
+  <br> 
+  <br><i>Team already EXISTS ! </i>
+</p>
+    </body>
+</html>
+`
 )

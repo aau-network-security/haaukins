@@ -55,7 +55,7 @@ Our primary aim to involve anyone who desire to learn capturing the flag concept
 
 The following dependencies are required and must be installed separately in order to run daemon in your local environment.
 
-* Linux
+* Linux 
 * Docker
 * Go 1.13+
 
@@ -77,24 +77,10 @@ More information about installation process, checkout following pages ;
   
   - Want to try daemon on you local computer with pre-configured vagrant file check out this [repo](https://github.com/aau-network-security/sec0x) for more information. 
 
-Development purposes 
 
 ## __Getting Dependencies__
 
-Since Haaukins does not include any dependency management in itself, it is required to get project to your `$GOPATH` for development purposes . Run following command on your terminal and open Haaukins project as described below; 
-
-```bash 
- go get -u github.com/aau-network-security/haaukins 
-```
-Change directory to  __`$GOPATH/src/github.com/aau-network-security/haaukins/`__
-
-
-Install dependencies (requiring `go 1.13` or higher):
-
-```bash
-go get ./...
-
-```
+Haaukins platform uses `go modules` since version [1.6.4](https://github.com/aau-network-security/haaukins/releases/tag/1.6.4), hence it is quite easy to manage dependencies, you just need to run `go mod download` 
 
 ## __Testing__
 
@@ -140,7 +126,7 @@ Give a  moment and check known issues over [here](https://github.com/aau-network
 
 Haaukins is an open source project and built on the top of open-source projects. If you are interested, then you are welcome to contribute.
 
-Check out the [Contributing Guide](./github/CONTRIBUTING.md) to get started.
+Check out the [Contributing Guide](.github/CONTRIBUTING.md) to get started.
 
 ## __Event requests__
 
