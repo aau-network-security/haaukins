@@ -305,6 +305,9 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 
 	updateRequest := func(r *http.Request, t *store.Team) error {
 		var err error
+		if r.FormValue("name")=="" || r.FormValue("email")=="" || r.FormValue("password")=="" {
+			return  errors.New("Empty team cannot be created !!!! ")
+		}
 		for _, h := range ri.preHooks {
 			if herr := h(t); herr != nil {
 				err = herr
