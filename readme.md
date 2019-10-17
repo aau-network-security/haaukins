@@ -126,7 +126,7 @@ Give a  moment and check known issues over [here](https://github.com/aau-network
 
 Haaukins is an open source project and built on the top of open-source projects. If you are interested, then you are welcome to contribute.
 
-Check out the [Contributing Guide](./github/CONTRIBUTING.md) to get started.
+Check out the [Contributing Guide](.github/CONTRIBUTING.md) to get started.
 
 ## __Event requests__
 
