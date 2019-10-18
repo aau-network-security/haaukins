@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-f=./build/hknd-linux-amd64
+f=dist/hknd_linux_amd64/hknd
 user=ntpd
 hostname=sec02.lab.es.aau.dk
 keyfile=./travis_deploy_key

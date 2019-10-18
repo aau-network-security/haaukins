@@ -31,7 +31,7 @@ var (
 
 	selectorTmpl, _ = template.New("Selector").Parse(`
 <label for="{{.Tag}}">{{.Label}}</label>
-<select name="{{.Tag}}" class="form-control">
+<select name="{{.Tag}}" class="form-control" required>
 <option></option>{{range .Options}}
 <option>{{.}}</option>{{end}}
 </select>`)
@@ -305,6 +305,9 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 
 	updateRequest := func(r *http.Request, t *store.Team) error {
 		var err error
+		if isTeamExists(r.FormValue("name"),r.FormValue("email"),ri) {
+			return errors.New(teamExistsTemplate)
+		}
 		for _, h := range ri.preHooks {
 			if herr := h(t); herr != nil {
 				err = herr
@@ -370,7 +373,6 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 
 			if err := updateRequest(r, &t); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("An error has occured, account could not be created\n\n"))
 				w.Write([]byte(err.Error()))
 				return
 
@@ -676,4 +678,14 @@ func recordAndServe(next http.Handler, r *http.Request, w http.ResponseWriter, m
 	}
 
 	return rec.Result(), body
+}
+
+func isTeamExists(name,email string, ri *registerInterception) bool{
+	 teams := ri.teamStore.GetTeams()
+	 for _, team := range teams {
+	 	if (team.Name==name || team.Email==email){
+	 		return true
+		}
+	 }
+	 return false
 }
