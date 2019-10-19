@@ -928,7 +928,7 @@ func (d *daemon) Run() error {
 	go func() {
 		if d.conf.TLS.Enabled {
 			// manage certificate renewal through certmagic
-			certmagic.Manage([]string{
+			certmagic.ManageSync([]string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 				d.conf.Host.Grpc,
 			})
