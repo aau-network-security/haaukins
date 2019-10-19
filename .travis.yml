@@ -10,21 +10,18 @@ cache:
   - "$HOME/.cache/go-build"
 env:
   global:
-    - GIT_TAG=$(git describe --tags)
-    - secure: Cp2uN0mSgedR79XjZoPy52zI+Spuo5rBv3UVKqBmtFnv7clD+YE/wLOioRHEjHzE1Pji+nTJKG3CtVnx8c5RSLljhEKUYrzK5vx4q9OGjKi4ptUZ3J++dAPxJIItduJnvb33e4jYmhTDnwPVtD5WpGaBCux9artn8Nm3dXaDeZ+TaTqR1qTIFnpmKaYHBPNRGpaYU8QByW9Rosj/nt8M3dJnFRreThNWbniW9FcMs3nS4XzHcwVXXg29jtBonyt9vmmQetO1adHEICJRcnm7oetB79doXAWRtUUi+9OMRE7S/KJqoMBPe1ed+tVMD4JX04kHPsM3YsRxy+fCX/d18jRzPXicRa1hX8trcqQ3blVwG+ntLV35z7pRE00C3GZBGvtVsqd8dxdo8ZxwJ55GekRe8oBqUDS62tUEiDR65z8NaXiAptpyYKIYKvLKt/y5j5D7J59rXIcCsMrWF+vm3eJS9a9VV7dw6mSvlyS0KkLWVsWE3poQTGgdRX9tv2lgHlhnjDvu5NNZT2QRygc1uknYQ2J+JJGu3I9fHZfu7rpTIkIAt+fk4kOyOe3yQanm67hTWRHlFVrm8FRAOPTRxepp2yMqFfrgkMnCXnH9GsDrhATAKql0psQlSSsxCXUQ9i/OBh7Z+2yAhrdwsByuwvz5kkxUmgEd62saxRf2Xmo=
-
+  - GIT_TAG=$(git describe --tags)
+  - secure: "HfFpp4ovjRl2zrm7NYE7ki0cWU8H4aky5Ol0JBkK6I2CT9mu75bq9ee54VZs/r2ks9YmT82QWioRqXyTZSr/WxiM5G9RGCCI78w4YpTgAjyHKRw2aZnZHJofqccbDzrqQp1dtRCp1tULRLcGNv/Ht+cCt2EDhqHGX+gcnXjkL8d3D0zJhM40jR3ZmwfhZ+22t3D+lx4Tc1wqvNnRDA2v/SIjRDUgJQrEn6e5JrSbRzNM8tYxSVcAtrHQ5eA6IiI+B6xNzJqo8U/rQPLuTNAlaJEjF/nBtFRnAhpvXj4W+NB/F3MoVx9glm3gv+cW7wq0FWUf4tCz3V5Ln2BOsFNXx6qhCa4EscEEfPxZTX/HRCOBvGi+JqNXH+M7y5HRIX3A4hiwDowqgX5zJ5LazBkM1oSohqC/ATzp+Y1D7toe37JzhfgAFnaUQlMbIEJqmph9ZglFZlaCjgMNxrz1IAh7lYKS0RC2gb6tpi2HYRBMy2wG3gQaXk/BTdWGudHpUOriPZyxgBYSSoaIAF2EZAlLm/XgTO00KeoJi3ihhCbT+RmuIZjRwj6f/DxSgRsNTnz70gkTDdOsrD51FN44anVT1BXZxKXfSx/pokuf8kcwwh3PS2/BsbDzedehMsHIgblEy93YNmJHHJ3qWhn7TzUyPymiL0Ij12sBay4V+zd6n94="
 before_install:
-- openssl aes-256-cbc -K $encrypted_a30037d67e8c_key -iv $encrypted_a30037d67e8c_iv -in travis_deploy_key.enc -out ./travis_deploy_key -d
-
+- openssl aes-256-cbc -K $encrypted_a30037d67e8c_key -iv $encrypted_a30037d67e8c_iv
+  -in travis_deploy_key.enc -out ./travis_deploy_key -d
 script: go test -v -race ./...
-
 deploy:
 - provider: script
   skip_cleanup: true
   script: curl -sL http://git.io/goreleaser | bash
   on:
     tags: true
-
 - provider: script
   script: bash ./scripts/deploy/deploy.sh
   skip_cleanup: true
