@@ -305,7 +305,9 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 
 	updateRequest := func(r *http.Request, t *store.Team) error {
 		var err error
-		if isTeamExists(r.FormValue("name"),r.FormValue("email"),ri) {
+		name := r.FormValue("name")
+		email := r.FormValue("email")
+		if isTeamExists(name,email,ri) {
 			return errors.New(teamExistsTemplate)
 		}
 		for _, h := range ri.preHooks {
@@ -681,11 +683,18 @@ func recordAndServe(next http.Handler, r *http.Request, w http.ResponseWriter, m
 }
 
 func isTeamExists(name,email string, ri *registerInterception) bool{
-	 teams := ri.teamStore.GetTeams()
-	 for _, team := range teams {
-	 	if (team.Name==name || team.Email==email){
-	 		return true
-		}
+	 tByEmail, err := ri.teamStore.GetTeamByEmail(email)
+	 if err!=nil{
+	 	log.Error().Str("Error happened getting team in isTeamExists function",err.Error()).Msg("Error; ")
+	 	return false
 	 }
+	 tByName, err := ri.teamStore.GetTeamByName(name)
+	if err!=nil{
+		log.Error().Str("Error happened getting team in isTeamExists function",err.Error()).Msg("Error; ")
+		return false
+	}
+	if (tByEmail.Name == name || tByEmail.Email==email) || (tByName.Name==name || tByName.Email==email){
+		return true
+	}
 	 return false
 }
