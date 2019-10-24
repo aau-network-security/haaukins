@@ -23,7 +23,7 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/juju/errgo v0.0.0-20140925100237-08cceb5d0b53 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
-	github.com/mholt/certmagic v0.8.0
+	github.com/mholt/certmagic v0.8.3
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/rs/zerolog v1.15.0
