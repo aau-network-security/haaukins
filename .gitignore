@@ -28,3 +28,4 @@ logs
 # contains dummy yml files to test some functions in frontend.go
 # in particular, parsing and configuring ram and cpu values.
 store/test_ymls/
+dist/*
