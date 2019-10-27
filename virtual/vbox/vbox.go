@@ -180,6 +180,11 @@ func SetBridge(nic string) VMOpt {
 		if err != nil {
 			return err
 		}
+		// removes default network interface card
+		_, err = VBoxCmdContext(ctx,vboxModVM, vm.id,"--nic2", "none" )
+		if err !=nil {
+			return err
+		}
 
 		return nil
 	}

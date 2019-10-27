@@ -305,11 +305,6 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 
 	updateRequest := func(r *http.Request, t *store.Team) error {
 		var err error
-		name := r.FormValue("name")
-		email := r.FormValue("email")
-		if isTeamExists(name,email,ri) {
-			return errors.New(teamExistsTemplate)
-		}
 		for _, h := range ri.preHooks {
 			if herr := h(t); herr != nil {
 				err = herr
@@ -375,6 +370,7 @@ func (ri *registerInterception) Intercept(next http.Handler) http.Handler {
 
 			if err := updateRequest(r, &t); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("An error has occured, account could not be created\n\n"))
 				w.Write([]byte(err.Error()))
 				return
 
