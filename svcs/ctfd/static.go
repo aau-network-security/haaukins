@@ -99,8 +99,6 @@ select.form-control {
     <body>
 <p > 500
   <br> You can give feedback through following <a href="https://forms.gle/TR41yHqA1LKofgR27">form</a>.
-  <br> 
-  <br><i>Team already EXISTS ! </i>
 </p>
     </body>
 </html>
