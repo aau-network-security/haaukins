@@ -29,6 +29,7 @@ require (
 	github.com/rs/zerolog v1.15.0
 	github.com/schollz/progressbar v1.0.0
 	github.com/shirou/gopsutil v2.19.9+incompatible
+	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/xenolf/lego v2.7.2+incompatible
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550

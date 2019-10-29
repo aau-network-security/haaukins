@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	cError "github.com/aau-network-security/haaukins/errors"
 	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/aau-network-security/haaukins/store"
@@ -104,15 +105,16 @@ type Config struct {
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
+	const op cError.FCall = "deamon.newConfigFromFile"
 	f, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, cError.E(op)
 	}
 
 	var c Config
 	err = yaml.Unmarshal(f, &c)
 	if err != nil {
-		return nil, err
+		return nil, cError.E(op)
 	}
 
 	for _, repo := range c.DockerRepositories {
@@ -192,19 +194,20 @@ type daemon struct {
 }
 
 func New(conf *Config) (*daemon, error) {
+	const op cError.FCall = "daemon.New"
 	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
+		return nil, cError.E(op,err,fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
 	}
 
 	ef, err := store.NewExerciseFile(conf.ExercisesFile)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
+		return nil, cError.E(op,err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
 	}
 
 	ff, err := store.NewFrontendsFile(conf.FrontendsFile)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
+		return nil, cError.E(op,err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
 	}
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
@@ -215,7 +218,7 @@ func New(conf *Config) (*daemon, error) {
 		k.WillBeSuperUser = true
 
 		if err := uf.CreateSignupKey(k); err != nil {
-			return nil, err
+			return nil, cError.E(op,err)
 		}
 
 		log.Info().Msg("No users or signup keys found, creating a key")
@@ -231,25 +234,25 @@ func New(conf *Config) (*daemon, error) {
 
 	efh, err := store.NewEventFileHub(conf.EventsDir)
 	if err != nil {
-		return nil, err
+		return nil, cError.E(op,err)
 	}
 
 	logPool, err := logging.NewPool(conf.LogDir)
 	if err != nil {
-		return nil, err
+		return nil, cError.E(op,err)
 	}
 
 	if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
-		return nil, err
+		return nil, cError.E(op,err)
 	}
 
 	if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
-		return nil, err
+		return nil, cError.E(op,err)
 	}
 
 	provider, err := cloudflare.NewDNSProvider()
 	if err != nil {
-		return nil, err
+		return nil, cError.E(op,err)
 	}
 
 	certmagicConf := certmagic.Config{
@@ -288,12 +291,12 @@ func New(conf *Config) (*daemon, error) {
 
 	eventFiles, err := efh.GetUnfinishedEvents()
 	if err != nil {
-		return nil, err
+		return nil, cError.E(op,err)
 	}
 	for _, ef := range eventFiles {
 		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
-			return nil, err
+			return nil, cError.E(op,err)
 		}
 	}
 
@@ -329,6 +332,7 @@ func withAuditLogger(ctx context.Context, logger *zerolog.Logger) context.Contex
 }
 
 func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
+	const op cError.FCall = "daemon.GetServer"
 	nonAuth := []string{"LoginUser", "SignupUser"}
 	var logger *zerolog.Logger
 	if d.logPool != nil {
@@ -353,7 +357,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		}
 
 		if authErr != nil {
-			return authErr
+			return cError.E(op,authErr)
 		}
 
 		return handler(srv, stream)
@@ -373,7 +377,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		}
 
 		if authErr != nil {
-			return nil, authErr
+			return nil, cError.E(op,authErr)
 		}
 
 		return handler(ctx, req)
@@ -463,10 +467,11 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 
 //READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
 func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFile) error {
+	const op cError.FCall = "daemon.createEventFromEventFile"
 	ev, err := d.ehost.CreateEventFromEventFile(ctx, ef)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from file")
-		return err
+		return cError.E(op, err)
 	}
 
 	d.startEvent(ev)
@@ -488,7 +493,7 @@ func (d *daemon) startEvent(ev event.Event) {
 		Int("Capacity", conf.Capacity).
 		Strs("Frontends", frontendNames).
 		Msg("Creating event")
-
+	//todo: add error handler
 	go ev.Start(context.TODO())
 
 	d.eventPool.AddEvent(ev)
@@ -508,7 +513,7 @@ func (l *GrpcLogger) Msg(msg string) error {
 // DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-
+	const op cError.FCall = "daemon.CreateEvent"
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -524,7 +529,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	for i, s := range req.Exercises {
 		t, err := store.NewTag(s)
 		if err != nil {
-			return err
+			return cError.E(op,err)
 		}
 		tags[i] = t
 	}
@@ -542,13 +547,13 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	if err := conf.Validate(); err != nil {
-		return err
+		return cError.E(op, err)
 	}
 
 	_, err := d.eventPool.GetEvent(evtag)
 
 	if err == nil {
-		return DuplicateEventErr
+		return cError.E(op, DuplicateEventErr,cError.Severity(err))
 	}
 
 	if conf.Available == 0 {
@@ -563,13 +568,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	if err != nil {
-		return err
+		return cError.E(op,err)
 	}
 
 	d.startEvent(ev)
 	return nil
 }
 
+// errors returned to client
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
 	log.Ctx(resp.Context()).
 		Info().
@@ -590,11 +596,14 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
-	ev.Close()
+	if err= ev.Close(); err!=nil{
+		return err
+	}
 	ev.Finish() // Finishing and archiving event....
 	return nil
 }
 
+// errors returned to client...
 func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_RestartTeamLabServer) error {
 	log.Ctx(resp.Context()).
 		Info().
@@ -664,14 +673,18 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		for _, reqTeam := range req.Teams {
 			lab, ok := ev.GetLabByTeam(reqTeam.Id)
 			if !ok {
-				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+				if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"}); err!=nil {
+					return err
+				}
 				continue
 			}
 
 			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+			if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"});err !=nil {
+				return err
+			}
 		}
 
 		return nil
@@ -680,14 +693,17 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 	for _, t := range ev.GetTeams() {
 		lab, ok := ev.GetLabByTeam(t.Id)
 		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
+			if err:=stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"}); err!=nil {
+				return err
+			}
 			continue
 		}
-
 		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
+		if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"}); err!=nil {
+			return err
+		}
 	}
 
 	return nil
@@ -807,14 +823,18 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		for _, reqTeam := range req.Teams {
 			lab, ok := ev.GetLabByTeam(reqTeam.Id)
 			if !ok {
-				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+				if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"}); err!=nil{
+					return err
+				}
 				continue
 			}
 
 			if err := lab.ResetFrontends(stream.Context()); err != nil {
 				return err
 			}
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+			if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"}); err!=nil{
+				return err
+			}
 		}
 
 		return nil
@@ -823,14 +843,18 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 	for _, t := range ev.GetTeams() {
 		lab, ok := ev.GetLabByTeam(t.Id)
 		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
+			if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"}); err!=nil {
+				return err
+			}
 			continue
 		}
 
 		if err := lab.ResetFrontends(stream.Context()); err != nil {
 			return err
 		}
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
+		if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"}); err!=nil {
+			return err
+		}
 	}
 
 	return nil
@@ -923,15 +947,18 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 }
 
 func (d *daemon) Run() error {
+	const functionCall cError.FCall = "daemon.Run"
 
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
 			// manage certificate renewal through certmagic
-			certmagic.ManageSync([]string{
+			if err := certmagic.ManageSync([]string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 				d.conf.Host.Grpc,
-			})
+			}); err != nil {
+				//cError.E(functionCall,err)
+			}
 			domains := []string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 			}
@@ -939,6 +966,7 @@ func (d *daemon) Run() error {
 			certmagic.HTTPSPort = int(d.conf.Port.Secure)
 			if err := certmagic.HTTPS(domains, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
+				// todo: handle error
 			}
 
 			return
