@@ -6,11 +6,12 @@ package logging
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
-
+	"github.com/sirupsen/logrus"
 	"github.com/rs/zerolog"
 )
 
@@ -21,6 +22,14 @@ type Pool interface {
 
 type GrpcLogging interface {
 	Msg(msg string) error
+}
+func InitializeLogging(logFile string) {
+	var file, err = os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Println("Could Not Open Log File : " + err.Error())
+	}
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+	logrus.SetOutput(file)
 }
 
 func LoggerFromCtx(ctx context.Context) GrpcLogging {

@@ -21,6 +21,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/sirupsen/logrus"
 	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -194,6 +195,7 @@ type daemon struct {
 }
 
 func New(conf *Config) (*daemon, error) {
+	logging.InitializeLogging("generalLoggingFile")
 	const op cError.FCall = "daemon.New"
 	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
@@ -486,13 +488,14 @@ func (d *daemon) startEvent(ev event.Event) {
 	for _, f := range conf.Lab.Frontends {
 		frontendNames = append(frontendNames, f.Image)
 	}
-	log.Info().
-		Str("Name", conf.Name).
-		Str("Tag", string(conf.Tag)).
-		Int("Available", conf.Available).
-		Int("Capacity", conf.Capacity).
-		Strs("Frontends", frontendNames).
-		Msg("Creating event")
+	// log event as JSON
+	logrus.WithFields(logrus.Fields{
+		"Name":conf.Name,
+		"Tag": string(conf.Tag),
+		"Available": conf.Available,
+		"Capacity": conf.Capacity,
+		"Frontends": frontendNames,
+	}).Println("Creating event")
 	//todo: add error handler
 	go ev.Start(context.TODO())
 
@@ -807,7 +810,6 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 	log.Ctx(stream.Context()).Info().
 		Int("n-teams", len(req.Teams)).
 		Msg("reset frontends")
-
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
 		return err
@@ -855,8 +857,12 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"}); err!=nil {
 			return err
 		}
+		logrus.WithFields(logrus.Fields{
+			"teamId": t.Id,
+			"teamName": t.Name,
+			"teamEmail":t.Email,
+		}).Info("Frontend reset ! ")
 	}
-
 	return nil
 }
 
@@ -973,7 +979,9 @@ func (d *daemon) Run() error {
 		}
 
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
-			log.Warn().Msgf("Serving error: %s", err)
+			logrus.WithFields(logrus.Fields{
+				"err": cError.E(functionCall,err),
+			}).Error("Serving error ")
 		}
 	}()
 
@@ -982,17 +990,15 @@ func (d *daemon) Run() error {
 	if err != nil {
 		return &MngtPortErr{mngtPort}
 	}
-	log.Info().Msg("gRPC daemon has been started  ! on port :5454")
-
+	logrus.Info("gRPC daemon has been started  ! on port :5454")
 	opts, err := d.grpcOpts()
 	if err != nil {
-		return GrpcOptsErr
+		return cError.E(functionCall,GrpcOptsErr)
 	}
 	s := d.GetServer(opts...)
 	pb.RegisterDaemonServer(s, d)
 
 	reflection.Register(s)
-	log.Info().Msg("Reflection Registration is called.... ")
-
+	logrus.Info("Reflection Registration is called.... ")
 	return s.Serve(lis)
 }

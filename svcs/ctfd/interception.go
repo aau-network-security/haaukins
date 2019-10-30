@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -469,6 +470,7 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 
 			err = t.SolveChallenge(tag, originalFlag)
 			if err != nil {
+
 				log.Warn().
 					Err(err).
 					Str("tag", string(tag)).
@@ -489,13 +491,22 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 				return
 			}
 
-			log.Debug().
-				Int("challenge-id", cid).
-				Str("tag", string(tag)).
-				Str("team-id", t.Id).
-				Str("original", originalFlag).
-				Str("translated", translatedFlag).
-				Msg("Successfully solved challenge")
+			logrus.WithFields(logrus.Fields{
+				"challenge-id": cid,
+				"tag": string(tag),
+				"team-name": t.Name,
+				"team-id": t.Id,
+				"original": originalFlag,
+				"translated": translatedFlag,
+			}).Info("Successfully solved challenge")
+
+			//log.Debug().
+			//	Int("challenge-id", cid).
+			//	Str("tag", string(tag)).
+			//	Str("team-id", t.Id).
+			//	Str("original", originalFlag).
+			//	Str("translated", translatedFlag).
+			//	Msg("Successfully solved challenge")
 		}
 	})
 }
