@@ -30,12 +30,12 @@ type hub struct {
 	stop    chan struct{}
 }
 
-func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, error) {
+func NewHub(ctx context.Context, creator Creator, buffer int, cap int) (*hub, error) {
 	workerAmount := 2
 	if buffer < workerAmount {
 		buffer = workerAmount
 	}
-	grpcLogger:=logging.LoggerFromCtx(ctx)
+	grpcLogger := logging.LoggerFromCtx(ctx)
 
 	ready := make(chan struct{})
 	stop := make(chan struct{})
@@ -49,11 +49,11 @@ func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, err
 			wg.Add(1)
 			lab, err := creator.NewLab(ctx)
 			if err != nil {
-				log.Error().Msgf("Error while creating new lab %s",err.Error())
+				log.Error().Msgf("Error while creating new lab %s", err.Error())
 			}
 
 			if err := lab.Start(ctx); err != nil {
-				log.Error().Msgf("Error while starting lab %s",err.Error())
+				log.Error().Msgf("Error while starting lab %s", err.Error())
 			}
 			select {
 			case labs <- lab:
@@ -129,13 +129,13 @@ func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, err
 				labsCloser()
 				for l := range labs {
 					if err := l.Close(); err != nil {
-						log.Error().Msgf("Error while closing ready labs %s",err.Error())
+						log.Error().Msgf("Error while closing ready labs %s", err.Error())
 					}
 				}
 
 				for _, l := range startedLabs {
 					if err := l.Close(); err != nil {
-						log.Error().Msgf("Error while closing started labs %s",err.Error())
+						log.Error().Msgf("Error while closing started labs %s", err.Error())
 					}
 				}
 				return
