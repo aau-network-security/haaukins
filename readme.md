@@ -28,6 +28,9 @@
   <a href="https://github.com/aau-network-security/haaukins/stargazers">
   <img src=https://img.shields.io/github/stars/aau-network-security/haaukins></a>
   </div>
+   <a href="https://api.dependabot.com/badges/status?host=github&repo=aau-network-security/haaukins">
+  <img src="https://api.dependabot.com/badges/status?host=github&repo=aau-network-security/haaukins">
+</a>
   </div>
 &nbsp;
 <div align="center">
