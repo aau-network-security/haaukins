@@ -644,6 +644,19 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
 }
 
+func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
+	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ExercisesFile)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
+		return nil, err
+	}
+	return &pb.UpdateExercisesFileResponse{
+		Msg: "Exercises file updated ",
+	}, nil
+
+}
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_ResetExerciseServer) error {
 	log.Ctx(stream.Context()).Info().
 		Str("evtag", req.EventTag).

@@ -355,6 +355,7 @@ func TestLoginUser(t *testing.T) {
 
 type fakeEventHost struct {
 	event event.Event
+	event.Host
 }
 
 func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (event.Event, error) {
