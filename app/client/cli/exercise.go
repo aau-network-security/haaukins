@@ -95,7 +95,7 @@ func (c *Client) CmdUpdateExerciseFile() *cobra.Command {
 			if err != nil {
 				PrintError(err)
 			}
-			fmt.Println(resp)
+			fmt.Println(resp.Msg)
 		},
 	}
 	return cmd

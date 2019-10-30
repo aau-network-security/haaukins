@@ -284,23 +284,11 @@ type exercisestore struct {
 }
 
 func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error) {
-	var conf struct {
-		Exercises []Exercise `yaml:"exercises"`
+	exStore, err:= NewExerciseFile(path)
+	if err!=nil{
+		return nil,err
 	}
-	f, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	err = yaml.Unmarshal(f, &conf)
-	if err != nil {
-		return nil, err
-	}
-	for _, ex := range conf.Exercises {
-		if err := ex.Validate(); err != nil {
-			return nil, err
-		}
-	}
-	return NewExerciseStore(conf.Exercises)
+	return exStore,nil
 }
 
 type ExerciseStore interface {
