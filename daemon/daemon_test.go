@@ -499,6 +499,9 @@ func TestCreateEvent(t *testing.T) {
 			exStore, err := store.NewExerciseStore([]store.Exercise{{
 				Tags:        []store.Tag{"hb"},
 			}})
+			if err !=nil {
+				t.Fatalf("Error %v",err)
+			}
 			ctx := context.Background()
 			eventPool := NewEventPool("")
 			d := &daemon{
