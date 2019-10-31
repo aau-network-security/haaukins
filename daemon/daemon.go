@@ -526,6 +526,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		if err != nil {
 			return err
 		}
+		// check exercise before creating event file
+		_, tagErr := d.exercises.GetExercisesByTags(t)
+		if tagErr !=nil {
+			return tagErr
+		}
 		tags[i] = t
 	}
 	evtag, _ := store.NewTag(req.Tag)
@@ -649,9 +654,12 @@ func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.Up
 	if err != nil {
 		return nil, err
 	}
+	// update event host exercises store
 	if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
 		return nil, err
 	}
+	// update daemons' exercises store
+	d.exercises = exercises
 	return &pb.UpdateExercisesFileResponse{
 		Msg: "Exercises file updated ",
 	}, nil
