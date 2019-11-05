@@ -95,6 +95,10 @@ type Config struct {
 	TLS                struct {
 		Enabled   bool   `yaml:"enabled"`
 		Directory string `yaml:"directory"`
+		CertFile string `yaml:"certfile"`
+		CertKey string `yaml:"certkey"`
+		GrpcCert string `yaml:"grpccert"`
+		GrpcKey string `yaml:"grpckey"`
 		ACME      struct {
 			Email       string `yaml:"email"`
 			ApiKey      string `yaml:"api-key"`
@@ -272,7 +276,6 @@ func New(conf *Config) (*daemon, error) {
 	cache := certmagic.NewCache(cacheOpts)
 
 	magic := certmagic.New(cache, certmagicConf)
-
 	d := &daemon{
 		conf:      conf,
 		auth:      NewAuthenticator(uf, conf.SigningKey),
@@ -489,7 +492,7 @@ func (d *daemon) startEvent(ev event.Event) {
 		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
-	go ev.Start(context.TODO())
+	 ev.Start(context.TODO())
 
 	d.eventPool.AddEvent(ev)
 }
@@ -933,11 +936,14 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.TLS.Enabled {
-		cert, err := d.magic.CacheManagedCertificate(d.conf.Host.Grpc)
-		if err != nil {
-			return nil, err
+		//cert, err := d.magic.CacheManagedCertificate(d.conf.Host.Grpc)
+		//if err != nil {
+		//	return nil, err
+		//}
+		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.GrpcCert,d.conf.TLS.GrpcKey)
+		if err !=nil {
+			log.Error().Msgf("Error reading certificate from file %s ",err)
 		}
-		creds := credentials.NewServerTLSFromCert(&cert.Certificate)
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
 	return []grpc.ServerOption{}, nil
@@ -949,10 +955,11 @@ func (d *daemon) Run() error {
 	go func() {
 		if d.conf.TLS.Enabled {
 			// manage certificate renewal through certmagic
-			certmagic.ManageSync([]string{
-				fmt.Sprintf("*.%s", d.conf.Host.Http),
-				d.conf.Host.Grpc,
-			})
+
+			//certmagic.ManageSync([]string{
+			//	fmt.Sprintf("*.%s", d.conf.Host.Http),
+			//	d.conf.Host.Grpc,
+			//})
 			domains := []string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 			}
@@ -965,11 +972,13 @@ func (d *daemon) Run() error {
 			return
 		}
 
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
+		if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
 			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
-
+	go http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
+	}))
 	// start gRPC daemon
 	lis, err := net.Listen("tcp", mngtPort)
 	if err != nil {
