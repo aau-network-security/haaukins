@@ -769,6 +769,45 @@ func (m *ResetExerciseRequest) GetTeams() []*Team {
 	return nil
 }
 
+type UpdateExercisesFileResponse struct {
+	Msg                  string   `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UpdateExercisesFileResponse) Reset()         { *m = UpdateExercisesFileResponse{} }
+func (m *UpdateExercisesFileResponse) String() string { return proto.CompactTextString(m) }
+func (*UpdateExercisesFileResponse) ProtoMessage()    {}
+func (*UpdateExercisesFileResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{13}
+}
+
+func (m *UpdateExercisesFileResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateExercisesFileResponse.Unmarshal(m, b)
+}
+func (m *UpdateExercisesFileResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateExercisesFileResponse.Marshal(b, m, deterministic)
+}
+func (m *UpdateExercisesFileResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateExercisesFileResponse.Merge(m, src)
+}
+func (m *UpdateExercisesFileResponse) XXX_Size() int {
+	return xxx_messageInfo_UpdateExercisesFileResponse.Size(m)
+}
+func (m *UpdateExercisesFileResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateExercisesFileResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateExercisesFileResponse proto.InternalMessageInfo
+
+func (m *UpdateExercisesFileResponse) GetMsg() string {
+	if m != nil {
+		return m.Msg
+	}
+	return ""
+}
+
 type ListExercisesResponse struct {
 	Exercises            []*ListExercisesResponse_Exercise `protobuf:"bytes,1,rep,name=exercises,proto3" json:"exercises,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
@@ -780,7 +819,7 @@ func (m *ListExercisesResponse) Reset()         { *m = ListExercisesResponse{} }
 func (m *ListExercisesResponse) String() string { return proto.CompactTextString(m) }
 func (*ListExercisesResponse) ProtoMessage()    {}
 func (*ListExercisesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{13}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{14}
 }
 
 func (m *ListExercisesResponse) XXX_Unmarshal(b []byte) error {
@@ -822,7 +861,7 @@ func (m *ListExercisesResponse_Exercise) Reset()         { *m = ListExercisesRes
 func (m *ListExercisesResponse_Exercise) String() string { return proto.CompactTextString(m) }
 func (*ListExercisesResponse_Exercise) ProtoMessage()    {}
 func (*ListExercisesResponse_Exercise) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{13, 0}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{14, 0}
 }
 
 func (m *ListExercisesResponse_Exercise) XXX_Unmarshal(b []byte) error {
@@ -883,7 +922,7 @@ func (m *ResetTeamStatus) Reset()         { *m = ResetTeamStatus{} }
 func (m *ResetTeamStatus) String() string { return proto.CompactTextString(m) }
 func (*ResetTeamStatus) ProtoMessage()    {}
 func (*ResetTeamStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{14}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{15}
 }
 
 func (m *ResetTeamStatus) XXX_Unmarshal(b []byte) error {
@@ -929,7 +968,7 @@ func (m *StopEventRequest) Reset()         { *m = StopEventRequest{} }
 func (m *StopEventRequest) String() string { return proto.CompactTextString(m) }
 func (*StopEventRequest) ProtoMessage()    {}
 func (*StopEventRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{15}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{16}
 }
 
 func (m *StopEventRequest) XXX_Unmarshal(b []byte) error {
@@ -969,7 +1008,7 @@ func (m *EventStatus) Reset()         { *m = EventStatus{} }
 func (m *EventStatus) String() string { return proto.CompactTextString(m) }
 func (*EventStatus) ProtoMessage()    {}
 func (*EventStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{16}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{17}
 }
 
 func (m *EventStatus) XXX_Unmarshal(b []byte) error {
@@ -1015,7 +1054,7 @@ func (m *LabStatus) Reset()         { *m = LabStatus{} }
 func (m *LabStatus) String() string { return proto.CompactTextString(m) }
 func (*LabStatus) ProtoMessage()    {}
 func (*LabStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{17}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{18}
 }
 
 func (m *LabStatus) XXX_Unmarshal(b []byte) error {
@@ -1057,7 +1096,7 @@ func (m *MonitorHostResponse) Reset()         { *m = MonitorHostResponse{} }
 func (m *MonitorHostResponse) String() string { return proto.CompactTextString(m) }
 func (*MonitorHostResponse) ProtoMessage()    {}
 func (*MonitorHostResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{18}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{19}
 }
 
 func (m *MonitorHostResponse) XXX_Unmarshal(b []byte) error {
@@ -1116,7 +1155,7 @@ func (m *Empty) Reset()         { *m = Empty{} }
 func (m *Empty) String() string { return proto.CompactTextString(m) }
 func (*Empty) ProtoMessage()    {}
 func (*Empty) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{19}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{20}
 }
 
 func (m *Empty) XXX_Unmarshal(b []byte) error {
@@ -1148,7 +1187,7 @@ func (m *VersionResponse) Reset()         { *m = VersionResponse{} }
 func (m *VersionResponse) String() string { return proto.CompactTextString(m) }
 func (*VersionResponse) ProtoMessage()    {}
 func (*VersionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{20}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{21}
 }
 
 func (m *VersionResponse) XXX_Unmarshal(b []byte) error {
@@ -1187,7 +1226,7 @@ func (m *ListFrontendsResponse) Reset()         { *m = ListFrontendsResponse{} }
 func (m *ListFrontendsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListFrontendsResponse) ProtoMessage()    {}
 func (*ListFrontendsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{21}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{22}
 }
 
 func (m *ListFrontendsResponse) XXX_Unmarshal(b []byte) error {
@@ -1229,7 +1268,7 @@ func (m *ListFrontendsResponse_Frontend) Reset()         { *m = ListFrontendsRes
 func (m *ListFrontendsResponse_Frontend) String() string { return proto.CompactTextString(m) }
 func (*ListFrontendsResponse_Frontend) ProtoMessage()    {}
 func (*ListFrontendsResponse_Frontend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{21, 0}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{22, 0}
 }
 
 func (m *ListFrontendsResponse_Frontend) XXX_Unmarshal(b []byte) error {
@@ -1290,7 +1329,7 @@ func (m *ResetFrontendsRequest) Reset()         { *m = ResetFrontendsRequest{} }
 func (m *ResetFrontendsRequest) String() string { return proto.CompactTextString(m) }
 func (*ResetFrontendsRequest) ProtoMessage()    {}
 func (*ResetFrontendsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{22}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{23}
 }
 
 func (m *ResetFrontendsRequest) XXX_Unmarshal(b []byte) error {
@@ -1337,7 +1376,7 @@ func (m *SetFrontendMemoryRequest) Reset()         { *m = SetFrontendMemoryReque
 func (m *SetFrontendMemoryRequest) String() string { return proto.CompactTextString(m) }
 func (*SetFrontendMemoryRequest) ProtoMessage()    {}
 func (*SetFrontendMemoryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{23}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{24}
 }
 
 func (m *SetFrontendMemoryRequest) XXX_Unmarshal(b []byte) error {
@@ -1384,7 +1423,7 @@ func (m *SetFrontendCpuRequest) Reset()         { *m = SetFrontendCpuRequest{} }
 func (m *SetFrontendCpuRequest) String() string { return proto.CompactTextString(m) }
 func (*SetFrontendCpuRequest) ProtoMessage()    {}
 func (*SetFrontendCpuRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{24}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{25}
 }
 
 func (m *SetFrontendCpuRequest) XXX_Unmarshal(b []byte) error {
@@ -1431,7 +1470,7 @@ func (m *GetTeamInfoRequest) Reset()         { *m = GetTeamInfoRequest{} }
 func (m *GetTeamInfoRequest) String() string { return proto.CompactTextString(m) }
 func (*GetTeamInfoRequest) ProtoMessage()    {}
 func (*GetTeamInfoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{25}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{26}
 }
 
 func (m *GetTeamInfoRequest) XXX_Unmarshal(b []byte) error {
@@ -1477,7 +1516,7 @@ func (m *GetTeamInfoResponse) Reset()         { *m = GetTeamInfoResponse{} }
 func (m *GetTeamInfoResponse) String() string { return proto.CompactTextString(m) }
 func (*GetTeamInfoResponse) ProtoMessage()    {}
 func (*GetTeamInfoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{26}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{27}
 }
 
 func (m *GetTeamInfoResponse) XXX_Unmarshal(b []byte) error {
@@ -1519,7 +1558,7 @@ func (m *GetTeamInfoResponse_Instance) Reset()         { *m = GetTeamInfoRespons
 func (m *GetTeamInfoResponse_Instance) String() string { return proto.CompactTextString(m) }
 func (*GetTeamInfoResponse_Instance) ProtoMessage()    {}
 func (*GetTeamInfoResponse_Instance) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3ec90cbc4aa12fc6, []int{26, 0}
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{27, 0}
 }
 
 func (m *GetTeamInfoResponse_Instance) XXX_Unmarshal(b []byte) error {
@@ -1584,6 +1623,7 @@ func init() {
 	proto.RegisterType((*ListEventTeamsResponse_Teams)(nil), "ListEventTeamsResponse.Teams")
 	proto.RegisterType((*RestartTeamLabRequest)(nil), "RestartTeamLabRequest")
 	proto.RegisterType((*ResetExerciseRequest)(nil), "ResetExerciseRequest")
+	proto.RegisterType((*UpdateExercisesFileResponse)(nil), "UpdateExercisesFileResponse")
 	proto.RegisterType((*ListExercisesResponse)(nil), "ListExercisesResponse")
 	proto.RegisterType((*ListExercisesResponse_Exercise)(nil), "ListExercisesResponse.Exercise")
 	proto.RegisterType((*ResetTeamStatus)(nil), "ResetTeamStatus")
@@ -1686,6 +1726,7 @@ var fileDescriptor_3ec90cbc4aa12fc6 = []byte{
 	0x35, 0x7b, 0xa4, 0x62, 0xde, 0xa9, 0xd0, 0xde, 0x85, 0x4d, 0x33, 0x56, 0x32, 0xe5, 0x0e, 0x59,
 	0x19, 0x34, 0xb8, 0x36, 0x6e, 0xa9, 0x3f, 0x74, 0xf7, 0xfe, 0x0b, 0x00, 0x00, 0xff, 0xff, 0x6c,
 	0xb6, 0xce, 0x20, 0xe0, 0x0d, 0x00, 0x00,
+
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1708,6 +1749,7 @@ type DaemonClient interface {
 	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*ListEventsResponse, error)
 	ListEventTeams(ctx context.Context, in *ListEventTeamsRequest, opts ...grpc.CallOption) (*ListEventTeamsResponse, error)
 	RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (Daemon_RestartTeamLabClient, error)
+	UpdateExercisesFile(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*UpdateExercisesFileResponse, error)
 	ListExercises(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListExercisesResponse, error)
 	ResetExercise(ctx context.Context, in *ResetExerciseRequest, opts ...grpc.CallOption) (Daemon_ResetExerciseClient, error)
 	ListFrontends(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListFrontendsResponse, error)
@@ -1866,6 +1908,15 @@ func (x *daemonRestartTeamLabClient) Recv() (*EventStatus, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *daemonClient) UpdateExercisesFile(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*UpdateExercisesFileResponse, error) {
+	out := new(UpdateExercisesFileResponse)
+	err := c.cc.Invoke(ctx, "/Daemon/UpdateExercisesFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *daemonClient) ListExercises(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListExercisesResponse, error) {
@@ -2028,6 +2079,7 @@ type DaemonServer interface {
 	ListEvents(context.Context, *ListEventsRequest) (*ListEventsResponse, error)
 	ListEventTeams(context.Context, *ListEventTeamsRequest) (*ListEventTeamsResponse, error)
 	RestartTeamLab(*RestartTeamLabRequest, Daemon_RestartTeamLabServer) error
+	UpdateExercisesFile(context.Context, *Empty) (*UpdateExercisesFileResponse, error)
 	ListExercises(context.Context, *Empty) (*ListExercisesResponse, error)
 	ResetExercise(*ResetExerciseRequest, Daemon_ResetExerciseServer) error
 	ListFrontends(context.Context, *Empty) (*ListFrontendsResponse, error)
@@ -2066,6 +2118,9 @@ func (*UnimplementedDaemonServer) ListEventTeams(ctx context.Context, req *ListE
 }
 func (*UnimplementedDaemonServer) RestartTeamLab(req *RestartTeamLabRequest, srv Daemon_RestartTeamLabServer) error {
 	return status.Errorf(codes.Unimplemented, "method RestartTeamLab not implemented")
+}
+func (*UnimplementedDaemonServer) UpdateExercisesFile(ctx context.Context, req *Empty) (*UpdateExercisesFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateExercisesFile not implemented")
 }
 func (*UnimplementedDaemonServer) ListExercises(ctx context.Context, req *Empty) (*ListExercisesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListExercises not implemented")
@@ -2250,6 +2305,24 @@ type daemonRestartTeamLabServer struct {
 
 func (x *daemonRestartTeamLabServer) Send(m *EventStatus) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _Daemon_UpdateExercisesFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).UpdateExercisesFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Daemon/UpdateExercisesFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).UpdateExercisesFile(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_ListExercises_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -2446,6 +2519,10 @@ var _Daemon_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListEventTeams",
 			Handler:    _Daemon_ListEventTeams_Handler,
+		},
+		{
+			MethodName: "UpdateExercisesFile",
+			Handler:    _Daemon_UpdateExercisesFile_Handler,
 		},
 		{
 			MethodName: "ListExercises",

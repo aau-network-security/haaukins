@@ -36,8 +36,9 @@ var (
 )
 
 type Host interface {
-	CreateEventFromConfig(context.Context,store.EventConfig) (Event, error)
-	CreateEventFromEventFile(context.Context,store.EventFile) (Event, error)
+	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
+	CreateEventFromEventFile(context.Context, store.EventFile) (Event, error)
+	UpdateEventHostExercisesFile(store.ExerciseStore) error
 }
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
@@ -56,7 +57,15 @@ type eventHost struct {
 	elib store.ExerciseStore
 }
 
-func (eh *eventHost) CreateEventFromEventFile(ctx context.Context,ef store.EventFile) (Event, error) {
+func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error {
+	if len(es.ListExercises()) == 0 {
+		return errors.New("Provided exercisestore is empty, be careful next time ! ")
+	}
+	eh.elib = es
+	return nil
+}
+
+func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.EventFile) (Event, error) {
 	conf := ef.Read()
 	if err := conf.Validate(); err != nil {
 		return nil, err
@@ -76,7 +85,7 @@ func (eh *eventHost) CreateEventFromEventFile(ctx context.Context,ef store.Event
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
-	hub, err := lab.NewHub(ctx,&lh, conf.Available, conf.Capacity)
+	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
 	}
@@ -84,13 +93,13 @@ func (eh *eventHost) CreateEventFromEventFile(ctx context.Context,ef store.Event
 	return NewEvent(eh.ctx, ef, hub, labConf.Flags())
 }
 
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context,conf store.EventConfig) (Event, error) {
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
 	ef, err := eh.efh.CreateEventFile(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return eh.CreateEventFromEventFile(ctx,ef)
+	return eh.CreateEventFromEventFile(ctx, ef)
 }
 
 type Auth struct {
@@ -280,9 +289,9 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	chals := lab.Environment().Challenges()
 	for _, chal := range chals {
 		t.AddChallenge(chal)
-		log.Info().Str("chal-tag",string(chal.FlagTag)).
-			Str("chal-val",chal.FlagValue).
-			Msgf("Flag is created for team %s [assignlab function] ",t.Name)
+		log.Info().Str("chal-tag", string(chal.FlagTag)).
+			Str("chal-val", chal.FlagValue).
+			Msgf("Flag is created for team %s [assignlab function] ", t.Name)
 	}
 
 	return nil

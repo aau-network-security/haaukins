@@ -526,6 +526,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		if err != nil {
 			return err
 		}
+		// check exercise before creating event file
+		_, tagErr := d.exercises.GetExercisesByTags(t)
+		if tagErr !=nil {
+			return tagErr
+		}
 		tags[i] = t
 	}
 	evtag, _ := store.NewTag(req.Tag)
@@ -644,6 +649,22 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
 }
 
+func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
+	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ExercisesFile)
+	if err != nil {
+		return nil, err
+	}
+	// update event host exercises store
+	if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
+		return nil, err
+	}
+	// update daemons' exercises store
+	d.exercises = exercises
+	return &pb.UpdateExercisesFileResponse{
+		Msg: "Exercises file updated ",
+	}, nil
+
+}
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_ResetExerciseServer) error {
 	log.Ctx(stream.Context()).Info().
 		Str("evtag", req.EventTag).
@@ -932,7 +953,7 @@ func (d *daemon) Run() error {
 	go func() {
 		if d.conf.TLS.Enabled {
 			// manage certificate renewal through certmagic
-			certmagic.Manage([]string{
+			certmagic.ManageSync([]string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 				d.conf.Host.Grpc,
 			})

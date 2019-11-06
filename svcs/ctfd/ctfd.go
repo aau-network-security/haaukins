@@ -262,7 +262,7 @@ func (ctf *ctfd) configureInstance() error {
 	for id, flag := range ctf.conf.Flags {
 		value := ctf.flagPool.AddFlag(flag, id+1)
 
-		if err := ctf.createFlag(flag.Name,value,flag.Description,flag.Category,flag.Points); err != nil {
+		if err := ctf.createFlag(flag.Name, value, flag.Description, flag.Category, flag.Points); err != nil {
 			return err
 		}
 
@@ -329,7 +329,7 @@ func (nc *nonceClient) getNonce(path string) (string, error) {
 	return string(matches[0][1]), nil
 }
 
-func (ctf *ctfd) createFlag(name,flagValue,description,category string,points uint) error {
+func (ctf *ctfd) createFlag(name, flagValue, description, category string, points uint) error {
 	endpoint := ctf.nc.baseUrl() + "/admin/chal/new"
 
 	nonce, err := ctf.nc.getNonce(endpoint)
