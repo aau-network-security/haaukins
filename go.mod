@@ -26,7 +26,7 @@ require (
 	github.com/mholt/certmagic v0.8.0
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/pkg/errors v0.8.1
-	github.com/rs/zerolog v1.15.0
+	github.com/rs/zerolog v1.16.0
 	github.com/schollz/progressbar v1.0.0
 	github.com/shirou/gopsutil v2.19.9+incompatible
 	github.com/spf13/cobra v0.0.5
