@@ -11,6 +11,7 @@ service Daemon {
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
 
+  rpc UpdateExercisesFile(Empty) returns (UpdateExercisesFileResponse){}
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
 
@@ -100,6 +101,9 @@ message ResetExerciseRequest {
   repeated Team teams = 3;
 }
 
+message UpdateExercisesFileResponse {
+  string msg=1;
+}
 message ListExercisesResponse {
   message Exercise {
     repeated string tags = 1;
