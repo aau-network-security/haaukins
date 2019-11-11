@@ -1,7 +1,8 @@
 package errors
 
 import (
-	"github.com/sirupsen/logrus"
+	"errors"
+	"github.com/rs/zerolog"
 	"testing"
 )
 
@@ -9,44 +10,40 @@ func TestE(t *testing.T) {
 
 	tests := []struct {
 		functionCall FCall
-		message   string
-		level logrus.Level
+		err          error
+		message      string
+		level        zerolog.Level
 	}{
-	  {functionCall:"daemon.New", message:"error on daemon.New function",level:logrus.ErrorLevel},
-	  {functionCall:"daemon.New", message:"Daemon has been created",level:logrus.InfoLevel},
-	  {functionCall:"auth.NewAuthenticator",message:"key is plain text",level:logrus.WarnLevel},
-	  {functionCall:"eventpool.RemoveEvent",message: "Removing event.",level:logrus.DebugLevel},
+		{functionCall: "daemon.New", err: errors.New("configuration file not found"), message: "error on daemon.New function", level: zerolog.ErrorLevel},
+		{functionCall: "daemon.New", err: errors.New("No error informing ..."), message: "Daemon has been created", level: zerolog.InfoLevel},
+		{functionCall: "auth.NewAuthenticator", err: errors.New("Warning: "), message: "key is plain text", level: zerolog.WarnLevel},
+		{functionCall: "eventpool.RemoveEvent", err: errors.New("Debugging: "), message: "Removing event.", level: zerolog.DebugLevel},
 	}
 	for _, tt := range tests {
 		t.Run(tt.message, func(t *testing.T) {
-			if err := E(tt.functionCall, tt.message); err.Error() != tt.message {
+			if err := E(tt.functionCall, tt.err, tt.message); err.Error() != (tt.err.Error() + " " + tt.message) {
 				t.Errorf("E() error = %v", err)
 			}
 		})
 	}
 }
 
-func TestSeverity(t *testing.T){
-	const functioncall FCall =  "TestSeverity"
-	message := "erorr to test out severity of logrus levels"
-	tests:=[] struct{
+func TestSeverity(t *testing.T) {
+	const functioncall FCall = "TestSeverity"
+	message := "error to test out severity of zerolog levels"
+	tests := []struct {
 		functionCall FCall
-		message string
-		level logrus.Level
+		message      string
+		level        zerolog.Level
 	}{
-		{functionCall:functioncall,message:message,level:logrus.ErrorLevel},
-		{functionCall:functioncall,message:message,level:logrus.DebugLevel},
-		{functionCall:functioncall,message:message,level:logrus.WarnLevel},
-		{functionCall:functioncall,message:message,level:logrus.InfoLevel},
-		{functionCall:functioncall,message:message,level:logrus.TraceLevel},
+		{functionCall: functioncall, message: message, level: zerolog.ErrorLevel},
 	}
-	for _, tt  :=range tests {
+	for _, tt := range tests {
 		t.Run(tt.level.String(), func(t *testing.T) {
-			if err := E(tt.functionCall,tt.message,tt.level); Severity(err) != tt.level {
-				t.Fatalf("Error on getting severity %v",err)
+			if err := E(tt.functionCall, tt.message, tt.level); Severity(err) != tt.level {
+				t.Fatalf("Error on getting severity %v", err)
 			}
 		})
 
 	}
 }
-

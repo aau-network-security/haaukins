@@ -3,17 +3,15 @@ package errors
 import (
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"runtime"
 )
 
 type Error struct {
 	function FCall
 	Err      error
-	Severity logrus.Level
-}
-func (e Error) Error() string {
-	return e.Err.Error()
+	Severity zerolog.Level
+	Msg      string
 }
 type FCall string
 
@@ -36,25 +34,31 @@ func E(functionCall FCall, args ...interface{}) error {
 		case error:
 			e.Err = a
 		case string:
-			e.Err = errors.New(a)
-		case logrus.Level:
+			e.Msg = a
+		case zerolog.Level:
 			e.Severity = a
 		}
 	}
-	if e.Err == nil {
-		e.Err = errors.New(e.Error())
+	if e.Err == nil && e.Msg != "" {
+		return errors.New(e.Msg)
 	}
-
+	if e.Err != nil && e.Msg != "" {
+		return errors.New(e.Error() + " " + e.Msg)
+	}
 	return e
 }
 
-func Severity(err error) logrus.Level {
+func (e Error) Error() string {
+	return e.Err.Error()
+}
+
+func Severity(err error) zerolog.Level {
 	e, ok := err.(Error)
 	if !ok {
-		return logrus.ErrorLevel
+		return zerolog.ErrorLevel
 	}
 
-	if e.Severity < logrus.ErrorLevel {
+	if e.Severity < zerolog.ErrorLevel {
 		return Severity(e.Err)
 	}
 

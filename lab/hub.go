@@ -6,15 +6,15 @@ package lab
 
 import (
 	"context"
+	"errors"
 	"github.com/aau-network-security/haaukins/logging"
-	cError "github.com/aau-network-security/haaukins/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
 var (
-	ErrBufferSize = "Buffer cannot be larger than capacity"
-	ErrNoLabByTag = "Could not find lab by the specified tag"
+	ErrBufferSize = errors.New("Buffer cannot be larger than capacity")
+	ErrNoLabByTag = errors.New("Could not find lab by the specified tag")
 )
 
 type Hub interface {
@@ -30,13 +30,12 @@ type hub struct {
 	stop    chan struct{}
 }
 
-func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, error) {
-	const fCall cError.FCall =  "hub.NewHub"
+func NewHub(ctx context.Context, creator Creator, buffer int, cap int) (*hub, error) {
 	workerAmount := 2
 	if buffer < workerAmount {
 		buffer = workerAmount
 	}
-	grpcLogger:=logging.LoggerFromCtx(ctx)
+	grpcLogger := logging.LoggerFromCtx(ctx)
 
 	ready := make(chan struct{})
 	stop := make(chan struct{})
@@ -50,13 +49,11 @@ func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, err
 			wg.Add(1)
 			lab, err := creator.NewLab(ctx)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{"err":cError.E(fCall,err)}).Error("Error while creating new lab")
+				log.Error().Msgf("Error while creating new lab %s", err.Error())
 			}
 
 			if err := lab.Start(ctx); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"err": cError.E(fCall,err),
-				}).Error("Error while starting lab")
+				log.Error().Msgf("Error while starting lab %s", err.Error())
 			}
 			select {
 			case labs <- lab:
@@ -66,19 +63,14 @@ func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, err
 
 				/* Delete lab as it wasn't added to the lab queue */
 				if err := lab.Close(); err != nil {
-					logrus.WithFields(logrus.Fields{
-						"err": cError.E(fCall,err),
-					}).Error("Error while closing lab")
+					log.Error().Msgf("Error while closing lab %s", err.Error())
 				}
 				break
 			}
 			if grpcLogger != nil {
 				msg := ""
 				if err := grpcLogger.Msg(msg); err != nil {
-					logrus.SetFormatter(&logrus.JSONFormatter{})
-					logrus.WithFields(logrus.Fields{
-						"err": cError.E(fCall,err,logrus.ErrorLevel),
-					}).Error("Failed to send data over grpc stream ")
+					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
 				}
 			}
 		}
@@ -137,16 +129,13 @@ func NewHub(ctx context.Context,creator Creator, buffer int, cap int) (*hub, err
 				labsCloser()
 				for l := range labs {
 					if err := l.Close(); err != nil {
-						logrus.WithFields(logrus.Fields{
-							"err":cError.E(fCall,err),
-						}).Error("Error while closing ready labs")
-
+						log.Error().Msgf("Error while closing ready labs %s", err.Error())
 					}
 				}
 
 				for _, l := range startedLabs {
 					if err := l.Close(); err != nil {
-						logrus.WithFields(logrus.Fields{"err":cError.E(fCall,err)}).Error("Error while closing started labs")
+						log.Error().Msgf("Error while closing started labs %s", err.Error())
 					}
 				}
 				return
@@ -172,11 +161,10 @@ func (h *hub) Close() error {
 }
 
 func (h *hub) GetLabByTag(t string) (Lab, error) {
-	const fCall cError.FCall = "hub.GetLabByTag"
 	lab, ok := h.labs[t]
 	if !ok {
-		logrus.WithFields(logrus.Fields{"err":cError.E(fCall,ErrNoLabByTag)}).Error()
-		return nil, cError.E(fCall,ErrNoLabByTag)
+		return nil, ErrNoLabByTag
 	}
+
 	return lab, nil
 }

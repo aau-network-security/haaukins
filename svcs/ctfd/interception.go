@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -491,22 +490,13 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 				return
 			}
 
-			logrus.WithFields(logrus.Fields{
-				"challenge-id": cid,
-				"tag": string(tag),
-				"team-name": t.Name,
-				"team-id": t.Id,
-				"original": originalFlag,
-				"translated": translatedFlag,
-			}).Info("Successfully solved challenge")
-
-			//log.Debug().
-			//	Int("challenge-id", cid).
-			//	Str("tag", string(tag)).
-			//	Str("team-id", t.Id).
-			//	Str("original", originalFlag).
-			//	Str("translated", translatedFlag).
-			//	Msg("Successfully solved challenge")
+			log.Debug().
+				Int("challenge-id", cid).
+				Str("tag", string(tag)).
+				Str("team-id", t.Id).
+				Str("original", originalFlag).
+				Str("translated", translatedFlag).
+				Msg("Successfully solved challenge")
 		}
 	})
 }
@@ -585,7 +575,10 @@ func (li *loginInterception) Intercept(next http.Handler) http.Handler {
 		}
 
 		if session != "" {
-			li.teamStore.CreateTokenForTeam(session, t)
+			if err := li.teamStore.CreateTokenForTeam(session, t); err != nil {
+				// todo: log the error
+				log.Error().Err(err).Msg("Error creating token for team")
+			}
 		}
 	})
 }
@@ -689,19 +682,19 @@ func recordAndServe(next http.Handler, r *http.Request, w http.ResponseWriter, m
 	return rec.Result(), body
 }
 
-func isTeamExists(name,email string, ri *registerInterception) bool{
-	 tByEmail, err := ri.teamStore.GetTeamByEmail(email)
-	 if err!=nil{
-	 	log.Error().Str("Error happened getting team in isTeamExists function",err.Error()).Msg("Error; ")
-	 	return false
-	 }
-	 tByName, err := ri.teamStore.GetTeamByName(name)
-	if err!=nil{
-		log.Error().Str("Error happened getting team in isTeamExists function",err.Error()).Msg("Error; ")
+func isTeamExists(name, email string, ri *registerInterception) bool {
+	tByEmail, err := ri.teamStore.GetTeamByEmail(email)
+	if err != nil {
+		log.Error().Str("Error happened getting team in isTeamExists function", err.Error()).Msg("Error; ")
 		return false
 	}
-	if (tByEmail.Name == name || tByEmail.Email==email) || (tByName.Name==name || tByName.Email==email){
+	tByName, err := ri.teamStore.GetTeamByName(name)
+	if err != nil {
+		log.Error().Str("Error happened getting team in isTeamExists function", err.Error()).Msg("Error; ")
+		return false
+	}
+	if (tByEmail.Name == name || tByEmail.Email == email) || (tByName.Name == name || tByName.Email == email) {
 		return true
 	}
-	 return false
+	return false
 }

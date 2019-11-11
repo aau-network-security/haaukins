@@ -21,7 +21,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/sirupsen/logrus"
 	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -199,17 +198,17 @@ func New(conf *Config) (*daemon, error) {
 	const op cError.FCall = "daemon.New"
 	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
-		return nil, cError.E(op,err,fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
+		return nil, cError.E(op, err, fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
 	}
 
 	ef, err := store.NewExerciseFile(conf.ExercisesFile)
 	if err != nil {
-		return nil, cError.E(op,err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
+		return nil, cError.E(op, err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
 	}
 
 	ff, err := store.NewFrontendsFile(conf.FrontendsFile)
 	if err != nil {
-		return nil, cError.E(op,err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
+		return nil, cError.E(op, err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
 	}
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
@@ -220,7 +219,7 @@ func New(conf *Config) (*daemon, error) {
 		k.WillBeSuperUser = true
 
 		if err := uf.CreateSignupKey(k); err != nil {
-			return nil, cError.E(op,err)
+			return nil, cError.E(op, err)
 		}
 
 		log.Info().Msg("No users or signup keys found, creating a key")
@@ -236,25 +235,25 @@ func New(conf *Config) (*daemon, error) {
 
 	efh, err := store.NewEventFileHub(conf.EventsDir)
 	if err != nil {
-		return nil, cError.E(op,err)
+		return nil, cError.E(op, err)
 	}
 
 	logPool, err := logging.NewPool(conf.LogDir)
 	if err != nil {
-		return nil, cError.E(op,err)
+		return nil, cError.E(op, err)
 	}
 
 	if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
-		return nil, cError.E(op,err)
+		return nil, cError.E(op, err)
 	}
 
 	if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
-		return nil, cError.E(op,err)
+		return nil, cError.E(op, err)
 	}
 
 	provider, err := cloudflare.NewDNSProvider()
 	if err != nil {
-		return nil, cError.E(op,err)
+		return nil, cError.E(op, err)
 	}
 
 	certmagicConf := certmagic.Config{
@@ -293,12 +292,12 @@ func New(conf *Config) (*daemon, error) {
 
 	eventFiles, err := efh.GetUnfinishedEvents()
 	if err != nil {
-		return nil, cError.E(op,err)
+		return nil, cError.E(op, err)
 	}
 	for _, ef := range eventFiles {
 		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
-			return nil, cError.E(op,err)
+			return nil, cError.E(op, err)
 		}
 	}
 
@@ -359,7 +358,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		}
 
 		if authErr != nil {
-			return cError.E(op,authErr)
+			return cError.E(op, authErr)
 		}
 
 		return handler(srv, stream)
@@ -379,7 +378,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		}
 
 		if authErr != nil {
-			return nil, cError.E(op,authErr)
+			return nil, cError.E(op, authErr)
 		}
 
 		return handler(ctx, req)
@@ -488,14 +487,13 @@ func (d *daemon) startEvent(ev event.Event) {
 	for _, f := range conf.Lab.Frontends {
 		frontendNames = append(frontendNames, f.Image)
 	}
-	// log event as JSON
-	logrus.WithFields(logrus.Fields{
-		"Name":conf.Name,
-		"Tag": string(conf.Tag),
-		"Available": conf.Available,
-		"Capacity": conf.Capacity,
-		"Frontends": frontendNames,
-	}).Println("Creating event")
+
+	log.With().Timestamp().Caller().Str("Name: ", conf.Name).
+		Str("Tag:", string(conf.Tag)).
+		Int("Available: ", conf.Available).
+		Int("Capacity: ", conf.Capacity).
+		Strs("Frontends: ", frontendNames)
+
 	//todo: add error handler
 	go ev.Start(context.TODO())
 
@@ -532,7 +530,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	for i, s := range req.Exercises {
 		t, err := store.NewTag(s)
 		if err != nil {
-			return cError.E(op,err)
+			return cError.E(op, err)
 		}
 		tags[i] = t
 	}
@@ -556,7 +554,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	_, err := d.eventPool.GetEvent(evtag)
 
 	if err == nil {
-		return cError.E(op, DuplicateEventErr,cError.Severity(err))
+		return cError.E(op, DuplicateEventErr, cError.Severity(err))
 	}
 
 	if conf.Available == 0 {
@@ -571,7 +569,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	if err != nil {
-		return cError.E(op,err)
+		return cError.E(op, err)
 	}
 
 	d.startEvent(ev)
@@ -599,7 +597,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
-	if err= ev.Close(); err!=nil{
+	if err = ev.Close(); err != nil {
 		return err
 	}
 	ev.Finish() // Finishing and archiving event....
@@ -676,7 +674,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		for _, reqTeam := range req.Teams {
 			lab, ok := ev.GetLabByTeam(reqTeam.Id)
 			if !ok {
-				if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"}); err!=nil {
+				if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"}); err != nil {
 					return err
 				}
 				continue
@@ -685,7 +683,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
-			if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"});err !=nil {
+			if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"}); err != nil {
 				return err
 			}
 		}
@@ -696,7 +694,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 	for _, t := range ev.GetTeams() {
 		lab, ok := ev.GetLabByTeam(t.Id)
 		if !ok {
-			if err:=stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"}); err!=nil {
+			if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"}); err != nil {
 				return err
 			}
 			continue
@@ -704,7 +702,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
-		if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"}); err!=nil {
+		if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"}); err != nil {
 			return err
 		}
 	}
@@ -825,7 +823,7 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		for _, reqTeam := range req.Teams {
 			lab, ok := ev.GetLabByTeam(reqTeam.Id)
 			if !ok {
-				if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"}); err!=nil{
+				if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"}); err != nil {
 					return err
 				}
 				continue
@@ -834,7 +832,7 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 			if err := lab.ResetFrontends(stream.Context()); err != nil {
 				return err
 			}
-			if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"}); err!=nil{
+			if err := stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"}); err != nil {
 				return err
 			}
 		}
@@ -845,7 +843,7 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 	for _, t := range ev.GetTeams() {
 		lab, ok := ev.GetLabByTeam(t.Id)
 		if !ok {
-			if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"}); err!=nil {
+			if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"}); err != nil {
 				return err
 			}
 			continue
@@ -854,14 +852,9 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		if err := lab.ResetFrontends(stream.Context()); err != nil {
 			return err
 		}
-		if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"}); err!=nil {
+		if err := stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"}); err != nil {
 			return err
 		}
-		logrus.WithFields(logrus.Fields{
-			"teamId": t.Id,
-			"teamName": t.Name,
-			"teamEmail":t.Email,
-		}).Info("Frontend reset ! ")
 	}
 	return nil
 }
@@ -979,9 +972,7 @@ func (d *daemon) Run() error {
 		}
 
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
-			logrus.WithFields(logrus.Fields{
-				"err": cError.E(functionCall,err),
-			}).Error("Serving error ")
+			fmt.Errorf("Listen and serve error %d ", err)
 		}
 	}()
 
@@ -990,15 +981,14 @@ func (d *daemon) Run() error {
 	if err != nil {
 		return &MngtPortErr{mngtPort}
 	}
-	logrus.Info("gRPC daemon has been started  ! on port :5454")
+	log.Info().Msg("gRPC daemon has been started  ! on port :5454")
 	opts, err := d.grpcOpts()
 	if err != nil {
-		return cError.E(functionCall,GrpcOptsErr)
+		return cError.E(functionCall, GrpcOptsErr)
 	}
 	s := d.GetServer(opts...)
 	pb.RegisterDaemonServer(s, d)
 
 	reflection.Register(s)
-	logrus.Info("Reflection Registration is called.... ")
 	return s.Serve(lis)
 }
