@@ -14,7 +14,7 @@ require (
 	github.com/coreos/go-semver v0.3.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/docker v1.4.2-0.20190927142053-ada3c14355ce
-	github.com/fsouza/go-dockerclient v1.5.0
+	github.com/fsouza/go-dockerclient v1.6.0
 	github.com/giantswarm/semver-bump v0.0.0-20181008095244-e8413386a9b8
 	github.com/go-acme/lego v2.7.2+incompatible // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
