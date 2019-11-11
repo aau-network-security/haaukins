@@ -194,7 +194,6 @@ type daemon struct {
 }
 
 func New(conf *Config) (*daemon, error) {
-	logging.InitializeLogging("generalLoggingFile")
 	const op cError.FCall = "daemon.New"
 	uf, err := store.NewUserFile(conf.UsersFile)
 	if err != nil {
