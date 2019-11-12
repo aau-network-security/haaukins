@@ -159,12 +159,3 @@ func (h *hub) Close() error {
 	close(h.stop)
 	return nil
 }
-
-func (h *hub) GetLabByTag(t string) (Lab, error) {
-	lab, ok := h.labs[t]
-	if !ok {
-		return nil, ErrNoLabByTag
-	}
-
-	return lab, nil
-}
