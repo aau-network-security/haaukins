@@ -20,7 +20,6 @@ var (
 type Hub interface {
 	Queue() <-chan Lab
 	Close() error
-	GetLabByTag(string) (Lab, error)
 }
 
 type hub struct {
