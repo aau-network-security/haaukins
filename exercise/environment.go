@@ -84,7 +84,7 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 		ee.exercises = append(ee.exercises, e)
 	}
 
-	return ee.refreshDNS(ctx)
+	return nil
 }
 
 func (ee *environment) NetworkInterface() string {
@@ -92,6 +92,12 @@ func (ee *environment) NetworkInterface() string {
 }
 
 func (ee *environment) Start(ctx context.Context) error {
+
+	if err:= ee.refreshDNS(ctx); err!=nil {
+		log.Error().Err(err).Msg("Refreshing DNS error")
+		return err
+	}
+
 	var err error
 	ee.dhcpServer, err = dhcp.New(ee.network.FormatIP)
 	if err != nil {
