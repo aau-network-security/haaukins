@@ -620,9 +620,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	lab, ok := ev.GetLabByTeam(req.TeamId)
 	if !ok {
 		log.Warn().Msgf("Lab could not retrieved for team id %s ",req.TeamId)
-	}
-	if lab == nil {
-		return ErrNoLabByTeamId
+		return NoLabByTeamIdErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
