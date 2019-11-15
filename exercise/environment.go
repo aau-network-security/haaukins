@@ -222,7 +222,11 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 			return err
 		}
 	}
-
+	if ee.dhcpServer !=nil {
+		if err := ee.dhcpServer.Close(); err !=nil {
+			return err
+		}
+	}
 	var rrSet []dns.RR
 	for _, e := range ee.exercises {
 		for _, record := range e.dnsRecords {
