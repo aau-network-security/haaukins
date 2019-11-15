@@ -45,7 +45,7 @@ var (
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-
+	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
 	version string
 
 	LetsEncryptEnvs = map[bool]string{
@@ -617,9 +617,10 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.EventTag)
-	if err != nil {
-		return err
+	lab, ok := ev.GetLabByTeam(req.TeamId)
+	if !ok {
+		log.Warn().Msgf("Lab could not retrieved for team id %s ",req.TeamId)
+		return NoLabByTeamIdErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
