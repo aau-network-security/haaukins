@@ -104,16 +104,16 @@ func (am *Amigo) Handler() http.Handler {
 	m.HandleFunc("/scores", sb.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
 
-	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir("/home/tpanum/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/public"))))
+	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir("/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/public"))))
 
 	return m
 }
 
 func (am *Amigo) handleIndex() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"resources/private/base.tmpl.html",
-		"resources/private/navbar.tmpl.html",
-		"resources/private/index.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/index.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -196,9 +196,9 @@ func (am *Amigo) handleSignup() http.HandlerFunc {
 
 func (am *Amigo) handleSignupGET() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"resources/private/base.tmpl.html",
-		"resources/private/navbar.tmpl.html",
-		"resources/private/signup.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/signup.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -213,9 +213,9 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 
 func (am *Amigo) handleSignupPOST() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"resources/private/base.tmpl.html",
-		"resources/private/navbar.tmpl.html",
-		"resources/private/signup.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/signup.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -308,9 +308,9 @@ func (am *Amigo) handleLogin() http.HandlerFunc {
 
 func (am *Amigo) handleLoginGET() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"resources/private/base.tmpl.html",
-		"resources/private/navbar.tmpl.html",
-		"resources/private/login.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/login.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
@@ -325,9 +325,9 @@ func (am *Amigo) handleLoginGET() http.HandlerFunc {
 
 func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"resources/private/base.tmpl.html",
-		"resources/private/navbar.tmpl.html",
-		"resources/private/login.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/Users/atu/go/src/github.com/aau-network-security/haaukins/svcs/amigo/resources/private/login.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error login tmpl: ", err)

@@ -7,14 +7,27 @@
 	    </a>
 	</div>
 	<div class="navbar-menu">
+		<div class="navbar-start">
+			<a class="button is-primary">
+				Challenges
+			</a>
+			<a class="button is-primary">
+				Scoreboard
+			</a>
+		</div>
 	    <div class="navbar-end">
 		{{ if .Team}}
 		<div class="navbar-item">
 		    <p>{{ .Team.Name }}</p>
 		    <div class="buttons">
+			<a class="button is-primary">
+				Connect
+			</a>
 			<a class="button is-light" href="/logout">
 			    Logout
 			</a>
+			{{/*				todo : add challenges path route */}}
+
 		    </div>
 		</div>
 		{{ else }}
