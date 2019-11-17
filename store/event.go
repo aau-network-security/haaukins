@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"crypto/sha256"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
@@ -177,6 +178,7 @@ func (t *Team) DataConsent() bool {
 	}
 	return v == "ok"
 }
+
 
 func (t *Team) SetAccessed(ti time.Time) {
 	t.AccessedAt = &ti
@@ -481,7 +483,7 @@ func NewEventFile(dir string, filename string, file RawEventFile) *eventfile {
 		file:     file,
 	}
 
-	ef.TeamStore = NewTeamStore(WithTeams(file.Teams), WithPostTeamHook(ef.saveTeams))
+	// ef.TeamStore = NewTeamStore(WithTeams(file.Teams), WithPostTeamHook(ef.saveTeams))
 	ef.EventConfigStore = NewEventConfigStore(file.EventConfig, ef.saveEventConfig)
 
 	return ef
@@ -545,12 +547,12 @@ func (ef *eventfile) Archive() error {
 	}
 
 	cpy.file.Teams = []Team{}
-	for _, t := range ef.GetTeams() {
-		t.Name = ""
-		t.Email = ""
-		t.HashedPassword = ""
-		cpy.file.Teams = append(cpy.file.Teams, t)
-	}
+	// for _, t := range ef.GetTeams() {
+	// 	t.Name = ""
+	// 	t.Email = ""
+	// 	t.HashedPassword = ""
+	// 	cpy.file.Teams = append(cpy.file.Teams, t)
+	// }
 	cpy.save()
 
 	if err := ef.delete(); err != nil {
