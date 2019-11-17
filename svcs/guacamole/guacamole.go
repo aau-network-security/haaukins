@@ -59,7 +59,6 @@ type Config struct {
 	AdminPass string `yaml:"admin_pass"`
 }
 
-
 type guacamole struct {
 	conf       Config
 	token      string
@@ -67,7 +66,6 @@ type guacamole struct {
 	webPort    uint
 	containers map[string]docker.Container
 }
-
 
 type createUserAttributes struct {
 	Disabled          string  `json:"disabled"`
@@ -85,7 +83,6 @@ type createUserInput struct {
 	Attributes createUserAttributes `json:"attributes"`
 }
 
-
 func (ge *GuacError) Error() string {
 	return fmt.Sprintf("guacamole: trying to %s. failed: %s", ge.action, ge.err)
 }
@@ -99,7 +96,6 @@ type Guacamole interface {
 	RawLogin(username, password string) ([]byte, error)
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector
 }
-
 
 func New(ctx context.Context, conf Config) (Guacamole, error) {
 	jar, err := cookiejar.New(nil)
@@ -145,9 +141,8 @@ func (guac *guacamole) GetAdminPass() string {
 
 func (guac *guacamole) create(ctx context.Context) error {
 	containers := map[string]docker.Container{}
-
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
-		Image:     "guacamole/guacd",
+		Image:     "guacamole/guacd:1.0.0",
 		UseBridge: true,
 		Labels: map[string]string{
 			"hkn": "guacamole_guacd",
@@ -339,8 +334,6 @@ func (guac *guacamole) login(username, password string) (string, error) {
 	return *output.AuthToken, nil
 }
 
-
-
 func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 	form := url.Values{
 		"username": {username},
@@ -476,7 +469,6 @@ func (guac *guacamole) changeAdminPass(newPass string) error {
 
 	return nil
 }
-
 
 func (guac *guacamole) CreateUser(username, password string) error {
 	action := func(t string) (*http.Response, error) {

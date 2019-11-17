@@ -45,7 +45,7 @@ var (
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-
+	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
 	version string
 
 	LetsEncryptEnvs = map[bool]string{
@@ -55,7 +55,8 @@ var (
 )
 
 const (
-	mngtPort = ":5454"
+	mngtPort          = ":5454"
+	displayTimeFormat = "2006-01-02 15:04:05"
 )
 
 type MissingConfigErr struct {
@@ -289,7 +290,6 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	for _, ef := range eventFiles {
 		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
@@ -461,7 +461,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	}, nil
 }
 
-// todo: READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
+//READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
 func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFile) error {
 	ev, err := d.ehost.CreateEventFromEventFile(ctx, ef)
 	if err != nil {
@@ -473,7 +473,7 @@ func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFil
 	return nil
 }
 
-// todo: INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
+// INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 func (d *daemon) startEvent(ev event.Event) {
 	conf := ev.GetConfig()
 
@@ -505,7 +505,7 @@ func (l *GrpcLogger) Msg(msg string) error {
 	return l.resp.Send(&s)
 }
 
-// todo: DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
+// DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
 
@@ -525,6 +525,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		t, err := store.NewTag(s)
 		if err != nil {
 			return err
+		}
+		// check exercise before creating event file
+		_, tagErr := d.exercises.GetExercisesByTags(t)
+		if tagErr !=nil {
+			return tagErr
 		}
 		tags[i] = t
 	}
@@ -580,18 +585,18 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	if err != nil {
 		return err
 	}
-
+	// retrieve tag of event from event pool
 	ev, err := d.eventPool.GetEvent(evtag)
 	if err != nil {
 		return err
 	}
-
+	// tag of the event is removed from eventPool
 	if err := d.eventPool.RemoveEvent(evtag); err != nil {
 		return err
 	}
 
 	ev.Close()
-	ev.Finish()
+	ev.Finish() // Finishing and archiving event....
 	return nil
 }
 
@@ -599,7 +604,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	log.Ctx(resp.Context()).
 		Info().
 		Str("event", req.EventTag).
-		Str("lab", req.LabTag).
+		Str("lab", req.TeamId).
 		Msg("restart lab")
 
 	evtag, err := store.NewTag(req.EventTag)
@@ -612,10 +617,10 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
-
-	if err != nil {
-		return err
+	lab, ok := ev.GetLabByTeam(req.TeamId)
+	if !ok {
+		log.Warn().Msgf("Lab could not retrieved for team id %s ",req.TeamId)
+		return NoLabByTeamIdErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
@@ -626,7 +631,6 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 }
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
-
 	var exercises []*pb.ListExercisesResponse_Exercise
 
 	for _, e := range d.exercises.ListExercises() {
@@ -646,6 +650,22 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
 }
 
+func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
+	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ExercisesFile)
+	if err != nil {
+		return nil, err
+	}
+	// update event host exercises store
+	if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
+		return nil, err
+	}
+	// update daemons' exercises store
+	d.exercises = exercises
+	return &pb.UpdateExercisesFileResponse{
+		Msg: "Exercises file updated ",
+	}, nil
+
+}
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_ResetExerciseServer) error {
 	log.Ctx(stream.Context()).Info().
 		Str("evtag", req.EventTag).
@@ -670,7 +690,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 				continue
 			}
 
-			if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
 			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
@@ -686,7 +706,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 			continue
 		}
 
-		if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
@@ -700,13 +720,13 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
-
 		events = append(events, &pb.ListEventsResponse_Events{
 			Name:          conf.Name,
 			Tag:           string(conf.Tag),
 			TeamCount:     int32(len(event.GetTeams())),
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
+			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
 		})
 	}
 
@@ -732,6 +752,10 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 			Name:  t.Name,
 			Email: t.Email,
 		})
+
+		if t.AccessedAt != nil {
+			eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+		}
 	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
@@ -930,7 +954,7 @@ func (d *daemon) Run() error {
 	go func() {
 		if d.conf.TLS.Enabled {
 			// manage certificate renewal through certmagic
-			certmagic.Manage([]string{
+			certmagic.ManageSync([]string{
 				fmt.Sprintf("*.%s", d.conf.Host.Http),
 				d.conf.Host.Grpc,
 			})

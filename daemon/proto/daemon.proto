@@ -11,6 +11,7 @@ service Daemon {
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
 
+  rpc UpdateExercisesFile(Empty) returns (UpdateExercisesFileResponse){}
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
 
@@ -71,6 +72,7 @@ message ListEventsResponse {
     int32 teamCount = 3;
     int32 exerciseCount = 4;
     int32 capacity = 5;
+    string creationTime = 6;
   }
 
   repeated Events events = 1;
@@ -84,13 +86,14 @@ message ListEventTeamsResponse {
     string Id = 1;
     string Name = 2;
     string Email = 3;
+    string AccessedAt = 4;
   }
   repeated Teams teams = 1;
 }
 
 message RestartTeamLabRequest {
   string eventTag = 1;
-  string labTag = 2;
+  string teamId = 2;
 }
 
 message ResetExerciseRequest {
@@ -99,6 +102,9 @@ message ResetExerciseRequest {
   repeated Team teams = 3;
 }
 
+message UpdateExercisesFileResponse {
+  string msg=1;
+}
 message ListExercisesResponse {
   message Exercise {
     repeated string tags = 1;

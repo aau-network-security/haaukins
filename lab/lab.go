@@ -6,10 +6,6 @@ package lab
 
 import (
 	"context"
-	"math/rand"
-	"time"
-	"io"
-	"sync"
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
@@ -17,6 +13,9 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 var (
@@ -36,34 +35,35 @@ func (conf Config) Flags() []store.FlagConfig {
 	return res
 }
 
-type LabHost interface {
-	NewLab(context.Context, vbox.Library, Config) (Lab, error)
+type Creator interface {
+	NewLab(context.Context) (Lab, error)
 }
 
-type labHost struct{
-
+type LabHost struct {
+	Vlib vbox.Library
+	Conf Config
 }
 
-func (lh *labHost) NewLab(ctx context.Context, lib vbox.Library, config Config) (Lab, error) {
-	env := newEnvironment(lib)
+func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
+	env := newEnvironment(lh.Vlib)
 	if err := env.Create(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := env.Add(ctx, config.Exercises...); err != nil {
+	if err := env.Add(ctx, lh.Conf.Exercises...); err != nil {
 		return nil, err
 	}
 
 	dockerHost := docker.NewHost()
 	l := &lab{
 		tag:         generateTag(),
-		lib:         lib,
+		lib:         lh.Vlib,
 		environment: env,
 		dockerHost:  dockerHost,
 		frontends:   map[uint]frontendConf{},
 	}
 
-	for _, f := range config.Frontends {
+	for _, f := range lh.Conf.Frontends {
 		port := virtual.GetAvailablePort()
 		if _, err := l.addFrontend(ctx, f, port); err != nil {
 			return nil, err
@@ -77,12 +77,12 @@ type Lab interface {
 	Start(context.Context) error
 	Stop() error
 	Restart(context.Context) error
-	GetEnvironment() exercise.Environment
+	Environment() exercise.Environment
 	ResetFrontends(ctx context.Context) error
 	RdpConnPorts() []uint
-	GetTag() string
+	Tag() string
 	InstanceInfo() []virtual.InstanceInfo
-	io.Closer
+	Close() error
 }
 
 type lab struct {
@@ -98,8 +98,6 @@ type frontendConf struct {
 	conf store.InstanceConfig
 }
 
-
-
 func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPort uint) (vbox.VM, error) {
 	hostIp, err := l.dockerHost.GetDockerHostIP()
 	if err != nil {
@@ -111,6 +109,7 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPor
 		conf,
 		vbox.SetBridge(l.environment.NetworkInterface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
+		vbox.SetRAM(conf.MemoryMB),
 	)
 	if err != nil {
 		return nil, err
@@ -126,7 +125,7 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPor
 	return vm, nil
 }
 
-func (l *lab) GetEnvironment() exercise.Environment {
+func (l *lab) Environment() exercise.Environment {
 	return l.environment
 }
 
@@ -210,20 +209,26 @@ func (l *lab) Restart(ctx context.Context) error {
 func (l *lab) Close() error {
 	var wg sync.WaitGroup
 
-	closer := func(c io.Closer) {
-		if err := c.Close(); err != nil {
-			log.Warn().Msgf("error while closing lab: %s", err)
-		}
-		wg.Done()
-	}
-
-	if l.environment != nil {
+	for _, lab := range l.frontends {
 		wg.Add(1)
-		go closer(l.environment)
+		go func(vm vbox.VM) {
+			// closing VMs....
+			defer wg.Done()
+			if err := vm.Close(); err != nil {
+				log.Error().Msgf("Error on Close function in lab.go %s", err)
+			}
+		}(lab.vm)
 	}
+	wg.Add(1)
+	go func(environment exercise.Environment) {
+		// closing environment containers...
+		defer wg.Done()
+		if err := environment.Close(); err != nil {
+			log.Error().Msgf("Error while closing environment containers %s", err)
+		}
 
+	}(l.environment)
 	wg.Wait()
-
 	return nil
 }
 
@@ -236,7 +241,7 @@ func (l *lab) RdpConnPorts() []uint {
 	return ports
 }
 
-func (l *lab) GetTag() string {
+func (l *lab) Tag() string {
 	return l.tag
 }
 

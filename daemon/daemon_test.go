@@ -355,6 +355,7 @@ func TestLoginUser(t *testing.T) {
 
 type fakeEventHost struct {
 	event event.Event
+	event.Host
 }
 
 func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (event.Event, error) {
@@ -447,7 +448,7 @@ type fakeLab struct {
 	lab.Lab
 }
 
-func (fl *fakeLab) GetEnvironment() exercise.Environment {
+func (fl *fakeLab) Environment() exercise.Environment {
 	return fl.environment
 }
 
@@ -495,13 +496,19 @@ func TestCreateEvent(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := fakeEvent{}
-
+			exStore, err := store.NewExerciseStore([]store.Exercise{{
+				Tags:        []store.Tag{"hb"},
+			}})
+			if err !=nil {
+				t.Fatalf("Error %v",err)
+			}
 			ctx := context.Background()
 			eventPool := NewEventPool("")
 			d := &daemon{
 				conf:      &Config{},
 				eventPool: eventPool,
 				frontends: &fakeFrontendStore{},
+				exercises: exStore,
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
@@ -702,12 +709,12 @@ func TestListEvents(t *testing.T) {
 		unauthorized bool
 		count        int
 		err          string
+		startedTime  string
 	}{
 		{name: "Normal", count: 1},
 		{name: "Normal three events", count: 3},
 		{name: "Unauthorized", unauthorized: true, count: 1, err: "unauthorized"},
 	}
-
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := &fakeEvent{}
@@ -724,10 +731,10 @@ func TestListEvents(t *testing.T) {
 					event: ev,
 				},
 			}
-
+			startedAt, _ := time.Parse(tc.startedTime, displayTimeFormat)
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *ev
-				tempEvent.conf = store.EventConfig{Tag: store.Tag(fmt.Sprintf("tst-%d", i))}
+				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i))}
 				d.startEvent(&tempEvent)
 			}
 
@@ -744,7 +751,6 @@ func TestListEvents(t *testing.T) {
 				t.Fatalf("failed to dial bufnet: %v", err)
 			}
 			defer conn.Close()
-
 			client := pb.NewDaemonClient(conn)
 			resp, err := client.ListEvents(ctx, &pb.ListEventsRequest{})
 			if err != nil {
@@ -779,6 +785,7 @@ func TestListEvents(t *testing.T) {
 			if n := len(resp.Events); n != tc.count {
 				t.Fatalf("unexpected amount of events (expected: %d), received: %d", tc.count, n)
 			}
+
 		})
 	}
 }

@@ -47,9 +47,8 @@ func New(format func(n int) string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	cont := docker.NewContainer(docker.ContainerConfig{
-		Image: "networkboot/dhcpd",
+		Image: "networkboot/dhcpd", // no need to add tag since it is not updated for 5 months.
 		Mounts: []string{
 			fmt.Sprintf("%s:/data/dhcpd.conf", confFile),
 		},

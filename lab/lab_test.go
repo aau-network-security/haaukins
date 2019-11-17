@@ -53,9 +53,7 @@ func TestAddFrontend(t *testing.T) {
 		frontends:   map[uint]frontendConf{},
 	}
 	conf := store.InstanceConfig{}
-
 	lab.addFrontend(context.Background(), conf, 28391)
-
 	if len(lab.frontends) != 1 {
 		t.Fatalf("Expected %d frontend, but is %d", len(lab.frontends), 1)
 	}

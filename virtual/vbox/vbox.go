@@ -103,6 +103,7 @@ func (vm *vm) Create(ctx context.Context) error {
 
 	return nil
 }
+
 // when Run is called, it calls Create function within it.
 func (vm *vm) Run(ctx context.Context) error {
 	if err := vm.Create(ctx); err != nil {
@@ -130,6 +131,7 @@ func (vm *vm) Start(ctx context.Context) error {
 func (vm *vm) Stop() error {
 	_, err := VBoxCmdContext(context.Background(), vboxCtrlVM, vm.id, "poweroff")
 	if err != nil {
+		log.Error().Msgf("Error while shutting down VM %s", err)
 		return err
 	}
 
@@ -165,7 +167,6 @@ func (vm *vm) Close() error {
 	return nil
 }
 
-// Todo : What is the purpose of VMOpt function, it just returns error
 type VMOpt func(context.Context, *vm) error
 
 func SetBridge(nic string) VMOpt {
@@ -176,6 +177,11 @@ func SetBridge(nic string) VMOpt {
 		}
 
 		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nicpromisc1", "allow-all")
+		if err != nil {
+			return err
+		}
+		// removes default network interface card
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic2", "none")
 		if err != nil {
 			return err
 		}
@@ -353,9 +359,10 @@ func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, 
 
 	vm, ok := lib.known[path]
 	if ok {
-		return vm.LinkedClone(ctx, "origin", vmOpts...)
+		return vm.LinkedClone(ctx, "origin", vmOpts...) // if ok==true then VM will be linked without the ram value which is exist on configuration file
+		// vbox.SetRAM(conf.memoryMB) on addFrontend function in lab.go fixes the problem...
 	}
-
+	// if ok==false, then following codes will be run, in that case there will be no problem because at the end instance returns with specified VMOpts parameter.
 	sum, err := checksumOfFile(path)
 	if err != nil {
 		return nil, err
