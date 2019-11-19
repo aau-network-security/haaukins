@@ -201,8 +201,8 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"TEAM ID", "NAME", "EMAIL"},
-				fields: []string{"Id", "Name", "Email"},
+				header: []string{"TEAM ID", "NAME", "EMAIL", "LAST ACCESSED"},
+				fields: []string{"Id", "Name", "Email", "AccessedAt"},
 			}
 
 			var elements []formatElement
