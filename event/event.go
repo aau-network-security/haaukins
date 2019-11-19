@@ -285,7 +285,6 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	}
 
 	ev.labs[t.Id] = lab
-
 	chals := lab.Environment().Challenges()
 	for _, chal := range chals {
 		t.AddChallenge(chal)
