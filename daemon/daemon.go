@@ -20,7 +20,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -47,11 +46,6 @@ var (
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
 
 	version string
-
-	LetsEncryptEnvs = map[bool]string{
-		true:  certmagic.LetsEncryptStagingCA,
-		false: certmagic.LetsEncryptProductionCA,
-	}
 )
 
 const (
@@ -99,11 +93,6 @@ type Config struct {
 		CertKey string `yaml:"certkey"`
 		GrpcCert string `yaml:"grpccert"`
 		GrpcKey string `yaml:"grpckey"`
-		ACME      struct {
-			Email       string `yaml:"email"`
-			ApiKey      string `yaml:"api-key"`
-			Development bool   `yaml:"development"`
-		} `yaml:"acme"`
 	} `yaml:"tls,omitempty"`
 }
 
@@ -243,39 +232,6 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
-	if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
-		return nil, err
-	}
-
-	if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
-		return nil, err
-	}
-
-	provider, err := cloudflare.NewDNSProvider()
-	if err != nil {
-		return nil, err
-	}
-
-	certmagicConf := certmagic.Config{
-		DNSProvider: provider,
-		Agreed:      true,
-		Email:       conf.TLS.ACME.Email,
-		CA:          LetsEncryptEnvs[conf.TLS.ACME.Development],
-		Storage: &certmagic.FileStorage{
-			Path: conf.TLS.Directory,
-		},
-	}
-
-	getConfigForCert := func(certmagic.Certificate) (certmagic.Config, error) {
-		return certmagicConf, nil
-	}
-
-	cacheOpts := certmagic.CacheOptions{
-		GetConfigForCert: getConfigForCert,
-	}
-	cache := certmagic.NewCache(cacheOpts)
-
-	magic := certmagic.New(cache, certmagicConf)
 	d := &daemon{
 		conf:      conf,
 		auth:      NewAuthenticator(uf, conf.SigningKey),
@@ -286,7 +242,6 @@ func New(conf *Config) (*daemon, error) {
 		ehost:     event.NewHost(vlib, ef, efh),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
-		magic:     magic,
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
