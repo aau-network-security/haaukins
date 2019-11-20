@@ -911,9 +911,12 @@ func (d *daemon) Run() error {
 			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
-	go http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
-	}))
+	// redirect if TLS enabled only...
+	if d.conf.TLS.Enabled {
+		go http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
+		}))
+	}
 	// start gRPC daemon
 	lis, err := net.Listen("tcp", mngtPort)
 	if err != nil {
