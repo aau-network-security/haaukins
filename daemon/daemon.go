@@ -936,10 +936,6 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.TLS.Enabled {
-		//cert, err := d.magic.CacheManagedCertificate(d.conf.Host.Grpc)
-		//if err != nil {
-		//	return nil, err
-		//}
 		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.GrpcCert,d.conf.TLS.GrpcKey)
 		if err !=nil {
 			log.Error().Msgf("Error reading certificate from file %s ",err)
@@ -954,25 +950,11 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
-			// manage certificate renewal through certmagic
-
-			//certmagic.ManageSync([]string{
-			//	fmt.Sprintf("*.%s", d.conf.Host.Http),
-			//	d.conf.Host.Grpc,
-			//})
-			domains := []string{
-				fmt.Sprintf("*.%s", d.conf.Host.Http),
-			}
-			certmagic.HTTPPort = int(d.conf.Port.InSecure)
-			certmagic.HTTPSPort = int(d.conf.Port.Secure)
-			if err := certmagic.HTTPS(domains, d.eventPool); err != nil {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
-
-			return
 		}
-
-		if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
 			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
