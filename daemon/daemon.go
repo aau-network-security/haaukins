@@ -906,6 +906,7 @@ func (d *daemon) Run() error {
 			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
+			return
 		}
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
 			log.Warn().Msgf("Serving error: %s", err)
