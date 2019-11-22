@@ -49,6 +49,7 @@ Our primary aim to involve anyone who desire to learn capturing the flag concept
 - [__Contributing__](#contributing)
 - [__Event requests__](#event-requests)
   - [Event Requests Form](#event-requests-form)
+- [__Credits__](#credits)  
 - [__License__](#license)
 
 
@@ -136,6 +137,9 @@ After having your application, we will back to you as soon as possible
 
 ### [Event Requests Form](https://docs.google.com/forms/d/e/1FAIpQLSeyFTle_29Afck00hSHPU5nWT7QMWYd42yB76ABIoIMCewdRg/viewform)
 
+## __Credits__
+
+  - Logo designed by [indepedenthand](https://twitter.com/independenthand)
 
 ## __License__
 
