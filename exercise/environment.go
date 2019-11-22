@@ -93,7 +93,7 @@ func (ee *environment) NetworkInterface() string {
 
 func (ee *environment) Start(ctx context.Context) error {
 
-	if err:= ee.refreshDNS(ctx); err!=nil {
+	if err := ee.refreshDNS(ctx); err != nil {
 		log.Error().Err(err).Msg("Refreshing DNS error")
 		return err
 	}
@@ -222,8 +222,8 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 			return err
 		}
 	}
-	if ee.dhcpServer !=nil {
-		if err := ee.dhcpServer.Close(); err !=nil {
+	if ee.dhcpServer != nil {
+		if err := ee.dhcpServer.Close(); err != nil {
 			return err
 		}
 	}
