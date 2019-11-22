@@ -46,7 +46,7 @@ var (
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
 	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
-	version string
+	version             string
 
 	LetsEncryptEnvs = map[bool]string{
 		true:  certmagic.LetsEncryptStagingCA,
@@ -528,7 +528,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 		// check exercise before creating event file
 		_, tagErr := d.exercises.GetExercisesByTags(t)
-		if tagErr !=nil {
+		if tagErr != nil {
 			return tagErr
 		}
 		tags[i] = t
@@ -619,7 +619,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 
 	lab, ok := ev.GetLabByTeam(req.TeamId)
 	if !ok {
-		log.Warn().Msgf("Lab could not retrieved for team id %s ",req.TeamId)
+		log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
 		return NoLabByTeamIdErr
 	}
 
