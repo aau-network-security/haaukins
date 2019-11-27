@@ -209,7 +209,9 @@ type TeamStoreOpt func(ts *teamstore)
 func WithTeams(teams []Team) func(ts *teamstore) {
 	return func(ts *teamstore) {
 		for _, t := range teams {
-			ts.CreateTeam(t)
+		if err:=ts.CreateTeam(t); err !=nil {
+			log.Error().Msgf("Error on creating team %s",err)
+		}
 		}
 	}
 }
