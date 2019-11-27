@@ -20,7 +20,6 @@ var (
 type Hub interface {
 	Queue() <-chan Lab
 	Close() error
-	GetLabByTag(string) (Lab, error)
 }
 
 type hub struct {
@@ -158,13 +157,4 @@ func (h *hub) Queue() <-chan Lab {
 func (h *hub) Close() error {
 	close(h.stop)
 	return nil
-}
-
-func (h *hub) GetLabByTag(t string) (Lab, error) {
-	lab, ok := h.labs[t]
-	if !ok {
-		return nil, ErrNoLabByTag
-	}
-
-	return lab, nil
 }

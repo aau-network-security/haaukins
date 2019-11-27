@@ -43,8 +43,9 @@ var (
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-
-	version string
+  NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
+	
+  version string
 )
 
 const (
@@ -484,7 +485,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 		// check exercise before creating event file
 		_, tagErr := d.exercises.GetExercisesByTags(t)
-		if tagErr !=nil {
+		if tagErr != nil {
 			return tagErr
 		}
 		tags[i] = t
@@ -573,9 +574,10 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.EventTag)
-	if err != nil {
-		return err
+	lab, ok := ev.GetLabByTeam(req.TeamId)
+	if !ok {
+		log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
+		return NoLabByTeamIdErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
@@ -707,6 +709,10 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 			Name:  t.Name,
 			Email: t.Email,
 		})
+
+		if t.AccessedAt != nil {
+			eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+		}
 	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil

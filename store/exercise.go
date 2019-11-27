@@ -284,11 +284,11 @@ type exercisestore struct {
 }
 
 func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error) {
-	exStore, err:= NewExerciseFile(path)
-	if err!=nil{
-		return nil,err
+	exStore, err := NewExerciseFile(path)
+	if err != nil {
+		return nil, err
 	}
-	return exStore,nil
+	return exStore, nil
 }
 
 type ExerciseStore interface {

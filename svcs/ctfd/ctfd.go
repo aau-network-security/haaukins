@@ -250,6 +250,9 @@ func (ctf *ctfd) configureInstance() error {
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := ctf.nc.client.Do(req)
+	if resp.Status != "200" {
+		log.Warn().Msgf("Team [ %s ] could not assigned in CTFd side ! Status: %s ", req.Form.Get("name"), resp.Status)
+	}
 	if err != nil {
 		return err
 	}

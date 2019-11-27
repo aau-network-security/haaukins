@@ -85,6 +85,7 @@ type Team struct {
 	Metadata         map[string]string `yaml:"metadata,omitempty"`
 	CreatedAt        *time.Time        `yaml:"created-at,omitempty"`
 	ChalMap          map[Tag]Challenge `yaml:"-"`
+	AccessedAt       *time.Time        `yaml:"accessed-at,omitempty"`
 }
 
 func NewTeam(email, name, password string, chals ...Challenge) Team {
@@ -99,6 +100,7 @@ func NewTeam(email, name, password string, chals ...Challenge) Team {
 		Name:           name,
 		HashedPassword: hashedPassword,
 		CreatedAt:      &now,
+		AccessedAt:     nil,
 	}
 	for _, chal := range chals {
 		t.AddChallenge(chal)
@@ -176,6 +178,10 @@ func (t *Team) DataConsent() bool {
 	return v == "ok"
 }
 
+func (t *Team) SetAccessed(ti time.Time) {
+	t.AccessedAt = &ti
+}
+
 type TeamStore interface {
 	CreateTeam(Team) error
 	GetTeamByToken(string) (Team, error)
@@ -183,6 +189,7 @@ type TeamStore interface {
 	GetTeamByName(string) (Team, error)
 	GetTeams() []Team
 	SaveTeam(Team) error
+	UpdateTeamAccessed(string, time.Time) (Team, error)
 	CreateTokenForTeam(string, Team) error
 	DeleteToken(string) error
 }
@@ -344,6 +351,21 @@ func (es *teamstore) GetTeamByToken(token string) (Team, error) {
 	}
 
 	return t, nil
+}
+
+func (es *teamstore) UpdateTeamAccessed(id string, ti time.Time) (Team, error) {
+	es.m.Lock()
+	defer es.m.Unlock()
+
+	t, ok := es.teams[id]
+	if !ok {
+		return Team{}, UnknownTeamErr
+	}
+
+	t.SetAccessed(ti)
+	es.teams[id] = t
+
+	return t, es.RunHooks()
 }
 
 func (es *teamstore) RunHooks() error {

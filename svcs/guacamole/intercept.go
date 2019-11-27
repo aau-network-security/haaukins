@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
@@ -231,6 +232,15 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 					Msg("Failed to login team to guacamole")
 				reportHttpError(w, "Unable to connect to lab: ", err)
 				return
+			}
+
+			// Set teams last access time
+			_, err = gtl.teamStore.UpdateTeamAccessed(t.Id, time.Now())
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("team-id", t.Id).
+					Msg("Failed to update team accessed time")
 			}
 
 			authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
