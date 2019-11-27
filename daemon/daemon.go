@@ -91,8 +91,6 @@ type Config struct {
 		Directory string `yaml:"directory"`
 		CertFile string `yaml:"certfile"`
 		CertKey string `yaml:"certkey"`
-		GrpcCert string `yaml:"grpccert"`
-		GrpcKey string `yaml:"grpckey"`
 	} `yaml:"tls,omitempty"`
 }
 
@@ -895,7 +893,7 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.TLS.Enabled {
-		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.GrpcCert,d.conf.TLS.GrpcKey)
+		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.CertFile,d.conf.TLS.CertKey)
 		if err !=nil {
 			log.Error().Msgf("Error reading certificate from file %s ",err)
 		}
