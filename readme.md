@@ -28,10 +28,8 @@
   <a href="https://github.com/aau-network-security/haaukins/stargazers">
   <img src=https://img.shields.io/github/stars/aau-network-security/haaukins></a>
   </div>
-   <a href="https://api.dependabot.com/badges/status?host=github&repo=aau-network-security/haaukins">
-  <img src="https://api.dependabot.com/badges/status?host=github&repo=aau-network-security/haaukins">
-</a>
-  </div>
+   
+ </div>
 &nbsp;
 <div align="center">
 <h1>Haaukins </h1>
@@ -51,6 +49,7 @@ Our primary aim to involve anyone who desire to learn capturing the flag concept
 - [__Contributing__](#contributing)
 - [__Event requests__](#event-requests)
   - [Event Requests Form](#event-requests-form)
+- [__Credits__](#credits)  
 - [__License__](#license)
 
 
@@ -138,6 +137,9 @@ After having your application, we will back to you as soon as possible
 
 ### [Event Requests Form](https://docs.google.com/forms/d/e/1FAIpQLSeyFTle_29Afck00hSHPU5nWT7QMWYd42yB76ABIoIMCewdRg/viewform)
 
+## __Credits__
+
+  - Logo designed by [indepedenthand](https://www.behance.net/independenthand)
 
 ## __License__
 
