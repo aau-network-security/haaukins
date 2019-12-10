@@ -497,10 +497,10 @@ func TestCreateEvent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := fakeEvent{}
 			exStore, err := store.NewExerciseStore([]store.Exercise{{
-				Tags:        []store.Tag{"hb"},
+				Tags: []store.Tag{"hb"},
 			}})
-			if err !=nil {
-				t.Fatalf("Error %v",err)
+			if err != nil {
+				t.Fatalf("Error %v", err)
 			}
 			ctx := context.Background()
 			eventPool := NewEventPool("")
