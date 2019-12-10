@@ -70,7 +70,7 @@ message ListEventsResponse {
     string tag = 1;
     string name = 2;
     int32 teamCount = 3;
-    int32 exerciseCount = 4;
+    string exercises = 4;
     int32 capacity = 5;
     string creationTime = 6;
   }
