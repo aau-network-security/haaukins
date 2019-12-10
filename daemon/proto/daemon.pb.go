@@ -608,6 +608,7 @@ type ListEventTeamsResponse_Teams struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
 	Name                 string   `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
 	Email                string   `protobuf:"bytes,3,opt,name=Email,proto3" json:"Email,omitempty"`
+	AccessedAt           string   `protobuf:"bytes,4,opt,name=AccessedAt,proto3" json:"AccessedAt,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -655,6 +656,13 @@ func (m *ListEventTeamsResponse_Teams) GetName() string {
 func (m *ListEventTeamsResponse_Teams) GetEmail() string {
 	if m != nil {
 		return m.Email
+	}
+	return ""
+}
+
+func (m *ListEventTeamsResponse_Teams) GetAccessedAt() string {
+	if m != nil {
+		return m.AccessedAt
 	}
 	return ""
 }

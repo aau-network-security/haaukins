@@ -139,7 +139,7 @@ After having your application, we will back to you as soon as possible
 
 ## __Credits__
 
-  - Logo designed by [indepedenthand](https://twitter.com/independenthand)
+  - Logo designed by [indepedenthand](https://www.behance.net/independenthand)
 
 ## __License__
 
