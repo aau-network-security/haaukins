@@ -675,11 +675,17 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
+
+		var exercises [] string
+		for _, ex := range conf.Lab.Exercises {
+			exercises = append(exercises, string(ex))
+		}
+
 		events = append(events, &pb.ListEventsResponse_Events{
 			Name:          conf.Name,
 			Tag:           string(conf.Tag),
 			TeamCount:     int32(len(event.GetTeams())),
-			ExerciseCount: int32(len(conf.Lab.Exercises)),
+			Exercises: 	   strings.Join(exercises, ","),
 			Capacity:      int32(conf.Capacity),
 			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
 		})

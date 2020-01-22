@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,7 @@ import (
 
 const (
 	stateRegex = `State:\s*(.*)`
+	nicRegex  = "\\bNIC\\b"
 
 	vboxBin          = "VBoxManage"
 	vboxModVM        = "modifyvm"
@@ -169,19 +171,35 @@ func (vm *vm) Close() error {
 
 type VMOpt func(context.Context, *vm) error
 
+func removeAllNICs(ctx context.Context, vm *vm) error {
+	result, err := VBoxCmdContext(ctx, vboxShowVMInfo, vm.id)
+	if err != nil {
+		return err
+	}
+	re := regexp.MustCompile(nicRegex)
+	numberOfNICs := re.FindAll(result, -1)
+	for i := 1; i <= len(numberOfNICs); i++ {
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic"+strconv.Itoa(i), "none")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func SetBridge(nic string) VMOpt {
 	return func(ctx context.Context, vm *vm) error {
+		// Removes all NIC cards from importing VMs
+		if err := removeAllNICs(ctx, vm); err != nil {
+			return err
+		}
+		// enables specified NIC card in purpose
 		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
 		if err != nil {
 			return err
 		}
-
+		// allows promiscuous mode
 		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nicpromisc1", "allow-all")
-		if err != nil {
-			return err
-		}
-		// removes default network interface card
-		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic2", "none")
 		if err != nil {
 			return err
 		}
