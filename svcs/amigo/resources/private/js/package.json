@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build --target wc --no-clean --dest ../../public/js/ 'src/components/FlagChecker.vue'",
+    "build": "vue-cli-service build --target app --dest ../../public/js/",
     "watch": "vue-cli-service build --watch --target app --no-clean --dest ../../public/js/",
     "lint": "vue-cli-service lint"
   },

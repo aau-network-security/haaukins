@@ -9,8 +9,14 @@
   </thead>
   <tbody>
     <team-row v-for="(team, index) in teams" v-bind:key="team.id" :name="team.name" :completions="team.completions" :pos="index + 1"></team-row>
+    <tr>
+      <td></td>
+      <td>{{teams}}</td>
+      <td>{{challenges}}</td>
+    </tr>
   </tbody>
 </table>
+
 </template>
 
 <script>
@@ -48,9 +54,11 @@ export default {
 	  switch (json.msg) {
 	  case "challenges":
 	    this.challenges = json.values;
+	    console.log(this.challenges.toString())
 	    break;
 	  case "teams":
 	    this.teams = json.values;
+        console.log(this.teams.toString())
 	    break;
 	  }
 	}
