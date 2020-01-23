@@ -16,9 +16,9 @@
 		</p>
 	    </div>
 	    {{ with .Content }}
-	    {{ if .SignupError }}
+	    {{ if .LoginError }}
 	    <div class="notification is-danger">
-		{{ .SignupError }}
+		{{ .LoginError }}
 	    </div>
 	    {{ end }}
 	    {{ end }}

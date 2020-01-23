@@ -6,9 +6,7 @@
     </span>
   </td>
   <td><strong>{{ name }}</strong></td>
-  <td>
-    <challenge-cell v-for="comp in completions" :completed="comp !== null"></challenge-cell>
-  </td>
+  <challenge-cell v-for="comp in completions" v-bind:key="comp" :completed="comp !== null"></challenge-cell>
 </tr>
 </template>
 

@@ -25,6 +25,7 @@ events/
 app/daemon/events/
 travis_deploy_key
 logs
+svcs/amigo/resources/private/js/node_modules/
 # contains dummy yml files to test some functions in frontend.go
 # in particular, parsing and configuring ram and cpu values.
 store/test_ymls/

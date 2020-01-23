@@ -1,5 +1,7 @@
 <template>
-<span class="icon" v-bind:class="{ 'has-text-success': completed }"><i class="fas" v-bind:class="{ 'fa-check-circle': completed, 'fa-circle': !completed }"></i></span>
+    <td>
+        <span class="icon" v-bind:class="{ 'has-text-success': completed }"><i class="fas" v-bind:class="{ 'fa-check-circle': completed, 'fa-circle': !completed }"></i></span>
+    </td>
 </template>
 
 <script>
