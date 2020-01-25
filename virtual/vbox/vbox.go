@@ -146,6 +146,23 @@ func (vm *vm) Stop() error {
 	return nil
 }
 
+// Will call savestate on vm
+func (vm *vm) Suspend(ctx context.Context) error {
+	_, err := VBoxCmdContext(ctx, vboxCtrlVM, vm.id, "savestate")
+	if err != nil {
+		log.Error().
+			Str("ID", vm.id).
+			Msgf("Failed to suspend VM: %s", err)
+		return err
+	}
+
+	log.Debug().
+		Str("ID", vm.id).
+		Msgf("Suspended vm")
+
+	return nil
+}
+
 func (vm *vm) Close() error {
 	_, err := vm.ensureStopped(nil)
 	if err != nil {
@@ -320,6 +337,9 @@ func (v *vm) state() virtual.State {
 	}
 	if strings.Contains(string(matched[0]), "running") {
 		return virtual.Running
+	}
+	if strings.Contains(string(matched[0]), "saved") {
+		return virtual.Suspended
 	}
 
 	return virtual.Stopped
