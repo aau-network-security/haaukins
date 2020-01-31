@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"crypto/sha256"
+
+	"github.com/aau-network-security/haaukins"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
@@ -70,10 +72,10 @@ type Lab struct {
 }
 
 type Challenge struct {
-	OwnerID     string     `yaml:"-"`
-	FlagTag     Tag        `yaml:"tag"`
-	FlagValue   string     `yaml:"-"`
-	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
+	OwnerID     string        `yaml:"-"`
+	Tag         Tag           `yaml:"tag"`
+	Flag        haaukins.Flag `yaml:"-"`
+	CompletedAt *time.Time    `yaml:"completed-at,omitempty"`
 }
 
 type Team struct {
@@ -117,7 +119,7 @@ func (t *Team) IsCorrectFlag(tag Tag, v string) error {
 		return UnknownChallengeErr
 	}
 
-	if c.FlagValue != v {
+	if !c.Flag.IsEqual(v) {
 		return InvalidFlagValueErr
 	}
 
@@ -164,7 +166,7 @@ func (t *Team) AddChallenge(c Challenge) {
 	if t.ChalMap == nil {
 		t.ChalMap = map[Tag]Challenge{}
 	}
-	t.ChalMap[c.FlagTag] = c
+	t.ChalMap[c.Tag] = c
 }
 
 func (t *Team) DataConsent() bool {

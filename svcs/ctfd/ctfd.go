@@ -492,7 +492,7 @@ func (t *team) create(fp *FlagPool) error {
 	defer resp.Body.Close()
 
 	for _, chal := range t.conf.SolvedChallenges {
-		if err := t.solve(fp, chal.FlagTag); err != nil {
+		if err := t.solve(fp, chal.Tag); err != nil {
 			return err
 		}
 	}
@@ -506,7 +506,7 @@ func (t *team) solve(fp *FlagPool, tag store.Tag) error {
 		return err
 	}
 
-	flagval, err := fp.GetFlagByTag(tag)
+	flag, err := fp.GetFlagByTag(tag)
 	if err != nil {
 		return err
 	}
@@ -522,7 +522,7 @@ func (t *team) solve(fp *FlagPool, tag store.Tag) error {
 	w := multipart.NewWriter(body)
 
 	values := map[string]string{
-		"key":   flagval,
+		"key":   flag.String(),
 		"nonce": nonce,
 	}
 

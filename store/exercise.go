@@ -11,8 +11,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/google/uuid"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -98,18 +98,19 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 		var challenges []Challenge
 		envVars := make(map[string]string)
 
-		for _, flag := range conf.Flags {
-			value := flag.Static
-			if value == "" {
-				// flag is not static
-				value = uuid.New().String()
+		for _, f := range conf.Flags {
+			var flag haaukins.Flag
+
+			flag, _ = haaukins.NewFlagStatic(f.StaticValue)
+			if f.StaticValue == "" {
+				flag = haaukins.NewFlagShort()
 			}
 
 			challenges = append(challenges, Challenge{
-				FlagTag:   flag.Tag,
-				FlagValue: value,
+				Tag:  f.Tag,
+				Flag: flag,
 			})
-			envVars[flag.EnvVar] = value
+			envVars[f.EnvVar] = flag.String()
 		}
 
 		for _, env := range conf.Envs {
@@ -162,7 +163,7 @@ type FlagConfig struct {
 	Tag         Tag    `yaml:"tag"`
 	Name        string `yaml:"name"`
 	EnvVar      string `yaml:"env"`
-	Static      string `yaml:"static"`
+	StaticValue string `yaml:"static"`
 	Points      uint   `yaml:"points"`
 	Description string `yaml:"description"`
 	Category    string `yaml:"category"`
@@ -177,7 +178,7 @@ func (fc FlagConfig) Validate() error {
 		return &EmptyVarErr{Var: "Name", Type: "Flag Config"}
 	}
 
-	if fc.Static == "" && fc.EnvVar == "" {
+	if fc.StaticValue == "" && fc.EnvVar == "" {
 		return &EmptyVarErr{Var: "Static or Env", Type: "Flag Config"}
 	}
 

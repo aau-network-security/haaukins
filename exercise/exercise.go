@@ -11,6 +11,7 @@ import (
 
 	"sync"
 
+	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/aau-network-security/haaukins/virtual/docker"
@@ -214,9 +215,10 @@ func (e *exercise) Challenges() []store.Challenge {
 
 	for _, opt := range e.vboxOpts {
 		for _, f := range opt.Flags {
+			flag, _ := haaukins.NewFlagStatic(f.StaticValue)
 			challenges = append(challenges, store.Challenge{
-				FlagTag:   f.Tag,
-				FlagValue: f.Static,
+				Tag:  f.Tag,
+				Flag: flag,
 			})
 		}
 	}

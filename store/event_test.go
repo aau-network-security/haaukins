@@ -6,13 +6,15 @@ package store_test
 
 import (
 	"fmt"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/google/uuid"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/aau-network-security/haaukins"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/google/uuid"
 )
 
 func TestNewTeam(t *testing.T) {
@@ -29,13 +31,13 @@ func TestTeamSolveTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid tag: %s", err)
 	}
-	value := "meowwww"
+	flag := haaukins.NewFlagShort()
 
 	team := store.NewTeam("some name", "some@email.com", "some_password", []store.Challenge{
-		{FlagTag: etag, FlagValue: value},
+		{Tag: etag, Flag: flag},
 	}...)
 
-	if err := team.SolveChallenge(etag, value); err != nil {
+	if err := team.SolveChallenge(etag, flag.String()); err != nil {
 		t.Fatalf("expected no error when solving task for team: %s", err)
 	}
 
