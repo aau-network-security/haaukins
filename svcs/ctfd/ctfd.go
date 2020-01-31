@@ -250,6 +250,9 @@ func (ctf *ctfd) configureInstance() error {
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := ctf.nc.client.Do(req)
+	if resp.Status != "200" {
+		log.Warn().Msgf("Team [ %s ] could not assigned in CTFd side ! Status: %s ", req.Form.Get("name"), resp.Status)
+	}
 	if err != nil {
 		return err
 	}
@@ -262,13 +265,14 @@ func (ctf *ctfd) configureInstance() error {
 	for id, flag := range ctf.conf.Flags {
 		value := ctf.flagPool.AddFlag(flag, id+1)
 
-		if err := ctf.createFlag(flag.Name, value.String(), flag.Points); err != nil {
+		if err := ctf.createFlag(flag.Name, value, flag.Description, flag.Category, flag.Points); err != nil {
 			return err
 		}
 
 		log.Debug().
 			Str("name", flag.Name).
-			Bool("static", flag.StaticValue != "").
+			Str("value", value).
+			Bool("static", flag.Static != "").
 			Uint("points", flag.Points).
 			Msg("Flag created")
 	}
@@ -328,7 +332,7 @@ func (nc *nonceClient) getNonce(path string) (string, error) {
 	return string(matches[0][1]), nil
 }
 
-func (ctf *ctfd) createFlag(name, flag string, points uint) error {
+func (ctf *ctfd) createFlag(name, flagValue, description, category string, points uint) error {
 	endpoint := ctf.nc.baseUrl() + "/admin/chal/new"
 
 	nonce, err := ctf.nc.getNonce(endpoint)
@@ -341,11 +345,11 @@ func (ctf *ctfd) createFlag(name, flag string, points uint) error {
 	values := map[string]string{
 		"name":         name,
 		"value":        fmt.Sprintf("%d", points),
-		"key":          flag,
+		"key":          flagValue,
 		"nonce":        nonce,
 		"key_type[0]":  "static",
-		"category":     "",
-		"description":  "",
+		"category":     category,
+		"description":  description,
 		"max_attempts": "",
 		"chaltype":     "standard",
 	}

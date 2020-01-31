@@ -1,46 +1,32 @@
 sudo: required
 dist: trusty
-
 language: go
 go:
-- '1.11'
-
+- '1.13'
 services:
 - docker
-
 cache:
   directories:
   - "$HOME/.cache/go-build"
-
 env:
   global:
-    GIT_TAG=$(git describe --tags)
-    GOCACHE=off
-
+  - GIT_TAG=$(git describe --tags)
+  - secure: "HfFpp4ovjRl2zrm7NYE7ki0cWU8H4aky5Ol0JBkK6I2CT9mu75bq9ee54VZs/r2ks9YmT82QWioRqXyTZSr/WxiM5G9RGCCI78w4YpTgAjyHKRw2aZnZHJofqccbDzrqQp1dtRCp1tULRLcGNv/Ht+cCt2EDhqHGX+gcnXjkL8d3D0zJhM40jR3ZmwfhZ+22t3D+lx4Tc1wqvNnRDA2v/SIjRDUgJQrEn6e5JrSbRzNM8tYxSVcAtrHQ5eA6IiI+B6xNzJqo8U/rQPLuTNAlaJEjF/nBtFRnAhpvXj4W+NB/F3MoVx9glm3gv+cW7wq0FWUf4tCz3V5Ln2BOsFNXx6qhCa4EscEEfPxZTX/HRCOBvGi+JqNXH+M7y5HRIX3A4hiwDowqgX5zJ5LazBkM1oSohqC/ATzp+Y1D7toe37JzhfgAFnaUQlMbIEJqmph9ZglFZlaCjgMNxrz1IAh7lYKS0RC2gb6tpi2HYRBMy2wG3gQaXk/BTdWGudHpUOriPZyxgBYSSoaIAF2EZAlLm/XgTO00KeoJi3ihhCbT+RmuIZjRwj6f/DxSgRsNTnz70gkTDdOsrD51FN44anVT1BXZxKXfSx/pokuf8kcwwh3PS2/BsbDzedehMsHIgblEy93YNmJHHJ3qWhn7TzUyPymiL0Ij12sBay4V+zd6n94="
 before_install:
-- openssl aes-256-cbc -K $encrypted_a30037d67e8c_key -iv $encrypted_a30037d67e8c_iv -in travis_deploy_key.enc -out ./travis_deploy_key -d
-
-install:
-- go get -t ./...
-
-before_deploy:
-- go run ./scripts/deploy/build_binaries.go
-
+- openssl aes-256-cbc -K $encrypted_a30037d67e8c_key -iv $encrypted_a30037d67e8c_iv
+  -in travis_deploy_key.enc -out ./travis_deploy_key -d
+script: go test -v -race ./...
 deploy:
-- provider: releases
-  api_key:
-    secure: eRNgqr7ugxm+ofsFLoyIYRD2mQv3WWCDYi5dxITZvOhQFD71sAN8eG1f+6OpcgW1VaaCJGFGD7LYgTG8/cGTxJqPiXOQEbGXfJW4GqphZpwnzs0GqXCEEI985GOi3HEkplxvcd7Kf7nrJBJ6j5XXg0i7QqHCqkGuacMWzTFpcJGfHmFVFZxARf5AISBM6WuJhzdGkFgT1C8SRWVx6iiMI+X/g9ssVDXcWRAn55tzNGMbDB27COoSIHezKty1JFVTYyKEyvdBY6gthV4hsDvS+XekUntVnBiJM0IDhubZZWaWWLKNXFdzS/2ggELX+8hcKsUrbjoU8EgtB3flc0niBFuCs3gy6zroTkJwQKNDz2dcL6bd0G3pl5OXZdwbqjaiADlG7WHvihCCF9sWTSdbDJPCLSjH3/tUiftTEegsvBG5vXKbkREtpW+KSQkppHDuG7upqfHI564XCf1mMak09BlqfJS+moE9Q9J8fP58Ciw3uNAWC19hNvxNlYooVk1X6OgTTZYzKPEWYPgPGmfHmpXcnvUqaX9P6zpgWeHK+5cGAKfiUIU2+lxs/AdFFsvFSea71dSfSF6rJBTmkYpXWAK2wX2ub+El+rgHpatHJwatlG2QjWTdJHc8sIF6QlahqORtnhZ1S8dfWP2iKvZNe/OggWKHn/KBhl4LIEXDsVk=
-  file_glob: true
-  file: "./build/*"
+- provider: script
   skip_cleanup: true
+  script: curl -sL http://git.io/goreleaser | bash
   on:
     tags: true
 - provider: script
-  script: "bash ./scripts/deploy/deploy.sh"
+  script: bash ./scripts/deploy/deploy.sh
   skip_cleanup: true
   on:
     tags: true
-
 notifications:
   slack:
     secure: pbJLqnA2ilvWp9REuHrWqf/Pl/hSGkENBvjBPQyW6TvJytUHiObwP/aCQxyL31i8ZzItc1r+9db1tk12BFE5eObxyb4DHmHbaQ1/pwA7Bzf2SsM5J68Pyr9w/kXk44PUqfifeBLH/xhjCNtm+f8ZIkJiKfOZxgn9ddYt/vG4Nt8w6s43ZODDO+Caql1AH1iZ4xsJ6X/VPyvWfh9FaZpYnDQBI10fcsg4kGMZ6+p4pZ2wvRyo8LQJoIUcDGXATr7+kr3wB04r3BRAACydg0bDWPpuRBn6svIar6J12lHR05n0K+rtl+VYLLGJZuNPn3Tqh7tdt0ifrPTE0W1fM24mlOikLlYWhZ5Olf23DVxbxqeegu/x4E4ctT9ua/0UbBfZHVlb9pzFf+OoSYwX/N7dE9Dt7zuoeMebL3ECYXxyEvP1qHLNvxmeVydFFHKy2pu1pSQP/paz+1ShqgjbMOHFrz52HVvy/7b1qCMKDFnpYp6lc9adPgWJpsxGAY2dMw83iBJno+A9LF3LJzhv2TdRC+w1fQTUBdzW/wUkDLa9diHNdolN/2gFsAK8iJtLc2cz6hAh/2U4mRdrBjCULqZcGwBRS5jPA79zDZpMwhbET2j3vrqUx6iicAI8MI6Nptkt3g193trwS7oljXOkpdqBkXdh/ZpRYoiK/3nOc/LKfnI=

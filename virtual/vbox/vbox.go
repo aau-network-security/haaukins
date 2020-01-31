@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,7 @@ import (
 
 const (
 	stateRegex = `State:\s*(.*)`
+	nicRegex  = "\\bNIC\\b"
 
 	vboxBin          = "VBoxManage"
 	vboxModVM        = "modifyvm"
@@ -103,6 +105,7 @@ func (vm *vm) Create(ctx context.Context) error {
 
 	return nil
 }
+
 // when Run is called, it calls Create function within it.
 func (vm *vm) Run(ctx context.Context) error {
 	if err := vm.Create(ctx); err != nil {
@@ -130,7 +133,7 @@ func (vm *vm) Start(ctx context.Context) error {
 func (vm *vm) Stop() error {
 	_, err := VBoxCmdContext(context.Background(), vboxCtrlVM, vm.id, "poweroff")
 	if err != nil {
-		log.Error().Msgf("Error while shutting down VM %s",err)
+		log.Error().Msgf("Error while shutting down VM %s", err)
 		return err
 	}
 
@@ -165,15 +168,37 @@ func (vm *vm) Close() error {
 
 	return nil
 }
+
 type VMOpt func(context.Context, *vm) error
+
+func removeAllNICs(ctx context.Context, vm *vm) error {
+	result, err := VBoxCmdContext(ctx, vboxShowVMInfo, vm.id)
+	if err != nil {
+		return err
+	}
+	re := regexp.MustCompile(nicRegex)
+	numberOfNICs := re.FindAll(result, -1)
+	for i := 1; i <= len(numberOfNICs); i++ {
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic"+strconv.Itoa(i), "none")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func SetBridge(nic string) VMOpt {
 	return func(ctx context.Context, vm *vm) error {
+		// Removes all NIC cards from importing VMs
+		if err := removeAllNICs(ctx, vm); err != nil {
+			return err
+		}
+		// enables specified NIC card in purpose
 		_, err := VBoxCmdContext(ctx, vboxModVM, vm.id, "--nic1", "bridged", "--bridgeadapter1", nic)
 		if err != nil {
 			return err
 		}
-
+		// allows promiscuous mode
 		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--nicpromisc1", "allow-all")
 		if err != nil {
 			return err
@@ -247,7 +272,7 @@ func (vm *vm) ensureStopped(ctx context.Context) (func(), error) {
 		}
 	}, nil
 }
-func (vm *vm) Snapshot(name string) error  {
+func (vm *vm) Snapshot(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -353,7 +378,7 @@ func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, 
 	vm, ok := lib.known[path]
 	if ok {
 		return vm.LinkedClone(ctx, "origin", vmOpts...) // if ok==true then VM will be linked without the ram value which is exist on configuration file
-														// vbox.SetRAM(conf.memoryMB) on addFrontend function in lab.go fixes the problem...
+		// vbox.SetRAM(conf.memoryMB) on addFrontend function in lab.go fixes the problem...
 	}
 	// if ok==false, then following codes will be run, in that case there will be no problem because at the end instance returns with specified VMOpts parameter.
 	sum, err := checksumOfFile(path)

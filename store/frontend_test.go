@@ -5,9 +5,9 @@
 package store
 
 import (
+	tst "github.com/aau-network-security/haaukins/testing"
 	"reflect"
 	"testing"
-	tst "github.com/aau-network-security/haaukins/testing"
 )
 
 func TestGetFrontends(t *testing.T) {
@@ -87,14 +87,14 @@ func TestSetMemoryMBAndCpu(t *testing.T) {
 func TestNewFrontendsFile(t *testing.T) {
 	// since there is no dummy yml file on git repo, skipping test on Travis can be reasonable...
 	tst.SkipCI(t)
-	definedMemory :=uint(4096)
+	definedMemory := uint(4096)
 	definedCPU := 2.0
 	frontendstore, err := NewFrontendsFile("test_ymls/frontend_test.yml")
-	if err!=nil {
-		t.Fatalf("Error: %s",err)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
 	}
 	kaliImageInfo := frontendstore.GetFrontends("kali")
-	for _,instanceInfo := range kaliImageInfo {
+	for _, instanceInfo := range kaliImageInfo {
 		if instanceInfo.MemoryMB != definedMemory {
 			t.Fatalf("Defined memory does not match with the memory resides on config file")
 		}
@@ -104,4 +104,3 @@ func TestNewFrontendsFile(t *testing.T) {
 
 	}
 }
-

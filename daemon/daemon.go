@@ -14,13 +14,11 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/mholt/certmagic"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -45,17 +43,14 @@ var (
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-
-	version string
-
-	LetsEncryptEnvs = map[bool]string{
-		true:  certmagic.LetsEncryptStagingCA,
-		false: certmagic.LetsEncryptProductionCA,
-	}
+  NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
+	
+  version string
 )
 
 const (
-	mngtPort = ":5454"
+	mngtPort          = ":5454"
+	displayTimeFormat = "2006-01-02 15:04:05"
 )
 
 type MissingConfigErr struct {
@@ -94,11 +89,8 @@ type Config struct {
 	TLS                struct {
 		Enabled   bool   `yaml:"enabled"`
 		Directory string `yaml:"directory"`
-		ACME      struct {
-			Email       string `yaml:"email"`
-			ApiKey      string `yaml:"api-key"`
-			Development bool   `yaml:"development"`
-		} `yaml:"acme"`
+		CertFile string `yaml:"certfile"`
+		CertKey string `yaml:"certkey"`
 	} `yaml:"tls,omitempty"`
 }
 
@@ -187,7 +179,6 @@ type daemon struct {
 	ehost     event.Host
 	logPool   logging.Pool
 	closers   []io.Closer
-	magic     *certmagic.Config
 }
 
 func New(conf *Config) (*daemon, error) {
@@ -238,40 +229,6 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
-	if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
-		return nil, err
-	}
-
-	if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
-		return nil, err
-	}
-
-	provider, err := cloudflare.NewDNSProvider()
-	if err != nil {
-		return nil, err
-	}
-
-	certmagicConf := certmagic.Config{
-		DNSProvider: provider,
-		Agreed:      true,
-		Email:       conf.TLS.ACME.Email,
-		CA:          LetsEncryptEnvs[conf.TLS.ACME.Development],
-		Storage: &certmagic.FileStorage{
-			Path: conf.TLS.Directory,
-		},
-	}
-
-	getConfigForCert := func(certmagic.Certificate) (certmagic.Config, error) {
-		return certmagicConf, nil
-	}
-
-	cacheOpts := certmagic.CacheOptions{
-		GetConfigForCert: getConfigForCert,
-	}
-	cache := certmagic.NewCache(cacheOpts)
-
-	magic := certmagic.New(cache, certmagicConf)
-
 	d := &daemon{
 		conf:      conf,
 		auth:      NewAuthenticator(uf, conf.SigningKey),
@@ -282,14 +239,12 @@ func New(conf *Config) (*daemon, error) {
 		ehost:     event.NewHost(vlib, ef, efh),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
-		magic:     magic,
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
 	if err != nil {
 		return nil, err
 	}
-
 	for _, ef := range eventFiles {
 		err := d.createEventFromEventFile(context.Background(), ef)
 		if err != nil {
@@ -489,7 +444,7 @@ func (d *daemon) startEvent(ev event.Event) {
 		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
-	go ev.Start(context.TODO())
+	 ev.Start(context.TODO())
 
 	d.eventPool.AddEvent(ev)
 }
@@ -525,6 +480,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		t, err := store.NewTag(s)
 		if err != nil {
 			return err
+		}
+		// check exercise before creating event file
+		_, tagErr := d.exercises.GetExercisesByTags(t)
+		if tagErr != nil {
+			return tagErr
 		}
 		tags[i] = t
 	}
@@ -591,7 +551,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	}
 
 	ev.Close()
-	ev.Finish()  // Finishing and archiving event....
+	ev.Finish() // Finishing and archiving event....
 	return nil
 }
 
@@ -599,7 +559,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	log.Ctx(resp.Context()).
 		Info().
 		Str("event", req.EventTag).
-		Str("lab", req.LabTag).
+		Str("lab", req.TeamId).
 		Msg("restart lab")
 
 	evtag, err := store.NewTag(req.EventTag)
@@ -612,10 +572,10 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		return err
 	}
 
-	lab, err := ev.GetHub().GetLabByTag(req.LabTag)
-
-	if err != nil {
-		return err
+	lab, ok := ev.GetLabByTeam(req.TeamId)
+	if !ok {
+		log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
+		return NoLabByTeamIdErr
 	}
 
 	if err := lab.Restart(resp.Context()); err != nil {
@@ -626,7 +586,6 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 }
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
-
 	var exercises []*pb.ListExercisesResponse_Exercise
 
 	for _, e := range d.exercises.ListExercises() {
@@ -646,6 +605,22 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
 }
 
+func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
+	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ExercisesFile)
+	if err != nil {
+		return nil, err
+	}
+	// update event host exercises store
+	if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
+		return nil, err
+	}
+	// update daemons' exercises store
+	d.exercises = exercises
+	return &pb.UpdateExercisesFileResponse{
+		Msg: "Exercises file updated ",
+	}, nil
+
+}
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_ResetExerciseServer) error {
 	log.Ctx(stream.Context()).Info().
 		Str("evtag", req.EventTag).
@@ -670,7 +645,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 				continue
 			}
 
-			if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
 			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
@@ -686,7 +661,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 			continue
 		}
 
-		if err := lab.GetEnvironment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
@@ -701,12 +676,18 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
 
+		var exercises [] string
+		for _, ex := range conf.Lab.Exercises {
+			exercises = append(exercises, string(ex))
+		}
+
 		events = append(events, &pb.ListEventsResponse_Events{
 			Name:          conf.Name,
 			Tag:           string(conf.Tag),
 			TeamCount:     int32(len(event.GetTeams())),
-			ExerciseCount: int32(len(conf.Lab.Exercises)),
+			Exercises: 	   strings.Join(exercises, ","),
 			Capacity:      int32(conf.Capacity),
+			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
 		})
 	}
 
@@ -732,6 +713,10 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 			Name:  t.Name,
 			Email: t.Email,
 		})
+
+		if t.AccessedAt != nil {
+			eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+		}
 	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
@@ -914,11 +899,10 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.TLS.Enabled {
-		cert, err := d.magic.CacheManagedCertificate(d.conf.Host.Grpc)
-		if err != nil {
-			return nil, err
+		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.CertFile,d.conf.TLS.CertKey)
+		if err !=nil {
+			log.Error().Msgf("Error reading certificate from file %s ",err)
 		}
-		creds := credentials.NewServerTLSFromCert(&cert.Certificate)
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
 	return []grpc.ServerOption{}, nil
@@ -929,28 +913,21 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
-			// manage certificate renewal through certmagic
-			certmagic.Manage([]string{
-				fmt.Sprintf("*.%s", d.conf.Host.Http),
-				d.conf.Host.Grpc,
-			})
-			domains := []string{
-				fmt.Sprintf("*.%s", d.conf.Host.Http),
-			}
-			certmagic.HTTPPort = int(d.conf.Port.InSecure)
-			certmagic.HTTPSPort = int(d.conf.Port.Secure)
-			if err := certmagic.HTTPS(domains, d.eventPool); err != nil {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
-
 			return
 		}
-
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
 			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
-
+	// redirect if TLS enabled only...
+	if d.conf.TLS.Enabled {
+		go http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
+		}))
+	}
 	// start gRPC daemon
 	lis, err := net.Listen("tcp", mngtPort)
 	if err != nil {

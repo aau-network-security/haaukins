@@ -165,6 +165,8 @@ type FlagConfig struct {
 	EnvVar      string `yaml:"env"`
 	StaticValue string `yaml:"static"`
 	Points      uint   `yaml:"points"`
+	Description string `yaml:"description"`
+	Category    string `yaml:"category"`
 }
 
 func (fc FlagConfig) Validate() error {
@@ -282,11 +284,20 @@ type exercisestore struct {
 	hooks     []func([]Exercise) error
 }
 
+func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error) {
+	exStore, err := NewExerciseFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return exStore, nil
+}
+
 type ExerciseStore interface {
 	GetExercisesByTags(...Tag) ([]Exercise, error)
 	CreateExercise(Exercise) error
 	DeleteExerciseByTag(Tag) error
 	ListExercises() []Exercise
+	UpdateExercisesFile(string) (ExerciseStore, error)
 }
 
 func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (ExerciseStore, error) {

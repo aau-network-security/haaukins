@@ -31,7 +31,7 @@ var (
 
 	selectorTmpl, _ = template.New("Selector").Parse(`
 <label for="{{.Tag}}">{{.Label}}</label>
-<select name="{{.Tag}}" class="form-control">
+<select name="{{.Tag}}" class="form-control" required>
 <option></option>{{range .Options}}
 <option>{{.}}</option>{{end}}
 </select>`)
@@ -676,4 +676,21 @@ func recordAndServe(next http.Handler, r *http.Request, w http.ResponseWriter, m
 	}
 
 	return rec.Result(), body
+}
+
+func isTeamExists(name, email string, ri *registerInterception) bool {
+	tByEmail, err := ri.teamStore.GetTeamByEmail(email)
+	if err != nil {
+		log.Error().Str("Error happened getting team in isTeamExists function", err.Error()).Msg("Error; ")
+		return false
+	}
+	tByName, err := ri.teamStore.GetTeamByName(name)
+	if err != nil {
+		log.Error().Str("Error happened getting team in isTeamExists function", err.Error()).Msg("Error; ")
+		return false
+	}
+	if (tByEmail.Name == name || tByEmail.Email == email) || (tByName.Name == name || tByName.Email == email) {
+		return true
+	}
+	return false
 }

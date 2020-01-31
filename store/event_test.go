@@ -244,7 +244,6 @@ func TestCreateEventFile(t *testing.T) {
 		fmt.Sprintf("test-%s-2", now),
 		fmt.Sprintf("test-%s-3", now),
 	}
-
 	for _, expectedDir := range expectedDirs {
 		ef, err := hub.CreateEventFile(ec)
 		if err != nil {
