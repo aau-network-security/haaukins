@@ -594,11 +594,24 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 			tags = append(tags, string(t))
 		}
 
+		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
+		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]){
+
+			exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
+				Tag:                  string(e.Tag),
+				Name:                 e.Name,
+				Points:               int32(e.Points),
+				Category:             e.Category,
+				Description:          e.Description,
+			})
+		}
+
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
-			Name:             e.Name,
-			Tags:             tags,
-			DockerImageCount: int32(len(e.DockerConfs)),
-			VboxImageCount:   int32(len(e.VboxConfs)),
+			Name:             	  e.Name,
+			Tags:             	  tags,
+			DockerImageCount: 	  int32(len(e.DockerConfs)),
+			VboxImageCount:   	  int32(len(e.VboxConfs)),
+			Exerciseinfo:         exercisesInfo,
 		})
 	}
 
