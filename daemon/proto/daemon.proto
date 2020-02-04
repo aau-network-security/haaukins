@@ -106,10 +106,18 @@ message UpdateExercisesFileResponse {
 }
 message ListExercisesResponse {
   message Exercise {
+    message ExerciseInfo{
+      string tag = 1;
+      string name = 2;
+      int32 points = 3;
+      string category = 4;
+      string description = 5;
+    }
     repeated string tags = 1;
     string name = 2;
     int32 dockerImageCount = 3;
     int32 vboxImageCount = 4;
+    repeated ExerciseInfo exerciseinfo = 5;
   }
 
   repeated Exercise exercises = 1;
