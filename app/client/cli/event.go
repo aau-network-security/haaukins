@@ -49,7 +49,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create [event tag]",
 		Short:   "Create event",
-		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali -ft 2020-02-15`,
+		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali -d 2020-02-15`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
