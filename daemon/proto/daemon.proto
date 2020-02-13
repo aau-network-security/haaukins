@@ -62,6 +62,7 @@ message CreateEventRequest {
   repeated string exercises = 4;
   int32 available = 5;
   int32 capacity = 6;
+  string finishTime = 7;
 }
 
 message ListEventsRequest {}
@@ -73,6 +74,7 @@ message ListEventsResponse {
     string exercises = 4;
     int32 capacity = 5;
     string creationTime = 6;
+    string finishTime = 7;
   }
 
   repeated Events events = 1;
@@ -138,6 +140,7 @@ message EventStatus {
 }
 
 message LabStatus {
+  string Message = 1;
   string errorMessage = 2;
 }
 
