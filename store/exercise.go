@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/aau-network-security/haaukins/virtual/docker"
@@ -280,6 +281,7 @@ type exercisestore struct {
 	m         sync.Mutex
 	tags      map[Tag]*Exercise
 	exercises []*Exercise
+	exerciseInfo []FlagConfig
 	hooks     []func([]Exercise) error
 }
 
@@ -293,6 +295,7 @@ func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error)
 
 type ExerciseStore interface {
 	GetExercisesByTags(...Tag) ([]Exercise, error)
+	GetExercisesInfo(Tag) []FlagConfig
 	CreateExercise(Exercise) error
 	DeleteExerciseByTag(Tag) error
 	ListExercises() []Exercise
@@ -301,7 +304,8 @@ type ExerciseStore interface {
 
 func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (ExerciseStore, error) {
 	s := exercisestore{
-		tags: map[Tag]*Exercise{},
+		tags:         map[Tag]*Exercise{},
+		exerciseInfo: []FlagConfig{},
 	}
 
 	for _, e := range exercises {
@@ -310,9 +314,28 @@ func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (Ex
 		}
 	}
 
+	for _, e := range s.exercises{
+		for _,i :=range e.Flags(){
+			s.exerciseInfo = append(s.exerciseInfo, i)
+		}
+	}
+
 	s.hooks = hooks
 
 	return &s, nil
+}
+
+func (es *exercisestore) GetExercisesInfo(tag Tag) []FlagConfig {
+	es.m.Lock()
+	defer es.m.Unlock()
+	var exer []FlagConfig
+
+	for _, e := range es.exerciseInfo {
+		if strings.Contains(string(e.Tag), string(tag)){
+			exer = append(exer, e)
+		}
+	}
+	return exer
 }
 
 func (es *exercisestore) GetExercisesByTags(tags ...Tag) ([]Exercise, error) {
