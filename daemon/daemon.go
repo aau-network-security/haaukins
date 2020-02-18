@@ -472,6 +472,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Int32("capacity", req.Capacity).
 		Strs("frontends", req.Frontends).
 		Strs("exercises", req.Exercises).
+		Str("finishTime", req.FinishTime).
 		Msg("create event")
 	now := time.Now()
 
@@ -489,12 +490,19 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		tags[i] = t
 	}
 	evtag, _ := store.NewTag(req.Tag)
+
+
+	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
+	fmt.Println(req.FinishTime)
+	fmt.Println(finishTime)
+
 	conf := store.EventConfig{
 		Name:      req.Name,
 		Tag:       evtag,
 		Available: int(req.Available),
 		Capacity:  int(req.Capacity),
 		StartedAt: &now,
+		FinishExpected: &finishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
@@ -519,13 +527,17 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
+	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.String() == "" {
+		expectedFinishTime := now.AddDate(0,0,15)
+		conf.FinishExpected =&expectedFinishTime
+	}
+
 	loggerInstance := &GrpcLogger{resp: resp}
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	if err != nil {
 		return err
 	}
-
 	d.startEvent(ev)
 	return nil
 }
@@ -594,11 +606,24 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 			tags = append(tags, string(t))
 		}
 
+		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
+		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]){
+
+			exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
+				Tag:                  string(e.Tag),
+				Name:                 e.Name,
+				Points:               int32(e.Points),
+				Category:             e.Category,
+				Description:          e.Description,
+			})
+		}
+
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
-			Name:             e.Name,
-			Tags:             tags,
-			DockerImageCount: int32(len(e.DockerConfs)),
-			VboxImageCount:   int32(len(e.VboxConfs)),
+			Name:             	  e.Name,
+			Tags:             	  tags,
+			DockerImageCount: 	  int32(len(e.DockerConfs)),
+			VboxImageCount:   	  int32(len(e.VboxConfs)),
+			Exerciseinfo:         exercisesInfo,
 		})
 	}
 
@@ -682,12 +707,13 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		}
 
 		events = append(events, &pb.ListEventsResponse_Events{
-			Name:          conf.Name,
 			Tag:           string(conf.Tag),
+			Name:          conf.Name,
 			TeamCount:     int32(len(event.GetTeams())),
 			Exercises: 	   strings.Join(exercises, ","),
 			Capacity:      int32(conf.Capacity),
 			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
+			FinishTime:    conf.FinishExpected.Format(displayTimeFormat),
 		})
 	}
 

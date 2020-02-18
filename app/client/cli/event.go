@@ -43,23 +43,25 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		capacity  int
 		frontends []string
 		exercises []string
+		finishTime string
 	)
 
 	cmd := &cobra.Command{
 		Use:     "create [event tag]",
 		Short:   "Create event",
-		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali`,
+		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali -d 2020-02-15`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:      name,
-				Tag:       tag,
-				Frontends: frontends,
-				Exercises: exercises,
-				Capacity:  int32(capacity),
-				Available: int32(available),
+				Name:                 name,
+				Tag:                  tag,
+				Frontends:            frontends,
+				Exercises:            exercises,
+				Available:            int32(available),
+				Capacity:             int32(capacity),
+				FinishTime:           finishTime,
 			})
 			if err != nil {
 				PrintError(err)
@@ -99,6 +101,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximum amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
+	cmd.Flags().StringVarP(&finishTime, "finishtime", "d", "", "expected finish time of the event")
+
 	cmd.MarkFlagRequired("name")
 
 	return cmd
@@ -154,8 +158,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "# EXERCISES", "CAPACITY", "CREATION TIME"},
-				fields: []string{"Tag", "Name", "TeamCount", "ExerciseCount", "Capacity", "CreationTime"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME"},
+				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime"},
 			}
 
 			var elements []formatElement

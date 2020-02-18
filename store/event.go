@@ -36,6 +36,7 @@ type EventConfig struct {
 	Capacity   int        `yaml:"capacity"`
 	Lab        Lab        `yaml:"lab"`
 	StartedAt  *time.Time `yaml:"started-at,omitempty"`
+	FinishExpected  *time.Time `yaml:"finish-req,omitempty"`
 	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
 }
 
