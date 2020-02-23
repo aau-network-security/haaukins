@@ -31,6 +31,7 @@ type User struct {
 	Username       string    `yaml:"username"`
 	HashedPassword string    `yaml:"hashed-password"`
 	SuperUser      bool      `yaml:"super-user"`
+	Member 		   bool 	`yaml:"basic-member"` // can only create one event, and cannot see other events
 	CreatedAt      time.Time `yaml:"created-at"`
 }
 
@@ -153,6 +154,7 @@ func (us *userstore) RunHooks() error {
 
 type SignupKey struct {
 	WillBeSuperUser bool   `yaml:"super-user,omitempty"`
+	WillBeMember 	bool 	`yaml:"member",omitempty`
 	Value           string `yaml:"value,omitempty"`
 }
 

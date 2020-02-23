@@ -38,6 +38,7 @@ type EventConfig struct {
 	StartedAt  *time.Time `yaml:"started-at,omitempty"`
 	FinishExpected  *time.Time `yaml:"finish-req,omitempty"`
 	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
+	CreatedBy  string	  `yaml:"created-by,omitempty"`
 }
 
 type RawEventFile struct {

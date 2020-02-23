@@ -48,6 +48,7 @@ message SignupUserRequest {
 
 message InviteUserRequest {
   bool super_user = 1;
+  bool member=2;
 }
 
 message InviteUserResponse {
