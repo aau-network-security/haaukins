@@ -488,7 +488,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Strs("exercises", req.Exercises).
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
-	//now := time.Now()
+	now := time.Now()
 
 	u,_ := getUserFromIncomingContext(resp.Context())
 	// check whether nonprivuser has already an event or not
