@@ -609,23 +609,27 @@ func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 	var events []EventFile
 	err := filepath.Walk(esh.path, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".yml" {
+
 			f, err := ioutil.ReadFile(path)
 			if err != nil {
 				return err
 			}
-
 			var ef RawEventFile
 			err = yaml.Unmarshal(f, &ef)
 			if err != nil {
 				return err
 			}
-
-			if ef.FinishedAt == nil {
+			// could be needed to check number of events for users who do not hold privilege
+			// do not start events which are expired when getting unfinished events
+			if  ef.FinishExpected !=nil && ef.FinishExpected.After(time.Now()) {
 				dir, filename := filepath.Split(path)
-
-				log.Debug().Str("name", ef.Name).Msg("Found unfinished event")
-				events = append(events, NewEventFile(dir, filename, ef))
+				log.Debug().Str("Name", ef.Name).
+							Str("Started date", ef.StartedAt.String()).
+							Str( "Expected finish date", ef.FinishExpected.String()).
+							Msgf("Found unfinished event")
+				events = append(events,NewEventFile(dir,filename,ef))
 			}
+
 		}
 
 		return nil

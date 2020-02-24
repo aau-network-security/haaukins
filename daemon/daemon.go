@@ -374,8 +374,8 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 	if k.WillBeSuperUser {
 		u.SuperUser = true
 	}
-	if k.WillBeMember {
-		u.Member = true
+	if k.WillBeNonPrivUser {
+		u.NonPrivUser = true
 	}
 	if err := d.users.CreateUser(u); err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
@@ -407,8 +407,8 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	if req.SuperUser {
 		k.WillBeSuperUser = true
 	}
-	if req.Member {
-		k.WillBeMember = true
+	if req.NonPrivUser {
+		k.WillBeNonPrivUser = true
 	}
 
 	if err := d.users.CreateSignupKey(k); err != nil {
@@ -488,11 +488,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Strs("exercises", req.Exercises).
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
-	now := time.Now()
+	//now := time.Now()
 
 	u,_ := getUserFromIncomingContext(resp.Context())
-	// check whether member has already an event or not
-	if u.Member {
+	// check whether nonprivuser has already an event or not
+	if u.NonPrivUser {
 		for _ , event := range d.eventPool.GetAllEvents() {
 			eventConfig := event.GetConfig()
 			if eventConfig.CreatedBy == u.Username {
@@ -586,7 +586,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 	// tag of the event is removed from eventPool
-	if (u.Username == ev.GetConfig().CreatedBy && u.Member) || !u.Member {
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
 		if err := d.eventPool.RemoveEvent(evtag); err != nil {
 			return err
 		}
@@ -616,7 +616,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	if err != nil {
 		return err
 	}
-	if (u.Username == ev.GetConfig().CreatedBy && u.Member) || !u.Member {
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
 		lab, ok := ev.GetLabByTeam(req.TeamId)
 		if !ok {
 			log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
@@ -695,7 +695,7 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		return err
 	}
 	u, _ := getUserFromIncomingContext(stream.Context())
-	if (u.Username == ev.GetConfig().CreatedBy && u.Member) || !u.Member {
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
 		if req.Teams != nil {
 			for _, reqTeam := range req.Teams {
 				lab, ok := ev.GetLabByTeam(reqTeam.Id)
@@ -736,7 +736,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	u, _ := getUserFromIncomingContext(ctx)
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
-		if (u.Username == conf.CreatedBy && u.Member) || !u.Member {
+		if (u.Username == conf.CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
 			var exercises [] string
 			for _, ex := range conf.Lab.Exercises {
 				exercises = append(exercises, string(ex))
@@ -770,7 +770,7 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 		return nil, err
 	}
 	u, _ := getUserFromIncomingContext(ctx)
-	if (u.Username == ev.GetConfig().CreatedBy && u.Member) || !u.Member {
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
 		teams := ev.GetTeams()
 
 		for _, t := range teams {
@@ -858,7 +858,7 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		return err
 	}
 	u, _ := getUserFromIncomingContext(stream.Context())
-	if (u.Username == ev.GetConfig().CreatedBy && u.Member) || !u.Member {
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
 		if req.Teams != nil {
 			// the requests has a selection of group ids
 			for _, reqTeam := range req.Teams {
@@ -918,7 +918,7 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 		return nil, err
 	}
 	u, _ := getUserFromIncomingContext(ctx)
-	if (u.Username == ev.GetConfig().CreatedBy && u.Member) || !u.Member {
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
 		lab, ok := ev.GetLabByTeam(in.TeamId)
 		if !ok {
 			return nil, UnknownTeamErr
