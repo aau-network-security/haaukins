@@ -51,6 +51,7 @@ var (
 const (
 	mngtPort          = ":5454"
 	displayTimeFormat = "2006-01-02 15:04:05"
+	maxCapacityForNonPrivUsers = 40
 )
 
 type MissingConfigErr struct {
@@ -491,15 +492,18 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	now := time.Now()
 
 	u,_ := getUserFromIncomingContext(resp.Context())
-	// check whether nonprivuser has already an event or not
+	// check whether nonprivuser reached the capacity of 40 or not.
 	if u.NonPrivUser {
+		var totalCost int
+
 		for _ , event := range d.eventPool.GetAllEvents() {
 			eventConfig := event.GetConfig()
-			if eventConfig.CreatedBy == u.Username {
-				log.Debug().Msgf("User %s has an event called %s ", u.Username,eventConfig.Name)
-				return errors.Errorf("User %s has an event called %s. To create new event " +
-					"stop existing one or request higher privileges !! ",u.Username,eventConfig.Name)
-			}
+			totalCost+=eventConfig.Capacity
+		}
+		if totalCost > maxCapacityForNonPrivUsers  {
+				log.Debug().Msgf("User %s hit the capacity ",u.Username )
+				return errors.Errorf( "As user, you can have events which has in %d capacity in total, " +
+					"stop existing one or request higher privileges !! ",maxCapacityForNonPrivUsers)
 		}
 	}
 	tags := make([]store.Tag, len(req.Exercises))
