@@ -437,6 +437,8 @@ func (cfi *checkFlagInterception) Intercept(next http.Handler) http.Handler {
 
 		originalFlag := r.FormValue("key")
 
+		originalFlag = strings.TrimSpace(originalFlag)
+
 		translatedFlag := cfi.flagPool.TranslateFlagForTeam(t, cid, originalFlag)
 
 		r.Form.Set("key", translatedFlag)
