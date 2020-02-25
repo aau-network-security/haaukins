@@ -36,15 +36,16 @@ func (c *Client) CmdUser() *cobra.Command {
 
 func (c *Client) CmdInviteUser() *cobra.Command {
 	var superUser bool
+	var isNonPrivUser bool
 	cmd := &cobra.Command{
 		Use:     "invite",
-		Short:   "Create key for inviting other users (superuser only)",
-		Example: `hkn user invite --superuser`,
+		Short:   "Create key for inviting other users such as (superusers and members) ",
+		Example: `hkn user invite --superuser or hkn user invite --nonprivuser`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
-			r, err := c.rpcClient.InviteUser(ctx, &pb.InviteUserRequest{SuperUser: superUser})
+			r, err := c.rpcClient.InviteUser(ctx, &pb.InviteUserRequest{SuperUser: superUser,NonPrivUser: isNonPrivUser})
 			if err != nil {
 				PrintError(err)
 				return
@@ -58,7 +59,10 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 			fmt.Println(r.Key)
 		},
 	}
-
+	// superuser : admin has all privileges
+	// nonprivuser: has limited privilege, can only see his own events and only create one event.
+	// user : has all privileges except inviting users
+	cmd.Flags().BoolVarP(&isNonPrivUser, "nonprivuser", "m",false, "indicates if the signup key will create nonprivuser with limited privilege or not" )
 	cmd.Flags().BoolVarP(&superUser, "super-user", "s", false, "indicates if the signup key will create a super user")
 	return cmd
 }

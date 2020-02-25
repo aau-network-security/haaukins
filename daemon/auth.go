@@ -19,6 +19,7 @@ import (
 const (
 	USERNAME_KEY    = "un"
 	SUPERUSER_KEY   = "su"
+	NONPRIVUSER_KEY = "mm"
 	VALID_UNTIL_KEY = "vu"
 )
 
@@ -73,6 +74,7 @@ func (a *auth) TokenForUser(username, password string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		USERNAME_KEY:    u.Username,
 		SUPERUSER_KEY:   u.SuperUser,
+		NONPRIVUSER_KEY: u.NonPrivUser,
 		VALID_UNTIL_KEY: time.Now().Add(31 * 24 * time.Hour).Unix(),
 	})
 

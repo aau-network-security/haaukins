@@ -48,6 +48,8 @@ message SignupUserRequest {
 
 message InviteUserRequest {
   bool super_user = 1;
+  bool non_priv_user = 2;
+
 }
 
 message InviteUserResponse {

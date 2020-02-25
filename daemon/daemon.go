@@ -51,6 +51,7 @@ var (
 const (
 	mngtPort          = ":5454"
 	displayTimeFormat = "2006-01-02 15:04:05"
+	maxCapacityForNonPrivUsers = 40
 )
 
 type MissingConfigErr struct {
@@ -240,7 +241,7 @@ func New(conf *Config) (*daemon, error) {
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 	}
-
+	//todo : change it
 	eventFiles, err := efh.GetUnfinishedEvents()
 	if err != nil {
 		return nil, err
@@ -318,6 +319,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		ctx, authErr := d.auth.AuthenticateContext(ctx)
 		ctx = withAuditLogger(ctx, logger)
 
+		// permission check could be done on this step as well.
 		header := metadata.Pairs("daemon-version", version)
 		grpc.SendHeader(ctx, header)
 
@@ -373,7 +375,9 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 	if k.WillBeSuperUser {
 		u.SuperUser = true
 	}
-
+	if k.WillBeNonPrivUser {
+		u.NonPrivUser = true
+	}
 	if err := d.users.CreateUser(u); err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
@@ -403,6 +407,9 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	k := store.NewSignupKey()
 	if req.SuperUser {
 		k.WillBeSuperUser = true
+	}
+	if req.NonPrivUser {
+		k.WillBeNonPrivUser = true
 	}
 
 	if err := d.users.CreateSignupKey(k); err != nil {
@@ -459,6 +466,14 @@ func (l *GrpcLogger) Msg(msg string) error {
 	}
 	return l.resp.Send(&s)
 }
+func getUserFromIncomingContext(ctx context.Context) (*store.User, error){
+	u, ok :=ctx.Value(us{}).(store.User)
+	if !ok {
+		log.Error().Msg("There is no information about user in context ")
+		return &u,errors.New("No user found from incoming context")
+	}
+	return &u,nil
+}
 
 // DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
@@ -476,6 +491,21 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Msg("create event")
 	now := time.Now()
 
+	u,_ := getUserFromIncomingContext(resp.Context())
+	// check whether nonprivuser reached the capacity of 40 or not.
+	if u.NonPrivUser {
+		var totalCost int
+
+		for _ , event := range d.eventPool.GetAllEvents() {
+			eventConfig := event.GetConfig()
+			totalCost+=eventConfig.Capacity
+		}
+		if totalCost > maxCapacityForNonPrivUsers  {
+				log.Debug().Msgf("User %s hit the capacity ",u.Username )
+				return errors.Errorf( "As user, you can have events which has in %d capacity in total, " +
+					"stop existing one or request higher privileges !! ",maxCapacityForNonPrivUsers)
+		}
+	}
 	tags := make([]store.Tag, len(req.Exercises))
 	for i, s := range req.Exercises {
 		t, err := store.NewTag(s)
@@ -493,8 +523,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
-	fmt.Println(req.FinishTime)
-	fmt.Println(finishTime)
+	
 
 	conf := store.EventConfig{
 		Name:      req.Name,
@@ -503,6 +532,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Capacity:  int(req.Capacity),
 		StartedAt: &now,
 		FinishExpected: &finishTime,
+		CreatedBy: u.Username,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
@@ -547,6 +577,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		Info().
 		Str("tag", req.Tag).
 		Msg("stop event")
+	u,_ := getUserFromIncomingContext(resp.Context())
 
 	evtag, err := store.NewTag(req.Tag)
 	if err != nil {
@@ -554,16 +585,21 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	}
 	// retrieve tag of event from event pool
 	ev, err := d.eventPool.GetEvent(evtag)
+
 	if err != nil {
 		return err
 	}
 	// tag of the event is removed from eventPool
-	if err := d.eventPool.RemoveEvent(evtag); err != nil {
-		return err
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+		if err := d.eventPool.RemoveEvent(evtag); err != nil {
+			return err
+		}
+		ev.Close()
+		ev.Finish() // Finishing and archiving event....
+	} else {
+		return errors.New("User DO NOT have priviledge to stop this event ! ")
 	}
 
-	ev.Close()
-	ev.Finish() // Finishing and archiving event....
 	return nil
 }
 
@@ -573,6 +609,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		Str("event", req.EventTag).
 		Str("lab", req.TeamId).
 		Msg("restart lab")
+	u,_ := getUserFromIncomingContext(resp.Context())
 
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
@@ -583,23 +620,23 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	if err != nil {
 		return err
 	}
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+		lab, ok := ev.GetLabByTeam(req.TeamId)
+		if !ok {
+			log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
+			return NoLabByTeamIdErr
+		}
 
-	lab, ok := ev.GetLabByTeam(req.TeamId)
-	if !ok {
-		log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
-		return NoLabByTeamIdErr
+		if err := lab.Restart(resp.Context()); err != nil {
+			return err
+		}
 	}
-
-	if err := lab.Restart(resp.Context()); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
 	var exercises []*pb.ListExercisesResponse_Exercise
-
+	// for listing exercises, it is not necessary to add privilege check
 	for _, e := range d.exercises.ListExercises() {
 		var tags []string
 		for _, t := range e.Tags {
@@ -661,60 +698,66 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 	if err != nil {
 		return err
 	}
+	u, _ := getUserFromIncomingContext(stream.Context())
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+		if req.Teams != nil {
+			for _, reqTeam := range req.Teams {
+				lab, ok := ev.GetLabByTeam(reqTeam.Id)
+				if !ok {
+					stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+					continue
+				}
 
-	if req.Teams != nil {
-		for _, reqTeam := range req.Teams {
-			lab, ok := ev.GetLabByTeam(reqTeam.Id)
+				if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+					return err
+				}
+				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+			}
+
+			return nil
+		}
+
+		for _, t := range ev.GetTeams() {
+			lab, ok := ev.GetLabByTeam(t.Id)
 			if !ok {
-				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+				stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
 				continue
 			}
 
 			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
 		}
-
 		return nil
+	} else {
+		return errors.New("Permission denied, there is no privilege to proceed this action ")
 	}
-
-	for _, t := range ev.GetTeams() {
-		lab, ok := ev.GetLabByTeam(t.Id)
-		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
-			continue
-		}
-
-		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
-			return err
-		}
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
-	}
-
-	return nil
 }
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
-
+	u, _ := getUserFromIncomingContext(ctx)
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
+		if (u.Username == conf.CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+			var exercises [] string
+			for _, ex := range conf.Lab.Exercises {
+				exercises = append(exercises, string(ex))
+			}
 
-		var exercises [] string
-		for _, ex := range conf.Lab.Exercises {
-			exercises = append(exercises, string(ex))
+			events = append(events, &pb.ListEventsResponse_Events{
+				Tag:          string(conf.Tag),
+				Name:         conf.Name,
+				TeamCount:    int32(len(event.GetTeams())),
+				Exercises:    strings.Join(exercises, ","),
+				Capacity:     int32(conf.Capacity),
+				CreationTime: conf.StartedAt.Format(displayTimeFormat),
+				FinishTime:   conf.FinishExpected.Format(displayTimeFormat),
+			})
+		} else {
+			return &pb.ListEventsResponse{},nil
 		}
-
-		events = append(events, &pb.ListEventsResponse_Events{
-			Tag:           string(conf.Tag),
-			Name:          conf.Name,
-			TeamCount:     int32(len(event.GetTeams())),
-			Exercises: 	   strings.Join(exercises, ","),
-			Capacity:      int32(conf.Capacity),
-			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
-			FinishTime:    conf.FinishExpected.Format(displayTimeFormat),
-		})
 	}
 
 	return &pb.ListEventsResponse{Events: events}, nil
@@ -730,22 +773,26 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	if err != nil {
 		return nil, err
 	}
+	u, _ := getUserFromIncomingContext(ctx)
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+		teams := ev.GetTeams()
 
-	teams := ev.GetTeams()
+		for _, t := range teams {
+			eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
+				Id:    t.Id,
+				Name:  t.Name,
+				Email: t.Email,
+			})
 
-	for _, t := range teams {
-		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-			Id:    t.Id,
-			Name:  t.Name,
-			Email: t.Email,
-		})
-
-		if t.AccessedAt != nil {
-			eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+			if t.AccessedAt != nil {
+				eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+			}
 		}
-	}
 
-	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
+		return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
+	} else {
+		return &pb.ListEventTeamsResponse{},errors.New("No privilege to proceed this action")
+	}
 }
 
 func (d *daemon) Close() error {
@@ -773,7 +820,7 @@ func (d *daemon) Close() error {
 
 func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
 	var respList []*pb.ListFrontendsResponse_Frontend
-
+	// no need to add privilege
 	err := filepath.Walk(d.conf.OvaDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".ova" {
 			relativePath, err := filepath.Rel(d.conf.OvaDir, path)
@@ -814,47 +861,53 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 	if err != nil {
 		return err
 	}
+	u, _ := getUserFromIncomingContext(stream.Context())
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+		if req.Teams != nil {
+			// the requests has a selection of group ids
+			for _, reqTeam := range req.Teams {
+				lab, ok := ev.GetLabByTeam(reqTeam.Id)
+				if !ok {
+					stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+					continue
+				}
 
-	if req.Teams != nil {
-		// the requests has a selection of group ids
-		for _, reqTeam := range req.Teams {
-			lab, ok := ev.GetLabByTeam(reqTeam.Id)
+				if err := lab.ResetFrontends(stream.Context()); err != nil {
+					return err
+				}
+				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+			}
+
+			return nil
+		}
+
+		for _, t := range ev.GetTeams() {
+			lab, ok := ev.GetLabByTeam(t.Id)
 			if !ok {
-				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
+				stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
 				continue
 			}
 
 			if err := lab.ResetFrontends(stream.Context()); err != nil {
 				return err
 			}
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
 		}
-
 		return nil
+	} else {
+		return errors.New("No privilege to proceed this action")
 	}
 
-	for _, t := range ev.GetTeams() {
-		lab, ok := ev.GetLabByTeam(t.Id)
-		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
-			continue
-		}
-
-		if err := lab.ResetFrontends(stream.Context()); err != nil {
-			return err
-		}
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
-	}
-
-	return nil
 }
 
 func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemoryRequest) (*pb.Empty, error) {
+	// todo: adding privilege  can be discussed
 	err := d.frontends.SetMemoryMB(in.Image, uint(in.MemoryMB))
 	return &pb.Empty{}, err
 }
 
 func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuRequest) (*pb.Empty, error) {
+	// todo: adding privilege can be discussed
 	err := d.frontends.SetCpu(in.Image, float64(in.Cpu))
 	return &pb.Empty{}, err
 }
@@ -868,26 +921,31 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 	if err != nil {
 		return nil, err
 	}
-	lab, ok := ev.GetLabByTeam(in.TeamId)
-	if !ok {
-		return nil, UnknownTeamErr
-	}
-
-	var instances []*pb.GetTeamInfoResponse_Instance
-	for _, i := range lab.InstanceInfo() {
-		instance := &pb.GetTeamInfoResponse_Instance{
-			Image: i.Image,
-			Type:  i.Type,
-			Id:    i.Id,
-			State: int32(i.State),
+	u, _ := getUserFromIncomingContext(ctx)
+	if (u.Username == ev.GetConfig().CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+		lab, ok := ev.GetLabByTeam(in.TeamId)
+		if !ok {
+			return nil, UnknownTeamErr
 		}
-		instances = append(instances, instance)
-	}
-	return &pb.GetTeamInfoResponse{Instances: instances}, nil
 
+		var instances []*pb.GetTeamInfoResponse_Instance
+		for _, i := range lab.InstanceInfo() {
+			instance := &pb.GetTeamInfoResponse_Instance{
+				Image: i.Image,
+				Type:  i.Type,
+				Id:    i.Id,
+				State: int32(i.State),
+			}
+			instances = append(instances, instance)
+		}
+		return &pb.GetTeamInfoResponse{Instances: instances}, nil
+	}else {
+		return &pb.GetTeamInfoResponse{}, errors.New("No privilege to proceed this action")
+	}
 }
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
+	// no need to add privilege here
 	for {
 		var cpuErr string
 		var cpuPercent float32
