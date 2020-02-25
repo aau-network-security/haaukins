@@ -39,6 +39,7 @@ type EventConfig struct {
 	FinishExpected  *time.Time `yaml:"finish-req,omitempty"`
 	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
 	CreatedBy  string	  `yaml:"created-by,omitempty"`
+	IsBooked   bool 	  `yaml: "is-booked", omitempty`
 }
 
 type RawEventFile struct {
@@ -437,6 +438,7 @@ func (es *eventconfigstore) runHooks() error {
 
 type EventFileHub interface {
 	CreateEventFile(EventConfig) (EventFile, error)
+	UpdateEventFile(EventConfig) error
 	GetUnfinishedEvents() ([]EventFile, error)
 }
 
@@ -605,6 +607,33 @@ func (esh *eventfilehub) CreateEventFile(conf EventConfig) (EventFile, error) {
 	return ef, nil
 }
 
+func (esh *eventfilehub) UpdateEventFile(conf EventConfig) error{
+
+	filename, err := getFileNameForEvent(esh.path, conf.Tag)
+	if err != nil {
+		return  err
+	}
+	f, err := ioutil.ReadFile(filename)
+	if err !=nil {
+		return err
+	}
+	var updatedEventFile RawEventFile
+	err = yaml.Unmarshal(f,&updatedEventFile)
+	if err!=nil{
+		return  err
+	}
+	updatedEventFile.IsBooked=false
+	d, err := yaml.Marshal(&updatedEventFile)
+	if err != nil {
+		log.Error().Msgf("error: %v", err)
+	}
+	err = ioutil.WriteFile(filename, d, 0644)
+	if err != nil {
+		log.Error().Msgf("error: %v", err)
+	}
+	return nil
+}
+
 func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 	var events []EventFile
 	err := filepath.Walk(esh.path, func(path string, info os.FileInfo, err error) error {
@@ -621,7 +650,7 @@ func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 			}
 			// could be needed to check number of events for users who do not hold privilege
 			// do not start events which are expired when getting unfinished events
-			if  ef.FinishExpected !=nil && ef.FinishExpected.After(time.Now()) {
+			if  ef.FinishExpected !=nil && ef.FinishExpected.After(time.Now()) && !ef.IsBooked {
 				dir, filename := filepath.Split(path)
 				log.Debug().Str("Name", ef.Name).
 							Str("Started date", ef.StartedAt.String()).

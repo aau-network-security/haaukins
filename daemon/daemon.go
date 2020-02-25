@@ -43,7 +43,7 @@ var (
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-  NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
+    NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
 	
   version string
 )
@@ -451,9 +451,35 @@ func (d *daemon) startEvent(ev event.Event) {
 		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
-	 ev.Start(context.TODO())
-
+	ev.Start(context.TODO())
 	d.eventPool.AddEvent(ev)
+
+}
+
+func (d *daemon) StartEvent(ctx context.Context,req *pb.Empty) (*pb.StartEventResponse, error) {
+	log.Debug().Msg("Checking pending eventts ")
+	u, _ := getUserFromIncomingContext(ctx)
+	if u.SuperUser {
+		for _, bookedEvent := range d.eventPool.GetAllEvents() {
+			config := bookedEvent.GetConfig()
+			if config.IsBooked {
+				if config.StartedAt.Before(time.Now()){
+					log.Debug().Msgf("Event %s is starting now ...",string(config.Tag))
+					if err := d.eventPool.RemoveEvent(config.Tag); err != nil {
+						return nil, errors.Errorf("Remove error event %s", bookedEvent.GetConfig().Name)
+					}
+					config.IsBooked = false
+					if err := d.ehost.UpdateEventFile(config); err!=nil {
+						return nil, err
+					}
+					d.startEvent(bookedEvent)
+				}
+			}
+		}
+	} else {
+		return nil, errors.New("No privilege to start event ! ")
+	}
+	return &pb.StartEventResponse{Status:"Scheduled events have been checked !  "}, nil
 }
 
 type GrpcLogger struct {
@@ -475,10 +501,27 @@ func getUserFromIncomingContext(ctx context.Context) (*store.User, error){
 	return &u,nil
 }
 
+func calculateTotalConsumption(d *daemon) int  {
+	var totalConsumption int
+	for _, e := range d.eventPool.GetAllEvents(){
+		config := e.GetConfig()
+		if config.IsBooked{
+			totalConsumption += config.Capacity
+		}
+		totalConsumption += config.Available + len(e.GetTeams())
+	}
+	return totalConsumption
+}
+
 // DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-
+	nowstr := time.Now().String()
+	now , _ := time.Parse("2006-01-02",nowstr)
+	if req.StartTime == "" {
+		req.StartTime = now.String()
+	}
+	requestedStartTime, _ := time.Parse("2006-01-02",req.StartTime)
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -487,9 +530,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Int32("capacity", req.Capacity).
 		Strs("frontends", req.Frontends).
 		Strs("exercises", req.Exercises).
+		Str("startTime",req.StartTime).
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
-	now := time.Now()
 
 	u,_ := getUserFromIncomingContext(resp.Context())
 	// check whether nonprivuser reached the capacity of 40 or not.
@@ -498,12 +541,12 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 		for _ , event := range d.eventPool.GetAllEvents() {
 			eventConfig := event.GetConfig()
-			totalCost+=eventConfig.Capacity
+			totalCost += eventConfig.Capacity
 		}
 		if totalCost > maxCapacityForNonPrivUsers  {
-				log.Debug().Msgf("User %s hit the capacity ",u.Username )
-				return errors.Errorf( "As user, you can have events which has in %d capacity in total, " +
-					"stop existing one or request higher privileges !! ",maxCapacityForNonPrivUsers)
+			log.Debug().Msgf("User %s hit the capacity ",u.Username )
+			return errors.Errorf( "As user, you can have events which has in %d capacity in total, " +
+				"stop existing one or request higher privileges !! ",maxCapacityForNonPrivUsers)
 		}
 	}
 	tags := make([]store.Tag, len(req.Exercises))
@@ -523,20 +566,24 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
-	
+
 
 	conf := store.EventConfig{
 		Name:      req.Name,
 		Tag:       evtag,
 		Available: int(req.Available),
 		Capacity:  int(req.Capacity),
-		StartedAt: &now,
+		StartedAt: &requestedStartTime,
 		FinishExpected: &finishTime,
 		CreatedBy: u.Username,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
+	}
+
+	if requestedStartTime.After(now)  {
+		conf.IsBooked=true
 	}
 
 	if err := conf.Validate(); err != nil {
@@ -561,14 +608,28 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		expectedFinishTime := now.AddDate(0,0,15)
 		conf.FinishExpected =&expectedFinishTime
 	}
+	if calculateTotalConsumption(d) < 90   {
 
-	loggerInstance := &GrpcLogger{resp: resp}
-	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
-	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
-	if err != nil {
-		return err
+		loggerInstance := &GrpcLogger{resp: resp}
+		ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
+		ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
+		if err != nil {
+			return err
+		}
+		if ev != nil && !conf.IsBooked {   // if ev is nil CreateEventFromConfig returned nill because it is an event which is booked.
+			d.startEvent(ev)
+		}
+		if conf.IsBooked {
+			d.eventPool.events[conf.Tag] = ev
+		}
 	}
-	d.startEvent(ev)
+
+
+	//d.eventPool.AddEvent(ev)
+
+	return nil
+
+
 	return nil
 }
 

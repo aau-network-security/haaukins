@@ -7,6 +7,7 @@ service Daemon {
 
   rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
+  rpc StartEvent(Empty) returns (StartEventResponse){}
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
@@ -64,9 +65,15 @@ message CreateEventRequest {
   repeated string exercises = 4;
   int32 available = 5;
   int32 capacity = 6;
-  string finishTime = 7;
+  string startTime = 7;
+  string finishTime = 8;
+  bool isBooked = 9;
+
 }
 
+message StartEventResponse{
+  string status = 1;
+}
 message ListEventsRequest {}
 message ListEventsResponse {
   message Events {
