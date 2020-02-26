@@ -810,23 +810,25 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	u, _ := getUserFromIncomingContext(ctx)
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
-		if (u.Username == conf.CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
-			var exercises [] string
-			for _, ex := range conf.Lab.Exercises {
-				exercises = append(exercises, string(ex))
-			}
+		if !conf.IsBooked {
+			if (u.Username == conf.CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+				var exercises [] string
+				for _, ex := range conf.Lab.Exercises {
+					exercises = append(exercises, string(ex))
+				}
 
-			events = append(events, &pb.ListEventsResponse_Events{
-				Tag:          string(conf.Tag),
-				Name:         conf.Name,
-				TeamCount:    int32(len(event.GetTeams())),
-				Exercises:    strings.Join(exercises, ","),
-				Capacity:     int32(conf.Capacity),
-				CreationTime: conf.StartedAt.Format(displayTimeFormat),
-				FinishTime:   conf.FinishExpected.Format(displayTimeFormat),
-			})
-		} else {
-			return &pb.ListEventsResponse{},nil
+				events = append(events, &pb.ListEventsResponse_Events{
+					Tag:          string(conf.Tag),
+					Name:         conf.Name,
+					TeamCount:    int32(len(event.GetTeams())),
+					Exercises:    strings.Join(exercises, ","),
+					Capacity:     int32(conf.Capacity),
+					CreationTime: conf.StartedAt.Format(displayTimeFormat),
+					FinishTime:   conf.FinishExpected.Format(displayTimeFormat),
+				})
+			} else {
+				return &pb.ListEventsResponse{}, nil
+			}
 		}
 	}
 
