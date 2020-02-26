@@ -384,6 +384,7 @@ func (es *teamstore) RunHooks() error {
 
 type EventConfigStore interface {
 	Read() EventConfig
+	SetBooking(bool) EventConfig
 	SetCapacity(n int) error
 	Finish(time.Time) error
 }
@@ -399,6 +400,20 @@ func NewEventConfigStore(conf EventConfig, hooks ...func(EventConfig) error) *ev
 		conf:  conf,
 		hooks: hooks,
 	}
+}
+
+func (es *eventconfigstore) SetBooking(isBooked bool) EventConfig  {
+	log.Debug().Str("Event ",es.conf.Name).
+	            Str("Tag ",string(es.conf.Tag)).
+		        Str("Started at ",es.conf.StartedAt.String()).
+			    Str("Created by/[Requested by]",es.conf.CreatedBy).
+				Msg("isBooked updated ")
+
+	es.m.Lock()
+	defer es.m.Unlock()
+	es.conf.IsBooked=isBooked
+
+	return es.conf
 }
 
 func (es *eventconfigstore) Read() EventConfig {
@@ -608,11 +623,14 @@ func (esh *eventfilehub) CreateEventFile(conf EventConfig) (EventFile, error) {
 }
 
 func (esh *eventfilehub) UpdateEventFile(conf EventConfig) error{
+	esh.m.Lock()
+	defer esh.m.Unlock()
+	// filename is created for booked events...
+	startedTime :=conf.StartedAt.Format("02-01-06")
+	dirname := fmt.Sprintf("%s-%s", conf.Tag, startedTime)
+	filename := fmt.Sprintf("%s.yml", dirname)
+	filename  = filepath.Join(esh.path, filename)
 
-	filename, err := getFileNameForEvent(esh.path, conf.Tag)
-	if err != nil {
-		return  err
-	}
 	f, err := ioutil.ReadFile(filename)
 	if err !=nil {
 		return err
@@ -627,10 +645,12 @@ func (esh *eventfilehub) UpdateEventFile(conf EventConfig) error{
 	if err != nil {
 		log.Error().Msgf("error: %v", err)
 	}
+
 	err = ioutil.WriteFile(filename, d, 0644)
 	if err != nil {
 		log.Error().Msgf("error: %v", err)
 	}
+	log.Debug().Msgf("Event file %s is updated, auto start event is triggered ", filename)
 	return nil
 }
 
@@ -650,7 +670,7 @@ func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 			}
 			// could be needed to check number of events for users who do not hold privilege
 			// do not start events which are expired when getting unfinished events
-			if  ef.FinishExpected !=nil && ef.FinishExpected.After(time.Now()) && !ef.IsBooked {
+			if  ef.FinishExpected != nil && ef.FinishExpected.After(time.Now()) && (!ef.IsBooked || ef.StartedAt.Before(time.Now())) {
 				dir, filename := filepath.Split(path)
 				log.Debug().Str("Name", ef.Name).
 							Str("Started date", ef.StartedAt.String()).

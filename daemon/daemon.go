@@ -241,16 +241,31 @@ func New(conf *Config) (*daemon, error) {
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 	}
-	//todo : change it
+	// Get
 	eventFiles, err := efh.GetUnfinishedEvents()
 	if err != nil {
 		return nil, err
 	}
 	for _, ef := range eventFiles {
-		err := d.createEventFromEventFile(context.Background(), ef)
-		if err != nil {
-			return nil, err
+		eventConfig := ef.Read()
+		if eventConfig.StartedAt.Before(time.Now()) && eventConfig.FinishExpected.After(time.Now()) {
+			log.Debug().Str("Event ", string(eventConfig.Tag)).
+						Str("StartedA ", eventConfig.StartedAt.String()).
+						Str("Created / [Requested] by",eventConfig.CreatedBy).
+						Msg("Checked on unfinished/booked events ")
+			if eventConfig.IsBooked {
+				eventConfig = ef.SetBooking(false)
+				log.Debug().Msgf("Eventconfig is booked called %s",ef.Read().IsBooked)
+				if err := d.ehost.UpdateEventFile(eventConfig); err != nil {
+					log.Error().Msgf("Error on updating event file ! %s ", err)
+				}
+			}
+			err := d.createEventFromEventFile(context.Background(), ef)
+			if err != nil {
+				return nil, err
+			}
 		}
+
 	}
 
 	return d, nil
@@ -608,7 +623,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		expectedFinishTime := now.AddDate(0,0,15)
 		conf.FinishExpected =&expectedFinishTime
 	}
-	if calculateTotalConsumption(d) < 90   {
+	if calculateTotalConsumption(d) < 90 && (requestedStartTime.Before(now)  || requestedStartTime.Equal(now)) {
 
 		loggerInstance := &GrpcLogger{resp: resp}
 		ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
