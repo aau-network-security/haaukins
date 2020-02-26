@@ -622,24 +622,21 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		expectedFinishTime := now.AddDate(0,0,15)
 		conf.FinishExpected =&expectedFinishTime
 	}
-	if calculateTotalConsumption(d) < 90 && (requestedStartTime.Before(now)  || requestedStartTime.Equal(now)) {
 
-		loggerInstance := &GrpcLogger{resp: resp}
-		ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
-		ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
-		if err != nil {
-			return err
+	if calculateTotalConsumption(d) < 90 && (requestedStartTime.After(now) || requestedStartTime.Equal(now)) {
+		  loggerInstance := &GrpcLogger{resp: resp}
+			ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
+			ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
+			if err != nil {
+				return err
+			}
+			if ev != nil && !conf.IsBooked { // if ev is nil CreateEventFromConfig returned nill because it is an event which is booked.
+				d.startEvent(ev)
+			}
+			if conf.IsBooked {
+				d.eventPool.events[conf.Tag] = ev
+			}
 		}
-		if ev != nil && !conf.IsBooked {   // if ev is nil CreateEventFromConfig returned nill because it is an event which is booked.
-			d.startEvent(ev)
-		}
-		if conf.IsBooked {
-			d.eventPool.events[conf.Tag] = ev
-		}
-	}
-
-
-	//d.eventPool.AddEvent(ev)
 
 	return nil
 
