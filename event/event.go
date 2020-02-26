@@ -108,7 +108,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 			       Str("FinishTime", eventFileConfig.FinishExpected.String()).
 				   Msg("Booked !")
 
-		return nil, nil
+		return &event{store:ef}, nil
 	}
 	return eh.CreateEventFromEventFile(ctx, ef)
 }
@@ -192,6 +192,7 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 	if conf.IsBooked {
 		ev := &event{
 			store:         ef,
+
 		}
 		return ev, nil
 	}
