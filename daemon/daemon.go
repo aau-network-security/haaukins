@@ -255,7 +255,6 @@ func New(conf *Config) (*daemon, error) {
 						Msg("Checked on unfinished/booked events ")
 			if eventConfig.IsBooked {
 				eventConfig = ef.SetBooking(false)
-				log.Debug().Msgf("Eventconfig is booked called %s",ef.Read().IsBooked)
 				if err := d.ehost.UpdateEventFile(eventConfig); err != nil {
 					log.Error().Msgf("Error on updating event file ! %s ", err)
 				}
