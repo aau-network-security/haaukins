@@ -39,12 +39,12 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 func (c *Client) CmdEventCreate() *cobra.Command {
 	var (
-		name      string
-		available int
-		capacity  int
-		frontends []string
-		exercises []string
-		startTime string
+		name       string
+		available  int
+		capacity   int
+		frontends  []string
+		exercises  []string
+		startTime  string
 		finishTime string
 	)
 
@@ -57,14 +57,14 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:                 name,
-				Tag:                  tag,
-				Frontends:            frontends,
-				Exercises:            exercises,
-				Available:            int32(available),
-				Capacity:             int32(capacity),
-				StartTime:			  startTime,
-				FinishTime:           finishTime,
+				Name:       name,
+				Tag:        tag,
+				Frontends:  frontends,
+				Exercises:  exercises,
+				Available:  int32(available),
+				Capacity:   int32(capacity),
+				StartTime:  startTime,
+				FinishTime: finishTime,
 			})
 			if err != nil {
 				PrintError(err)
@@ -113,12 +113,12 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 
 func (c *Client) CmdEventStart() *cobra.Command {
 	return &cobra.Command{
-		Use: "start",
-		Short: "Starts booked events on time",
-		Example:"hkn event start",
+		Use:     "start",
+		Short:   "Starts booked events on time",
+		Example: "hkn event start",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			_, err := c.rpcClient.StartEvent(ctx,&pb.Empty{})
+			_, err := c.rpcClient.StartEvent(ctx, &pb.Empty{})
 			// a stream could be added here once event is started the bot can be informed !
 			// or a mail could be sent
 			if err != nil {
@@ -127,12 +127,9 @@ func (c *Client) CmdEventStart() *cobra.Command {
 			}
 
 		},
-
 	}
 
-
 }
-
 
 func (c *Client) CmdEventStop() *cobra.Command {
 	return &cobra.Command{
@@ -184,8 +181,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME"},
-				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME", "BOOKED STATUS"},
+				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime", "IsBooked"},
 			}
 
 			var elements []formatElement
