@@ -8,7 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
-	"time"
+	//"time"
 
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
@@ -203,7 +203,7 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			}
 
 			session := c.Value
-			t, err := gtl.teamStore.GetTeamByToken(session)
+			t, err := gtl.teamStore.GetTeamByID(session)
 			if err != nil {
 				log.Warn().
 					Err(err).
@@ -212,11 +212,11 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 				reportHttpError(w, "Unable to connect to lab: ", err)
 				return
 			}
-			u, err := gtl.users.GetUserForTeam(t.Id)
+			u, err := gtl.users.GetUserForTeam(t.ID())
 			if err != nil {
 				log.Warn().
 					Err(err).
-					Str("team-id ", t.Id).
+					Str("team-id ", t.ID()).
 					Msg("Unable to get guac user for team")
 				w.WriteHeader(http.StatusServiceUnavailable)
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -228,20 +228,20 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			if err != nil {
 				log.Warn().
 					Err(err).
-					Str("team-id", t.Id).
+					Str("team-id", t.ID()).
 					Msg("Failed to login team to guacamole")
 				reportHttpError(w, "Unable to connect to lab: ", err)
 				return
 			}
 
 			// Set teams last access time
-			_, err = gtl.teamStore.UpdateTeamAccessed(t.Id, time.Now())
-			if err != nil {
-				log.Warn().
-					Err(err).
-					Str("team-id", t.Id).
-					Msg("Failed to update team accessed time")
-			}
+			//_, err = gtl.teamStore.UpdateTeamAccessed(t.Id, time.Now())
+			//if err != nil {
+			//	log.Warn().
+			//		Err(err).
+			//		Str("team-id", t.Id).
+			//		Msg("Failed to update team accessed time")
+			//}
 
 			authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
 			http.SetCookie(w, &authC)

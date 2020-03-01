@@ -48,6 +48,7 @@ func (t Tag) Validate() error {
 type Challenge struct {
 	Tag  Tag    `json:"tag"`
 	Name string `json:"name"`
+
 }
 
 type TeamChallenge struct {
@@ -175,6 +176,15 @@ func (t *Team) VerifyFlag(f Flag) error {
 
 	t.m.Unlock()
 	return nil
+}
+
+func (es *Team) GetTeams() []Team {
+	var teams []Team
+	for _, t := range es.GetTeams() {
+		teams = append(teams, t)
+	}
+
+	return teams
 }
 
 type InvalidTagSyntaxErr struct {

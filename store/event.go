@@ -379,6 +379,7 @@ func (t *Team) SetAccessed(ti time.Time) {
 //	return nil
 //}
 
+
 type EventConfigStore interface {
 	Read() EventConfig
 	SetCapacity(n int) error
@@ -547,13 +548,13 @@ func (ef *eventfile) Archive() error {
 	}
 
 	cpy.file.Teams = []Team{}
-	// for _, t := range ef.GetTeams() {
-	// 	t.Name = ""
-	// 	t.Email = ""
-	// 	t.HashedPassword = ""
-	// 	cpy.file.Teams = append(cpy.file.Teams, t)
-	// }
-	cpy.save()
+	//for _, t := range ef.GetTeams() {
+	//	t.Name() = ""
+	//	t.Email = ""
+	//	t.HashedPassword = ""
+	//	cpy.file.Teams = append(cpy.file.Teams, t)
+	//}
+	//cpy.save()
 
 	if err := ef.delete(); err != nil {
 		log.Warn().Msgf("Failed to delete old event file: %s", err)

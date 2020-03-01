@@ -714,19 +714,19 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 			return
 		}
 
-		t, err := ef.GetTeamByToken(cookie.Value)
+		t, err := ef.GetTeamByID(cookie.Value)
 		if err != nil {
 			log.Error().Msgf("Failed to find team by token")
 			return
 		}
 
 		var logger KeyLogger
-		if t.DataConsent() {
-			logger, err = keyLoggerPool.GetLogger(t)
-			if err != nil {
-				log.Warn().Msg("Failed to create keylogger")
-			}
-		}
+		//if t.DataConsent() {
+		//	logger, err = keyLoggerPool.GetLogger(t)
+		//	if err != nil {
+		//		log.Warn().Msg("Failed to create keylogger")
+		//	}
+		//}
 
 		rHeader := http.Header{}
 		copyHeaders(r.Header, rHeader, wsHeaders)
@@ -786,7 +786,7 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 		go cp(nil)(backend, c, errClient)
 
 		log.Debug().
-			Str("id", t.Id).
+			Str("id", t.ID()).
 			Str("event", string(ef.Read().Tag)).
 			Msg("team connected")
 
@@ -801,7 +801,7 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 		e, ok := err.(*websocket.CloseError)
 		if ok && e.Code == websocket.CloseNoStatusReceived {
 			log.Debug().
-				Str("id", t.Id).
+				Str("id", t.ID()).
 				Str("event", string(ef.Read().Tag)).
 				Msg("team disconnected")
 		} else if !ok || e.Code != websocket.CloseNormalClosure {

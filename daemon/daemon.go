@@ -20,7 +20,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -239,39 +238,39 @@ func New(conf *Config) (*daemon, error) {
 		return nil, err
 	}
 
-	if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
-		return nil, err
-	}
+	//if err := os.Setenv("CLOUDFLARE_EMAIL", conf.TLS.ACME.Email); err != nil {
+	//	return nil, err
+	//}
+	//
+	//if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
+	//	return nil, err
+	//}
 
-	if err := os.Setenv("CLOUDFLARE_API_KEY", conf.TLS.ACME.ApiKey); err != nil {
-		return nil, err
-	}
+	//provider, err := cloudflare.NewDNSProvider()
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	provider, err := cloudflare.NewDNSProvider()
-	if err != nil {
-		return nil, err
-	}
+	//certmagicConf := certmagic.Config{
+	//	DNSProvider: provider,
+	//	Agreed:      true,
+	//	Email:       conf.TLS.ACME.Email,
+	//	CA:          LetsEncryptEnvs[conf.TLS.ACME.Development],
+	//	Storage: &certmagic.FileStorage{
+	//		Path: conf.TLS.Directory,
+	//	},
+	//}
 
-	certmagicConf := certmagic.Config{
-		DNSProvider: provider,
-		Agreed:      true,
-		Email:       conf.TLS.ACME.Email,
-		CA:          LetsEncryptEnvs[conf.TLS.ACME.Development],
-		Storage: &certmagic.FileStorage{
-			Path: conf.TLS.Directory,
-		},
-	}
+	//getConfigForCert := func(certmagic.Certificate) (certmagic.Config, error) {
+	//	return certmagicConf, nil
+	//}
 
-	getConfigForCert := func(certmagic.Certificate) (certmagic.Config, error) {
-		return certmagicConf, nil
-	}
+	//cacheOpts := certmagic.CacheOptions{
+	//	GetConfigForCert: getConfigForCert,
+	//}
+	//cache := certmagic.NewCache(cacheOpts)
 
-	cacheOpts := certmagic.CacheOptions{
-		GetConfigForCert: getConfigForCert,
-	}
-	cache := certmagic.NewCache(cacheOpts)
-
-	magic := certmagic.New(cache, certmagicConf)
+	//magic := certmagic.New(cache, certmagicConf)
 
 	d := &daemon{
 		conf:      conf,
@@ -283,7 +282,7 @@ func New(conf *Config) (*daemon, error) {
 		ehost:     event.NewHost(vlib, ef, efh),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
-		magic:     magic,
+		magic:     nil,
 	}
 
 	eventFiles, err := efh.GetUnfinishedEvents()
@@ -699,18 +698,18 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		return nil
 	}
 
-	for _, t := range ev.GetTeams() {
-		lab, ok := ev.GetLabByTeam(t.Id)
-		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
-			continue
-		}
-
-		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
-			return err
-		}
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
-	}
+	//for _, t := range ev.GetTeams() {
+	//	lab, ok := ev.GetLabByTeam(t.Id)
+	//	if !ok {
+	//		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
+	//		continue
+	//	}
+	//
+	//	if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+	//		return err
+	//	}
+	//	stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
+	//}
 
 	return nil
 }
@@ -723,7 +722,8 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		events = append(events, &pb.ListEventsResponse_Events{
 			Name:          conf.Name,
 			Tag:           string(conf.Tag),
-			TeamCount:     int32(len(event.GetTeams())),
+			//TeamCount:		int32(len(event.GetTeams())),
+			TeamCount:     0,
 			ExerciseCount: int32(len(conf.Lab.Exercises)),
 			Capacity:      int32(conf.Capacity),
 			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
@@ -735,28 +735,28 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
 	var eventTeams []*pb.ListEventTeamsResponse_Teams
-	evtag, err := store.NewTag(req.Tag)
-	if err != nil {
-		return nil, err
-	}
-	ev, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
-		return nil, err
-	}
+	//evtag, err := store.NewTag(req.Tag)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//ev, err := d.eventPool.GetEvent(evtag)
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	teams := ev.GetTeams()
-
-	for _, t := range teams {
-		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-			Id:    t.Id,
-			Name:  t.Name,
-			Email: t.Email,
-		})
-
-		if t.AccessedAt != nil {
-			eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
-		}
-	}
+	//teams := ev.GetTeams()
+	//
+	//for _, t := range teams {
+	//	eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
+	//		Id:    t.Id,
+	//		Name:  t.Name,
+	//		Email: t.Email,
+	//	})
+	//
+	//	if t.AccessedAt != nil {
+	//		eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+	//	}
+	//}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
@@ -846,18 +846,18 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		return nil
 	}
 
-	for _, t := range ev.GetTeams() {
-		lab, ok := ev.GetLabByTeam(t.Id)
-		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
-			continue
-		}
-
-		if err := lab.ResetFrontends(stream.Context()); err != nil {
-			return err
-		}
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
-	}
+	//for _, t := range ev.GetTeams() {
+	//	lab, ok := ev.GetLabByTeam(t.Id)
+	//	if !ok {
+	//		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
+	//		continue
+	//	}
+	//
+	//	if err := lab.ResetFrontends(stream.Context()); err != nil {
+	//		return err
+	//	}
+	//	stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
+	//}
 
 	return nil
 }

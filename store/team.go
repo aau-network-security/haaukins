@@ -3,7 +3,7 @@ package store
 import (
 	"errors"
 	"sync"
-
+	"github.com/rs/zerolog/log"
 	"github.com/aau-network-security/haaukins"
 )
 
@@ -80,6 +80,7 @@ func (es *teamstore) GetTeamByEmail(email string) (*haaukins.Team, error) {
 }
 
 func (es *teamstore) GetTeams() []*haaukins.Team {
+	log.Debug().Msg("WITHIN GETTTEAMS FUNCTION")
 	es.m.RLock()
 	teams := make([]*haaukins.Team, len(es.teams))
 	var i int
