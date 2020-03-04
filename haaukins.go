@@ -99,6 +99,13 @@ func (t *Team) Email() string {
 	return email
 }
 
+
+func(t *Team) GetHashedPassword() string{
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.hashedPassword
+}
+
 func (t *Team) Name() string {
 	t.m.RLock()
 	name := t.name

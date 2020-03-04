@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/google/uuid"
@@ -94,7 +95,7 @@ type Guacamole interface {
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
 	RawLogin(username, password string) ([]byte, error)
-	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector
+	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo) svcs.ProxyConnector
 }
 
 func New(ctx context.Context, conf Config) (Guacamole, error) {
@@ -241,7 +242,7 @@ func (guac *guacamole) stop() error {
 	return nil
 }
 
-func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.ProxyConnector {
+func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo) svcs.ProxyConnector {
 	loginFunc := func(u string, p string) (string, error) {
 		content, err := guac.RawLogin(u, p)
 		if err != nil {
@@ -253,9 +254,8 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.P
 	return func(ef store.EventFile) http.Handler {
 		origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
 		host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
-
 		interceptors := svcs.Interceptors{
-			NewGuacTokenLoginEndpoint(us, ef, loginFunc),
+			NewGuacTokenLoginEndpoint(us, ef,am, loginFunc),
 		}
 
 		proxy := &httputil.ReverseProxy{
@@ -267,8 +267,9 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.P
 
 		return interceptors.Intercept(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
+				log.Debug().Msgf("iswebproxy ", isWebSocket(r))
 				if isWebSocket(r) {
-					websocketProxy(host, ef, klp).ServeHTTP(w, r)
+					websocketProxy(host, ef, klp,am).ServeHTTP(w, r)
 					return
 				}
 
@@ -276,6 +277,8 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool) svcs.P
 			}))
 	}
 }
+
+
 
 func (guac *guacamole) configureInstance() error {
 	temp := &guacamole{
@@ -346,7 +349,6 @@ func (guac *guacamole) RawLogin(username, password string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
 	resp, err := guac.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -700,7 +702,7 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPool) http.Handler {
+func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPool,am  *amigo.Amigo) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -714,7 +716,7 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 			return
 		}
 
-		t, err := ef.GetTeamByID(cookie.Value)
+		t, err := am.TeamStore.GetTeamByToken(cookie.Value)
 		if err != nil {
 			log.Error().Msgf("Failed to find team by token")
 			return
@@ -787,7 +789,7 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 
 		log.Debug().
 			Str("id", t.ID()).
-			Str("event", string(ef.Read().Tag)).
+			//Str("event", string(ef.)).
 			Msg("team connected")
 
 		var msgFormat string
@@ -802,7 +804,7 @@ func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPo
 		if ok && e.Code == websocket.CloseNoStatusReceived {
 			log.Debug().
 				Str("id", t.ID()).
-				Str("event", string(ef.Read().Tag)).
+				//Str("event", string(ef.Read().Tag)).
 				Msg("team disconnected")
 		} else if !ok || e.Code != websocket.CloseNormalClosure {
 			log.Error().Msgf(msgFormat, err)

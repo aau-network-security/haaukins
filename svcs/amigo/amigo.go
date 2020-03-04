@@ -12,6 +12,7 @@ import (
 	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/dgrijalva/jwt-go"
+	logger "github.com/rs/zerolog/log"
 )
 
 const (
@@ -44,7 +45,7 @@ type Amigo struct {
 	cookieTTL    int
 	globalInfo   siteInfo
 	challenges   []haaukins.Challenge
-	teamStore    store.TeamStore
+	TeamStore    store.TeamStore
 }
 
 type AmigoOpt func(*Amigo)
@@ -54,6 +55,11 @@ func WithMaxReadBytes(b int64) AmigoOpt {
 		am.maxReadBytes = b
 	}
 }
+func WithEventName(eventName string) AmigoOpt {
+	return  func (am *Amigo){
+		am.globalInfo.EventName = eventName
+	}
+}
 
 func NewAmigo(ts store.TeamStore, chals []haaukins.Challenge, key string, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
@@ -61,7 +67,7 @@ func NewAmigo(ts store.TeamStore, chals []haaukins.Challenge, key string, opts .
 		signingKey:   []byte(key),
 		challenges:   chals,
 		cookieTTL:    int((7 * 24 * time.Hour).Seconds()), // A week
-		teamStore:    ts,
+		TeamStore:    ts,
 		globalInfo: siteInfo{
 			EventName: "Test Event",
 		},
@@ -92,29 +98,35 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	return info
 }
 
-func (am *Amigo) Handler() http.Handler {
-	sb := newScoreboard(am.teamStore, am.challenges...)
+func (am *Amigo) Handler(hook func(t *haaukins.Team) error,guacHandler http.Handler ) http.Handler {
+	sb := newScoreboard(am.TeamStore, am.challenges...)
 	go sb.run()
 	m := http.NewServeMux()
 
 	m.HandleFunc("/", am.handleIndex())
 	m.HandleFunc("/challenges", am.handleChallenges())
-	m.HandleFunc("/signup", am.handleSignup())
+	m.HandleFunc("/signup", am.handleSignup(hook))
 	m.HandleFunc("/login", am.handleLogin())
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", sb.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+	m.Handle("/guaclogin", guacHandler)
+	m.Handle("/guacamole", guacHandler)
+	m.Handle("/guacamole/", guacHandler)
 
-	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir("/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/public"))))
+
+	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir("/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/public"))))
 
 	return m
 }
 
+
+
 func (am *Amigo) handleIndex() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/index.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/index.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -135,9 +147,9 @@ func (am *Amigo) handleIndex() http.HandlerFunc {
 
 func (am *Amigo) handleChallenges() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/index.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/index.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -213,9 +225,9 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 	return endpoint
 }
 
-func (am *Amigo) handleSignup() http.HandlerFunc {
+func (am *Amigo) handleSignup(hook func(t *haaukins.Team) error) http.HandlerFunc {
 	get := am.handleSignupGET()
-	post := am.handleSignupPOST()
+	post := am.handleSignupPOST(hook)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -234,9 +246,9 @@ func (am *Amigo) handleSignup() http.HandlerFunc {
 
 func (am *Amigo) handleSignupGET() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/signup.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/signup.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -249,11 +261,11 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleSignupPOST() http.HandlerFunc {
+func (am *Amigo) handleSignupPOST(hook func(t *haaukins.Team) error) http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/signup.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/signup.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -309,11 +321,10 @@ func (am *Amigo) handleSignupPOST() http.HandlerFunc {
 			return
 		}
 
+
 		t := haaukins.NewTeam(params.Email, params.TeamName, params.Password)
 
-		// assign lab !!!
-
-		if err := am.teamStore.SaveTeam(t); err != nil {
+		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
 			return
 		}
@@ -321,6 +332,31 @@ func (am *Amigo) handleSignupPOST() http.HandlerFunc {
 		if err := am.loginTeam(w, r, t); err != nil {
 			displayErr(w, params, err)
 			return
+		}
+		token,err:= GetTokenForTeam(am.signingKey, t)
+		if err !=nil {
+			logger.Debug().Msgf("Error on getting token from amigo %s", token)
+			return
+		}
+		logger.Debug().Msgf("TOKEN FROM GETTOKENFORTEAM FUNC : %s", token)
+		//if err := am.TeamStore.CreateTokenForTeam(token,t); err !=nil {
+		//	logger.Debug().Msgf("Create Token For TEAM ERROR ! %s", err)
+		//}
+		team,err := am.TeamStore.CreateTokenForTeam(token,t)
+		if err != nil {
+			logger.Debug().Msgf("Create token for team error %s",err)
+			return
+		}
+		logger.Debug().Msgf("team toke from create token for team : %s", )
+
+		//
+		//if err:= am.TeamStore.CreateTokenForTeam(session.Value,t); err!=nil {
+		//	logger.Debug().Msgf("Token could not created  for team %s error %s", t.Name(),token)
+		//	return
+		//}
+		// assign lab !!!
+		if err := hook(team); err != nil { // assigning lab
+			logger.Debug().Msgf("Problem in assing lab !! %s ", err)
 		}
 	}
 }
@@ -346,9 +382,9 @@ func (am *Amigo) handleLogin() http.HandlerFunc {
 
 func (am *Amigo) handleLoginGET() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/login.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/login.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
@@ -363,9 +399,9 @@ func (am *Amigo) handleLoginGET() http.HandlerFunc {
 
 func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
-		"/home/ubuntu/haaukins_main/haaukins/svcs/amigo/resources/private/login.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/base.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/navbar.tmpl.html",
+		"/home/ahmet/haaukins_main/haaukins/svcs/amigo/resources/private/login.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
@@ -411,7 +447,7 @@ func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 			return
 		}
 
-		t, err := am.teamStore.GetTeamByEmail(params.Email)
+		t, err := am.TeamStore.GetTeamByEmail(params.Email)
 		if err != nil {
 			displayErr(w, params, ErrIncorrectCredentials)
 			return
@@ -459,7 +495,7 @@ func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*ha
 		return nil, err
 	}
 
-	t, err := am.teamStore.GetTeamByID(team.Id)
+	t, err := am.TeamStore.GetTeamByID(team.Id)
 	if err != nil {
 		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
 		return nil, err
@@ -504,14 +540,13 @@ func GetTokenForTeam(key []byte, t *haaukins.Team) (string, error) {
 		ID_KEY:       t.ID(),
 		TEAMNAME_KEY: t.Name(),
 	})
-
 	tokenStr, err := token.SignedString(key)
 	if err != nil {
 		return "", err
 	}
-
 	return tokenStr, nil
 }
+
 
 func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
 	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {

@@ -148,8 +148,8 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 	//teams :=ef.GetTeams()
 
 	//teams := ef.GetTeams()
-	team := haaukins.NewTeam("test1@test.dk", "TestingTeamOne", "123456")
-	team2 := haaukins.NewTeam("test@test.dk", "TestingTeam2", "123456")
+	//team := haaukins.NewTeam("test1@test.dk", "TestingTeamOne", "123456")
+	//team2 := haaukins.NewTeam("test@test.dk", "TestingTeam2", "123456")
 	chals := []haaukins.Challenge{}
 	for _, f := range flags {
 		//chalTag := string(f.Tag)
@@ -164,7 +164,8 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 	//		}
 	//	}
 	//}
-	ts := store.NewTeamStore(team,team2)
+
+	//ts := store.NewTeamStore(store.WithTeams(ef.GetTeams()),store.WithPostTeamHook)
 
 	//chals := []haaukins.Challenge{{, "Heartbleed"},{"AAA", "Test"}}
 	//chals = chals,append(chals,amigo.)
@@ -175,13 +176,14 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 	//	return nil, err
 	//}
 
+
 	guac, err := guacamole.New(ctx, guacamole.Config{})
 	if err != nil {
 		return nil, err
 	}
 
 	dockerHost := docker.NewHost()
-
+	amigoOpt := amigo.WithEventName(ef.Read().Name)
 	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.ArchiveDir())
 	if err != nil {
 		return nil, err
@@ -190,7 +192,7 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 	ev := &event{
 		store:         ef,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(ts,chals,"testing purposes"),
+		amigo:         amigo.NewAmigo(store.NewTeamStore(),chals,"testing purposes",amigoOpt),
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
@@ -221,19 +223,24 @@ func (ev *event) Start(ctx context.Context) error {
 		return StartingGuacErr
 	}
 
-	//for _, team := range ev.store.GetTeams() {
-	//	lab, ok := <-ev.labhub.Queue()
-	//	if !ok {
-	//		return ErrMaxLabs
-	//	}
-	//
-	//	if err := ev.AssignLab(team, lab); err != nil {
-	//		fmt.Println("Issue assigning lab: ", err)
-	//		return err
-	//	}
-	//
-	//	ev.store.SaveTeam(team)
-	//}
+	for _, team := range ev.store.GetTeams() {
+		lab, ok := <-ev.labhub.Queue()
+		if !ok {
+			return ErrMaxLabs
+		}
+
+		if err := ev.AssignLab(team, lab); err != nil {
+			fmt.Println("Issue assigning lab: ", err)
+			return err
+		}
+
+		//ev.amigo.teamStore.SaveTeam(team)
+		ev.store.SaveTeam(team)
+		//ev.store.CreateTeam(team)
+
+
+
+	}
 
 	return nil
 }
@@ -275,8 +282,8 @@ func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
 		return RdpConfErr
 	}
 	u := guacamole.GuacUser{
-		Username: t.ID(),
-		Password: t.Name(),
+		Username: t.Name(),
+		Password: t.GetHashedPassword(),
 	}
 
 	if err := ev.guac.CreateUser(u.Username, u.Password); err != nil {
@@ -319,39 +326,39 @@ func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
 		t.AddChallenge(haaukins.Challenge{tag,chal.OwnerID})
 		log.Info().Str("chal-tag", string(chal.FlagTag)).
 			Str("chal-val", chal.FlagValue).
-			Msgf("Flag is created for team %s [assignlab function] ", t.Name)
+			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}
 
 	return nil
 }
 
 func (ev *event) Handler() http.Handler {
-	//reghook := func(t *haaukins.Team) error {
-	//	select {
-	//	case lab, ok := <-ev.labhub.Queue():
-	//		if !ok {
-	//			return ErrMaxLabs
-	//		}
-	//
-	//		if err := ev.AssignLab(t, lab); err != nil {
-	//			return err
-	//		}
-	//	default:
-	//		return ErrNoAvailableLabs
-	//	}
-	//
-	//	return nil
-	//}
+	reghook := func(t *haaukins.Team) error {
+		select {
+		case lab, ok := <-ev.labhub.Queue():
+			if !ok {
+				return ErrMaxLabs
+			}
 
-	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool)(ev.store)
+			if err := ev.AssignLab(t, lab); err != nil {
+				return err
+			}
+		default:
+			return ErrNoAvailableLabs
+		}
 
-	m := http.NewServeMux()
-	m.Handle("/guaclogin", guacHandler)
-	m.Handle("/guacamole", guacHandler)
-	m.Handle("/guacamole/", guacHandler)
-	m.Handle("/", ev.amigo.Handler())
+		return nil
+	}
 
-	return m
+	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool,ev.amigo)(ev.store)
+
+	//m := http.NewServeMux()
+	//m.Handle("/guaclogin", guacHandler)
+	//m.Handle("/guacamole", guacHandler)
+	//m.Handle("/guacamole/", guacHandler)
+	//m.Handle("/", )
+
+	return  ev.amigo.Handler(reghook,guacHandler)
 }
 
 func (ev *event) GetHub() lab.Hub {
