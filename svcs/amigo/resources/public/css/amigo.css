@@ -1,0 +1,56 @@
+#navbarAmigo{
+    position: absolute;
+    width: 100%;
+    top: 0;
+    background: #211A52 !important;
+}
+
+.mt-toppage{
+    margin-top: 100px;
+}
+
+
+/*used in scoreboard*/
+.has-text-warning{
+    color:#ffdd57 !important
+}
+
+.is-silver {
+    color: #c9c9c9 !important;
+}
+
+.is-bronze {
+    color: #cc861d !important;
+}
+
+.footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    /* Set the fixed height of the footer here */
+    /*height: 60px;*/
+    /*line-height: 60px; !* Vertically center the text there *!*/
+    background-color: #f5f5f5;
+}
+
+
+/*To change*/
+
+.form {
+    padding: 30px;
+    max-width: 460px;
+    margin: 0 auto;
+    border: 1px solid #dbdbdb;
+    border-radius: 12px;
+}
+
+.centerbox {
+    border: 1px solid #dbdbdb;
+    border-radius: 4px;
+    margin: 0 auto;
+}
+
+#flagbox {
+    max-width: 500px;
+    padding: 20px;
+}

@@ -182,203 +182,203 @@ func (t *Team) DataConsent() bool {
 func (t *Team) SetAccessed(ti time.Time) {
 	t.AccessedAt = &ti
 }
-
-type TeamStore interface {
-	CreateTeam(Team) error
-	GetTeamByToken(string) (Team, error)
-	GetTeamByEmail(string) (Team, error)
-	GetTeamByName(string) (Team, error)
-	GetTeams() []Team
-	SaveTeam(Team) error
-	UpdateTeamAccessed(string, time.Time) (Team, error)
-	CreateTokenForTeam(string, Team) error
-	DeleteToken(string) error
-}
-
-type teamstore struct {
-	m sync.RWMutex
-
-	hooks  []func([]Team) error
-	teams  map[string]Team
-	tokens map[string]string
-	emails map[string]string
-	names  map[string]string
-}
-
-type TeamStoreOpt func(ts *teamstore)
-
-func WithTeams(teams []Team) func(ts *teamstore) {
-	return func(ts *teamstore) {
-		for _, t := range teams {
-		if err:=ts.CreateTeam(t); err !=nil {
-			log.Error().Msgf("Error on creating team %s",err)
-		}
-		}
-	}
-}
-
-func WithPostTeamHook(hook func(teams []Team) error) func(ts *teamstore) {
-	return func(ts *teamstore) {
-		ts.hooks = append(ts.hooks, hook)
-	}
-}
-
-func NewTeamStore(opts ...TeamStoreOpt) *teamstore {
-	ts := &teamstore{
-		hooks:  []func(teams []Team) error{},
-		teams:  map[string]Team{},
-		tokens: map[string]string{},
-		names:  map[string]string{},
-		emails: map[string]string{},
-	}
-
-	for _, opt := range opts {
-		opt(ts)
-	}
-
-	return ts
-}
-
-func (es *teamstore) CreateTeam(t Team) error {
-	es.m.Lock()
-	defer es.m.Unlock()
-
-	if _, ok := es.teams[t.Id]; ok {
-		return TeamExistsErr
-	}
-
-	es.teams[t.Id] = t
-	es.emails[t.Email] = t.Id
-	es.names[t.Name] = t.Id
-
-	return es.RunHooks()
-}
-
-func (es *teamstore) SaveTeam(t Team) error {
-	es.m.Lock()
-	defer es.m.Unlock()
-
-	if _, ok := es.teams[t.Id]; !ok {
-		return UnknownTeamErr
-	}
-
-	es.teams[t.Id] = t
-
-	return es.RunHooks()
-}
-
-func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
-	es.m.Lock()
-	defer es.m.Unlock()
-
-	if token == "" {
-		return &EmptyVarErr{Var: "Token"}
-	}
-
-	t, ok := es.teams[in.Id]
-	if !ok {
-		return UnknownTeamErr
-	}
-
-	es.tokens[token] = t.Id
-
-	return nil
-}
-
-func (es *teamstore) DeleteToken(token string) error {
-	es.m.Lock()
-	defer es.m.Unlock()
-
-	delete(es.tokens, token)
-
-	return nil
-}
-
-func (es *teamstore) GetTeams() []Team {
-	var teams []Team
-	for _, t := range es.teams {
-		teams = append(teams, t)
-	}
-
-	return teams
-}
-
-func (es *teamstore) GetTeamByEmail(email string) (Team, error) {
-	es.m.RLock()
-	defer es.m.RUnlock()
-
-	id, ok := es.emails[email]
-	if !ok {
-		return Team{}, UnknownTokenErr
-	}
-
-	t, ok := es.teams[id]
-	if !ok {
-		return Team{}, UnknownTeamErr
-	}
-
-	return t, nil
-}
-
-func (es *teamstore) GetTeamByName(name string) (Team, error) {
-	es.m.RLock()
-	defer es.m.RUnlock()
-
-	id, ok := es.names[name]
-	if !ok {
-		return Team{}, UnknownTokenErr
-	}
-
-	t, ok := es.teams[id]
-	if !ok {
-		return Team{}, UnknownTeamErr
-	}
-
-	return t, nil
-}
-
-func (es *teamstore) GetTeamByToken(token string) (Team, error) {
-	es.m.RLock()
-	defer es.m.RUnlock()
-
-	id, ok := es.tokens[token]
-	if !ok {
-		return Team{}, UnknownTokenErr
-	}
-
-	t, ok := es.teams[id]
-	if !ok {
-		return Team{}, UnknownTeamErr
-	}
-
-	return t, nil
-}
-
-func (es *teamstore) UpdateTeamAccessed(id string, ti time.Time) (Team, error) {
-	es.m.Lock()
-	defer es.m.Unlock()
-
-	t, ok := es.teams[id]
-	if !ok {
-		return Team{}, UnknownTeamErr
-	}
-
-	t.SetAccessed(ti)
-	es.teams[id] = t
-
-	return t, es.RunHooks()
-}
-
-func (es *teamstore) RunHooks() error {
-	teams := es.GetTeams()
-	for _, h := range es.hooks {
-		if err := h(teams); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
+//
+//type TeamStore interface {
+//	CreateTeam(Team) error
+//	GetTeamByToken(string) (Team, error)
+//	GetTeamByEmail(string) (Team, error)
+//	GetTeamByName(string) (Team, error)
+//	GetTeams() []Team
+//	SaveTeam(Team) error
+//	UpdateTeamAccessed(string, time.Time) (Team, error)
+//	CreateTokenForTeam(string, Team) error
+//	DeleteToken(string) error
+//}
+//
+//type teamstore struct {
+//	m sync.RWMutex
+//
+//	hooks  []func([]Team) error
+//	teams  map[string]Team
+//	tokens map[string]string
+//	emails map[string]string
+//	names  map[string]string
+//}
+//
+//type TeamStoreOpt func(ts *teamstore)
+//
+//func WithTeams(teams []Team) func(ts *teamstore) {
+//	return func(ts *teamstore) {
+//		for _, t := range teams {
+//		if err:=ts.CreateTeam(t); err !=nil {
+//			log.Error().Msgf("Error on creating team %s",err)
+//		}
+//		}
+//	}
+//}
+//
+//func WithPostTeamHook(hook func(teams []Team) error) func(ts *teamstore) {
+//	return func(ts *teamstore) {
+//		ts.hooks = append(ts.hooks, hook)
+//	}
+//}
+//
+//func NewTeamStore(opts ...TeamStoreOpt) *teamstore {
+//	ts := &teamstore{
+//		hooks:  []func(teams []Team) error{},
+//		teams:  map[string]Team{},
+//		tokens: map[string]string{},
+//		names:  map[string]string{},
+//		emails: map[string]string{},
+//	}
+//
+//	for _, opt := range opts {
+//		opt(ts)
+//	}
+//
+//	return ts
+//}
+//
+//func (es *teamstore) CreateTeam(t Team) error {
+//	es.m.Lock()
+//	defer es.m.Unlock()
+//
+//	if _, ok := es.teams[t.Id]; ok {
+//		return TeamExistsErr
+//	}
+//
+//	es.teams[t.Id] = t
+//	es.emails[t.Email] = t.Id
+//	es.names[t.Name] = t.Id
+//
+//	return es.RunHooks()
+//}
+//
+//func (es *teamstore) SaveTeam(t Team) error {
+//	es.m.Lock()
+//	defer es.m.Unlock()
+//
+//	if _, ok := es.teams[t.Id]; !ok {
+//		return UnknownTeamErr
+//	}
+//
+//	es.teams[t.Id] = t
+//
+//	return es.RunHooks()
+//}
+//
+//func (es *teamstore) CreateTokenForTeam(token string, in Team) error {
+//	es.m.Lock()
+//	defer es.m.Unlock()
+//
+//	if token == "" {
+//		return &EmptyVarErr{Var: "Token"}
+//	}
+//
+//	t, ok := es.teams[in.Id]
+//	if !ok {
+//		return UnknownTeamErr
+//	}
+//
+//	es.tokens[token] = t.Id
+//
+//	return nil
+//}
+//
+//func (es *teamstore) DeleteToken(token string) error {
+//	es.m.Lock()
+//	defer es.m.Unlock()
+//
+//	delete(es.tokens, token)
+//
+//	return nil
+//}
+//
+//func (es *teamstore) GetTeams() []Team {
+//	var teams []Team
+//	for _, t := range es.teams {
+//		teams = append(teams, t)
+//	}
+//
+//	return teams
+//}
+//
+//func (es *teamstore) GetTeamByEmail(email string) (Team, error) {
+//	es.m.RLock()
+//	defer es.m.RUnlock()
+//
+//	id, ok := es.emails[email]
+//	if !ok {
+//		return Team{}, UnknownTokenErr
+//	}
+//
+//	t, ok := es.teams[id]
+//	if !ok {
+//		return Team{}, UnknownTeamErr
+//	}
+//
+//	return t, nil
+//}
+//
+//func (es *teamstore) GetTeamByName(name string) (Team, error) {
+//	es.m.RLock()
+//	defer es.m.RUnlock()
+//
+//	id, ok := es.names[name]
+//	if !ok {
+//		return Team{}, UnknownTokenErr
+//	}
+//
+//	t, ok := es.teams[id]
+//	if !ok {
+//		return Team{}, UnknownTeamErr
+//	}
+//
+//	return t, nil
+//}
+//
+//func (es *teamstore) GetTeamByToken(token string) (Team, error) {
+//	es.m.RLock()
+//	defer es.m.RUnlock()
+//
+//	id, ok := es.tokens[token]
+//	if !ok {
+//		return Team{}, UnknownTokenErr
+//	}
+//
+//	t, ok := es.teams[id]
+//	if !ok {
+//		return Team{}, UnknownTeamErr
+//	}
+//
+//	return t, nil
+//}
+//
+//func (es *teamstore) UpdateTeamAccessed(id string, ti time.Time) (Team, error) {
+//	es.m.Lock()
+//	defer es.m.Unlock()
+//
+//	t, ok := es.teams[id]
+//	if !ok {
+//		return Team{}, UnknownTeamErr
+//	}
+//
+//	t.SetAccessed(ti)
+//	es.teams[id] = t
+//
+//	return t, es.RunHooks()
+//}
+//
+//func (es *teamstore) RunHooks() error {
+//	teams := es.GetTeams()
+//	for _, h := range es.hooks {
+//		if err := h(teams); err != nil {
+//			return err
+//		}
+//	}
+//
+//	return nil
+//}
 
 type EventConfigStore interface {
 	Read() EventConfig
@@ -484,7 +484,7 @@ func NewEventFile(dir string, filename string, file RawEventFile) *eventfile {
 		file:     file,
 	}
 
-	ef.TeamStore = NewTeamStore(WithTeams(file.Teams), WithPostTeamHook(ef.saveTeams))
+	//ef.TeamStore = NewTeamStore(WithTeams(file.Teams), WithPostTeamHook(ef.saveTeams))
 	ef.EventConfigStore = NewEventConfigStore(file.EventConfig, ef.saveEventConfig)
 
 	return ef
@@ -548,12 +548,12 @@ func (ef *eventfile) Archive() error {
 	}
 
 	cpy.file.Teams = []Team{}
-	for _, t := range ef.GetTeams() {
-		t.Name = ""
-		t.Email = ""
-		t.HashedPassword = ""
-		cpy.file.Teams = append(cpy.file.Teams, t)
-	}
+	//for _, t := range ef.GetTeams() {
+	//	t.Name = ""
+	//	t.Email = ""
+	//	t.HashedPassword = ""
+	//	cpy.file.Teams = append(cpy.file.Teams, t)
+	//}
 	cpy.save()
 
 	if err := ef.delete(); err != nil {

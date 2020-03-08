@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>{{.EventName}}</title>
+		<link rel="stylesheet" href="/assets/css/amigo.css">
+		<link href=/assets/js/fa.js rel=preload as=script>
+		<link href=/assets/js/app.js rel=preload as=script>
+		<link href=/assets/js/chunk-vendors.js rel=preload as=script>
+    </head>
+    <body>
+	{{ template "navbar" . }}
+	<div id="content">
+	    {{ template "content" . }}
+	</div>
+	<footer class="footer">
+		<div class="container text-center">
+			<p>
+				This event is being powered by the free <a href="https://github.com/aau-network-security/haaukins">Haaukins platform</a> designed at <a href="https://aau.dk">Aalborg University</a>.
+				The source code is licensed under <a href="https://opensource.org/licenses/GPL-3.0">GPLv3</a>.
+				The platform would not have been possible without the sponsors of <a href="http://danishcybersecurityclusters.dk/">Danish Cyber Security Clusters</a> and <a href="https://alexandra.dk/uk">Alexandra Institute</a>.
+			</p>
+		</div>
+	</footer>
+	<script defer src="/assets/js/fa.js"></script>
+	<script defer src="/assets/js/app.js"></script>
+	<script defer src="/assets/js/chunk-vendors.js"></script>
+    </body>
+</html>
