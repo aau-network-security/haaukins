@@ -3,6 +3,7 @@ package haaukins
 import (
 	"errors"
 	"fmt"
+	logger "github.com/rs/zerolog/log"
 	"regexp"
 	"strings"
 	"sync"
@@ -46,9 +47,9 @@ func (t Tag) Validate() error {
 }
 
 type Challenge struct {
-	Tag  Tag    `json:"tag"`
-	Name string `json:"name"`
-
+	Tag       Tag    `json:"tag"`
+	Name      string `json:"name"`
+	FlagValue string `json:"value"`
 }
 
 type TeamChallenge struct {
@@ -99,8 +100,7 @@ func (t *Team) Email() string {
 	return email
 }
 
-
-func(t *Team) GetHashedPassword() string{
+func (t *Team) GetHashedPassword() string {
 	t.m.RLock()
 	defer t.m.RUnlock()
 	return t.hashedPassword
@@ -130,7 +130,12 @@ func (t *Team) AddChallenge(c Challenge) (Flag, error) {
 		}
 	}
 
-	f := NewFlag()
+	//f := NewFlag()
+	f, err := NewFlagFromString(c.FlagValue)
+	if err != nil {
+		logger.Debug().Msgf("Error in creating a flag from given string %s ", err)
+		return Flag{}, err
+	}
 	t.challenges[f] = TeamChallenge{
 		Tag: c.Tag,
 	}
