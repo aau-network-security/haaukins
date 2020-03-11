@@ -6,9 +6,10 @@ package guacamole
 
 import (
 	"errors"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"net/http"
 	"sync"
-	"time"
+	//"time"
 
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
@@ -110,7 +111,6 @@ const waitingHTMLTemplate = `
 				top: 6.94em
 			}
 		}
-
     </style>
   </head>
   <body>
@@ -125,12 +125,9 @@ const waitingHTMLTemplate = `
   </h1>
 <h2>
 Virtualized Environment
-
 </h2>
-
   </body>
 </html>
-
 `
 
 var (
@@ -157,6 +154,7 @@ func (us *GuacUserStore) CreateUserForTeam(tid string, u GuacUser) {
 	us.m.RLock()
 	defer us.m.RUnlock()
 	us.teams[tid] = u
+	log.Debug().Msgf("CreateUserForTeam function teamid: %s user guide : %s", tid,u.Username )
 }
 
 func (us *GuacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
@@ -175,13 +173,15 @@ type guacTokenLoginEndpoint struct {
 	users     *GuacUserStore
 	loginFunc func(string, string) (string, error)
 	teamStore store.TeamStore
+	amigo     *amigo.Amigo
 }
 
-func NewGuacTokenLoginEndpoint(users *GuacUserStore, ts store.TeamStore, loginFunc func(string, string) (string, error)) *guacTokenLoginEndpoint {
+func NewGuacTokenLoginEndpoint(users *GuacUserStore, ts store.TeamStore, am *amigo.Amigo, loginFunc func(string, string) (string, error)) *guacTokenLoginEndpoint {
 	return &guacTokenLoginEndpoint{
 		teamStore: ts,
 		users:     users,
 		loginFunc: loginFunc,
+		amigo:	   am,
 	}
 }
 
@@ -199,24 +199,27 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 		func(w http.ResponseWriter, r *http.Request) {
 			c, err := r.Cookie("session")
 			if err != nil {
+				log.Debug().Msgf("Error session is not found in guacTokenLoginEndpoint %s , error is %s ", c.Value, err)
 				return
 			}
 
 			session := c.Value
-			t, err := gtl.teamStore.GetTeamByToken(session)
+			log.Debug().Msgf("Value of cookie %s",session)
+			//t, err := gtl.teamStore.GetTeamByToken(session)
+			t, err := gtl.amigo.TeamStore.GetTeamByToken(session)
 			if err != nil {
 				log.Warn().
 					Err(err).
 					Msg("Unable to find team by token")
 				/* Write error to user */
-				reportHttpError(w, "Unable to connect to lab: ", err)
+				reportHttpError(w, "Unable to connect to lab teamStore.GetTeamByToken: ", err)
 				return
 			}
-			u, err := gtl.users.GetUserForTeam(t.Id)
+			u, err := gtl.users.GetUserForTeam(t.ID())
 			if err != nil {
 				log.Warn().
 					Err(err).
-					Str("team-id ", t.Id).
+					Str("team-id ", t.ID()).
 					Msg("Unable to get guac user for team")
 				w.WriteHeader(http.StatusServiceUnavailable)
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -225,27 +228,29 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			}
 
 			token, err := gtl.loginFunc(u.Username, u.Password)
+			log.Debug().Msgf("TOKEN : %s",token)
 			if err != nil {
 				log.Warn().
 					Err(err).
-					Str("team-id", t.Id).
+					Str("team-id", t.ID()).
 					Msg("Failed to login team to guacamole")
 				reportHttpError(w, "Unable to connect to lab: ", err)
 				return
 			}
 
 			// Set teams last access time
-			_, err = gtl.teamStore.UpdateTeamAccessed(t.Id, time.Now())
-			if err != nil {
-				log.Warn().
-					Err(err).
-					Str("team-id", t.Id).
-					Msg("Failed to update team accessed time")
-			}
+			//_, err = gtl.teamStore.UpdateTeamAccessed(t.Id, time.Now())
+			//if err != nil {
+			//	log.Warn().
+			//		Err(err).
+			//		Str("team-id", t.Id).
+			//		Msg("Failed to update team accessed time")
+			//}
 
 			authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
 			http.SetCookie(w, &authC)
 			http.Redirect(w, r, "/guacamole", http.StatusFound)
+
 		})
 }
 

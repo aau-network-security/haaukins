@@ -1,19 +1,15 @@
-// Copyright (c) 2018-2019 Aalborg University
-// Use of this source code is governed by a GPLv3
-// license that can be found in the LICENSE file.
-
 package store
 
 import (
 	"errors"
 	"fmt"
+	"github.com/aau-network-security/haaukins"
 	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
 
 	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/google/uuid"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -103,7 +99,7 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 			value := flag.Static
 			if value == "" {
 				// flag is not static
-				value = uuid.New().String()
+				value = haaukins.NewFlag().String()
 			}
 
 			challenges = append(challenges, Challenge{

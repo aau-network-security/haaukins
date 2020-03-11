@@ -8,6 +8,7 @@ import 'bootstrap-vue/dist/bootstrap-vue.css'
 
 import FlagChecker from './components/FlagChecker.vue'
 import Scoreboard from './components/Scoreboard.vue'
+import ChallegesPage from "./components/ChallegesPage";
 
 Vue.config.productionTip = false;
 
@@ -21,4 +22,10 @@ if (document.getElementById("scoreboard")) {
   new Vue({
     render: h => h(Scoreboard),
   }).$mount('#scoreboard')
+}
+
+if (document.getElementById("challenges")) {
+  new Vue({
+    render: h => h(ChallegesPage),
+  }).$mount('#challenges')
 }
