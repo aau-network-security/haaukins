@@ -18,17 +18,18 @@
                         <span class="chal-desc">
                             <p>{{challenge.description}}</p>
                         </span>
-                        <form ref="form" @submit.stop.prevent="submitFlag()">
-                            <div class="row submit-row">
-                                <div class="col-md-9 form-group">
-                                    <input class="form-control" type="text" name="answer" id="answer-input" placeholder="Flag">
-                                    <input id="chal-id" type="hidden" value="11">
-                                </div>
-                                <div class="col-md-3 form-group key-submit">
-                                    <button type="submit" id="submit-key" tabindex="5" class="btn btn-md btn-outline-secondary float-right">Submit</button>
-                                </div>
-                            </div>
-                        </form>
+                        <FlagChecker :challengeTag="challenge.tag"></FlagChecker>
+<!--                        <form ref="form" @submit.stop.prevent="submitFlag()">-->
+<!--                            <div class="row submit-row">-->
+<!--                                <div class="col-md-9 form-group">-->
+<!--                                    <input class="form-control" type="text" name="answer" id="answer-input" placeholder="Flag">-->
+<!--                                    <input id="chal-id" type="hidden" value="11">-->
+<!--                                </div>-->
+<!--                                <div class="col-md-3 form-group key-submit">-->
+<!--                                    <button type="submit" id="submit-key" tabindex="5" class="btn btn-md btn-outline-secondary float-right">Submit</button>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </form>-->
                         <div class="text-center text-danger">
                             {{submitFlagError}}
                         </div>
@@ -58,8 +59,10 @@
 </template>
 
 <script>
+    import FlagChecker from "./FlagChecker";
     export default {
         name: "ChallengeModal",
+        components: {FlagChecker},
         props: {
             challenge: Object
         },

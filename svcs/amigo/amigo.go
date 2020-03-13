@@ -18,6 +18,7 @@ import (
 const (
 	ID_KEY       = "I"
 	TEAMNAME_KEY = "TN"
+	signingKey   = "testing"
 	wd			 = "/home/gian/go/src/"
 )
 
@@ -45,7 +46,7 @@ type Amigo struct {
 	signingKey   []byte
 	cookieTTL    int
 	globalInfo   siteInfo
-	challenges   []haaukins.Challenge
+	challenges   []store.FlagConfig
 	TeamStore    store.TeamStore
 }
 
@@ -63,10 +64,10 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.TeamStore, chals []haaukins.Challenge, key string, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.TeamStore, chals []store.FlagConfig, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
-		signingKey:   []byte(key),
+		signingKey:   []byte(signingKey),
 		challenges:   chals,
 		cookieTTL:    int((7 * 24 * time.Hour).Seconds()), // A week
 		TeamStore:    ts,
@@ -101,8 +102,9 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 }
 
 func (am *Amigo) Handler(hook func(t *haaukins.Team) error,guacHandler http.Handler) http.Handler {
-	sb := newScoreboard(am.TeamStore, am.challenges...)
-	go sb.run()
+	fd := newFrontendData(am.TeamStore, am.challenges...)
+	go fd.runFrontendData()
+
 	m := http.NewServeMux()
 
 	m.HandleFunc("/", am.handleIndex())
@@ -110,13 +112,14 @@ func (am *Amigo) Handler(hook func(t *haaukins.Team) error,guacHandler http.Hand
 	m.HandleFunc("/signup", am.handleSignup(hook))
 	m.HandleFunc("/login", am.handleLogin())
 	m.HandleFunc("/logout", am.handleLogout())
-	m.HandleFunc("/scores", sb.handleConns())
+	m.HandleFunc("/scores", fd.handleConns())
+	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
 	m.Handle("/guaclogin", guacHandler)
 	m.Handle("/guacamole", guacHandler)
 	m.Handle("/guacamole/", guacHandler)
 
-	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir("/home/gian/go/src/haaukins/svcs/amigo/resources/public"))))
+	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir(wd+"haaukins/svcs/amigo/resources/public"))))
 
 	return m
 }
@@ -169,6 +172,7 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 
 func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 	type verifyFlagMsg struct {
+		Tag  string `json:"tag"`
 		Flag string `json:"flag"`
 	}
 
@@ -195,7 +199,9 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 			return
 		}
 
-		if err := team.VerifyFlag(flag); err != nil {
+		tag := haaukins.Tag(msg.Tag)
+		fmt.Println("amigooooooooooo flag verify per tag: "+string(tag))
+		if err := team.VerifyFlag(haaukins.Challenge{Tag: tag}, flag); err != nil {
 			replyJson(http.StatusOK, w, errReply{err.Error()})
 			return
 		}

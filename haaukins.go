@@ -114,6 +114,18 @@ func (t *Team) Name() string {
 	return name
 }
 
+func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
+	chals := t.challenges
+	for _, chal := range chals {
+		if chal.Tag == Tag(tag) {
+			if chal.CompletedAt != nil {
+				return chal.CompletedAt
+			}
+		}
+	}
+	return nil
+}
+
 func (t *Team) IsPasswordEqual(pass string) bool {
 	t.m.RLock()
 	err := bcrypt.CompareHashAndPassword([]byte(t.hashedPassword), []byte(pass))
@@ -164,10 +176,17 @@ func (t *Team) GetChallenges(order ...Tag) []TeamChallenge {
 	return chals
 }
 
-func (t *Team) VerifyFlag(f Flag) error {
+func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 	t.m.Lock()
 	chal, ok := t.challenges[f]
+
 	if !ok {
+		t.m.Unlock()
+		return ErrUnknownFlag
+	}
+
+	fmt.Println(string(chal.Tag)+" ... "+string(tag.Tag))
+	if chal.Tag != tag.Tag{
 		t.m.Unlock()
 		return ErrUnknownFlag
 	}
@@ -175,7 +194,6 @@ func (t *Team) VerifyFlag(f Flag) error {
 	if chal.CompletedAt != nil {
 		t.m.Unlock()
 		return ErrFlagAlreadyComplete
-
 	}
 	now := time.Now()
 	chal.CompletedAt = &now

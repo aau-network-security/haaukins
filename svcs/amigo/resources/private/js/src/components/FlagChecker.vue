@@ -23,7 +23,10 @@
 <script>
     /* eslint-disable */
     export default {
-        name: 'flagchecker',
+        name: 'FlagChecker',
+        props: {
+            challengeTag: String
+        },
         data: () => {
             return {
                 action: 'Submit',
@@ -42,8 +45,9 @@
                 const opts = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ flag: this.flag })
+                    body: JSON.stringify({ tag: this.challengeTag, flag: this.flag })
                 };
+                window.console.log({ tag: this.challengeTag, flag: this.flag });
                 const res = await fetch('/flags/verify', opts).
                 then(res => res.json());
 

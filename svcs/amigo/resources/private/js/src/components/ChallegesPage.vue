@@ -11,6 +11,7 @@
                 </button>
             </div>
         </div>
+        {{challengesFromAmigo}}
         <challenge-modal :challenge="this.modalInfo"></challenge-modal>
     </div>
 </template>
@@ -24,6 +25,7 @@
         data: function () {
             return {
                 modalInfo: {}, //passed to the modal
+                challengesFromAmigo: [],
                 challenges: {
                     "Web Exploitation": [],
                     "Forensics": [],
@@ -34,7 +36,7 @@
                 dummyChallenges: {
                     "challenges": [
                         {
-                            "tag": "xss",
+                            "tag": "xss-1",
                             "name": "cross site scripting",
                             "points": 10,
                             "category": "Reverse Engineering",
@@ -48,8 +50,8 @@
                             "description": "cia cia cia"
                         },
                         {
-                            "tag": "bho",
-                            "name": "bla bla blaaaaa",
+                            "tag": "ftp",
+                            "name": "FTP challenge",
                             "points": 51,
                             "category": "Forensics",
                             "description": "noo ono ono ono"
@@ -80,7 +82,10 @@
             }
         },
         created: function() {
-            this.sortingChallenges()
+            this.sortingChallenges();
+            let url = new URL('/challengesFrontend', window.location.href);
+            url.protocol = url.protocol.replace('http', 'ws');
+            this.connectToWS(url.href);
         },
         methods: {
             sortingChallenges: function(){
@@ -97,7 +102,27 @@
                 window.console.log(obj)
                 this.modalInfo = obj
                 this.$bvModal.show('challengeModal')
-            }
+            },
+            connectToWS: function(url) {
+                let self = this;
+                let ws = new WebSocket(url);
+                ws.onmessage = self.receiveMsg
+                ws.onclose = function(){
+                    ws = null;
+                    setTimeout(function(){self.connectToWS(url)}, 3000);
+                };
+            },
+            receiveMsg: function(evt) {
+                let messages = evt.data.split('\n');
+                window.console.log(evt)
+                for (let i = 0; i < messages.length; i++) {
+                    let msg = messages[i];
+                    let json = JSON.parse(msg);
+                    if (json.msg == "challengesFrontend"){
+                        this.challengesFromAmigo = json.values;
+                    }
+                }
+            },
         }
     }
 </script>
