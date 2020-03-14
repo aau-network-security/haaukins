@@ -46,7 +46,7 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 
 
 	msg := Message{
-		Message: "teams",
+		Message: "scoreboard",
 		Values:  Scoreboard{
 			Chals:   chals,
 			TeamRow: rows,

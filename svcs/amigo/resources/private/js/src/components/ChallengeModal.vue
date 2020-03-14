@@ -1,6 +1,6 @@
 <template>
     <div>
-        <b-modal ref="modal" id="challengeModal" centered hide-footer hide-header>
+        <b-modal ref="modal" id="challengeModal" centered hide-footer hide-header >
             <div class="modal-body">
                 <button type="button" class="close" v-on:click="$bvModal.hide('challengeModal')">
                     <span aria-hidden="true">×</span>
@@ -8,47 +8,34 @@
                 <nav>
                     <div class="nav nav-tabs" id="nav-tab" role="tablist">
                         <a class="nav-item nav-link active" id="nav-challenge-tab" data-toggle="tab" href="#nav-challenge" role="tab" aria-controls="nav-challenge" aria-selected="true">Challenge</a>
-                        <a class="nav-item nav-link" id="nav-solves-tab" data-toggle="tab" href="#nav-solves" role="tab" aria-controls="nav-solves" aria-selected="false">1 Solves</a>
+                        <a class="nav-item nav-link" id="nav-solves-tab" data-toggle="tab" href="#nav-solves" role="tab" aria-controls="nav-solves" aria-selected="false">{{checkTeams(teamsCompleted)}} Solves</a>
                     </div>
                 </nav>
                 <div class="tab-content" id="nav-tabContent">
                     <div class="tab-pane fade show active" id="nav-challenge" role="tabpanel" aria-labelledby="nav-challenge-tab">
-                        <h2 class="chal-name text-center pt-3">{{challenge.name}}</h2>
-                        <h3 class="chal-value text-center">{{challenge.points}}</h3>
-                        <span class="chal-desc">
-                            <p>{{challenge.description}}</p>
+                        <h2 class="chal-name text-center pt-5 pb-1">{{challenge.Name}}</h2>
+                        <h4 class="chal-value text-center mb-5">{{challenge.Points}}</h4>
+                        <span class="chal-desc mb-5">
+                            <p>{{challenge.Description}}</p>
                         </span>
-                        <FlagChecker :challengeTag="challenge.tag"></FlagChecker>
-<!--                        <form ref="form" @submit.stop.prevent="submitFlag()">-->
-<!--                            <div class="row submit-row">-->
-<!--                                <div class="col-md-9 form-group">-->
-<!--                                    <input class="form-control" type="text" name="answer" id="answer-input" placeholder="Flag">-->
-<!--                                    <input id="chal-id" type="hidden" value="11">-->
-<!--                                </div>-->
-<!--                                <div class="col-md-3 form-group key-submit">-->
-<!--                                    <button type="submit" id="submit-key" tabindex="5" class="btn btn-md btn-outline-secondary float-right">Submit</button>-->
-<!--                                </div>-->
-<!--                            </div>-->
-<!--                        </form>-->
-                        <div class="text-center text-danger">
-                            {{submitFlagError}}
-                        </div>
+                        <FlagChecker :challengeTag="challenge.Tag" class="mt-5"></FlagChecker>
                     </div>
                     <div class="tab-pane fade" id="nav-solves" role="tabpanel" aria-labelledby="nav-solves-tab">
-                        <table class="table table-striped text-center">
+                        <table class="table table-striped text-center table-borderless mt-3">
                             <thead>
                             <tr>
-                                <td><b>Name</b>
-                                </td>
-                                <td><b>Date</b>
-                                </td>
+                                <th><b>Name</b></th>
+                                <th><b>Date</b></th>
                             </tr>
                             </thead>
-                            <tbody id="bhooo">
-                                <tr>
-                                    <td><a href="#">Test</a></td>
-                                    <td>7 days ago</td>
+                            <tbody v-if="checkTeams(teamsCompleted) != 0">
+                                <tr v-for="team in teamsCompleted" v-bind:key="team.teamName">
+                                    <td>{{team.teamName}}</td>
+                                    <td>{{beauty_date(team.completedAt)}}</td>
                                 </tr>
+                            </tbody>
+                            <tbody v-else>
+                                <tr><td colspan="2">Nobody solved this challenge!</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -64,22 +51,35 @@
         name: "ChallengeModal",
         components: {FlagChecker},
         props: {
-            challenge: Object
+            challenge: Object,
+            teamsCompleted: Array,
         },
         data: function (){
             return{
-                submitFlagError: null
             }
         },
         methods: {
-            submitFlag: function () {
-                this.submitFlagError = "Incorret Flag";
-                window.console.log("inside submit Flag")
+            checkTeams: function (teamsCompleted) {
+                window.console.log(teamsCompleted)
+                if (teamsCompleted != null) {
+                    return teamsCompleted.length
+                }
+                return 0
+            },
+            beauty_date: function (input_date) {
+                let date = new Date(input_date);
+                const monthNames = ["January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"
+                ];
+                return date.getHours() + ":" + date.getMinutes() + "   " + date.getDate() + " " + monthNames[date.getMonth()]
             }
         }
     }
 </script>
 
 <style scoped>
-
+    a {
+        color: #211A52;
+        text-decoration: none;
+    }
 </style>

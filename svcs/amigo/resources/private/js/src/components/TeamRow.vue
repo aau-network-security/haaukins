@@ -1,12 +1,14 @@
 <template>
-    <tr>
-        <td>
-    <span class="icon" v-bind:class="{ 'has-text-warning': pos === 1, 'is-silver': pos === 2, 'is-bronze': pos === 3 }">
-      <i class="fas fa-trophy"></i>
-    </span>
+    <tr v-bind:class="{'bg-isUser': team.is_user}">
+        <td v-if="pos < 4" class="text-center">
+            <span class="icon" v-bind:class="{ 'has-text-warning': pos === 1, 'is-silver': pos === 2, 'is-bronze': pos === 3 }">
+              <i class="fas fa-trophy"></i>
+            </span>
         </td>
-        <td><strong>{{ name }}</strong></td>
-        <challenge-cell v-for="comp in completions" v-bind:key="comp" :completed="comp !== null"></challenge-cell>
+        <td v-else class="text-center">{{ pos }}</td>
+        <td><strong>{{ team.name }}</strong></td>
+        <td>{{ team.points }}</td>
+        <challenge-cell v-for="comp in team.completions" v-bind:key="comp" :completed="comp != null"></challenge-cell>
     </tr>
 </template>
 
@@ -16,12 +18,17 @@
     export default {
         name: 'team-row',
         props: {
-            name: String,
+            team: Object,
             pos: Number,
-            completions: Array,
         },
         components: {
             ChallengeCell,
         }
     }
 </script>
+
+<style>
+    .bg-isUser {
+        background-color: rgba(32,64,163, 0.3)!important;
+    }
+</style>
