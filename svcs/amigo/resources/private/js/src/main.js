@@ -9,6 +9,7 @@ import 'bootstrap-vue/dist/bootstrap-vue.css'
 import FlagChecker from './components/FlagChecker.vue'
 import Scoreboard from './components/Scoreboard.vue'
 import ChallegesPage from "./components/ChallegesPage";
+import ScoreGraph from "./components/ScoreGraph";
 
 Vue.config.productionTip = false;
 
@@ -28,4 +29,10 @@ if (document.getElementById("challenges")) {
   new Vue({
     render: h => h(ChallegesPage),
   }).$mount('#challenges')
+}
+
+if (document.getElementById("graph-scoreboard")) {
+  new Vue({
+    render: h => h(ScoreGraph),
+  }).$mount('#graph-scoreboard')
 }

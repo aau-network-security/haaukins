@@ -54,7 +54,7 @@
                     const json = JSON.parse(msg);
                     if (json.msg == "scoreboard"){
                         this.challenges = json.values.challenges;
-                        this.teams = json.values.teams.sort((a, b)=> b.points - a.points);
+                        this.teams = json.values.teams.sort((a, b)=> b.tpoints - a.tpoints);
                     }
                 }
             },

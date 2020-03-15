@@ -13,7 +13,8 @@
     "bootstrap-vue": "^2.6.1",
     "core-js": "^3.6.4",
     "jquery": "^3.4.1",
-    "vue": "^2.6.11"
+    "vue": "^2.6.11",
+    "vue-plotly": "^1.1.0"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^4.2.0",

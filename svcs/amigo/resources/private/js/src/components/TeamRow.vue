@@ -7,7 +7,7 @@
         </td>
         <td v-else class="text-center">{{ pos }}</td>
         <td><strong>{{ team.name }}</strong></td>
-        <td>{{ team.points }}</td>
+        <td>{{ team.tpoints }}</td>
         <challenge-cell v-for="comp in team.completions" v-bind:key="comp" :completed="comp != null"></challenge-cell>
     </tr>
 </template>

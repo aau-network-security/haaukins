@@ -11,12 +11,14 @@ type Message struct {
 	Values  interface{} `json:"values"`
 }
 
+
 type TeamRow struct {
-	Id          string       `json:"id"`
-	Name        string       `json:"name"`
-	Completions []*time.Time `json:"completions"`
-	TotalPoints uint		 `json:"points"`
-	IsUser      bool         `json:"is_user"`
+	Id          		string       `json:"id"`
+	Name        		string       `json:"name"`
+	TotalPoints 		uint		 `json:"tpoints"`
+	ChalCompletions 	[]*time.Time `json:"completions"`
+	ChalPoints 			[]uint 		 `json:"points"`
+	IsUser      		bool         `json:"is_user"`
 }
 
 type Scoreboard struct {
@@ -76,20 +78,23 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 
 func TeamRowFromTeam(t *haaukins.Team, chals []store.FlagConfig) TeamRow {
 	completions := make([]*time.Time, len(chals))
-	var points uint = 0
+	points := make([]uint, len(chals))
+	var totalPoints uint = 0
 	for i, c := range chals {
 		solved := t.IsTeamSolvedChallenge(string(c.Tag))
 		completions[i] = solved
+		points[i] = c.Points
 		if solved != nil {
-			points += c.Points
+			totalPoints += c.Points
 		}
 	}
 
 	return TeamRow{
-		Id:          t.ID(),
-		Name:        t.Name(),
-		Completions: completions,
-		TotalPoints: points,
+		Id:          		t.ID(),
+		Name:        		t.Name(),
+		ChalCompletions: 	completions,
+		ChalPoints:		 	points,
+		TotalPoints: 		totalPoints,
 	}
 }
 
