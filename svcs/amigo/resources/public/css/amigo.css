@@ -13,6 +13,7 @@ html {
 body {
     margin-bottom: 60px; /* Margin bottom by footer height */
     font-family: 'Ubuntu', sans-serif!important;
+    overflow-x: hidden;
 
 }
 
@@ -25,7 +26,11 @@ body {
 }
 
 .mt-toppage{
-    margin-top: 100px;
+    margin-top: 110px;
+}
+
+.mb-botpage{
+    margin-bottom: 100px;
 }
 
 
@@ -122,53 +127,19 @@ body {
     text-transform: none!important;
 }
 
-@media (min-width: 992px) {
-    #mainNav {
-        padding-top: 25px;
-        padding-bottom: 25px;
-        transition: padding-top 0.3s, padding-bottom 0.3s;
-        border: none;
-        background-color: transparent;
-    }
-    #mainNav .navbar-brand {
-        font-size: 2em;
-        transition: all 0.3s;
-        font-weight: bold;
-        color: #f76c6c;
-    }
-    #mainNav .navbar-nav .nav-item .nav-link {
-        padding: 1.1em 1em !important;
-        font-size: 1em!important;
-        font-weight: bold;
-    }
-    #mainNav.navbar-shrink {
-        padding-top: 0;
-        padding-bottom: 0;
-        background-color: #211A52;
-    }
-    #mainNav.navbar-shrink .navbar-brand {
-        font-size: 1.25em;
-        padding: 12px 0;
-    }
-
-    #mainNav .navbar-nav .nav-item .nav-link {
-        color: #211A52;
-    }
-    #mainNav.navbar-shrink .navbar-nav .nav-item .nav-link {
-        color: #fff;
-    }
-}
-
 nav ul li .nav-link,
 nav ul li .nav-link:after,
-nav ul li .nav-link:before {
+nav ul li .nav-link:before,
+.aau-developer a,
+.aau-developer a:after,
+.aau-developer a:before{
     transition: all .3s;
 }
 
-nav.stroke ul li .nav-link {
+nav.stroke ul li .nav-link, .aau-developer a {
     position: relative;
 }
-nav.stroke ul li .nav-link:after {
+nav.stroke ul li .nav-link:after, .aau-developer a:after {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -180,12 +151,11 @@ nav.stroke ul li .nav-link:after {
     background: #211A52;
     height: 3px;
 }
-nav.stroke ul li .nav-link:hover:after {
+nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
     width: 100%;
 }
 
-/************************ LOGIN PAGE **********************/
-/*f76c6c*/
+/************************ LOGIN - SIGNUP PAGE **********************/
 
 .wave-bg{
     position: fixed;
@@ -193,6 +163,8 @@ nav.stroke ul li .nav-link:hover:after {
     left: 0;
     height: 100%;
     z-index: -1;
+    min-width: 100%;
+
 }
 
 .wave-bg-signup{
@@ -201,13 +173,14 @@ nav.stroke ul li .nav-link:hover:after {
     right: 0;
     height: 100%;
     z-index: -1;
+    min-width: 100%;
 }
 
 .wave-bg-footer{
     position: absolute;
     bottom: 0;
     left: 0;
-    width: 100%;
+    max-width: 100%;
     z-index: -1;
     display: none;
 }
@@ -343,8 +316,146 @@ nav.stroke ul li .nav-link:hover:after {
 }
 
 
+
+/******** INDEX **************/
+
+.wave-bg-index {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    max-width: 100%;
+    z-index: -1;
+}
+
+#indexpage p, h4{
+    color: #444;
+}
+
+#indexpage h1{
+    font-size: 3rem;
+    font-weight: bold;
+    color: #444;
+}
+
+.aau-developer img{
+    max-width: 200px;
+    background-color: #fff;
+    border-radius: 100%;
+}
+.aau-developer a{
+    color: #211A52;
+    font-weight: bold;
+    padding-bottom: 3px;
+}
+.facebook-aau a{
+    color: #211A52;
+}
+.aau-developer a:hover, .facebook-aau a:hover{
+    text-decoration: none!important;
+    color: #211A52!important;
+}
+
+.color-sec-aau{
+    color: #f76c6c;
+}
+.color-sec-aau:hover{
+    text-decoration: none;
+    color: #f76c6c;
+}
+.sponsor{
+    width: 100%;
+    float: left;
+}
+.sponsor,
+.sponsor li{
+    padding: 10px;
+    display: inline;
+}
+
+.sponsor li a img{
+    width:90px;
+    height:75px;
+}
+#indexpage .card{
+    border: 0px !important;
+}
+#indexpage .card-body{
+    padding: 0.3rem;
+}
+#indexpage .card-footer{
+    background-color: #f76c6c;
+    color: #ffffff;
+    border-color: #f76c6c;
+}
+
+#indexpage .card-footer a{
+    color: #ffffff;
+}
+#indexpage .card-footer a:hover{
+    color: #ffffff;
+    text-decoration: none;
+}
+
+/*************** General Pages ***************/
+.wave-bg-general{
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    max-width: 100%;
+}
+
+@media (min-width: 992px) {
+    #mainNav {
+        padding-top: 25px;
+        padding-bottom: 25px;
+        transition: padding-top 0.3s, padding-bottom 0.3s;
+        border: none;
+        background-color: transparent;
+    }
+    #mainNav .navbar-brand {
+        font-size: 2em;
+        transition: all 0.3s;
+        font-weight: bold;
+        color: #f76c6c;
+    }
+    #mainNav .navbar-nav .nav-item .nav-link {
+        padding: 1.1em 1em !important;
+        font-size: 1em;
+        font-weight: bold;
+    }
+    #mainNav.navbar-shrink .navbar-nav .nav-item .nav-link {
+        font-size: 80%;
+    }
+    #mainNav.navbar-shrink {
+        padding-top: 0;
+        padding-bottom: 0;
+        background-color: #211A52;
+    }
+    #mainNav.navbar-shrink .navbar-brand {
+        font-size: 1.25em;
+        padding: 12px 0;
+    }
+
+    #mainNav .navbar-nav .nav-item .nav-link {
+        color: #211A52;
+    }
+    #mainNav.navbar-shrink .navbar-nav .nav-item .nav-link {
+        color: #fff;
+    }
+}
+
 @media screen and (max-width: 992px){
 
+    .mt-toppage{
+        margin-top: 120px;
+    }
+    .aau-developer img{
+        max-width: 170px;
+    }
+    .aau-developer{
+        font-size: 14px;
+    }
     .myd-none{
         display: none;
     }
@@ -357,8 +468,28 @@ nav.stroke ul li .nav-link:hover:after {
     .wave-bg-signup{
         display: none;
     }
+    .wave-bg-index{
+        display: none;
+    }
+    .wave-bg-general{
+        display: none;
+    }
     .footer{
         font-size: 12px;
     }
-}
+    .sponsor,
+    .sponsor li{
+        padding: 0px;
+    }
+    .sponsor li a img{
+        width:70px;
+        height:65px;
+    }
+    .aau-developer .col-sm-7{
+        text-align: center;
+    }
+    #indexpage p{
+        font-size: 14px;
+    }
 
+}

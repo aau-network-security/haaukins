@@ -1,22 +1,67 @@
 {{ define "content" }}
-<section class="mt-toppage">
-    <div class="container">
-{{/*	<div id="flagbox" class="centerbox has-text-centered">*/}}
-{{/*	    <h1 class="title">Check your flag</h1>*/}}
-{{/*	    <div id="flagchecker"></div>*/}}
-{{/*	    <p class="help">Submit the flags you find in the field above to complete a challenge</p>*/}}
-{{/*	</div>*/}}
-		<h1 class="title">
-			Welcome!
-		</h1>
-		<p class="subtitle">
-			Currently there is <strong>2 teams</strong> working on <strong>4 exercises</strong> and <strong>Testerz</strong> seems to be in the lead!
-		</p>
-    </div>
-</section>
-<section>
-    <div class="container">
-	<div id="scoreboard"></div>
-    </div>
-</section>
+	<img class="wave-bg-index" src="/assets/img/wave-index.png">
+	<div class="container" id="indexpage">
+		<div class="row">
+			<div class="col-sm-12 col-lg-8 offset-lg-2">
+				<h1 class="text-center mt-toppage">Haaukins</h1>
+				<h4 class="text-center"> A platform for Cyber Security Exercises</h4>
+				<p class="text-center">
+					Founded by <a class="color-sec-aau" href="http://danishcybersecurityclusters.dk/">Danish Cyber Security Clusters</a> and supported by
+				</p>
+				<a href="https://www.industriensfond.dk/">
+					<img class="w-100 mx-auto d-block" style="max-width: 300px; padding: 3vh 0 4vh 0;" src="/assets/img/index/logo_industrienfond.jpg">
+				</a>
+				<p class="text-center">
+					Developed at <a class="color-sec-aau" href="http://es.aau.dk/">Aalborg University</a> (Department of Electronic Systems) by:
+				</p>
+				<div class="row aau-developer mt-5">
+					<div class="col-sm-5 text-center">
+						<img src="/assets/img/haaukins-login.png">
+					</div>
+					<div class="col-sm-7 mt-3 mt-sm-0">
+						<p><a href="https://github.com/mrturkmen06">Ahmet Turkmen</a> (Research Assistant)</p>
+						<p><a href="https://github.com/gianmarcomennecozzi">Gian Marco Mennecozzi</a> (Research Assistant)</p>
+						<p><a href="https://github.com/kdhageman">Kaspar Hageman</a> (Ph.D. Student)</p>
+						<p><a href="https://github.com/tpanum">Thomas Kobber Panum</a> (Ph.D. Student)</p>
+						<p><a href="https://github.com/eyJhb">Johan Hempel Bengtson</a> (Student Helper)</p>
+					</div>
+				</div>
+				<div class="card-deck py-4">
+					<div class="card text-center">
+						<div class="card-body">
+							<h5 class="card-title">Tips and tricks</h5>
+							<div class="card-text">
+								Stuck at a certain challenge? Or do you just want to know more about a certain topic?
+							</div>
+						</div>
+						<div class="card-footer">
+							<a href="https://aau-network-security.github.io/tips-and-tricks/" target="_blank">Vist the tips &amp; tricks page</a>
+						</div>
+					</div>
+					<div class="card text-center">
+						<div class="card-body">
+							<h5 class="card-title">Survey</h5>
+							<p>You can help us improve the platform by taking our survey to let us know about your experiences!</p>
+						</div>
+						<div class="card-footer">
+							<a href="https://www.survey-xact.dk/LinkCollector?key=5DWWK8HZ15C2" target="_blank">Fill out the survey here</a>
+						</div>
+					</div>
+				</div>
+				<p class="text-center">
+					Feel free to join our local Facebook Group:
+				</p>
+				<p class="text-center facebook-aau">
+					<a href="https://www.facebook.com/groups/957517617737780"><i class="fab fa-facebook" aria-hidden="true"></i>&nbsp;AAU Hackers &amp; Friends</a>
+				</p>
+				<ul class="text-center mb-botpage sponsor">
+					<li><a href="https://eadania.dk/"> <img src="/assets/img/index/da-90.png"></a></li>
+					<li><a href="https://www.dtu.dk/"><img src="/assets/img/index/dtu-90.png"></a></li>
+					<li><a href="https://kea.dk/"> <img src="/assets/img/index/kea-90.jpg"></a></li>
+					<li><a href="https://happy42.dk/"> <img src="/assets/img/index/happy-90.png"></a></li>
+					<li><a href="https://www.eaaa.dk/"><img src="/assets/img/index/eaa-90.png"></a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
 {{ end }}
