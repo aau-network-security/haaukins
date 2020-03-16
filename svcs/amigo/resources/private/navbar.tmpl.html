@@ -1,40 +1,82 @@
 {{ define "navbar" }}
-	<nav class="navbar navbar-expand-lg navbar-dark bg-dark" id="navbarAmigo">
-		<a class="navbar-brand" href="/">{{ .EventName }}</a>
-		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarAmigoCollapse" aria-controls="navbarAmigoCollapse" aria-expanded="false" aria-label="Toggle navigation">
-			<span class="navbar-toggler-icon"></span>
-		</button>
-
-		<div class="collapse navbar-collapse" id="navbarAmigoCollapse">
-			<ul class="navbar-nav mr-auto">
-				<li class="nav-item active">
-					<a class="nav-link" href="#">Teams</a>
-				</li>
-				<li class="nav-item">
-					<a class="nav-link" href="/challenges">Challenges</a>
-				</li>
-				<li class="nav-item">
-					<a class="nav-link" href="/scoreboard">Scoreboard</a>
-				</li>
-			</ul>
-			<ul class="navbar-nav my-2 my-md-0">
-				{{ if .Team}}
-					<span class="navbar-text">{{ .Team.Name }}</span>
-					<li class="nav-item">
-						<a class="nav-link" href="/guaclogin">Connect</a>
+	<nav class="navbar navbar-expand-lg navbar-dark fixed-top stroke" id="mainNav">
+		<div class="container">
+			<a class="navbar-brand" href="/">{{ .EventName }}</a>
+			<button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+				Menu
+				<i class="fas fa-bars"></i>
+			</button>
+			<div class="collapse navbar-collapse" id="navbarResponsive">
+				<ul class="navbar-nav text-uppercase mr-auto">
+					<li class="nav-item active">
+						<a class="nav-link" href="#">Teams</a>
 					</li>
 					<li class="nav-item">
-						<a class="nav-link" href="/logout">Logout</a>
-					</li>
-				{{ else }}
-					<li class="nav-item">
-						<a class="nav-link" href="/signup">Sign Up</a>
+						<a class="nav-link" href="/challenges">Challenges</a>
 					</li>
 					<li class="nav-item">
-						<a class="nav-link" href="/login">Login</a>
+						<a class="nav-link" href="/scoreboard">Scoreboard</a>
 					</li>
-				{{ end }}
-			</ul>
+				</ul>
+				<ul class="navbar-nav text-uppercase ml-auto">
+					{{ if .Team}}
+						<span class="navbar-text my-auto mr-4">{{ .Team.Name }}</span>
+						<li class="nav-item my-auto">
+							<div>
+								<a class="btn btn-login" href="/guaclogin">Connect</a>
+							</div>
+						</li>
+						<li class="nav-item">
+							<a class="nav-link" href="/logout">Logout</a>
+						</li>
+					{{ else }}
+						<li class="nav-item">
+							<a class="nav-link" href="/signup">Sign Up</a>
+						</li>
+						<li class="nav-item">
+							<a class="nav-link" href="/login">Login</a>
+						</li>
+					{{ end }}
+				</ul>
+			</div>
 		</div>
 	</nav>
+{{/*	<nav class="navbar navbar-expand-lg navbar-dark bg-dark" id="navbarAmigo">*/}}
+{{/*		<a class="navbar-brand" href="/">{{ .EventName }}</a>*/}}
+{{/*		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarAmigoCollapse" aria-controls="navbarAmigoCollapse" aria-expanded="false" aria-label="Toggle navigation">*/}}
+{{/*			<span class="navbar-toggler-icon"></span>*/}}
+{{/*		</button>*/}}
+
+{{/*		<div class="collapse navbar-collapse" id="navbarAmigoCollapse">*/}}
+{{/*			<ul class="navbar-nav mr-auto">*/}}
+{{/*				<li class="nav-item active">*/}}
+{{/*					<a class="nav-link" href="#">Teams</a>*/}}
+{{/*				</li>*/}}
+{{/*				<li class="nav-item">*/}}
+{{/*					<a class="nav-link" href="/challenges">Challenges</a>*/}}
+{{/*				</li>*/}}
+{{/*				<li class="nav-item">*/}}
+{{/*					<a class="nav-link" href="/scoreboard">Scoreboard</a>*/}}
+{{/*				</li>*/}}
+{{/*			</ul>*/}}
+{{/*			<ul class="navbar-nav my-2 my-md-0">*/}}
+{{/*				{{ if .Team}}*/}}
+{{/*					<span class="navbar-text">{{ .Team.Name }}</span>*/}}
+{{/*					<li class="nav-item">*/}}
+{{/*						<a class="nav-link" href="/guaclogin">Connect</a>*/}}
+{{/*					</li>*/}}
+{{/*					<li class="nav-item">*/}}
+{{/*						<a class="nav-link" href="/logout">Logout</a>*/}}
+{{/*					</li>*/}}
+{{/*				{{ else }}*/}}
+{{/*					<li class="nav-item">*/}}
+{{/*						<a class="nav-link" href="/signup">Sign Up</a>*/}}
+{{/*					</li>*/}}
+{{/*					<li class="nav-item">*/}}
+{{/*						<a class="nav-link" href="/login">Login</a>*/}}
+{{/*					</li>*/}}
+{{/*				{{ end }}*/}}
+{{/*			</ul>*/}}
+{{/*		</div>*/}}
+{{/*	</nav>*/}}
 {{end}}

@@ -1,3 +1,10 @@
+*{
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+
 html {
     position: relative;
     min-height: 100%;
@@ -5,6 +12,8 @@ html {
 
 body {
     margin-bottom: 60px; /* Margin bottom by footer height */
+    font-family: 'Ubuntu', sans-serif!important;
+
 }
 
 #navbarAmigo{
@@ -35,12 +44,22 @@ body {
 
 .footer {
     position: absolute;
-    bottom: 1px;
+    bottom: 0;
     width: 100%;
     height: 60px;
     line-height: 60px;
-    background-color: #f5f5f5;
+    background-color: transparent;
     font-size: 15px;
+    color: #ffffff;
+}
+
+.footer a{
+    text-decoration: none;
+    color: #f76c6c;
+}
+.footer a:hover{
+    text-decoration: none;
+    color: #f76c6c;
 }
 
 .btn-haaukins{
@@ -67,3 +86,279 @@ body {
     max-width: 500px;
     padding: 20px;
 }
+
+/**************** NAVBAR **********************/
+#mainNav {
+    background-color: #211A52;
+}
+
+#mainNav .navbar-toggler {
+    font-size: 12px;
+    right: 0;
+    padding: 13px;
+    text-transform: uppercase;
+    color: white;
+    border: 0;
+    background-color: #f76c6c;
+}
+
+#mainNav .navbar-brand {
+    color: #f76c6c;
+    font-size: 1.5em;
+}
+
+#mainNav .navbar-nav .nav-item .nav-link {
+    font-size: 80%;
+    padding: 0.75em 0;
+    letter-spacing: 1px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.navbar-text{
+    color: #777!important;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: none!important;
+}
+
+@media (min-width: 992px) {
+    #mainNav {
+        padding-top: 25px;
+        padding-bottom: 25px;
+        transition: padding-top 0.3s, padding-bottom 0.3s;
+        border: none;
+        background-color: transparent;
+    }
+    #mainNav .navbar-brand {
+        font-size: 2em;
+        transition: all 0.3s;
+        font-weight: bold;
+        color: #f76c6c;
+    }
+    #mainNav .navbar-nav .nav-item .nav-link {
+        padding: 1.1em 1em !important;
+        font-size: 1em!important;
+        font-weight: bold;
+    }
+    #mainNav.navbar-shrink {
+        padding-top: 0;
+        padding-bottom: 0;
+        background-color: #211A52;
+    }
+    #mainNav.navbar-shrink .navbar-brand {
+        font-size: 1.25em;
+        padding: 12px 0;
+    }
+
+    #mainNav .navbar-nav .nav-item .nav-link {
+        color: #211A52;
+    }
+    #mainNav.navbar-shrink .navbar-nav .nav-item .nav-link {
+        color: #fff;
+    }
+}
+
+nav ul li .nav-link,
+nav ul li .nav-link:after,
+nav ul li .nav-link:before {
+    transition: all .3s;
+}
+
+nav.stroke ul li .nav-link {
+    position: relative;
+}
+nav.stroke ul li .nav-link:after {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    width: 0%;
+    content: '.';
+    color: transparent;
+    background: #211A52;
+    height: 3px;
+}
+nav.stroke ul li .nav-link:hover:after {
+    width: 100%;
+}
+
+/************************ LOGIN PAGE **********************/
+/*f76c6c*/
+
+.wave-bg{
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 100%;
+    z-index: -1;
+}
+
+.wave-bg-signup{
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    height: 100%;
+    z-index: -1;
+}
+
+.wave-bg-footer{
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: -1;
+    display: none;
+}
+
+.svg-login{
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.btn-login{
+    color: #fff!important;
+    background-color: #f76c6c!important;
+    border-color: #f76c6c!important;
+    width: 100%;
+}
+.btn-login:focus {
+    outline: none!important;
+}
+
+.login-content{
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    text-align: center;
+}
+
+.login-form{
+    width: 360px;
+    margin: auto;
+    padding-bottom: 50px;
+}
+
+.login-content img{
+    height: 180px;
+    margin-top: 20px;
+}
+
+.login-content h2{
+    margin: 15px 0;
+    color: #444;
+    text-transform: uppercase;
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.login-content h4{
+    margin: 15px 0;
+    color: #444;
+    text-transform: uppercase;
+    font-size: 1.9rem;
+    font-weight: bold;
+}
+
+.login-content .input-div{
+    position: relative;
+    display: grid;
+    grid-template-columns: 7% 93%;
+    margin: 25px 0;
+    padding: 5px 0;
+    border-bottom: 2px solid #d9d9d9;
+}
+
+.input-div-icon{
+    color: #d9d9d9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.input-div-icon i{
+    transition: .3s;
+}
+
+.input-div > div{
+    position: relative;
+    height: 45px;
+}
+
+.input-div > div > h5{
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #777;
+    font-size: 18px;
+    transition: .3s;
+}
+
+.input-div:before, .input-div:after{
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    width: 0%;
+    height: 2px;
+    background-color: #211A52;
+    transition: .4s;
+}
+
+.input-div:before{
+    right: 50%;
+}
+
+.input-div:after{
+    left: 50%;
+}
+
+.input-div.focus:before, .input-div.focus:after{
+    width: 50%;
+}
+
+.input-div.focus > div > h5{
+    top: -5px;
+    font-size: 15px;
+}
+
+.input-div.focus > .input-div-icon > i{
+    color: #211A52;
+}
+
+.input-div > div > input{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    outline: none;
+    background: none;
+    padding: 0.5rem 0.7rem;
+    font-size: 1.2rem;
+    color: #777;
+}
+
+
+@media screen and (max-width: 992px){
+
+    .myd-none{
+        display: none;
+    }
+    .wave-bg{
+        display: none;
+    }
+    .wave-bg-footer{
+        display: block;
+    }
+    .wave-bg-signup{
+        display: none;
+    }
+    .footer{
+        font-size: 12px;
+    }
+}
+

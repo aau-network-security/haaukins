@@ -1,35 +1,46 @@
 {{ define "content" }}
-<section class="section">
-    <div class="container">
-	<form class="form" method="post" action="/login">
-	    <h1 class="title">Login</h1>
-	    <div class="field">
-		<label class="label">Email</label>
-		<p class="control">
-		    <input class="input" name="email" type="email" placeholder="Email" {{with .Content }}value="{{ .Email }}"{{end}}>
-		</p>
-	    </div>
-	    <div class="field">
-		<label class="label">Password</label>
-		<p class="control">
-		    <input class="input" name="password" type="password" placeholder="Password">
-		</p>
-	    </div>
-	    {{ with .Content }}
-	    {{ if .LoginError }}
-	    <div class="notification is-danger">
-		{{ .LoginError }}
-	    </div>
-	    {{ end }}
-	    {{ end }}
-	    <div class="field">
-		<p class="control">
-		    <button class="button is-primary">
-			Login
-		    </button>
-		</p>
-	    </div>
-	</form>
-    </div>
-</section>
+	<img class="wave-bg" src="/assets/img/wave-login.png">
+	<div class="container">
+		<div class="row">
+			<div class="col myd-none" style="height: 100vh!important;">
+				<div class="svg-login h-100">
+					<img src="/assets/img/login4.svg" class="img-fluid">
+				</div>
+			</div>
+			<div class="col align-self-center" style="height: 100vh!important;">
+				<div class="login-content h-100">
+					<form class="login-form" method="post" action="/login">
+						<img src="/assets/img/haaukins-login.png">
+						<h2>Welcome</h2>
+						<div class="input-div">
+							<div class="input-div-icon">
+								<i class="fas fa-user"></i>
+							</div>
+							<div class="input-div-input">
+								<h5>Email</h5>
+								<input class="input" name="email" type="email">
+							</div>
+						</div>
+						<div class="input-div mb-2">
+							<div class="input-div-icon">
+								<i class="fas fa-lock"></i>
+							</div>
+							<div class="input-div-input">
+								<h5>Password</h5>
+								<input class="input" name="password" type="password">
+							</div>
+						</div>
+						<input type="submit" class="btn btn-login mt-3" value="Login">
+						{{ with .Content }}
+							{{ if .LoginError }}
+								<div class="mt-2 text-danger">
+									{{ .LoginError }}
+								</div>
+							{{ end }}
+						{{ end }}
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
 {{ end }}

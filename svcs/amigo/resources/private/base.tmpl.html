@@ -6,22 +6,27 @@
 		<title>{{.EventName}}</title>
 		<link rel="stylesheet" href="/assets/css/amigo.css">
 		<link href=/assets/js/fa.js rel=preload as=script>
+		<link href=/assets/js/amigo.js rel=preload as=script>
 		<link href=/assets/js/app.js rel=preload as=script>
 		<link href=/assets/js/chunk-vendors.js rel=preload as=script>
-    </head>
+		<link href="https://fonts.googleapis.com/css?family=Ubuntu&display=swap" rel="stylesheet">
+
+	</head>
     <body>
 	{{ template "navbar" . }}
 	<main id="content">
 	    {{ template "content" . }}
+		<img class="wave-bg-footer" src="/assets/img/smallwave-footer.png">
 	</main>
 	<footer class="footer">
 		<div class="container text-center">
 			<p style="margin:0px">
-				This event is powered by <a href="https://github.com/aau-network-security/haaukins">Haaukins platform</a> designed at <a href="https://aau.dk">Aalborg University</a>.
+				Event powered by <a href="https://github.com/aau-network-security/haaukins">Haaukins platform</a> designed at <a href="https://aau.dk">Aalborg University</a>
 			</p>
 		</div>
 	</footer>
 	<script defer src="/assets/js/fa.js"></script>
+	<script defer src="/assets/js/amigo.js"></script>
 	<script defer src="/assets/js/app.js"></script>
 	<script defer src="/assets/js/chunk-vendors.js"></script>
     </body>
