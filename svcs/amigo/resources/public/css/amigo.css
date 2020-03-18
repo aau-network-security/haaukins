@@ -13,8 +13,6 @@ html {
 body {
     margin-bottom: 60px; /* Margin bottom by footer height */
     font-family: 'Ubuntu', sans-serif!important;
-    overflow-x: hidden;
-
 }
 
 #navbarAmigo{
@@ -197,8 +195,10 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
     border-color: #f76c6c!important;
     width: 100%;
 }
-.btn-login:focus {
+.btn-login:focus, btn-login.focus {
     outline: none!important;
+    box-shadow: none!important;
+
 }
 
 .login-content{
@@ -331,7 +331,7 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
     color: #444;
 }
 
-#indexpage h1{
+#indexpage h1, #scoreboardpage h1, #challengespage h1, #teamspage h1{
     font-size: 3rem;
     font-weight: bold;
     color: #444;
@@ -400,11 +400,72 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
 .wave-bg-general{
     position: absolute;
     bottom: 0;
-    left: 0;
+    right: 0;
     z-index: -1;
     max-width: 100%;
 }
 
+.table th, .table td {
+     border-top: 0px!important;
+}
+
+table tbody tr{
+    background-color: #fff;
+    font-family: 'Orbitron', sans-serif!important;
+    letter-spacing: 1px;
+}
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgb(233, 235, 245)!important;
+}
+/* top-left border-radius */
+table tr:first-child th:first-child {
+    border-top-left-radius: 10px!important;
+}
+
+/* top-right border-radius */
+table tr:first-child th:last-child {
+    border-top-right-radius: 10px!important;
+}
+
+/* bottom-left border-radius */
+table tr:last-child td:first-child {
+    border-bottom-left-radius: 10px!important;
+}
+
+/* bottom-right border-radius */
+table tr:last-child td:last-child {
+    border-bottom-right-radius: 10px!important;
+}
+
+.category-header h3{
+    font-size: 2rem;
+    color: #444;
+}
+
+.challenge-button{
+    font-family: 'Audiowide', cursive;
+}
+
+.chal-name, .chal-value{
+    font-family: 'Audiowide', cursive;
+    font-size: 1.8rem;
+    color: #444;
+}
+
+.chal-desc p{
+    color: #444;
+}
+
+.flag-form .input-div{
+    position: relative;
+    display: grid;
+    grid-template-columns: 7% 93%;
+    margin: 25px 0;
+    padding: 5px 0;
+    border-bottom: 2px solid #d9d9d9;
+}
+
+/*big screen*/
 @media (min-width: 992px) {
     #mainNav {
         padding-top: 25px;
@@ -445,8 +506,12 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
     }
 }
 
+/*small screen*/
 @media screen and (max-width: 992px){
 
+    .mb-botpage{
+        margin-bot: 120px;
+    }
     .mt-toppage{
         margin-top: 120px;
     }

@@ -29,6 +29,6 @@
 
 <style>
     .bg-isUser {
-        background-color: rgba(32,64,163, 0.3)!important;
+        background-color: rgb(195, 203, 228)!important;
     }
 </style>

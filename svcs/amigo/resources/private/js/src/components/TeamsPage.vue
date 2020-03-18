@@ -1,7 +1,25 @@
 <template>
-    <div>
+    <div id="teams">
         <Plotly :data="traces" :layout="layout"></Plotly>
-        {{dummy}}
+        <table class="table table-striped mt-5">
+            <thead class="thead-dark-custom">
+                <tr>
+                    <th class="text-center">#</th>
+                    <th>Team</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody v-if="dummy.length > 0">
+            <tr v-for="(team, index) in dummy" v-bind:key="team.id">
+                <td>{{index}}</td>
+                <td>{{team.name}}</td>
+                <td>{{team.tpoints}}</td>
+            </tr>
+            </tbody>
+            <tbody v-else>
+                <tr class="text-center"><td colspan="3">No team registered to this event!</td></tr>
+            </tbody>
+        </table>
     </div>
 </template>
 
@@ -26,7 +44,7 @@
                 }],
                 traces: [],
                 layout: {
-                    title: 'Score Graph',
+                    // title: 'Score Graph',
                     paper_bgcolor: 'rgba(0,0,0,0)',
                     plot_bgcolor: 'rgba(0,0,0,0)',
                     hovermode: 'closest',

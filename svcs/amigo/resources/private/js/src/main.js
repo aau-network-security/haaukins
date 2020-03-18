@@ -9,7 +9,7 @@ import 'bootstrap-vue/dist/bootstrap-vue.css'
 import FlagChecker from './components/FlagChecker.vue'
 import Scoreboard from './components/Scoreboard.vue'
 import ChallegesPage from "./components/ChallegesPage";
-import ScoreGraph from "./components/ScoreGraph";
+import TeamsPage from "./components/TeamsPage";
 
 Vue.config.productionTip = false;
 
@@ -31,8 +31,8 @@ if (document.getElementById("challenges")) {
   }).$mount('#challenges')
 }
 
-if (document.getElementById("graph-scoreboard")) {
+if (document.getElementById("teamspagevue")) {
   new Vue({
-    render: h => h(ScoreGraph),
-  }).$mount('#graph-scoreboard')
+    render: h => h(TeamsPage),
+  }).$mount('#teamspagevue')
 }

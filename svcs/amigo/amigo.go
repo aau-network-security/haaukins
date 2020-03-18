@@ -110,6 +110,7 @@ func (am *Amigo) Handler(hook func(t *haaukins.Team) error,guacHandler http.Hand
 
 	m.HandleFunc("/", am.handleIndex())
 	m.HandleFunc("/challenges", am.handleChallenges())
+	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/scoreboard", am.handleScoreBoard())
 	m.HandleFunc("/signup", am.handleSignup(hook))
 	m.HandleFunc("/login", am.handleLogin())
@@ -161,6 +162,34 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/challenges" {
+			http.NotFound(w, r)
+			return
+		}
+
+		_, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+		}
+
+		data := am.getSiteInfo(w, r)
+		if err := tmpl.Execute(w, data); err != nil {
+			log.Println("template err index: ", err)
+		}
+	}
+}
+
+func (am *Amigo) handleTeams() http.HandlerFunc {
+	tmpl, err := template.ParseFiles(
+		wd + "/svcs/amigo/resources/private/base.tmpl.html",
+		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd + "/svcs/amigo/resources/private/teams.tmpl.html",
+	)
+	if err != nil {
+		log.Println("error index tmpl: ", err)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/teams" {
 			http.NotFound(w, r)
 			return
 		}

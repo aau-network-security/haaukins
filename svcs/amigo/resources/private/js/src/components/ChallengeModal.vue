@@ -21,12 +21,12 @@
                         <FlagChecker :challengeTag="challenge.Tag" class="mt-5"></FlagChecker>
                     </div>
                     <div class="tab-pane fade" id="nav-solves" role="tabpanel" aria-labelledby="nav-solves-tab">
-                        <table class="table table-striped text-center table-borderless mt-3">
-                            <thead>
-                            <tr>
-                                <th><b>Name</b></th>
-                                <th><b>Date</b></th>
-                            </tr>
+                        <table class="table table-striped text-center mt-4">
+                            <thead class="thead-dark-custom">
+                                <tr>
+                                    <th><b>Name</b></th>
+                                    <th><b>Date</b></th>
+                                </tr>
                             </thead>
                             <tbody v-if="checkTeams(teamsCompleted) != 0">
                                 <tr v-for="team in teamsCompleted" v-bind:key="team.teamName">
