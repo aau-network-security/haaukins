@@ -199,7 +199,7 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 	ev := &event{
 		store:         ef,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(store.NewTeamStore(),flags,amigoOpt),
+		amigo:         amigo.NewAmigo(ef,flags,amigoOpt),
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
@@ -330,9 +330,9 @@ func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
 
 	for _, chal := range chals {
 		tag, _:= haaukins.NewTag(string(chal.FlagTag))
-		f, _ := t.AddChallenge(haaukins.Challenge{tag,chal.OwnerID})
-		fmt.Println("This is the flag: " +f.String())
-		log.Info().Str("chal-tag", string(chal.FlagTag)).
+		f, _ := t.AddChallenge(haaukins.Challenge{tag,chal.OwnerID,chal.FlagValue})
+		fmt.Println("This is the flag: " + f.String())
+		log.Info().Str("chal-tag", string(tag)).
 			Str("chal-val", f.String()).
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}

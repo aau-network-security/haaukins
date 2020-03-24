@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aau-network-security/haaukins"
+	"github.com/dgrijalva/jwt-go"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -15,10 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"crypto/sha256"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	ID_KEY       = "I"
+	TEAMNAME_KEY = "TN"
 )
 
 var (
@@ -43,7 +47,7 @@ type EventConfig struct {
 
 type RawEventFile struct {
 	EventConfig `yaml:",inline"`
-	Teams       []*haaukins.Team `yaml:"teams,omitempty"`
+	Teams       []Team `yaml:"teams,omitempty"`
 }
 
 func (e EventConfig) Validate() error {
@@ -90,100 +94,100 @@ type Team struct {
 	AccessedAt       *time.Time        `yaml:"accessed-at,omitempty"`
 }
 
-func NewTeam(email, name, password string, chals ...Challenge) Team {
-	now := time.Now()
-
-	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
-	email = strings.ToLower(email)
-
-	t := Team{
-		Id:             uuid.New().String()[0:8],
-		Email:          email,
-		Name:           name,
-		HashedPassword: hashedPassword,
-		CreatedAt:      &now,
-		AccessedAt:     nil,
-	}
-	for _, chal := range chals {
-		t.AddChallenge(chal)
-		log.Info().Str("chal-tag", string(chal.FlagTag)).
-			Str("chal-val", chal.FlagValue).
-			Msgf("Flag is created for team %s ", t.Name)
-	}
-	return t
-}
-
-func (t *Team) IsCorrectFlag(tag Tag, v string) error {
-	c, ok := t.ChalMap[tag]
-	if !ok {
-		return UnknownChallengeErr
-	}
-
-	if c.FlagValue != v {
-		return InvalidFlagValueErr
-	}
-
-	return nil
-}
-
-func (t *Team) SolveChallenge(tag Tag, v string) error {
-	now := time.Now()
-
-	if err := t.IsCorrectFlag(tag, v); err != nil {
-		return err
-	}
-
-	c := t.ChalMap[tag]
-	c.CompletedAt = &now
-
-	t.SolvedChallenges = append(t.SolvedChallenges, c)
-	t.AddChallenge(c)
-
-	return nil
-}
-
-func (t *Team) AddMetadata(key, value string) {
-	if t.Metadata == nil {
-		t.Metadata = map[string]string{}
-	}
-	t.Metadata[key] = value
-}
-
-func (t *Team) DataCollection() bool {
-	if t.Metadata == nil {
-		return false
-	}
-
-	v, ok := t.Metadata["consent"]
-	if !ok {
-		return false
-	}
-
-	return v == "ok"
-}
-
-func (t *Team) AddChallenge(c Challenge) {
-	if t.ChalMap == nil {
-		t.ChalMap = map[Tag]Challenge{}
-	}
-	t.ChalMap[c.FlagTag] = c
-}
-
-func (t *Team) DataConsent() bool {
-	if t.Metadata == nil {
-		return false
-	}
-	v, ok := t.Metadata["consent"]
-	if !ok {
-		return false
-	}
-	return v == "ok"
-}
-
-func (t *Team) SetAccessed(ti time.Time) {
-	t.AccessedAt = &ti
-}
-
+//func NewTeam(email, name, password string, chals ...Challenge) Team {
+//	now := time.Now()
+//
+//	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
+//	email = strings.ToLower(email)
+//
+//	t := Team{
+//		Id:             uuid.New().String()[0:8],
+//		Email:          email,
+//		Name:           name,
+//		HashedPassword: hashedPassword,
+//		CreatedAt:      &now,
+//		AccessedAt:     nil,
+//	}
+//	for _, chal := range chals {
+//		t.AddChallenge(chal)
+//		log.Info().Str("chal-tag", string(chal.FlagTag)).
+//			Str("chal-val", chal.FlagValue).
+//			Msgf("Flag is created for team %s ", t.Name)
+//	}
+//	return t
+//}
+//
+//func (t *Team) IsCorrectFlag(tag Tag, v string) error {
+//	c, ok := t.ChalMap[tag]
+//	if !ok {
+//		return UnknownChallengeErr
+//	}
+//
+//	if c.FlagValue != v {
+//		return InvalidFlagValueErr
+//	}
+//
+//	return nil
+//}
+//
+//func (t *Team) SolveChallenge(tag Tag, v string) error {
+//	now := time.Now()
+//
+//	if err := t.IsCorrectFlag(tag, v); err != nil {
+//		return err
+//	}
+//
+//	c := t.ChalMap[tag]
+//	c.CompletedAt = &now
+//
+//	t.SolvedChallenges = append(t.SolvedChallenges, c)
+//	t.AddChallenge(c)
+//
+//	return nil
+//}
+//
+//func (t *Team) AddMetadata(key, value string) {
+//	if t.Metadata == nil {
+//		t.Metadata = map[string]string{}
+//	}
+//	t.Metadata[key] = value
+//}
+//
+//func (t *Team) DataCollection() bool {
+//	if t.Metadata == nil {
+//		return false
+//	}
+//
+//	v, ok := t.Metadata["consent"]
+//	if !ok {
+//		return false
+//	}
+//
+//	return v == "ok"
+//}
+//
+//func (t *Team) AddChallenge(c Challenge) {
+//	if t.ChalMap == nil {
+//		t.ChalMap = map[Tag]Challenge{}
+//	}
+//	t.ChalMap[c.FlagTag] = c
+//}
+//
+//func (t *Team) DataConsent() bool {
+//	if t.Metadata == nil {
+//		return false
+//	}
+//	v, ok := t.Metadata["consent"]
+//	if !ok {
+//		return false
+//	}
+//	return v == "ok"
+//}
+//
+//func (t *Team) SetAccessed(ti time.Time) {
+//	t.AccessedAt = &ti
+//}
+//
 func WithTeams(teams []*haaukins.Team) func (ts *teamstore){
 	return func(ts *teamstore) {
 		for _, t := range teams {
@@ -296,14 +300,35 @@ func NewEventFile(dir string, filename string, file RawEventFile) *eventfile {
 		file:     file,
 	}
 
-	teams := []*haaukins.Team{}
+	var teams []*haaukins.Team
+	ts := NewTeamStore(WithTeams(teams), WithPostTeamHook(ef.saveTeams))
 	for _, team  := range file.Teams {
-		teams= append(teams, team)
+		tn:= haaukins.NewTeam(team.Email, team.Name,"",team.Id,team.HashedPassword)
+		teamtoken, err := GetTokenForTeam([]byte("testing purposes"), tn )
+		if err != nil {
+			log.Debug().Msgf("Error in getting token for team %s", tn.Name())
+		}
+		ts.tokens[teamtoken]=tn.ID()
+		ts.emails[tn.Email()]=tn.ID()
+		ts.teams[tn.ID()]=tn
+		teams= append(teams, tn)
 	}
-	ef.TeamStore = NewTeamStore(WithTeams(file.Teams), WithPostTeamHook(ef.saveTeams))
+	ef.TeamStore = ts
 	ef.EventConfigStore = NewEventConfigStore(file.EventConfig, ef.saveEventConfig)
 
 	return ef
+}
+
+func GetTokenForTeam(key []byte, t *haaukins.Team) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		ID_KEY:       t.ID(),
+		TEAMNAME_KEY: t.Name(),
+	})
+	tokenStr, err := token.SignedString(key)
+	if err != nil {
+		return "", err
+	}
+	return tokenStr, nil
 }
 
 func (ef *eventfile) save() error {
@@ -322,9 +347,24 @@ func (ef *eventfile) delete() error {
 func (ef *eventfile) saveTeams(teams []*haaukins.Team) error {
 	ef.m.Lock()
 	defer ef.m.Unlock()
-
-	ef.file.Teams = teams
-
+	var storeTeam []Team
+	for _, t := range teams {
+		// solved challenges will be revisited it is NOT done !
+		//for _, ch := range t.SolvedChallenges() {
+		//	solvedChallenges=append(solvedChallenges, Challenge{FlagTag:Tag(ch.Tag)})
+		//}
+		now := time.Now()
+		team := Team{
+			Id:             t.ID(),
+			Email:          t.Email(),
+			Name:           t.Name(),
+			HashedPassword: t.GetHashedPassword(),
+			//SolvedChallenges: solvedChallenges,
+			AccessedAt: &now,
+		}
+		storeTeam = append(storeTeam, team)
+	}
+	ef.file.Teams = storeTeam
 	return ef.save()
 }
 
@@ -357,18 +397,18 @@ func (ef *eventfile) Archive() error {
 		}
 	}
 
-	cpy := eventfile{
-		file:     ef.file,
-		dir:      ef.ArchiveDir(),
-		filename: "config.yml",
-	}
-
-	cpy.file.Teams = []*haaukins.Team{}
-	for _, t := range ef.GetTeams() {
-
-		cpy.file.Teams = append(cpy.file.Teams, t)
-	}
-	cpy.save()
+	//cpy := eventfile{
+	//	file:     ef.file,
+	//	dir:      ef.ArchiveDir(),
+	//	filename: "config.yml",
+	//}
+	//
+	//cpy.file.Teams = []*haaukins.Team{}
+	//for _, t := range ef.GetTeams() {
+	//
+	//	cpy.file.Teams = append(cpy.file.Teams, t)
+	//}
+	//cpy.save()
 
 	if err := ef.delete(); err != nil {
 		log.Warn().Msgf("Failed to delete old event file: %s", err)

@@ -110,9 +110,12 @@ func (es *teamstore) SaveTeam(t *haaukins.Team) error {
 	es.m.Lock()
 
 	email := t.Email()
-	if _, ok := es.emails[email]; ok {
+	_, ok := es.emails[email]
+	if ok {
 		es.m.Unlock()
 		return ErrEmailAlreadyExists
+	}else{
+		es.emails[t.Email()] = t.ID()
 	}
 	es.emails[email] = t.ID()
 	es.teams[t.ID()] = t
