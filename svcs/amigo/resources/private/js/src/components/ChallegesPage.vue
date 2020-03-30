@@ -26,17 +26,6 @@
                 chalInfo: {}, //passed to the modal
                 teamsCompleted: [], //passed to the modal
                 challengesFromAmigo: [], //they keys are the categories, each category has a list of challenges
-                dummyChallenges: {
-                    "challenges": [
-                        { "challenge": { "Tag": "aaa", "Name": "FTP dwa Login", "EnvVar": "APP_FLAG", "Static": "", "Points": 17, "Description": "Find a way to get flag from FTP server. (Go john!)", "Category": "Forensics" }, "isUserCompleted": false, "teamsCompleted": [ { "teamName": "menne", "completedAt": "2020-03-13T15:20:14.198192946+01:00" } ] },
-                        { "challenge": { "Tag": "aaawww", "Name": "FTP dwa Login", "EnvVar": "APP_FLAG", "Static": "", "Points": 1, "Description": "Find a way to get flag from FTP server. (Go john!)", "Category": "Forensics" }, "isUserCompleted": false, "teamsCompleted": [ { "teamName": "menne", "completedAt": "2020-03-13T15:20:14.198192946+01:00" } ] },
-                        { "challenge": { "Tag": "ww", "Name": "FTP dwa Login", "EnvVar": "APP_FLAG", "Static": "", "Points": 1, "Description": "Find a way to get flag from FTP server. (Go john!)", "Category": "Forensics" }, "isUserCompleted": false, "teamsCompleted": [ { "teamName": "menne", "completedAt": "2020-03-13T15:20:14.198192946+01:00" } ] },
-                        { "challenge": { "Tag": "aa", "Name": "FTP dwa Login", "EnvVar": "APP_FLAG", "Static": "", "Points": 1, "Description": "Find a way to get flag from FTP server. (Go john!)", "Category": "Forensics" }, "isUserCompleted": false, "teamsCompleted": [ { "teamName": "menne", "completedAt": "2020-03-13T15:20:14.198192946+01:00" } ] },
-                        { "challenge": { "Tag": "xssww-1", "Name": "Cross-site dwaww", "EnvVar": "APP_FLAG", "Static": "", "Points": 5, "Description": "This exercise consists of two mahines; a webserver and a client. The names says the rest.", "Category": "Web exploitation" }, "isUserCompleted": false, "teamsCompleted": [ { "teamName": "teset", "completedAt": "2020-03-13T15:28:33.61593751+01:00" } ] },
-                        { "challenge": { "Tag": "ww-1", "Name": "Cross-site dwaww", "EnvVar": "APP_FLAG", "Static": "", "Points": 5, "Description": "This exercise consists of two mahines; a webserver and a client. The names says the rest.", "Category": "Web exploitation" }, "isUserCompleted": false, "teamsCompleted": [ { "teamName": "teset", "completedAt": "2020-03-13T15:28:33.61593751+01:00" } ] },
-                        { "challenge": { "Tag": "aa-1", "Name": "Cross-site dwaww", "EnvVar": "APP_FLAG", "Static": "", "Points": 5, "Description": "This exercise consists of two mahines; a webserver and a client. The names says the rest.", "Category": "Web exploitation" }, "isUserCompleted": false, "teamsCompleted": [ { "teamName": "teset", "completedAt": "2020-03-13T15:28:33.61593751+01:00" } ] },
-                    ]
-                }
             }
         },
         created: function() {
@@ -57,13 +46,6 @@
                     challenges[el.challenge.Category].push(el)
                 }, this);
 
-                //todo delete this
-                this.dummyChallenges.challenges.forEach(function (el) {
-                    if (!(el.challenge.Category in challenges)){
-                        challenges[el.challenge.Category] = []
-                    }
-                    challenges[el.challenge.Category].push(el)
-                }, this);
 
                 //Sort the challenges for points
                 for (let cat in challenges){
@@ -81,7 +63,7 @@
             connectToWS: function(url) {
                 let self = this;
                 let ws = new WebSocket(url);
-                ws.onmessage = self.receiveMsg
+                ws.onmessage = self.receiveMsg;
                 ws.onclose = function(){
                     ws = null;
                     setTimeout(function(){self.connectToWS(url)}, 3000);
@@ -92,7 +74,7 @@
                 for (let i = 0; i < messages.length; i++) {
                     let msg = messages[i];
                     let json = JSON.parse(msg);
-                    if (json.msg == "challenges"){
+                    if (json.msg === "challenges"){
                         this.challengesFromAmigo = json.values;
                     }
                 }
