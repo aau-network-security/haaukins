@@ -18,8 +18,9 @@ var (
 	UnauthorizedErr     = errors.New("You seem to not be logged in")
 )
 
-func NewDBConnection(server string) (pbc.StoreClient, error) {
+func NewGRPClientDBConnection(server string) (pbc.StoreClient, error) {
 
+	//todo make the connection secure
 	conn, err := grpc.Dial(server, grpc.WithInsecure())
 	if err != nil{
 		return nil, TranslateRPCErr(err)

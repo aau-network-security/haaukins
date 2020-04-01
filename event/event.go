@@ -11,7 +11,6 @@ import (
 	"github.com/aau-network-security/haaukins"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
-	"time"
 
 	"io"
 	"sync"
@@ -39,7 +38,6 @@ var (
 )
 
 type Host interface {
-	CreateEventFromEventFile(context.Context, store.EventFile) (Event, error)
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
 
 	//new
@@ -82,12 +80,16 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
-	_, err = lab.NewHub(ctx, &lh, conf.Available, conf.Capacity)
+	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
-	//return NewEvent(eh.ctx, ef, hub, labConf.Flags())
+
+	es, err := store.NewEventStore(conf, eh.dbc)
+	if err != nil {
+		return nil, err
+	}
+	return NewEvent(eh.ctx, es, hub, labConf.Flags())
 }
 
 //Save the event in the DB and create the event configuration
@@ -99,6 +101,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		Exercises:            raw.Exercises,
 		Available:            raw.Available,
 		Capacity:             raw.Capacity,
+		StartTime:			  raw.StartedAt,
 		ExpectedFinishTime:   raw.FinishExpected,
 	})
 
@@ -117,33 +120,7 @@ func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error 
 	return nil
 }
 
-func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.EventFile) (Event, error) {
-	conf := ef.Read()
-	if err := conf.Validate(); err != nil {
-		return nil, err
-	}
 
-	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
-	if err != nil {
-		return nil, err
-	}
-
-	labConf := lab.Config{
-		Exercises: exer,
-		Frontends: conf.Lab.Frontends,
-	}
-
-	lh := lab.LabHost{
-		Vlib: eh.vlib,
-		Conf: labConf,
-	}
-	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewEvent(eh.ctx, ef, hub, labConf.Flags())
-}
 
 //func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
 //	ef, err := eh.efh.CreateEventFile(conf)
@@ -178,7 +155,7 @@ type event struct {
 	labhub lab.Hub
 
 	labs          map[string]lab.Lab
-	store         store.EventFile
+	store         store.Event
 	keyLoggerPool guacamole.KeyLoggerPool
 
 	guacUserStore *guacamole.GuacUserStore
@@ -188,50 +165,7 @@ type event struct {
 }
 
 
-func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []store.FlagConfig) (Event, error) {
-	//conf := ef.Read()
-	//ctfdConf := ctfd.Config{
-	//	Name:  conf.Name,
-	//	Flags: flags,
-	//	Teams: ef.GetTeams(),
-	//}
-	//teams :=ef.GetTeams()
-
-	//teams := ef.GetTeams()
-	//team := haaukins.NewTeam("test1@test.dk", "TestingTeamOne", "123456")
-	//team2 := haaukins.NewTeam("test@test.dk", "TestingTeam2", "123456")
-
-
-
-
-	//chals := []haaukins.Challenge{}
-	//for _, f := range flags {
-	//	//chalTag := string(f.Tag)
-	//	t, _ := haaukins.NewTag(string(f.Tag))
-	//	chals = append(chals, haaukins.Challenge{Tag:t,Name:f.Name})
-	//}
-
-
-
-	//if teams !=nil {
-	//	for _, t := range teams {
-	//		//hTeam :=haaukins.NewTeam(t.Name(),t.Email(),"123")
-	//		for _, ch := range chals {
-	//			 t.AddChallenge(ch)
-	//		}
-	//	}
-	//}
-
-	//ts := store.NewTeamStore(store.WithTeams(ef.GetTeams()),store.WithPostTeamHook)
-
-	//chals := []haaukins.Challenge{{, "Heartbleed"},{"AAA", "Test"}}
-	//chals = chals,append(chals,amigo.)
-	//amigoConf := amigo.NewAmigo()
-	//
-	//ctf, err := ctfd.New(ctx, ctfdConf)
-	//if err != nil {
-	//	return nil, err
-	//}
+func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig) (Event, error) {
 
 
 	guac, err := guacamole.New(ctx, guacamole.Config{})
@@ -240,22 +174,23 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 	}
 
 	dockerHost := docker.NewHost()
-	amigoOpt := amigo.WithEventName(ef.Read().Name)
-	keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.ArchiveDir())
+	amigoOpt := amigo.WithEventName(e.Name)
+	//keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.ArchiveDir())
 	if err != nil {
 		return nil, err
 	}
 
 	ev := &event{
-		store:         ef,
+		store:         e,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(ef,flags,amigoOpt),
+		amigo:         amigo.NewAmigo(e,flags,amigoOpt),
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
-		closers:       []io.Closer{ guac, hub, keyLoggerPool},
+		//closers:       []io.Closer{ guac, hub, keyLoggerPool},
+		closers:       []io.Closer{ guac, hub},
 		dockerHost:    dockerHost,
-		keyLoggerPool: keyLoggerPool,
+		//keyLoggerPool: keyLoggerPool,
 	}
 
 	return ev, nil
@@ -320,12 +255,12 @@ func (ev *event) Close() error {
 }
 
 func (ev *event) Finish() {
-	now := time.Now()
-	ev.store.Finish(now)
-
-	if err := ev.store.Archive(); err != nil {
-		log.Warn().Msgf("error while archiving event: %s", err)
-	}
+	//now := time.Now()
+	//ev.store.Finish(now)
+	//
+	//if err := ev.store.Archive(); err != nil {
+	//	log.Warn().Msgf("error while archiving event: %s", err)
+	//}
 }
 
 func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
@@ -424,7 +359,7 @@ func (ev *event) GetHub() lab.Hub {
 }
 
 func (ev *event) GetConfig() store.EventConfig {
-	return ev.store.Read()
+	return ev.store.EventConfig
 }
 
 //func (ev *event) GetTeams() []haaukins.Team {

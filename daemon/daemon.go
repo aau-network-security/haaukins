@@ -221,7 +221,7 @@ func New(conf *Config) (*daemon, error) {
 		}
 	}
 
-	dbc, err := store.NewDBConnection(conf.DBServer)
+	dbc, err := store.NewGRPClientDBConnection(conf.DBServer)
 	if err != nil {
 		return nil, err
 	}
@@ -468,13 +468,13 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, ef store.RawEvent) 
 		return err
 	}
 
-	_, err := d.ehost.CreateEventFromEventDB(ctx, conf)
+	ev, err := d.ehost.CreateEventFromEventDB(ctx, conf)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from database event")
 		return err
 	}
 
-	//d.startEvent(ev)
+	d.startEvent(ev)
 	return nil
 }
 
@@ -594,15 +594,16 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	loggerInstance := &GrpcLogger{resp: resp}
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 
-	_, err = d.ehost.CreateEventFromConfig(ctx, conf, raw)
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf, raw)
 	if err != nil {
 		return err
 	}
-	//d.startEvent(ev)
+	d.startEvent(ev)
 	return nil
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
+	//todo refactor this as well
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).

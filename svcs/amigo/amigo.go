@@ -48,7 +48,7 @@ type Amigo struct {
 	cookieTTL    int
 	globalInfo   siteInfo
 	challenges   []store.FlagConfig
-	TeamStore    store.EventFile
+	TeamStore    store.Event
 }
 
 type AmigoOpt func(*Amigo)
@@ -65,7 +65,7 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.EventFile, chals []store.FlagConfig, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.Event, chals []store.FlagConfig, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
@@ -366,7 +366,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *haaukins.Team) error) http.Handle
 			return
 		}
 
-		if len(am.TeamStore.GetTeams())==am.TeamStore.Read().Capacity {
+		if len(am.TeamStore.GetTeams())==am.TeamStore.Capacity {
 			displayErr(w, params, errors.New("capacity reached for this event"))
 			return
 		}

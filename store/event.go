@@ -23,6 +23,7 @@ import (
 const (
 	ID_KEY       = "I"
 	TEAMNAME_KEY = "TN"
+	token_key	 = "testing"
 )
 
 var (
@@ -167,14 +168,6 @@ func (es *eventconfigstore) runHooks() error {
 	return nil
 }
 
-type EventFileHub interface {
-	CreateEventFile(EventConfig) (EventFile, error)
-}
-
-type eventfilehub struct {
-	m    sync.Mutex
-	path string
-}
 
 type Archiver interface {
 	ArchiveDir() string
@@ -197,31 +190,31 @@ type eventfile struct {
 	EventConfigStore
 }
 
-func NewEventFile(dir string, filename string, file RawEventFile) *eventfile {
-	ef := &eventfile{
-		dir:      dir,
-		filename: filename,
-		file:     file,
-	}
-
-	var teams []*haaukins.Team
-	ts := NewTeamStore(WithTeams(teams), WithPostTeamHook(ef.saveTeams))
-	for _, team  := range file.Teams {
-		tn:= haaukins.NewTeam(team.Email, team.Name,"",team.Id,team.HashedPassword)
-		teamtoken, err := GetTokenForTeam([]byte("testing purposes"), tn )
-		if err != nil {
-			log.Debug().Msgf("Error in getting token for team %s", tn.Name())
-		}
-		ts.tokens[teamtoken]=tn.ID()
-		ts.emails[tn.Email()]=tn.ID()
-		ts.teams[tn.ID()]=tn
-		teams= append(teams, tn)
-	}
-	ef.TeamStore = ts
-	ef.EventConfigStore = NewEventConfigStore(file.EventConfig, ef.saveEventConfig)
-
-	return ef
-}
+//func NewEventFile(dir string, filename string, file RawEventFile) *eventfile {
+//	ef := &eventfile{
+//		dir:      dir,
+//		filename: filename,
+//		file:     file,
+//	}
+//
+//	var teams []*haaukins.Team
+//	ts := NewTeamStore(WithTeams(teams), WithPostTeamHook(ef.saveTeams))
+//	for _, team  := range file.Teams {
+//		tn:= haaukins.NewTeam(team.Email, team.Name,"",team.Id,team.HashedPassword)
+//		teamtoken, err := GetTokenForTeam([]byte("testing purposes"), tn )
+//		if err != nil {
+//			log.Debug().Msgf("Error in getting token for team %s", tn.Name())
+//		}
+//		ts.tokens[teamtoken]=tn.ID()
+//		ts.emails[tn.Email()]=tn.ID()
+//		ts.teams[tn.ID()]=tn
+//		teams= append(teams, tn)
+//	}
+//	ef.TeamStore = ts
+//	ef.EventConfigStore = NewEventConfigStore(file.EventConfig, ef.saveEventConfig)
+//
+//	return ef
+//}
 
 func GetTokenForTeam(key []byte, t *haaukins.Team) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

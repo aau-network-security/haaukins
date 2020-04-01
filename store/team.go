@@ -26,52 +26,47 @@ type TeamStore interface {
 
 type teamstore struct {
 	m sync.RWMutex
-	hooks  []func([]*haaukins.Team) error
 	teams  map[string]*haaukins.Team
 	tokens map[string]string
 	emails map[string]string
 	names  map[string]string
 }
 
-func (es *teamstore) RunHooks() error {
-	teams := es.GetTeams()
-	for _, h := range es.hooks {
-		if err := h(teams); err != nil {
-			return err
-		}
-	}
+//func (es *teamstore) RunHooks() error {
+//	teams := es.GetTeams()
+//	for _, h := range es.hooks {
+//		if err := h(teams); err != nil {
+//			return err
+//		}
+//	}
+//
+//	return nil
+//}
+//
+//
+//type TeamStoreOpt func(ts *teamstore)
+//
+//
+//
+//func WithPostTeamHook(hook func(teams []*haaukins.Team) error) func(ts *teamstore) {
+//	return func(ts *teamstore) {
+//		ts.hooks = append(ts.hooks, hook)
+//	}
+//}
 
-	return nil
-}
-
-
-type TeamStoreOpt func(ts *teamstore)
-
-
-
-func WithPostTeamHook(hook func(teams []*haaukins.Team) error) func(ts *teamstore) {
-	return func(ts *teamstore) {
-		ts.hooks = append(ts.hooks, hook)
-	}
-}
-
-func NewTeamStore(opts ...TeamStoreOpt) *teamstore {
+func NewTeamStore() *teamstore {
 	ts := &teamstore{
-		hooks:  []func(teams []*haaukins.Team) error{},
 		teams:  map[string]*haaukins.Team{},
 		tokens: map[string]string{},
 		names:  map[string]string{},
 		emails: map[string]string{},
 	}
 
-	for _, opt := range opts {
-		opt(ts)
-	}
-
 	return ts
 }
 
 func (es *teamstore) CreateTeam(t *haaukins.Team) error {
+	//todo edit with db conection
 	es.m.Lock()
 	defer es.m.Unlock()
 
@@ -83,7 +78,7 @@ func (es *teamstore) CreateTeam(t *haaukins.Team) error {
 	es.emails[t.Email()] = t.ID()
 	es.names[t.Name()] = t.ID()
 
-	return es.RunHooks()
+	return nil
 }
 
 
@@ -121,7 +116,7 @@ func (es *teamstore) SaveTeam(t *haaukins.Team) error {
 	es.teams[t.ID()] = t
 	es.m.Unlock()
 
-	return es.RunHooks()
+	return nil
 }
 
 func(es *teamstore) CreateTokenForTeam (token string, in *haaukins.Team) error {
