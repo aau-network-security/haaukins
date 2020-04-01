@@ -11,6 +11,7 @@ import (
 	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/aau-network-security/haaukins/store"
+	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -78,6 +79,7 @@ type Config struct {
 		Secure   uint `yaml:"secure,omitempty"`
 		InSecure uint `yaml:"insecure,omitempty"`
 	}
+	DBServer 		   string 							`yaml:"db-server,omitempty"`
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
@@ -219,7 +221,7 @@ func New(conf *Config) (*daemon, error) {
 		}
 	}
 
-	efh, err := store.NewEventFileHub(conf.EventsDir)
+	dbc, err := store.NewDBConnection(conf.DBServer)
 	if err != nil {
 		return nil, err
 	}
@@ -236,19 +238,32 @@ func New(conf *Config) (*daemon, error) {
 		exercises: ef,
 		eventPool: eventPool,
 		frontends: ff,
-		ehost:     event.NewHost(vlib, ef, efh),
+		ehost:     event.NewHost(vlib, ef, dbc),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 	}
 
-	eventFiles, err := efh.GetUnfinishedEvents()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
 	if err != nil {
-		return nil, err
+		return nil, store.TranslateRPCErr(err)
 	}
-	for _, ef := range eventFiles {
-		err := d.createEventFromEventFile(context.Background(), ef)
-		if err != nil {
-			return nil, err
+	for _, ef := range eventsFromDB.Events {
+		if ef.FinishedAt == "" { //check if the event is finished or not
+			err := d.createEventFromEventDB(context.Background(), store.RawEvent{
+				Name:           ef.Name,
+				Tag:            ef.Tag,
+				Available:      ef.Available,
+				Capacity:       ef.Capacity,
+				Exercises:      ef.Exercises,
+				Frontends:      ef.Frontends,
+				StartedAt:      ef.StartedAt,
+				FinishExpected: ef.ExpectedFinishTime,
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -417,14 +432,49 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 }
 
 //READS CONFIG FILE PROPERLY AND CALLS THE FUNCTION WHICH IS RESPONSIBLE TO CREATE EVENT
-func (d *daemon) createEventFromEventFile(ctx context.Context, ef store.EventFile) error {
-	ev, err := d.ehost.CreateEventFromEventFile(ctx, ef)
-	if err != nil {
-		log.Error().Err(err).Msg("Error creating event from file")
+func (d *daemon) createEventFromEventDB(ctx context.Context, ef store.RawEvent) error {
+
+	tags := make([]store.Tag, len(strings.Split(ef.Exercises, ",")))
+	for i, s := range strings.Split(ef.Exercises, ",") {
+		t, err := store.NewTag(s)
+		if err != nil {
+			return err
+		}
+		// check exercise before creating event file
+		_, tagErr := d.exercises.GetExercisesByTags(t)
+		if tagErr != nil {
+			return tagErr
+		}
+		tags[i] = t
+	}
+	evtag, _ := store.NewTag(ef.Tag)
+	startTime, _ := time.Parse("2006-01-02", ef.StartedAt)
+	expectedFinishTime, _ := time.Parse("2006-01-02", ef.FinishExpected)
+
+	conf := store.EventConfig{
+		Name:      ef.Name,
+		Tag:       evtag,
+		Available: int(ef.Available),
+		Capacity:  int(ef.Capacity),
+		StartedAt: &startTime,
+		FinishExpected: &expectedFinishTime,
+		Lab: store.Lab{
+			Frontends: d.frontends.GetFrontends(strings.Split(ef.Frontends, ",")...),
+			Exercises: tags,
+		},
+	}
+
+	if err := conf.Validate(); err != nil {
 		return err
 	}
 
-	d.startEvent(ev)
+	_, err := d.ehost.CreateEventFromEventDB(ctx, conf)
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating event from database event")
+		return err
+	}
+
+	//d.startEvent(ev)
 	return nil
 }
 
@@ -493,8 +543,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
-	fmt.Println(req.FinishTime)
-	fmt.Println(finishTime)
 
 	conf := store.EventConfig{
 		Name:      req.Name,
@@ -532,13 +580,25 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.FinishExpected =&expectedFinishTime
 	}
 
+	raw := store.RawEvent{
+		Name:           req.Name,
+		Tag:            req.Tag,
+		Available:      req.Available,
+		Capacity:       req.Capacity,
+		Exercises:      strings.Join(req.Exercises, ","),
+		Frontends:      strings.Join(req.Frontends, ","),
+		StartedAt:      now.Format(displayTimeFormat),
+		FinishExpected: conf.FinishExpected.Format(displayTimeFormat),
+	}
+
 	loggerInstance := &GrpcLogger{resp: resp}
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
-	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
+
+	_, err = d.ehost.CreateEventFromConfig(ctx, conf, raw)
 	if err != nil {
 		return err
 	}
-	d.startEvent(ev)
+	//d.startEvent(ev)
 	return nil
 }
 

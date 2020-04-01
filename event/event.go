@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aau-network-security/haaukins"
+	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
 	"time"
 
@@ -38,15 +39,19 @@ var (
 )
 
 type Host interface {
-	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
 	CreateEventFromEventFile(context.Context, store.EventFile) (Event, error)
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
+
+	//new
+	CreateEventFromEventDB(context.Context, store.EventConfig) (Event, error)
+	CreateEventFromConfig(context.Context, store.EventConfig, store.RawEvent) (Event, error)
+
 }
 
-func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub) Host {
+func NewHost(vlib vbox.Library, elib store.ExerciseStore, dbc pbc.StoreClient) Host {
 	return &eventHost{
 		ctx:  context.Background(),
-		efh:  efh,
+		dbc:  dbc,
 		vlib: vlib,
 		elib: elib,
 	}
@@ -54,9 +59,54 @@ func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub
 
 type eventHost struct {
 	ctx  context.Context
-	efh  store.EventFileHub
+	dbc  pbc.StoreClient
 	vlib vbox.Library
 	elib store.ExerciseStore
+}
+
+//Create the event configuration for the event got from the DB
+func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error){
+
+
+	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
+	if err != nil {
+		return nil, err
+	}
+
+	labConf := lab.Config{
+		Exercises: exer,
+		Frontends: conf.Lab.Frontends,
+	}
+
+	lh := lab.LabHost{
+		Vlib: eh.vlib,
+		Conf: labConf,
+	}
+	_, err = lab.NewHub(ctx, &lh, conf.Available, conf.Capacity)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+	//return NewEvent(eh.ctx, ef, hub, labConf.Flags())
+}
+
+//Save the event in the DB and create the event configuration
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, raw store.RawEvent) (Event, error){
+	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
+		Name:                 raw.Name,
+		Tag:                  raw.Tag,
+		Frontends:            raw.Frontends,
+		Exercises:            raw.Exercises,
+		Available:            raw.Available,
+		Capacity:             raw.Capacity,
+		ExpectedFinishTime:   raw.FinishExpected,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return eh.CreateEventFromEventDB(ctx, conf)
 }
 
 func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error {
@@ -95,14 +145,14 @@ func (eh *eventHost) CreateEventFromEventFile(ctx context.Context, ef store.Even
 	return NewEvent(eh.ctx, ef, hub, labConf.Flags())
 }
 
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
-	ef, err := eh.efh.CreateEventFile(conf)
-	if err != nil {
-		return nil, err
-	}
-
-	return eh.CreateEventFromEventFile(ctx, ef)
-}
+//func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
+//	ef, err := eh.efh.CreateEventFile(conf)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return eh.CreateEventFromEventFile(ctx, ef)
+//}
 
 type Auth struct {
 	Username string `json:"username"`

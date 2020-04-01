@@ -34,6 +34,17 @@ var (
 	UnknownChallengeErr = errors.New("Unknown challenge")
 )
 
+type RawEvent struct {
+	Name			string
+	Tag				string
+	Available		int32
+	Capacity		int32
+	Exercises  		string
+	Frontends 		string
+	StartedAt		string
+	FinishExpected 	string
+}
+
 type EventConfig struct {
 	Name       string     `yaml:"name"`
 	Tag        Tag        `yaml:"tag"`
@@ -94,100 +105,6 @@ type Team struct {
 	AccessedAt       *time.Time        `yaml:"accessed-at,omitempty"`
 }
 
-//func NewTeam(email, name, password string, chals ...Challenge) Team {
-//	now := time.Now()
-//
-//	hashedPassword := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
-//	email = strings.ToLower(email)
-//
-//	t := Team{
-//		Id:             uuid.New().String()[0:8],
-//		Email:          email,
-//		Name:           name,
-//		HashedPassword: hashedPassword,
-//		CreatedAt:      &now,
-//		AccessedAt:     nil,
-//	}
-//	for _, chal := range chals {
-//		t.AddChallenge(chal)
-//		log.Info().Str("chal-tag", string(chal.FlagTag)).
-//			Str("chal-val", chal.FlagValue).
-//			Msgf("Flag is created for team %s ", t.Name)
-//	}
-//	return t
-//}
-//
-//func (t *Team) IsCorrectFlag(tag Tag, v string) error {
-//	c, ok := t.ChalMap[tag]
-//	if !ok {
-//		return UnknownChallengeErr
-//	}
-//
-//	if c.FlagValue != v {
-//		return InvalidFlagValueErr
-//	}
-//
-//	return nil
-//}
-//
-//func (t *Team) SolveChallenge(tag Tag, v string) error {
-//	now := time.Now()
-//
-//	if err := t.IsCorrectFlag(tag, v); err != nil {
-//		return err
-//	}
-//
-//	c := t.ChalMap[tag]
-//	c.CompletedAt = &now
-//
-//	t.SolvedChallenges = append(t.SolvedChallenges, c)
-//	t.AddChallenge(c)
-//
-//	return nil
-//}
-//
-//func (t *Team) AddMetadata(key, value string) {
-//	if t.Metadata == nil {
-//		t.Metadata = map[string]string{}
-//	}
-//	t.Metadata[key] = value
-//}
-//
-//func (t *Team) DataCollection() bool {
-//	if t.Metadata == nil {
-//		return false
-//	}
-//
-//	v, ok := t.Metadata["consent"]
-//	if !ok {
-//		return false
-//	}
-//
-//	return v == "ok"
-//}
-//
-//func (t *Team) AddChallenge(c Challenge) {
-//	if t.ChalMap == nil {
-//		t.ChalMap = map[Tag]Challenge{}
-//	}
-//	t.ChalMap[c.FlagTag] = c
-//}
-//
-//func (t *Team) DataConsent() bool {
-//	if t.Metadata == nil {
-//		return false
-//	}
-//	v, ok := t.Metadata["consent"]
-//	if !ok {
-//		return false
-//	}
-//	return v == "ok"
-//}
-//
-//func (t *Team) SetAccessed(ti time.Time) {
-//	t.AccessedAt = &ti
-//}
-//
 func WithTeams(teams []*haaukins.Team) func (ts *teamstore){
 	return func(ts *teamstore) {
 		for _, t := range teams {
@@ -252,24 +169,11 @@ func (es *eventconfigstore) runHooks() error {
 
 type EventFileHub interface {
 	CreateEventFile(EventConfig) (EventFile, error)
-	GetUnfinishedEvents() ([]EventFile, error)
 }
 
 type eventfilehub struct {
 	m    sync.Mutex
 	path string
-}
-
-func NewEventFileHub(path string) (EventFileHub, error) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.MkdirAll(path, os.ModePerm); err != nil {
-			return nil, err
-		}
-	}
-
-	return &eventfilehub{
-		path: path,
-	}, nil
 }
 
 type Archiver interface {
@@ -442,50 +346,4 @@ func getFileNameForEvent(path string, tag Tag) (string, error) {
 	}
 
 	return "", fmt.Errorf("unable to get filename for event")
-}
-
-func (esh *eventfilehub) CreateEventFile(conf EventConfig) (EventFile, error) {
-	filename, err := getFileNameForEvent(esh.path, conf.Tag)
-	if err != nil {
-		return nil, err
-	}
-
-	ef := NewEventFile(esh.path, filename, RawEventFile{EventConfig: conf})
-	if err := ef.save(); err != nil {
-		return nil, err
-	}
-
-	return ef, nil
-}
-
-func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
-	var events []EventFile
-	err := filepath.Walk(esh.path, func(path string, info os.FileInfo, err error) error {
-		if filepath.Ext(path) == ".yml" {
-			f, err := ioutil.ReadFile(path)
-			if err != nil {
-				return err
-			}
-
-			var ef RawEventFile
-			err = yaml.Unmarshal(f, &ef)
-			if err != nil {
-				return err
-			}
-
-			if ef.FinishedAt == nil {
-				dir, filename := filepath.Split(path)
-
-				log.Debug().Str("name", ef.Name).Msg("Found unfinished event")
-				events = append(events, NewEventFile(dir, filename, ef))
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return events, nil
 }
