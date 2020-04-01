@@ -823,6 +823,32 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 	return nil
 }
 
+func (d *daemon) SetTeamSuspend(ctx context.Context, in *pb.SetTeamSuspendRequest)  (*pb.Empty, error) {
+	log.Ctx(ctx).Info().Str("team", in.TeamId).Msg("suspending team")
+
+	// Extract lab for team
+	t, err := store.NewTag(in.EventTag)
+	if err != nil {
+		return nil, err
+	}
+	ev, err := d.eventPool.GetEvent(t)
+	if err != nil {
+		return nil, err
+	}
+	lab, ok := ev.GetLabByTeam(in.TeamId)
+	if !ok {
+		return nil, UnknownTeamErr
+	}
+
+	// Suspend or wake the lab
+	if in.Suspend {
+		err = lab.Suspend(ctx)
+	} else {
+		err = lab.Resume(ctx)
+	}
+	return &pb.Empty{}, err
+}
+
 func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemoryRequest) (*pb.Empty, error) {
 	err := d.frontends.SetMemoryMB(in.Image, uint(in.MemoryMB))
 	return &pb.Empty{}, err

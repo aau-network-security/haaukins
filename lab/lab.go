@@ -77,6 +77,8 @@ type Lab interface {
 	Start(context.Context) error
 	Stop() error
 	Restart(context.Context) error
+	Suspend(context.Context) error
+	Resume(context.Context) error
 	Environment() exercise.Environment
 	ResetFrontends(ctx context.Context) error
 	RdpConnPorts() []uint
@@ -198,6 +200,34 @@ func (l *lab) Restart(ctx context.Context) error {
 			return err
 		}
 
+		if err := fconf.vm.Start(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (l *lab) Suspend(ctx context.Context) error {
+	if err := l.environment.Suspend(ctx); err != nil {
+		return err
+	}
+
+	for _, fconf := range l.frontends {
+		if err := fconf.vm.Suspend(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (l *lab) Resume(ctx context.Context) error {
+	if err := l.environment.Resume(ctx); err != nil {
+		return err
+	}
+
+	for _, fconf := range l.frontends {
 		if err := fconf.vm.Start(ctx); err != nil {
 			return err
 		}

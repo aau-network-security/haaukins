@@ -170,6 +170,16 @@ func (e *exercise) Stop() error {
 	return nil
 }
 
+func (e *exercise) Suspend(ctx context.Context) error {
+	for _, m := range e.machines {
+		if err := m.Suspend(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (e *exercise) Close() error {
 	var wg sync.WaitGroup
 

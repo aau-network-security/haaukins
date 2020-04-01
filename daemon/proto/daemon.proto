@@ -22,6 +22,7 @@ service Daemon {
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
+  rpc SetTeamSuspend (SetTeamSuspendRequest) returns (Empty) {}
 }
 
 
@@ -186,4 +187,10 @@ message GetTeamInfoResponse {
     int32 state = 4;
   }
   repeated Instance instances = 1;
+}
+
+message SetTeamSuspendRequest {
+	string teamId = 1;
+	string eventTag = 2;
+	bool   suspend = 3;
 }
