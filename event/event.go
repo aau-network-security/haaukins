@@ -197,14 +197,6 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	//if err := ev.ctfd.Start(ctx); err != nil {
-	//	log.
-	//		Error().
-	//		Err(err).
-	//		Msg("error starting ctfd")
-	//
-	//	return StartingCtfdErr
-	//}
 
 	if err := ev.guac.Start(ctx); err != nil {
 		log.
@@ -226,12 +218,8 @@ func (ev *event) Start(ctx context.Context) error {
 			return err
 		}
 
-		//ev.amigo.teamStore.SaveTeam(team)
-		ev.store.SaveTeam(team)
-		//ev.store.CreateTeam(team)
-
-
-
+		//todo is this important? Ahmet I think its wrong
+		//ev.store.SaveTeam(team)
 	}
 
 	return nil
@@ -344,12 +332,6 @@ func (ev *event) Handler() http.Handler {
 	}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool,ev.amigo)(ev.store)
-
-	//m := http.NewServeMux()
-	//m.Handle("/guaclogin", guacHandler)
-	//m.Handle("/guacamole", guacHandler)
-	//m.Handle("/guacamole/", guacHandler)
-	//m.Handle("/", )
 
 	return  ev.amigo.Handler(reghook,guacHandler)
 }

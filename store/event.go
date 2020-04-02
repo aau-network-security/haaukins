@@ -106,13 +106,13 @@ type Team struct {
 	AccessedAt       *time.Time        `yaml:"accessed-at,omitempty"`
 }
 
-func WithTeams(teams []*haaukins.Team) func (ts *teamstore){
-	return func(ts *teamstore) {
-		for _, t := range teams {
-			ts.SaveTeam(t)
-		}
-	}
-}
+//func WithTeams(teams []*haaukins.Team) func (ts *teamstore){
+//	return func(ts *teamstore) {
+//		for _, t := range teams {
+//			ts.SaveTeam(t)
+//		}
+//	}
+//}
 
 type EventConfigStore interface {
 	Read() EventConfig

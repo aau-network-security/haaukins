@@ -40,7 +40,7 @@ func (e Event) Archive() error {
 
 func NewEventStore (conf EventConfig, dbc pbc.StoreClient) (Event, error){
 	ctx := context.Background()
-	ts := NewTeamStore()
+	ts := NewTeamStore(conf, dbc)
 
 	teamsDB, err := dbc.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: string(conf.Tag)})
 	if err != nil{
