@@ -11,13 +11,13 @@ import (
 	"github.com/aau-network-security/haaukins"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
+	"time"
 
 	"io"
 	"sync"
 
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
-	//"github.com/aau-network-security/haaukins/svcs/ctfd"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/aau-network-security/haaukins/virtual/docker"
@@ -39,8 +39,6 @@ var (
 
 type Host interface {
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
-
-	//new
 	CreateEventFromEventDB(context.Context, store.EventConfig) (Event, error)
 	CreateEventFromConfig(context.Context, store.EventConfig, store.RawEvent) (Event, error)
 
@@ -119,17 +117,6 @@ func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error 
 	eh.elib = es
 	return nil
 }
-
-
-
-//func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
-//	ef, err := eh.efh.CreateEventFile(conf)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return eh.CreateEventFromEventFile(ctx, ef)
-//}
 
 type Auth struct {
 	Username string `json:"username"`
@@ -243,12 +230,11 @@ func (ev *event) Close() error {
 }
 
 func (ev *event) Finish() {
-	//now := time.Now()
-	//ev.store.Finish(now)
-	//
-	//if err := ev.store.Archive(); err != nil {
-	//	log.Warn().Msgf("error while archiving event: %s", err)
-	//}
+	now := time.Now()
+	err := ev.store.Finish(now)
+	if err != nil {
+		log.Warn().Msgf("error while archiving event: %s", err)
+	}
 }
 
 func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
@@ -303,7 +289,11 @@ func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
 
 	for _, chal := range chals {
 		tag, _:= haaukins.NewTag(string(chal.FlagTag))
-		f, _ := t.AddChallenge(haaukins.Challenge{tag,chal.OwnerID,chal.FlagValue})
+		f, _ := t.AddChallenge(haaukins.Challenge{
+			Tag:   tag,
+			Name:  chal.OwnerID,
+			Value: chal.FlagValue,
+		})
 		fmt.Println("This is the flag: " + f.String())
 		log.Info().Str("chal-tag", string(tag)).
 			Str("chal-val", f.String()).

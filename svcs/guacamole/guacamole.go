@@ -251,11 +251,11 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *am
 		return url.QueryEscape(string(content)), nil
 	}
 
-	return func(ef store.EventFile) http.Handler {
+	return func(ef store.Event) http.Handler {
 		origin, _ := url.Parse(guac.baseUrl() + "/guacamole")
 		host := fmt.Sprintf("127.0.0.1:%d", guac.webPort)
 		interceptors := svcs.Interceptors{
-			NewGuacTokenLoginEndpoint(us, ef,am, loginFunc),
+			NewGuacTokenLoginEndpoint(us, ef, am, loginFunc),
 		}
 
 		proxy := &httputil.ReverseProxy{
@@ -267,7 +267,6 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *am
 
 		return interceptors.Intercept(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
-				log.Debug().Msgf("iswebproxy ", isWebSocket(r))
 				if isWebSocket(r) {
 					websocketProxy(host, ef, klp,am).ServeHTTP(w, r)
 					return
@@ -702,7 +701,7 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func websocketProxy(target string, ef store.EventFile, keyLoggerPool KeyLoggerPool,am  *amigo.Amigo) http.Handler {
+func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool,am  *amigo.Amigo) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -10,7 +10,7 @@ import (
 	"github.com/aau-network-security/haaukins/store"
 )
 
-type ProxyConnector func(store.EventFile) http.Handler
+type ProxyConnector func(store.Event) http.Handler
 
 type Interception interface {
 	ValidRequest(r *http.Request) bool

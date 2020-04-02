@@ -68,8 +68,8 @@ message GetEventTeamsResponse{
         string name = 3;
         string hashPassword = 4;
         string createdAt = 5;
-        string last_access = 6;
-        string solved_challenges = 7;
+        string lastAccess = 6;
+        string solvedChallenges = 7;
     }
     repeated Teams teams = 1;
     string errorMessage = 2;

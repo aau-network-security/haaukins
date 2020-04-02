@@ -3,11 +3,10 @@ package store
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/aau-network-security/haaukins"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/rs/zerolog/log"
 	"sync"
+	"time"
 )
 
 var (
@@ -21,42 +20,21 @@ type TeamStore interface {
 	GetTeamByID(string) (*haaukins.Team, error)
 	GetTeamByEmail(string) (*haaukins.Team, error)
 	GetTeams() []*haaukins.Team
-
+	UpdateTeamAccessed(string, time.Time) error
+	UpdateTeamSolvedChallenges(string) error
 	CreateTokenForTeam(string, *haaukins.Team) error
-	//DeleteToken(string) error
+	//DeleteToken(string) error //todo might be useful to have
 }
 
 type teamstore struct {
 	dbc pbc.StoreClient
 	eConf EventConfig
-	m sync.RWMutex			//todo do i need it if i am using the db ? i dont think so, right?
+	m sync.RWMutex
 	teams  map[string]*haaukins.Team
 	tokens map[string]string
 	emails map[string]string
 	names  map[string]string
 }
-
-//func (es *teamstore) RunHooks() error {
-//	teams := es.GetTeams()
-//	for _, h := range es.hooks {
-//		if err := h(teams); err != nil {
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
-//
-//
-//type TeamStoreOpt func(ts *teamstore)
-//
-//
-//
-//func WithPostTeamHook(hook func(teams []*haaukins.Team) error) func(ts *teamstore) {
-//	return func(ts *teamstore) {
-//		ts.hooks = append(ts.hooks, hook)
-//	}
-//}
 
 func NewTeamStore(conf EventConfig, dbc pbc.StoreClient) *teamstore {
 	ts := &teamstore{
@@ -88,11 +66,9 @@ func (es *teamstore) GetTeamByToken(token string) (*haaukins.Team, error) {
 	return t, nil
 }
 
+// Save the Team on the DB and on TeamStore
 func (es *teamstore) SaveTeam(t *haaukins.Team) error {
 	es.m.Lock()
-	fmt.Println("AAAAAAAAAAAAAAAAAAAAAAA inside save team function TeamStore")
-	//todo save the team in the DB
-
 
 	email := t.Email()
 	_, ok := es.emails[email]
@@ -115,7 +91,6 @@ func (es *teamstore) SaveTeam(t *haaukins.Team) error {
 	es.emails[email] = t.ID()
 	es.teams[t.ID()] = t
 	es.m.Unlock()
-
 	return nil
 }
 
@@ -160,9 +135,8 @@ func (es *teamstore) GetTeamByEmail(email string) (*haaukins.Team, error) {
 	return t, nil
 }
 
-
+// Get the teams from the TeamStore
 func (es *teamstore) GetTeams() []*haaukins.Team {
-	log.Debug().Msg("WITHIN GETTTEAMS FUNCTION")
 	es.m.RLock()
 	teams := make([]*haaukins.Team, len(es.teams))
 	var i int
@@ -173,4 +147,30 @@ func (es *teamstore) GetTeams() []*haaukins.Team {
 	es.m.RUnlock()
 
 	return teams
+}
+
+// Update the Team access time on the DB
+func (es *teamstore) UpdateTeamAccessed(teamId string, time time.Time) error{
+	es.m.RLock()
+
+	_, err := es.dbc.UpdateTeamLastAccess(context.Background(), &pbc.UpdateTeamLastAccessRequest{
+		TeamId:               teamId,
+		AccessAt:             time.Format(displayTimeFormat),
+	})
+
+	if err != nil {
+		es.m.RUnlock()
+		return err
+	}
+
+	es.m.RUnlock()
+	return nil
+}
+
+// Update the Team access time on the DB
+func (es *teamstore) UpdateTeamSolvedChallenges(teamId string) error{
+	es.m.RLock()
+
+	es.m.RUnlock()
+	return nil
 }

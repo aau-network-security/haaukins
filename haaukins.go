@@ -65,11 +65,9 @@ type Team struct {
 	name           string
 	hashedPassword string
 	challenges     map[Flag]TeamChallenge
-	registeredAt   *time.Time
 }
 
 func NewTeam(email, name, password, id, hashedPass string) *Team {
-	now := time.Now()
 	var hPass []byte
 	if hashedPass==""{
 		hPass ,_ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -88,7 +86,6 @@ func NewTeam(email, name, password, id, hashedPass string) *Team {
 		name:           name,
 		hashedPassword: string(hPass),
 		challenges:     map[Flag]TeamChallenge{},
-		registeredAt:   &now,
 	}
 }
 

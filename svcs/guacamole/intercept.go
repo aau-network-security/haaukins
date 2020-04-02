@@ -9,6 +9,8 @@ import (
 	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"net/http"
 	"sync"
+	"time"
+
 	//"time"
 
 	"github.com/aau-network-security/haaukins/store"
@@ -238,14 +240,14 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 				return
 			}
 
-			// Set teams last access time
-			//_, err = gtl.teamStore.UpdateTeamAccessed(t.Id, time.Now())
-			//if err != nil {
-			//	log.Warn().
-			//		Err(err).
-			//		Str("team-id", t.Id).
-			//		Msg("Failed to update team accessed time")
-			//}
+			//Set teams last access time
+			err = gtl.teamStore.UpdateTeamAccessed(t.ID(), time.Now())
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("team-id", t.ID()).
+					Msg("Failed to update team accessed time")
+			}
 
 			authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
 			http.SetCookie(w, &authC)
