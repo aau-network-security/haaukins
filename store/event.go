@@ -5,7 +5,12 @@
 package store
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	pbc "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
@@ -17,12 +22,12 @@ const (
 )
 
 var (
-	TeamExistsErr       = errors.New("Team already exists")
+	//TeamExistsErr       = errors.New("Team already exists")
 	UnknownTeamErr      = errors.New("Unknown team")
 	UnknownTokenErr     = errors.New("Unknown token")
-	NoFrontendErr       = errors.New("lab requires at least one frontend")
-	InvalidFlagValueErr = errors.New("Incorrect value for flag")
-	UnknownChallengeErr = errors.New("Unknown challenge")
+	//NoFrontendErr       = errors.New("lab requires at least one frontend")
+	// = errors.New("Incorrect value for flag")
+	//UnknownChallengeErr = errors.New("Unknown challenge")
 )
 
 type RawEvent struct {
@@ -37,19 +42,19 @@ type RawEvent struct {
 }
 
 type EventConfig struct {
-	Name       string     `yaml:"name"`
-	Tag        Tag        `yaml:"tag"`
-	Available  int        `yaml:"available"`
-	Capacity   int        `yaml:"capacity"`
-	Lab        Lab        `yaml:"lab"`
-	StartedAt  *time.Time `yaml:"started-at,omitempty"`
-	FinishExpected  *time.Time `yaml:"finish-req,omitempty"`
-	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
+	Name       		string
+	Tag        		Tag
+	Available  		int
+	Capacity   		int
+	Lab        		Lab
+	StartedAt  		*time.Time
+	FinishExpected  *time.Time
+	FinishedAt 		*time.Time
 }
 
-type RawEventFile struct {
-	EventConfig `yaml:",inline"`
-	Teams       []Team `yaml:"teams,omitempty"`
+type Lab struct {
+	Frontends []InstanceConfig
+	Exercises []Tag
 }
 
 func (e EventConfig) Validate() error {
@@ -72,92 +77,71 @@ func (e EventConfig) Validate() error {
 	return nil
 }
 
-type Lab struct {
-	Frontends []InstanceConfig `yaml:"frontends"`
-	Exercises []Tag            `yaml:"exercises"`
+type Event struct {
+	dbc pbc.StoreClient
+	TeamStore
+	EventConfig
 }
 
-type Challenge struct {
-	OwnerID     string     `yaml:"-"`
-	FlagTag     Tag        `yaml:"tag"`
-	FlagValue   string     `yaml:"-"`
-	CompletedAt *time.Time `yaml:"completed-at,omitempty"`
+// Change the Capacity of the event and update the DB
+func (e Event) SetCapacity(n int) error {
+	// todo might be usefull to have it, create a rpc message for it in case
+	panic("implement me")
 }
 
-type Team struct {
-	Id               string
-	Email            string
-	Name             string
-	HashedPassword   string
-	SolvedChallenges []Challenge
-	Metadata         map[string]string
-	CreatedAt        *time.Time
-	ChalMap          map[Tag]Challenge
-	AccessedAt       *time.Time
+func (e Event) Finish(time time.Time) error {
+
+	_, err := e.dbc.UpdateEventFinishDate(context.Background(), &pbc.UpdateEventRequest{
+		EventId:              string(e.Tag),
+		FinishedAt:           time.Format(displayTimeFormat),
+	})
+	if err != nil {
+
+		return err
+	}
+	return nil
 }
 
+// Create the EventSore for the event. It contains:
+// The connection with the DB
+// A new TeamStore that contains all the teams retrieved from the DB (if no teams are retrieved the TeamStore will be empty)
+// The EventConfiguration
+func NewEventStore (conf EventConfig, dbc pbc.StoreClient) (Event, error){
+	ctx := context.Background()
+	ts := NewTeamStore(conf, dbc)
 
+	teamsDB, err := dbc.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: string(conf.Tag)})
+	if err != nil{
+		return Event{}, err
+	}
+	fmt.Println("creating event store for the event: " + string(conf.Tag))
+	for _, teamDB := range teamsDB.Teams{
+		fmt.Println(teamDB)
+		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword)
+		teamToken, err := GetTokenForTeam([]byte(token_key), team)
+		if err != nil {
+			log.Debug().Msgf("Error in getting token for team %s", team.Name())
+		}
+		ts.tokens[teamToken]=team.ID()
+		ts.emails[team.Email()]=team.ID()
+		ts.teams[team.ID()]=team
+	}
 
-//func (ef *eventfile) save() error {
-//	bytes, err := yaml.Marshal(ef.file)
-//	if err != nil {
-//		return err
-//	}
-//
-//	return ioutil.WriteFile(ef.path(), bytes, 0644)
-//}
-//
-//func (ef *eventfile) delete() error {
-//	return os.Remove(ef.path())
-//}
-//
-//
-//func (ef *eventfile) saveEventConfig(conf EventConfig) error {
-//	ef.m.Lock()
-//	defer ef.m.Unlock()
-//
-//	ef.file.EventConfig = conf
-//
-//	return ef.save()
-//}
-//
-//func (ef *eventfile) path() string {
-//	return filepath.Join(ef.dir, ef.filename)
-//}
-//
-//func (ef *eventfile) ArchiveDir() string {
-//	parts := strings.Split(ef.filename, ".")
-//	relativeDir := strings.Join(parts[:len(parts)-1], ".")
-//	return filepath.Join(ef.dir, relativeDir)
-//}
-//
-//func (ef *eventfile) Archive() error {
-//	ef.m.Lock()
-//	defer ef.m.Unlock()
-//
-//	if _, err := os.Stat(ef.ArchiveDir()); os.IsNotExist(err) {
-//		if err := os.MkdirAll(ef.ArchiveDir(), os.ModePerm); err != nil {
-//			return err
-//		}
-//	}
-//
-//	//cpy := eventfile{
-//	//	file:     ef.file,
-//	//	dir:      ef.ArchiveDir(),
-//	//	filename: "config.yml",
-//	//}
-//	//
-//	//cpy.file.Teams = []*haaukins.Team{}
-//	//for _, t := range ef.GetTeams() {
-//	//
-//	//	cpy.file.Teams = append(cpy.file.Teams, t)
-//	//}
-//	//cpy.save()
-//
-//	if err := ef.delete(); err != nil {
-//		log.Warn().Msgf("Failed to delete old event file: %s", err)
-//	}
-//
-//	return nil
-//}
-//
+	return Event{
+		dbc:         dbc,
+		TeamStore:   ts,
+		EventConfig: conf,
+	}, nil
+}
+
+func GetTokenForTeam(key []byte, t *Team) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		ID_KEY:       t.ID(),
+		TEAMNAME_KEY: t.Name(),
+	})
+	tokenStr, err := token.SignedString(key)
+	if err != nil {
+		return "", err
+	}
+	return tokenStr, nil
+}

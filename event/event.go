@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
 	"time"
@@ -27,11 +26,11 @@ import (
 
 var (
 	RdpConfErr      = errors.New("error too few rdp connections")
-	StartingCtfdErr = errors.New("error while starting ctfd")
+	//StartingCtfdErr = errors.New("error while starting ctfd")
 	StartingGuacErr = errors.New("error while starting guac")
-	StartingRevErr  = errors.New("error while starting reverse proxy")
-	EmptyNameErr    = errors.New("event requires a name")
-	EmptyTagErr     = errors.New("event requires a tag")
+	//StartingRevErr  = errors.New("error while starting reverse proxy")
+	//EmptyNameErr    = errors.New("event requires a name")
+	//EmptyTagErr     = errors.New("event requires a tag")
 
 	ErrMaxLabs         = errors.New("maximum amount of allowed labs has been reached")
 	ErrNoAvailableLabs = errors.New("no labs available in the queue")
@@ -127,7 +126,7 @@ type Event interface {
 	Start(context.Context) error
 	Close() error
 	Finish()
-	AssignLab(*haaukins.Team, lab.Lab) error
+	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
 
 	GetConfig() store.EventConfig
@@ -237,7 +236,7 @@ func (ev *event) Finish() {
 	}
 }
 
-func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
+func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.
@@ -288,11 +287,11 @@ func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
 	chals := lab.Environment().Challenges()
 
 	for _, chal := range chals {
-		tag, _:= haaukins.NewTag(string(chal.FlagTag))
-		f, _ := t.AddChallenge(haaukins.Challenge{
+		tag, _:= store.NewTag(string(chal.Tag))
+		f, _ := t.AddChallenge(store.Challenge{
 			Tag:   tag,
-			Name:  chal.OwnerID,
-			Value: chal.FlagValue,
+			Name:  chal.Name,
+			Value: chal.Value,
 		})
 		fmt.Println("This is the flag: " + f.String())
 		log.Info().Str("chal-tag", string(tag)).
@@ -300,11 +299,12 @@ func (ev *event) AssignLab(t *haaukins.Team, lab lab.Lab) error {
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}
 
+
 	return nil
 }
 
 func (ev *event) Handler() http.Handler {
-	reghook := func(t *haaukins.Team) error {
+	reghook := func(t *store.Team) error {
 		select {
 		case lab, ok := <-ev.labhub.Queue():
 			if !ok {

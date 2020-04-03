@@ -2,7 +2,6 @@ package amigo
 
 import (
 	"encoding/json"
-	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/store"
 	"time"
 )
@@ -76,7 +75,7 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	//return rawMsg
 }
 
-func TeamRowFromTeam(t *haaukins.Team, chals []store.FlagConfig) TeamRow {
+func TeamRowFromTeam(t *store.Team, chals []store.FlagConfig) TeamRow {
 	completions := make([]*time.Time, len(chals))
 	points := make([]uint, len(chals))
 	var totalPoints uint = 0

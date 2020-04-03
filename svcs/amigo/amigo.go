@@ -11,7 +11,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/dgrijalva/jwt-go"
 )
@@ -102,7 +101,7 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	return info
 }
 
-func (am *Amigo) Handler(hook func(t *haaukins.Team) error,guacHandler http.Handler) http.Handler {
+func (am *Amigo) Handler(hook func(t *store.Team) error,guacHandler http.Handler) http.Handler {
 	fd := newFrontendData(am.TeamStore, am.challenges...)
 	go fd.runFrontendData()
 
@@ -247,15 +246,15 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 			return
 		}
 
-		flag, err := haaukins.NewFlagFromString(msg.Flag)
+		flag, err := store.NewFlagFromString(msg.Flag)
 		if err != nil {
 			replyJson(http.StatusOK, w, errReply{ErrInvalidFlag.Error()})
 			return
 		}
 
-		tag := haaukins.Tag(msg.Tag)
+		tag := store.Tag(msg.Tag)
 		fmt.Println("amigooooooooooo flag verify per tag: "+string(tag))
-		if err := team.VerifyFlag(haaukins.Challenge{Tag: tag}, flag); err != nil {
+		if err := team.VerifyFlag(store.Challenge{Tag: tag}, flag); err != nil {
 			replyJson(http.StatusOK, w, errReply{err.Error()})
 			return
 		}
@@ -270,7 +269,7 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 	return endpoint
 }
 
-func (am *Amigo) handleSignup(hook func(t *haaukins.Team) error) http.HandlerFunc {
+func (am *Amigo) handleSignup(hook func(t *store.Team) error) http.HandlerFunc {
 	get := am.handleSignupGET()
 	post := am.handleSignupPOST(hook)
 
@@ -306,7 +305,7 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleSignupPOST(hook func(t *haaukins.Team) error) http.HandlerFunc {
+func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
 		wd + "/svcs/amigo/resources/private/base.tmpl.html",
 		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
@@ -371,7 +370,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *haaukins.Team) error) http.Handle
 			return
 		}
 
-		t := haaukins.NewTeam(params.Email, params.TeamName, params.Password, "", "")
+		t := store.NewTeam(params.Email, params.TeamName, params.Password, "", "")
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -382,13 +381,13 @@ func (am *Amigo) handleSignupPOST(hook func(t *haaukins.Team) error) http.Handle
 			displayErr(w, params, err)
 			return
 		}
-		token, err:= GetTokenForTeam(am.signingKey, t)
+		token, err:= store.GetTokenForTeam(am.signingKey, t)
 		if err !=nil {
 			logger.Debug().Msgf("Error on getting token from amigo %s", token)
 			return
 		}
 
-		if err := am.TeamStore.CreateTokenForTeam(token,t); err != nil {
+		if err := am.TeamStore.SaveTokenForTeam(token,t); err != nil {
 			logger.Debug().Msgf("Create token for team error %s",err)
 			return
 		}
@@ -510,8 +509,8 @@ func (am *Amigo) handleLogout() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) loginTeam(w http.ResponseWriter, r *http.Request, t *haaukins.Team) error {
-	token, err := GetTokenForTeam(am.signingKey, t)
+func (am *Amigo) loginTeam(w http.ResponseWriter, r *http.Request, t *store.Team) error {
+	token, err := store.GetTokenForTeam(am.signingKey, t)
 	if err != nil {
 		return err
 	}
@@ -521,7 +520,7 @@ func (am *Amigo) loginTeam(w http.ResponseWriter, r *http.Request, t *haaukins.T
 	return nil
 }
 
-func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*haaukins.Team, error) {
+func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*store.Team, error) {
 	c, err := r.Cookie("session")
 	if err != nil {
 		return nil, ErrUnauthorized
@@ -571,20 +570,6 @@ type errReply struct {
 
 func replyJsonRequestErr(w http.ResponseWriter, err error) error {
 	return replyJson(http.StatusBadRequest, w, errReply{err.Error()})
-}
-
-func GetTokenForTeam(key []byte, t *haaukins.Team) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		ID_KEY:       t.ID(),
-		TEAMNAME_KEY: t.Name(),
-	})
-
-	tokenStr, err := token.SignedString(key)
-	if err != nil {
-		return "", err
-	}
-
-	return tokenStr, nil
 }
 
 func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {

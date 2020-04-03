@@ -3,7 +3,6 @@ package store
 import (
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -99,12 +98,12 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 			value := flag.Static
 			if value == "" {
 				// flag is not static
-				value = haaukins.NewFlag().String()
+				value = NewFlag().String()
 			}
-
+			//todo check when then flag is static
 			challenges = append(challenges, Challenge{
-				FlagTag:   flag.Tag,
-				FlagValue: value,
+				Tag:   flag.Tag,
+				Value: value,
 			})
 			envVars[flag.EnvVar] = value
 		}

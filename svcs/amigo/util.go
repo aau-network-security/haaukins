@@ -160,13 +160,14 @@ func (c *Client) writePump() {
 	}
 }
 
-
+//todo change this function. there are 2 same function in amigo
 func getTeamInfoFromToken(token string) (*team, error) {
 	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
 
+		//todo modifiy here the signing key
 		return []byte(signingKey), nil
 	})
 	if err != nil {

@@ -215,8 +215,8 @@ func (e *exercise) Challenges() []store.Challenge {
 	for _, opt := range e.vboxOpts {
 		for _, f := range opt.Flags {
 			challenges = append(challenges, store.Challenge{
-				FlagTag:   f.Tag,
-				FlagValue: f.Static,
+				Tag:   f.Tag,
+				Value: f.Static,
 			})
 		}
 	}
