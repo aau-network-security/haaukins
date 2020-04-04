@@ -130,7 +130,7 @@ type Event interface {
 	Handler() http.Handler
 
 	GetConfig() store.EventConfig
-	//GetTeams() []haaukins.Team
+	GetTeams() []*store.Team
 	GetHub() lab.Hub
 	GetLabByTeam(teamId string) (lab.Lab, bool)
 }
@@ -161,6 +161,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 
 	dockerHost := docker.NewHost()
 	amigoOpt := amigo.WithEventName(e.Name)
+	//todo fix this
 	//keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.ArchiveDir())
 	if err != nil {
 		return nil, err
@@ -204,8 +205,6 @@ func (ev *event) Start(ctx context.Context) error {
 			return err
 		}
 
-		//todo is this important? Ahmet I think its wrong
-		//ev.store.SaveTeam(team)
 	}
 
 	return nil
@@ -333,9 +332,9 @@ func (ev *event) GetConfig() store.EventConfig {
 	return ev.store.EventConfig
 }
 
-//func (ev *event) GetTeams() []haaukins.Team {
-//	return ev.store.GetTeams()
-//}
+func (ev *event) GetTeams() []*store.Team {
+	return ev.store.GetTeams()
+}
 
 func (ev *event) GetLabByTeam(teamId string) (lab.Lab, bool) {
 	lab, ok := ev.labs[teamId]

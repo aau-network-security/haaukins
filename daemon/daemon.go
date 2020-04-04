@@ -603,7 +603,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
-	//todo refactor this as well
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -740,18 +739,18 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		return nil
 	}
 
-	//for _, t := range ev.GetTeams() {
-	//	lab, ok := ev.GetLabByTeam(t.Id)
-	//	if !ok {
-	//		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
-	//		continue
-	//	}
-	//
-	//	if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
-	//		return err
-	//	}
-	//	stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
-	//}
+	for _, t := range ev.GetTeams() {
+		lab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "?"})
+			continue
+		}
+
+		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
+			return err
+		}
+		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})
+	}
 
 	return nil
 }
@@ -770,7 +769,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		events = append(events, &pb.ListEventsResponse_Events{
 			Tag:           string(conf.Tag),
 			Name:          conf.Name,
-			//TeamCount:     int32(len(event.GetTeams())),
+			TeamCount:     int32(len(event.GetTeams())),
 			Exercises: 	   strings.Join(exercises, ","),
 			Capacity:      int32(conf.Capacity),
 			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
@@ -783,28 +782,29 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
 	var eventTeams []*pb.ListEventTeamsResponse_Teams
-	//evtag, err := store.NewTag(req.Tag)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//ev, err := d.eventPool.GetEvent(evtag)
-	//if err != nil {
-	//	return nil, err
-	//}
+	evtag, err := store.NewTag(req.Tag)
+	if err != nil {
+		return nil, err
+	}
+	ev, err := d.eventPool.GetEvent(evtag)
+	if err != nil {
+		return nil, err
+	}
 
-	//teams := ev.GetTeams()
-	//
-	//for _, t := range teams {
-	//	eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-	//		Id:    t.Id,
-	//		Name:  t.Name,
-	//		Email: t.Email,
-	//	})
-	//
-	//	if t.AccessedAt != nil {
-	//		eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
-	//	}
-	//}
+	teams := ev.GetTeams()
+
+	for _, t := range teams {
+		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
+			Id:    t.ID(),
+			Name:  t.Name(),
+			Email: t.Email(),
+		})
+
+		//todo Explain the meaning of this
+		//if t.AccessedAt != nil {
+		//	eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
+		//}
+	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
@@ -894,18 +894,18 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		return nil
 	}
 
-	//for _, t := range ev.GetTeams() {
-	//	lab, ok := ev.GetLabByTeam(t.Id)
-	//	if !ok {
-	//		stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "?"})
-	//		continue
-	//	}
-	//
-	//	if err := lab.ResetFrontends(stream.Context()); err != nil {
-	//		return err
-	//	}
-	//	stream.Send(&pb.ResetTeamStatus{TeamId: t.Id, Status: "ok"})
-	//}
+	for _, t := range ev.GetTeams() {
+		lab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "?"})
+			continue
+		}
+
+		if err := lab.ResetFrontends(stream.Context()); err != nil {
+			return err
+		}
+		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})
+	}
 
 	return nil
 }
@@ -966,7 +966,7 @@ func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) 
 			memErr = err.Error()
 		}
 
-		// we should send io at some point
+		//todo we should send io at some point
 		// io, _ := net.IOCounters(true)
 
 		if err := stream.Send(&pb.MonitorHostResponse{

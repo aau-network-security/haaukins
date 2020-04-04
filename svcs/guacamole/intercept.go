@@ -10,9 +10,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	//"time"
-
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
 )
