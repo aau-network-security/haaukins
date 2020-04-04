@@ -241,7 +241,7 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			}
 
 			//Set teams last access time
-			err = gtl.teamStore.UpdateTeamAccessed(t.ID(), time.Now())
+			err = t.UpdateTeamAccessed(time.Now())
 			if err != nil {
 				log.Warn().
 					Err(err).

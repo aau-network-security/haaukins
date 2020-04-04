@@ -117,7 +117,7 @@ func NewEventStore (conf EventConfig, dbc pbc.StoreClient) (Event, error){
 	fmt.Println("creating event store for the event: " + string(conf.Tag))
 	for _, teamDB := range teamsDB.Teams{
 		fmt.Println(teamDB)
-		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword)
+		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {
 			log.Debug().Msgf("Error in getting token for team %s", team.Name())

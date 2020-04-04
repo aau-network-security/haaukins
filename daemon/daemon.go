@@ -448,8 +448,8 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, ef store.RawEvent) 
 		tags[i] = t
 	}
 	evtag, _ := store.NewTag(ef.Tag)
-	startTime, _ := time.Parse("2006-01-02", ef.StartedAt)
-	expectedFinishTime, _ := time.Parse("2006-01-02", ef.FinishExpected)
+	startTime, _ := time.Parse(displayTimeFormat, ef.StartedAt)
+	expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.FinishExpected)
 
 	conf := store.EventConfig{
 		Name:      ef.Name,

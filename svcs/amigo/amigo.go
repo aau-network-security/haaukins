@@ -370,7 +370,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			return
 		}
 
-		t := store.NewTeam(params.Email, params.TeamName, params.Password, "", "")
+		t := store.NewTeam(params.Email, params.TeamName, params.Password, "", "", "", nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)

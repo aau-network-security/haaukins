@@ -299,7 +299,6 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}
 
-
 	return nil
 }
 

@@ -2,8 +2,8 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/google/uuid"
 	logger "github.com/rs/zerolog/log"
@@ -29,8 +29,6 @@ type TeamStore interface {
 	GetTeamByID(string) (*Team, error)
 	GetTeamByEmail(string) (*Team, error)
 	GetTeams() []*Team
-	UpdateTeamAccessed(string, time.Time) error
-	UpdateTeamSolvedChallenges(string) error
 	SaveTokenForTeam(string, *Team) error
 	//DeleteToken(string) error //todo might be useful to have
 }
@@ -97,6 +95,8 @@ func (es *teamstore) SaveTeam(t *Team) error {
 		return err
 	}
 
+	t.dbc = es.dbc
+
 	es.emails[email] = t.ID()
 	es.teams[t.ID()] = t
 	es.m.Unlock()
@@ -157,31 +157,6 @@ func (es *teamstore) GetTeams() []*Team {
 	return teams
 }
 
-// Update the Team access time on the DB
-func (es *teamstore) UpdateTeamAccessed(teamId string, time time.Time) error{
-	es.m.RLock()
-
-	_, err := es.dbc.UpdateTeamLastAccess(context.Background(), &pbc.UpdateTeamLastAccessRequest{
-		TeamId:               teamId,
-		AccessAt:             time.Format(displayTimeFormat),
-	})
-
-	if err != nil {
-		es.m.RUnlock()
-		return err
-	}
-
-	es.m.RUnlock()
-	return nil
-}
-
-// Update the Team Solved Challenges on the DB
-func (es *teamstore) UpdateTeamSolvedChallenges(teamId string) error{
-	es.m.RLock()
-
-	es.m.RUnlock()
-	return nil
-}
 
 type Challenge struct {
 	Name    string			//challenge name
@@ -190,12 +165,14 @@ type Challenge struct {
 }
 
 type Team struct {
-	m sync.RWMutex
+	m 			   sync.RWMutex
+	dbc 		   pbc.StoreClient
 	id             string
 	email          string
 	name           string
 	hashedPassword string
 	challenges     map[Flag]TeamChallenge
+	solvedChalsDB  []TeamChallenge			//json got from the DB containing list of solved Challenges
 }
 
 type TeamChallenge struct {
@@ -203,7 +180,7 @@ type TeamChallenge struct {
 	CompletedAt *time.Time
 }
 
-func NewTeam(email, name, password, id, hashedPass string) *Team {
+func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pbc.StoreClient) *Team {
 	var hPass []byte
 	if hashedPass==""{
 		hPass ,_ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -216,44 +193,51 @@ func NewTeam(email, name, password, id, hashedPass string) *Team {
 		id =  uuid.New().String()[0:8]
 	}
 
+	solvedChals, err := ParseSolvedChallenges(solvedChalsDB)
+	if err != nil {
+		logger.Debug().Msgf("Unable to parse the solved challenges retrieved from the DB")
+	}
+
 	return &Team{
+		dbc:			dbc,
 		id:             id,
 		email:          email,
 		name:           name,
 		hashedPassword: string(hPass),
 		challenges:     map[Flag]TeamChallenge{},
+		solvedChalsDB:  solvedChals,
 	}
 }
 
-func (t *Team) ID() string {
-	t.m.RLock()
-	id := t.id
-	t.m.RUnlock()
+func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 
-	return id
-}
+	type Challenge struct {
+		Tag  		string		`json:"tag"`
+		CompletedAt string		`json:"completed-at"`
+	}
 
-func (t *Team) Email() string {
-	t.m.RLock()
-	email := t.email
-	t.m.RUnlock()
+	var solvedChallengesDB []Challenge
+	var solvedChallenges []TeamChallenge
 
-	return email
-}
+	//in case the team is created from amigo
+	if solvedChalsDB == "" {
+		return solvedChallenges, nil
+	}
 
+	if err := json.Unmarshal([]byte(solvedChalsDB), &solvedChallengesDB); err != nil{
+		return solvedChallenges, err
+	}
 
-func(t *Team) GetHashedPassword() string{
-	t.m.RLock()
-	defer t.m.RUnlock()
-	return t.hashedPassword
-}
+	for _, chal := range solvedChallengesDB{
+		completedAt, _ := time.Parse(displayTimeFormat, chal.CompletedAt)
 
-func (t *Team) Name() string {
-	t.m.RLock()
-	name := t.name
-	t.m.RUnlock()
+		solvedChallenges = append(solvedChallenges, TeamChallenge{
+			Tag:         Tag(chal.Tag),
+			CompletedAt: &completedAt,
+		})
+	}
 
-	return name
+	return solvedChallenges, nil
 }
 
 func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
@@ -289,37 +273,28 @@ func (t *Team) AddChallenge(c Challenge) (Flag, error) {
 		logger.Debug().Msgf("Error creating haaukins flag from given string %s", err)
 		return Flag{}, err
 	}
-	t.challenges[f] = TeamChallenge{
-		Tag: c.Tag,
+
+	//get the solved challenge if solved
+	var solvedOne TeamChallenge
+	for _, solvedChal := range t.solvedChalsDB{
+		if solvedChal.Tag == c.Tag{
+			solvedOne = solvedChal
+		}
+	}
+
+	if solvedOne != (TeamChallenge{}){
+		t.challenges[f] = TeamChallenge{
+			Tag: c.Tag,
+			CompletedAt: solvedOne.CompletedAt,
+		}
+	}else{
+		t.challenges[f] = TeamChallenge{
+			Tag: c.Tag,
+		}
 	}
 
 	t.m.Unlock()
 	return f, nil
-}
-
-func (t *Team) GetChallenges(order ...Tag) []TeamChallenge {
-	t.m.RLock()
-	var chals []TeamChallenge
-	if len(order) > 0 {
-	loop:
-		for _, tag := range order {
-			for _, chal := range t.challenges {
-				if tag == chal.Tag {
-					chals = append(chals, chal)
-					continue loop
-				}
-			}
-		}
-		t.m.RUnlock()
-		return chals
-	}
-
-	for _, chal := range t.challenges {
-		chals = append(chals, chal)
-	}
-
-	t.m.RUnlock()
-	return chals
 }
 
 func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
@@ -331,7 +306,6 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 		return ErrUnknownFlag
 	}
 
-	fmt.Println(string(chal.Tag)+" ... "+string(tag.Tag))
 	if chal.Tag != tag.Tag{
 		t.m.Unlock()
 		return ErrUnknownFlag
@@ -345,15 +319,99 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 	chal.CompletedAt = &now
 	t.challenges[f] = chal
 
+	err := t.UpdateTeamSolvedChallenges(chal)
+	if err != nil {
+		logger.Debug().Msgf("Unable to write the solved challenges in the DB")
+	}
+
 	t.m.Unlock()
 	return nil
 }
 
-//func (es *Team) GetTeams() []Team {
-//	var teams []Team
-//	for _, t := range es.GetTeams() {
-//		teams = append(teams, t)
+// Update the Team access time on the DB
+func (t *Team) UpdateTeamAccessed(time time.Time) error{
+	t.m.RLock()
+	_, err := t.dbc.UpdateTeamLastAccess(context.Background(), &pbc.UpdateTeamLastAccessRequest{
+		TeamId:               t.ID(),
+		AccessAt:             time.Format(displayTimeFormat),
+	})
+
+	if err != nil {
+		t.m.RUnlock()
+		return err
+	}
+
+	t.m.RUnlock()
+	return nil
+}
+
+// Update the Team Solved Challenges on the DB
+func (t *Team) UpdateTeamSolvedChallenges(chal TeamChallenge) error{
+
+	_, err := t.dbc.UpdateTeamSolvedChallenge(context.Background(), &pbc.UpdateTeamSolvedChallengeRequest{
+		TeamId:               t.id,
+		Tag:                  string(chal.Tag),
+		CompletedAt:          chal.CompletedAt.Format(displayTimeFormat),
+	})
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Team) ID() string {
+	t.m.RLock()
+	id := t.id
+	t.m.RUnlock()
+
+	return id
+}
+
+func (t *Team) Email() string {
+	t.m.RLock()
+	email := t.email
+	t.m.RUnlock()
+
+	return email
+}
+
+func(t *Team) GetHashedPassword() string{
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.hashedPassword
+}
+
+func (t *Team) Name() string {
+	t.m.RLock()
+	name := t.name
+	t.m.RUnlock()
+
+	return name
+}
+
+//Not used anywhere
+//func (t *Team) GetChallenges(order ...Tag) []TeamChallenge {
+//	t.m.RLock()
+//	var chals []TeamChallenge
+//	if len(order) > 0 {
+//	loop:
+//		for _, tag := range order {
+//			for _, chal := range t.challenges {
+//				if tag == chal.Tag {
+//					chals = append(chals, chal)
+//					continue loop
+//				}
+//			}
+//		}
+//		t.m.RUnlock()
+//		return chals
 //	}
 //
-//	return teams
+//	for _, chal := range t.challenges {
+//		chals = append(chals, chal)
+//	}
+//
+//	t.m.RUnlock()
+//	return chals
 //}
