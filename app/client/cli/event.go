@@ -28,6 +28,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 	cmd.AddCommand(
 		c.CmdEventCreate(),
+		c.CmdEventStart(),
 		c.CmdEventStop(),
 		c.CmdEventList(),
 		c.CmdEventTeams(),
@@ -38,30 +39,32 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 func (c *Client) CmdEventCreate() *cobra.Command {
 	var (
-		name      string
-		available int
-		capacity  int
-		frontends []string
-		exercises []string
+		name       string
+		available  int
+		capacity   int
+		frontends  []string
+		exercises  []string
+		startTime  string
 		finishTime string
 	)
 
 	cmd := &cobra.Command{
 		Use:     "create [event tag]",
 		Short:   "Create event",
-		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali -d 2020-02-15`,
+		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali  -s 2020-02-12 -d 2020-02-15`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:                 name,
-				Tag:                  tag,
-				Frontends:            frontends,
-				Exercises:            exercises,
-				Available:            int32(available),
-				Capacity:             int32(capacity),
-				FinishTime:           finishTime,
+				Name:       name,
+				Tag:        tag,
+				Frontends:  frontends,
+				Exercises:  exercises,
+				Available:  int32(available),
+				Capacity:   int32(capacity),
+				StartTime:  startTime,
+				FinishTime: finishTime,
 			})
 			if err != nil {
 				PrintError(err)
@@ -102,10 +105,30 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
 	cmd.Flags().StringVarP(&finishTime, "finishtime", "d", "", "expected finish time of the event")
-
+	cmd.Flags().StringVarP(&startTime, "starttime", "s", "", "expected start time of the event")
 	cmd.MarkFlagRequired("name")
 
 	return cmd
+}
+
+func (c *Client) CmdEventStart() *cobra.Command {
+	return &cobra.Command{
+		Use:     "start",
+		Short:   "Starts booked events on time",
+		Example: "hkn event start",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			_, err := c.rpcClient.StartEvent(ctx, &pb.Empty{})
+			// a stream could be added here once event is started the bot can be informed !
+			// or a mail could be sent
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+		},
+	}
+
 }
 
 func (c *Client) CmdEventStop() *cobra.Command {
@@ -158,8 +181,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME"},
-				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME", "BOOKED STATUS"},
+				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime", "IsBooked"},
 			}
 
 			var elements []formatElement

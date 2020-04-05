@@ -30,15 +30,16 @@ var (
 )
 
 type EventConfig struct {
-	Name       string     `yaml:"name"`
-	Tag        Tag        `yaml:"tag"`
-	Available  int        `yaml:"available"`
-	Capacity   int        `yaml:"capacity"`
-	Lab        Lab        `yaml:"lab"`
-	StartedAt  *time.Time `yaml:"started-at,omitempty"`
-	FinishExpected  *time.Time `yaml:"finish-req,omitempty"`
-	FinishedAt *time.Time `yaml:"finished-at,omitempty"`
-	CreatedBy  string	  `yaml:"created-by,omitempty"`
+	Name           string     `yaml:"name"`
+	Tag            Tag        `yaml:"tag"`
+	Available      int        `yaml:"available"`
+	Capacity       int        `yaml:"capacity"`
+	Lab            Lab        `yaml:"lab"`
+	StartedAt      *time.Time `yaml:"started-at,omitempty"`
+	FinishExpected *time.Time `yaml:"finish-req,omitempty"`
+	FinishedAt     *time.Time `yaml:"finished-at,omitempty"`
+	CreatedBy      string     `yaml:"created-by,omitempty"`
+	IsBooked       bool       `yaml: "is-booked", omitempty`
 }
 
 type RawEventFile struct {
@@ -211,9 +212,9 @@ type TeamStoreOpt func(ts *teamstore)
 func WithTeams(teams []Team) func(ts *teamstore) {
 	return func(ts *teamstore) {
 		for _, t := range teams {
-		if err:=ts.CreateTeam(t); err !=nil {
-			log.Error().Msgf("Error on creating team %s",err)
-		}
+			if err := ts.CreateTeam(t); err != nil {
+				log.Error().Msgf("Error on creating team %s", err)
+			}
 		}
 	}
 }
@@ -383,6 +384,7 @@ func (es *teamstore) RunHooks() error {
 
 type EventConfigStore interface {
 	Read() EventConfig
+	SetBooking(bool) EventConfig
 	SetCapacity(n int) error
 	Finish(time.Time) error
 }
@@ -398,6 +400,20 @@ func NewEventConfigStore(conf EventConfig, hooks ...func(EventConfig) error) *ev
 		conf:  conf,
 		hooks: hooks,
 	}
+}
+
+func (es *eventconfigstore) SetBooking(isBooked bool) EventConfig {
+	log.Debug().Str("Event ", es.conf.Name).
+		Str("Tag ", string(es.conf.Tag)).
+		Str("Started at ", es.conf.StartedAt.String()).
+		Str("Created by/[Requested by]", es.conf.CreatedBy).
+		Msg("isBooked updated ")
+
+	es.m.Lock()
+	defer es.m.Unlock()
+	es.conf.IsBooked = isBooked
+
+	return es.conf
 }
 
 func (es *eventconfigstore) Read() EventConfig {
@@ -437,6 +453,7 @@ func (es *eventconfigstore) runHooks() error {
 
 type EventFileHub interface {
 	CreateEventFile(EventConfig) (EventFile, error)
+	UpdateEventFile(EventConfig) (EventFile, error)
 	GetUnfinishedEvents() ([]EventFile, error)
 }
 
@@ -605,6 +622,40 @@ func (esh *eventfilehub) CreateEventFile(conf EventConfig) (EventFile, error) {
 	return ef, nil
 }
 
+func (esh *eventfilehub) UpdateEventFile(conf EventConfig) (EventFile, error) {
+	esh.m.Lock()
+	defer esh.m.Unlock()
+	// filename is created for booked events...
+	startedTime := conf.StartedAt.Format("02-01-06")
+	dirname := fmt.Sprintf("%s-%s", conf.Tag, startedTime)
+	filename := fmt.Sprintf("%s.yml", dirname)
+	filename = filepath.Join(esh.path, filename)
+
+	f, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	var updatedEventFile RawEventFile
+	err = yaml.Unmarshal(f, &updatedEventFile)
+	if err != nil {
+		return nil, err
+	}
+	updatedEventFile.IsBooked = false
+	conf.IsBooked = false
+	d, err := yaml.Marshal(&updatedEventFile)
+	if err != nil {
+		log.Error().Msgf("error: %v", err)
+	}
+
+	err = ioutil.WriteFile(filename, d, 0644)
+	if err != nil {
+		log.Error().Msgf("error: %v", err)
+	}
+	log.Debug().Msgf("Event file %s is updated, auto start event is triggered ", filename)
+	return NewEventFile(esh.path, filename, RawEventFile{EventConfig: conf}), nil
+
+}
+
 func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 	var events []EventFile
 	err := filepath.Walk(esh.path, func(path string, info os.FileInfo, err error) error {
@@ -619,15 +670,24 @@ func (esh *eventfilehub) GetUnfinishedEvents() ([]EventFile, error) {
 			if err != nil {
 				return err
 			}
+			if ef.IsBooked {
+				events = append(events, &eventfile{file: ef, EventConfigStore: &eventconfigstore{
+					m:     sync.Mutex{},
+					conf:  ef.EventConfig,
+					hooks: nil,
+				}})
+
+			}
 			// could be needed to check number of events for users who do not hold privilege
 			// do not start events which are expired when getting unfinished events
-			if  ef.FinishExpected !=nil && ef.FinishExpected.After(time.Now()) {
+			if ef.FinishExpected != nil && ef.FinishExpected.After(time.Now()) && (!ef.IsBooked || ef.StartedAt.Before(time.Now())) {
 				dir, filename := filepath.Split(path)
 				log.Debug().Str("Name", ef.Name).
-							Str("Started date", ef.StartedAt.String()).
-							Str( "Expected finish date", ef.FinishExpected.String()).
-							Msgf("Found unfinished event")
-				events = append(events,NewEventFile(dir,filename,ef))
+					Str("Event Tag", string(ef.Tag)).
+					Str("Started date", ef.StartedAt.String()).
+					Str("Expected finish date", ef.FinishExpected.String()).
+					Msgf("Found unfinished event")
+				events = append(events, NewEventFile(dir, filename, ef))
 			}
 
 		}

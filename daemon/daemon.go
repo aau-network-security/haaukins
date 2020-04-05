@@ -39,18 +39,19 @@ import (
 var (
 	DuplicateEventErr   = errors.New("Event with that tag already exists")
 	UnknownEventErr     = errors.New("Unable to find event by that tag")
+	BookedEventErr      = errors.New("Event with that tag is already booked")
 	MissingTokenErr     = errors.New("No security token provided")
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-  NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
-	
-  version string
+	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
+
+	version string
 )
 
 const (
-	mngtPort          = ":5454"
-	displayTimeFormat = "2006-01-02 15:04:05"
+	mngtPort                   = ":5454"
+	displayTimeFormat          = "2006-01-02 15:04:05"
 	maxCapacityForNonPrivUsers = 40
 )
 
@@ -90,8 +91,8 @@ type Config struct {
 	TLS                struct {
 		Enabled   bool   `yaml:"enabled"`
 		Directory string `yaml:"directory"`
-		CertFile string `yaml:"certfile"`
-		CertKey string `yaml:"certkey"`
+		CertFile  string `yaml:"certfile"`
+		CertKey   string `yaml:"certkey"`
 	} `yaml:"tls,omitempty"`
 }
 
@@ -241,15 +242,40 @@ func New(conf *Config) (*daemon, error) {
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 	}
-	//todo : change it
+	// Get
 	eventFiles, err := efh.GetUnfinishedEvents()
 	if err != nil {
 		return nil, err
 	}
 	for _, ef := range eventFiles {
-		err := d.createEventFromEventFile(context.Background(), ef)
-		if err != nil {
-			return nil, err
+		eventConfig := ef.Read()
+		if eventConfig.IsBooked && eventConfig.StartedAt.After(time.Now()) {
+			d.eventPool.events[eventConfig.Tag] = event.CreateBookedEvent(ef)
+		}
+		if eventConfig.StartedAt.Before(time.Now()) && eventConfig.FinishExpected.After(time.Now()) && eventConfig.IsBooked {
+			log.Debug().Str("Event ", string(eventConfig.Tag)).
+				Str("StartedA ", eventConfig.StartedAt.String()).
+				Str("Created / [Requested] by", eventConfig.CreatedBy).
+				Msg("Checked on unfinished/booked events ")
+			eventConfig = ef.SetBooking(false)
+			if err := d.eventPool.RemoveEvent(eventConfig.Tag); err != nil {
+				return nil, err
+			}
+			updatedEventFile, err := d.ehost.UpdateEventFile(eventConfig)
+			if err != nil {
+				log.Error().Msgf("Error on updating event file ! %s ", err)
+				return nil, err
+			}
+
+			err = d.createEventFromEventFile(context.Background(), updatedEventFile)
+			if err != nil {
+				return nil, err
+			}
+		} else if eventConfig.FinishExpected.After(time.Now()) && !eventConfig.IsBooked {
+			err = d.createEventFromEventFile(context.Background(), ef)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -451,9 +477,36 @@ func (d *daemon) startEvent(ev event.Event) {
 		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
-	 ev.Start(context.TODO())
-
+	ev.Start(context.TODO())
 	d.eventPool.AddEvent(ev)
+
+}
+
+func (d *daemon) StartEvent(ctx context.Context, req *pb.Empty) (*pb.StartEventResponse, error) {
+	log.Debug().Msg("Checking pending eventts ")
+	u, _ := getUserFromIncomingContext(ctx)
+	if u.SuperUser {
+		for _, bookedEvent := range d.eventPool.GetAllEvents() {
+			config := bookedEvent.GetConfig()
+			if config.IsBooked {
+				if config.StartedAt.Before(time.Now()) {
+					log.Debug().Msgf("Event %s is starting now ...", string(config.Tag))
+					if err := d.eventPool.RemoveEvent(config.Tag); err != nil {
+						return nil, errors.Errorf("Remove error event %s", bookedEvent.GetConfig().Name)
+					}
+					config.IsBooked = false
+					_, err := d.ehost.UpdateEventFile(config) // here no need to retrieve eventfile
+					if err != nil {
+						return nil, err
+					}
+					d.startEvent(bookedEvent)
+				}
+			}
+		}
+	} else {
+		return nil, errors.New("No privilege to start event ! ")
+	}
+	return &pb.StartEventResponse{Status: "Scheduled events have been checked !  "}, nil
 }
 
 type GrpcLogger struct {
@@ -466,19 +519,36 @@ func (l *GrpcLogger) Msg(msg string) error {
 	}
 	return l.resp.Send(&s)
 }
-func getUserFromIncomingContext(ctx context.Context) (*store.User, error){
-	u, ok :=ctx.Value(us{}).(store.User)
+func getUserFromIncomingContext(ctx context.Context) (*store.User, error) {
+	u, ok := ctx.Value(us{}).(store.User)
 	if !ok {
 		log.Error().Msg("There is no information about user in context ")
-		return &u,errors.New("No user found from incoming context")
+		return &u, errors.New("No user found from incoming context")
 	}
-	return &u,nil
+	return &u, nil
+}
+
+func calculateTotalConsumption(d *daemon) int {
+	var totalConsumption int
+	for _, e := range d.eventPool.GetAllEvents() {
+		config := e.GetConfig()
+		if config.IsBooked {
+			totalConsumption += config.Capacity
+		}
+		totalConsumption += config.Available + len(e.GetTeams())
+	}
+	return totalConsumption
 }
 
 // DOES NOT CREATE EVENT, IT CREATES CONFIGURATION FILE TO CREATE EVENT  !!!!!!!!!!!!
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-
+	nowstr := time.Now().String()
+	now, _ := time.Parse("2006-01-02", nowstr)
+	if req.StartTime == "" {
+		req.StartTime = now.String()
+	}
+	requestedStartTime, _ := time.Parse("2006-01-02", req.StartTime)
 	log.Ctx(resp.Context()).
 		Info().
 		Str("tag", req.Tag).
@@ -487,23 +557,23 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Int32("capacity", req.Capacity).
 		Strs("frontends", req.Frontends).
 		Strs("exercises", req.Exercises).
+		Str("startTime", req.StartTime).
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
-	now := time.Now()
 
-	u,_ := getUserFromIncomingContext(resp.Context())
+	u, _ := getUserFromIncomingContext(resp.Context())
 	// check whether nonprivuser reached the capacity of 40 or not.
 	if u.NonPrivUser {
 		var totalCost int
 
-		for _ , event := range d.eventPool.GetAllEvents() {
+		for _, event := range d.eventPool.GetAllEvents() {
 			eventConfig := event.GetConfig()
-			totalCost+=eventConfig.Capacity
+			totalCost += eventConfig.Capacity
 		}
-		if totalCost > maxCapacityForNonPrivUsers  {
-				log.Debug().Msgf("User %s hit the capacity ",u.Username )
-				return errors.Errorf( "As user, you can have events which has in %d capacity in total, " +
-					"stop existing one or request higher privileges !! ",maxCapacityForNonPrivUsers)
+		if totalCost > maxCapacityForNonPrivUsers {
+			log.Debug().Msgf("User %s hit the capacity ", u.Username)
+			return errors.Errorf("As user, you can have events which has in %d capacity in total, "+
+				"stop existing one or request higher privileges !! ", maxCapacityForNonPrivUsers)
 		}
 	}
 	tags := make([]store.Tag, len(req.Exercises))
@@ -521,31 +591,36 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 	evtag, _ := store.NewTag(req.Tag)
 
-
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
-	
 
 	conf := store.EventConfig{
-		Name:      req.Name,
-		Tag:       evtag,
-		Available: int(req.Available),
-		Capacity:  int(req.Capacity),
-		StartedAt: &now,
+		Name:           req.Name,
+		Tag:            evtag,
+		Available:      int(req.Available),
+		Capacity:       int(req.Capacity),
+		StartedAt:      &requestedStartTime,
 		FinishExpected: &finishTime,
-		CreatedBy: u.Username,
+		CreatedBy:      u.Username,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
 	}
 
+	if requestedStartTime.After(now) {
+		conf.IsBooked = true
+	}
+
 	if err := conf.Validate(); err != nil {
 		return err
 	}
 
-	_, err := d.eventPool.GetEvent(evtag)
+	ev, err := d.eventPool.GetEvent(evtag)
 
 	if err == nil {
+		if ev.GetConfig().IsBooked {
+			return BookedEventErr
+		}
 		return DuplicateEventErr
 	}
 
@@ -558,18 +633,27 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.String() == "" {
-		expectedFinishTime := now.AddDate(0,0,15)
-		conf.FinishExpected =&expectedFinishTime
+		expectedFinishTime := conf.StartedAt.AddDate(0, 0, 15)
+		conf.FinishExpected = &expectedFinishTime
 	}
 
-	loggerInstance := &GrpcLogger{resp: resp}
-	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
-	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
-	if err != nil {
-		return err
+	if calculateTotalConsumption(d) < 90 && (requestedStartTime.After(now) || requestedStartTime.Equal(now)) {
+		loggerInstance := &GrpcLogger{resp: resp}
+		ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
+		ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
+		if err != nil {
+			return err
+		}
+		if ev != nil && !conf.IsBooked { // if ev is nil CreateEventFromConfig returned nill because it is an event which is booked.
+			d.startEvent(ev)
+		}
+		if conf.IsBooked {
+			d.eventPool.events[conf.Tag] = ev
+		}
 	}
-	d.startEvent(ev)
+
 	return nil
+
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
@@ -577,7 +661,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		Info().
 		Str("tag", req.Tag).
 		Msg("stop event")
-	u,_ := getUserFromIncomingContext(resp.Context())
+	u, _ := getUserFromIncomingContext(resp.Context())
 
 	evtag, err := store.NewTag(req.Tag)
 	if err != nil {
@@ -609,7 +693,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		Str("event", req.EventTag).
 		Str("lab", req.TeamId).
 		Msg("restart lab")
-	u,_ := getUserFromIncomingContext(resp.Context())
+	u, _ := getUserFromIncomingContext(resp.Context())
 
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
@@ -644,23 +728,23 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		}
 
 		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
-		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]){
+		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]) {
 
 			exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
-				Tag:                  string(e.Tag),
-				Name:                 e.Name,
-				Points:               int32(e.Points),
-				Category:             e.Category,
-				Description:          e.Description,
+				Tag:         string(e.Tag),
+				Name:        e.Name,
+				Points:      int32(e.Points),
+				Category:    e.Category,
+				Description: e.Description,
 			})
 		}
 
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
-			Name:             	  e.Name,
-			Tags:             	  tags,
-			DockerImageCount: 	  int32(len(e.DockerConfs)),
-			VboxImageCount:   	  int32(len(e.VboxConfs)),
-			Exerciseinfo:         exercisesInfo,
+			Name:             e.Name,
+			Tags:             tags,
+			DockerImageCount: int32(len(e.DockerConfs)),
+			VboxImageCount:   int32(len(e.VboxConfs)),
+			Exerciseinfo:     exercisesInfo,
 		})
 	}
 
@@ -737,26 +821,32 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
+	var teamCount int32
 	u, _ := getUserFromIncomingContext(ctx)
-	for _, event := range d.eventPool.GetAllEvents() {
-		conf := event.GetConfig()
+	for _, e := range d.eventPool.GetAllEvents() {
+		conf := e.GetConfig()
 		if (u.Username == conf.CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
-			var exercises [] string
+			var exercises []string
 			for _, ex := range conf.Lab.Exercises {
 				exercises = append(exercises, string(ex))
 			}
-
+			if conf.IsBooked {
+				teamCount = 0
+			} else {
+				teamCount = int32(len(e.GetTeams()))
+			}
 			events = append(events, &pb.ListEventsResponse_Events{
 				Tag:          string(conf.Tag),
 				Name:         conf.Name,
-				TeamCount:    int32(len(event.GetTeams())),
+				TeamCount:    teamCount,
 				Exercises:    strings.Join(exercises, ","),
 				Capacity:     int32(conf.Capacity),
 				CreationTime: conf.StartedAt.Format(displayTimeFormat),
 				FinishTime:   conf.FinishExpected.Format(displayTimeFormat),
+				IsBooked:     conf.IsBooked,
 			})
 		} else {
-			return &pb.ListEventsResponse{},nil
+			return &pb.ListEventsResponse{}, nil
 		}
 	}
 
@@ -791,7 +881,7 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 
 		return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 	} else {
-		return &pb.ListEventTeamsResponse{},errors.New("No privilege to proceed this action")
+		return &pb.ListEventTeamsResponse{}, errors.New("No privilege to proceed this action")
 	}
 }
 
@@ -939,7 +1029,7 @@ func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*p
 			instances = append(instances, instance)
 		}
 		return &pb.GetTeamInfoResponse{Instances: instances}, nil
-	}else {
+	} else {
 		return &pb.GetTeamInfoResponse{}, errors.New("No privilege to proceed this action")
 	}
 }
@@ -983,9 +1073,9 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.TLS.Enabled {
-		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.CertFile,d.conf.TLS.CertKey)
-		if err !=nil {
-			log.Error().Msgf("Error reading certificate from file %s ",err)
+		creds, err := credentials.NewServerTLSFromFile(d.conf.TLS.CertFile, d.conf.TLS.CertKey)
+		if err != nil {
+			log.Error().Msgf("Error reading certificate from file %s ", err)
 		}
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
@@ -997,7 +1087,7 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
-			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.TLS.CertFile, d.conf.TLS.CertKey, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
 			return
