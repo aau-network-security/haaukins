@@ -221,7 +221,7 @@ func New(conf *Config) (*daemon, error) {
 		}
 	}
 
-	dbc, err := store.NewGRPClientDBConnection(conf.DBServer)
+	dbc, err := store.NewGRPClientDBConnection(conf.DBServer, conf.TLS.CertFile, conf.TLS.Enabled)
 	if err != nil {
 		return nil, err
 	}
