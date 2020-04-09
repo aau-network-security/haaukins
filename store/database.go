@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"github.com/aau-network-security/haaukins-store/database"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -16,7 +15,6 @@ import (
 const (
 	NoTokenErrMsg     = "token contains an invalid number of segments"
 	UnauthorizeErrMsg = "unauthorized"
-	port = ":50051"
 )
 
 var (
@@ -68,7 +66,7 @@ func TranslateRPCErr(err error) error {
 // FROM HERE ITS FOR TESTING PURPOSE
 
 type serverTest struct {
-	store database.Store
+	pbc.UnimplementedStoreServer
 }
 
 func (s serverTest) AddEvent(context.Context, *pbc.AddEventRequest) (*pbc.InsertResponse, error) {
@@ -84,19 +82,7 @@ func (s serverTest) GetEvents(context.Context, *pbc.EmptyRequest) (*pbc.GetEvent
 }
 
 func (s serverTest) GetEventTeams(context.Context, *pbc.GetEventTeamsRequest) (*pbc.GetEventTeamsResponse, error) {
-	return &pbc.GetEventTeamsResponse{
-		Teams: []*pbc.GetEventTeamsResponse_Teams{
-			{
-				Id:                   "abcdefg",
-				Email:                "test@test.dk",
-				Name:                 "TesterTeam",
-				HashPassword:         "secretpass",
-				CreatedAt:            "",
-				LastAccess:           "",
-				SolvedChallenges:     "",
-			},
-		},
-	}, nil
+	return &pbc.GetEventTeamsResponse{}, nil
 }
 
 func (s serverTest) UpdateEventFinishDate(context.Context, *pbc.UpdateEventRequest) (*pbc.UpdateResponse, error) {
@@ -115,12 +101,8 @@ func CreateTestServer() (func(string, time.Duration) (net.Conn, error), func() e
 	const oneMegaByte = 1024 * 1024
 	lis := bufconn.Listen(oneMegaByte)
 
-	//lis, err := net.Listen("tcp", port)
-	//if err != nil {
-	//	return err
-	//}
 	s := grpc.NewServer()
-	pbc.RegisterStoreServer(s, &serverTest{store:nil})
+	pbc.RegisterStoreServer(s, &serverTest{})
 	go func() {
 		s.Serve(lis)
 	}()

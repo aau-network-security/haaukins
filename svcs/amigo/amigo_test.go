@@ -15,10 +15,6 @@ import (
 	"testing"
 )
 
-const (
-	address     = "localhost:50051"
-)
-
 func TestVerifyFlag(t *testing.T) {
 	skey := "testing"
 
@@ -59,6 +55,11 @@ func TestVerifyFlag(t *testing.T) {
 		},
 	}
 
+	addTeam := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
+	if err := ts.SaveTeam(addTeam); err != nil {
+		t.Fatalf("expected no error when creating team")
+	}
+
 	var flag store.Flag
 
 	for _, team := range ts.GetTeams() {
@@ -72,7 +73,7 @@ func TestVerifyFlag(t *testing.T) {
 		}
 	}
 
-	team, err := ts.GetTeamByEmail("test@test.dk")
+	team, err := ts.GetTeamByEmail("some@email.com")
 	if err != nil {
 		t.Fatalf("unable to get the team by email: %v", err)
 	}

@@ -16,10 +16,6 @@ import (
 	"testing"
 )
 
-const (
-	address     = "localhost:50051"
-)
-
 func TestGuacLoginTokenInterceptor(t *testing.T) {
 	dialer, close := store.CreateTestServer()
 	defer close()

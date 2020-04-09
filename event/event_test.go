@@ -7,6 +7,9 @@ package event
 
 import (
 	"context"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	"google.golang.org/grpc"
+	"io"
 	"testing"
 
 	"github.com/aau-network-security/haaukins/exercise"
@@ -105,6 +108,20 @@ func (ef *testEvent) GetTeams() []store.Team {
 }
 
 func TestEvent_StartAndClose(t *testing.T) {
+	dialer, close := store.CreateTestServer()
+	defer close()
+
+	conn, err := grpc.DialContext(context.Background(), "bufnet",
+		grpc.WithDialer(dialer),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		t.Fatalf("failed to dial bufnet: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewStoreClient(conn)
+
 	tt := []struct {
 		name string
 	}{
@@ -112,32 +129,41 @@ func TestEvent_StartAndClose(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			// todo fix this test
-			//guac := testGuac{}
-			//hub := testLabHub{}
-			//store := testEvent{}
-			////
-			//ev := event{
-			//	guac:    &guac,
-			//	labhub:  &hub,
-			//	closers: []io.Closer{&guac, &hub},
-			//	store:   store.Event,
-			//}
-			//
-			//ev.Start(context.Background())
-			//
-			//if guac.status != STARTED {
-			//	t.Fatalf("Expected Guacamole to be started, but hasn't")
-			//}
-			//
-			//ev.Close()
-			//
-			//if guac.status != CLOSED {
-			//	t.Fatalf("Expected Guacamole to be stopped, but hasn't")
-			//}
-			//if hub.status != CLOSED {
-			//	t.Fatalf("Expected LabHub to be stopped, but hasn't")
-			//}
+			guac := testGuac{}
+			hub := testLabHub{}
+
+			ts, _ := store.NewEventStore(store.EventConfig{
+				Name:           "Test Event",
+				Tag:            "test",
+				Available:      1,
+				Capacity:       2,
+				Lab:            store.Lab{},
+				StartedAt:      nil,
+				FinishExpected: nil,
+				FinishedAt:     nil,
+			}, client)
+
+			ev := event{
+				guac:    &guac,
+				labhub:  &hub,
+				closers: []io.Closer{&guac, &hub},
+				store:  ts,
+			}
+
+			ev.Start(context.Background())
+
+			if guac.status != STARTED {
+				t.Fatalf("Expected Guacamole to be started, but hasn't")
+			}
+
+			ev.Close()
+
+			if guac.status != CLOSED {
+				t.Fatalf("Expected Guacamole to be stopped, but hasn't")
+			}
+			if hub.status != CLOSED {
+				t.Fatalf("Expected LabHub to be stopped, but hasn't")
+			}
 		})
 	}
 }

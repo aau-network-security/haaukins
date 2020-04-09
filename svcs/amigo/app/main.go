@@ -1,21 +1,53 @@
 package main
 
-//func main() {
-//	//todo fix this
-//	chals := []haaukins.Challenge{{"HB", "Heartbleed"},{"AAA", "Test"}}
-//	team := haaukins.NewTeam("test1@test.dk", "TestingTeamOne", "123456")
-//	f, err := team.AddChallenge(chals[0])
-//	team.AddChallenge(chals[1])
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	fmt.Println(f.String())
-//
-//	team2 := haaukins.NewTeam("test@test.dk", "TestingTeam2", "123456")
-//	team2.AddChallenge(chals[0])
-//	team2.AddChallenge(chals[1])
-//	ts := store.NewTeamStore(team, team2)
-//	am := amigo.NewAmigo(ts, chals, "abcde")
-//
-//	log.Fatal(http.ListenAndServe(":8080", am.Handler()))
-//}
+import (
+	"context"
+	"github.com/aau-network-security/haaukins/store"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
+	"google.golang.org/grpc"
+	"log"
+	"net/http"
+)
+
+func main() {
+
+	dialer, close := store.CreateTestServer()
+	defer close()
+
+	conn, err := grpc.DialContext(context.Background(), "bufnet",
+		grpc.WithDialer(dialer),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		log.Fatalf("failed to dial bufnet: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewStoreClient(conn)
+	ts, _ := store.NewEventStore(store.EventConfig{
+		Name:           "Test Event",
+		Tag:            "test",
+		Available:      1,
+		Capacity:       2,
+		Lab:            store.Lab{},
+		StartedAt:      nil,
+		FinishExpected: nil,
+		FinishedAt:     nil,
+	}, client)
+
+	chals := []store.FlagConfig{
+		{
+			Tag:         "test",
+			Name:        "test",
+			EnvVar:      "",
+			Static:      "",
+			Points:      0,
+			Description: "this is a test",
+			Category:    "Test",
+		},
+	}
+	am := amigo.NewAmigo(ts, chals)
+
+	log.Fatal(http.ListenAndServe(":8080", am.Handler(nil, http.NewServeMux())))
+}

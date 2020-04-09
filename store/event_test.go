@@ -14,10 +14,6 @@ import (
 	"time"
 )
 
-const (
-	address     = "localhost:50051"
-)
-
 func TestNewTeam(t *testing.T) {
 	password := "some_password"
 	team := store.NewTeam("some@email.com", "some name", password, "", "", "",nil)
