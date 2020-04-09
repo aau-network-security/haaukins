@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/google/uuid"
 	logger "github.com/rs/zerolog/log"
@@ -30,7 +31,7 @@ type TeamStore interface {
 	GetTeamByEmail(string) (*Team, error)
 	GetTeams() []*Team
 	SaveTokenForTeam(string, *Team) error
-	//DeleteToken(string) error //todo might be useful to have
+	DeleteToken(string) error
 }
 
 type teamstore struct {
@@ -109,6 +110,9 @@ func(es *teamstore) SaveTokenForTeam (token string, in *Team) error {
 	if token == "" {
 		return &EmptyVarErr{Var:"Token"}
 	}
+	if in.ID() == "" {
+		return errors.New("Unknown team")
+	}
 	es.tokens[token]= in.ID()
 	return nil
 }
@@ -157,6 +161,16 @@ func (es *teamstore) GetTeams() []*Team {
 	return teams
 }
 
+// Used for test purpose
+func (es *teamstore) DeleteToken(token string) error {
+	es.m.Lock()
+	defer es.m.Unlock()
+
+	delete(es.tokens, token)
+
+	return nil
+}
+
 
 type Challenge struct {
 	Name    string			//challenge name
@@ -195,7 +209,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 
 	solvedChals, err := ParseSolvedChallenges(solvedChalsDB)
 	if err != nil {
-		logger.Debug().Msgf("Unable to parse the solved challenges retrieved from the DB")
+		logger.Debug().Msgf(err.Error())
 	}
 
 	return &Team{
@@ -236,7 +250,7 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 			CompletedAt: &completedAt,
 		})
 	}
-
+fmt.Println(solvedChallenges)
 	return solvedChallenges, nil
 }
 

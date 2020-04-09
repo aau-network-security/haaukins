@@ -5,30 +5,62 @@
 package guacamole_test
 
 import (
+	"context"
+	"github.com/aau-network-security/haaukins/store"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	"google.golang.org/grpc"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+)
 
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
+const (
+	address     = "localhost:50051"
 )
 
 func TestGuacLoginTokenInterceptor(t *testing.T) {
+	dialer, close := store.CreateTestServer()
+	defer close()
+
+	conn, err := grpc.DialContext(context.Background(), "bufnet",
+		grpc.WithDialer(dialer),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		t.Fatalf("failed to dial bufnet: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewStoreClient(conn)
+
 	host := "http://sec02.lab.es.aau.dk"
 	knownSession := "some_known_session"
 
-	ts := store.NewTeamStore()
-	team := store.NewTeam("email@here.com", "name_goes_here", "passhere")
-	if err := ts.CreateTeam(team); err != nil {
+	ts, _ := store.NewEventStore(store.EventConfig{
+		Name:           "Test Event",
+		Tag:            "test",
+		Available:      1,
+		Capacity:       2,
+		Lab:            store.Lab{},
+		StartedAt:      nil,
+		FinishExpected: nil,
+		FinishedAt:     nil,
+	}, client)
+
+	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
+
+	if err := ts.SaveTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")
 	}
 
-	if err := ts.CreateTokenForTeam(knownSession, team); err != nil {
+	if err := ts.SaveTokenForTeam(knownSession, team); err != nil {
 		t.Fatalf("expected to be able to create token for team")
 	}
 
 	us := guacamole.NewGuacUserStore()
-	us.CreateUserForTeam(team.Id, guacamole.GuacUser{Username: "some-user", Password: "some-pass"})
+	us.CreateUserForTeam(team.ID(), guacamole.GuacUser{Username: "some-user", Password: "some-pass"})
 
 	tt := []struct {
 		name      string
@@ -52,7 +84,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 				return "ok-token", nil
 			}
 
-			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, loginFunc)
+			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, amigo.NewAmigo(ts, nil),loginFunc)
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {

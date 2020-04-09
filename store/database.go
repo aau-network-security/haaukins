@@ -1,17 +1,22 @@
 package store
 
 import (
+	"context"
 	"errors"
+	"github.com/aau-network-security/haaukins-store/database"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
+	"net"
 	"strings"
+	"time"
 )
 
 const (
 	NoTokenErrMsg     = "token contains an invalid number of segments"
 	UnauthorizeErrMsg = "unauthorized"
+	port = ":50051"
 )
 
 var (
@@ -21,15 +26,15 @@ var (
 
 func NewGRPClientDBConnection(server, certFile string, tls bool) (pbc.StoreClient, error) {
 
-	if tls {
-		creds, _ := credentials.NewClientTLSFromFile(certFile, "")
-		conn, err := grpc.Dial(server, grpc.WithTransportCredentials(creds))
-		if err != nil{
-			return nil, TranslateRPCErr(err)
-		}
-		c := pbc.NewStoreClient(conn)
-		return c, nil
-	}
+	//if tls {
+	//	creds, _ := credentials.NewClientTLSFromFile(certFile, "")
+	//	conn, err := grpc.Dial(server, grpc.WithTransportCredentials(creds))
+	//	if err != nil{
+	//		return nil, TranslateRPCErr(err)
+	//	}
+	//	c := pbc.NewStoreClient(conn)
+	//	return c, nil
+	//}
 
 	conn, err := grpc.Dial(server, grpc.WithInsecure())
 	if err != nil {
@@ -58,4 +63,70 @@ func TranslateRPCErr(err error) error {
 	}
 
 	return err
+}
+
+// FROM HERE ITS FOR TESTING PURPOSE
+
+type serverTest struct {
+	store database.Store
+}
+
+func (s serverTest) AddEvent(context.Context, *pbc.AddEventRequest) (*pbc.InsertResponse, error) {
+	return &pbc.InsertResponse{Message:"ok"}, nil
+}
+
+func (s serverTest) AddTeam(context.Context, *pbc.AddTeamRequest) (*pbc.InsertResponse, error) {
+	return &pbc.InsertResponse{Message:"ok"}, nil
+}
+
+func (s serverTest) GetEvents(context.Context, *pbc.EmptyRequest) (*pbc.GetEventResponse, error) {
+	return &pbc.GetEventResponse{}, nil
+}
+
+func (s serverTest) GetEventTeams(context.Context, *pbc.GetEventTeamsRequest) (*pbc.GetEventTeamsResponse, error) {
+	return &pbc.GetEventTeamsResponse{
+		Teams: []*pbc.GetEventTeamsResponse_Teams{
+			{
+				Id:                   "abcdefg",
+				Email:                "test@test.dk",
+				Name:                 "TesterTeam",
+				HashPassword:         "secretpass",
+				CreatedAt:            "",
+				LastAccess:           "",
+				SolvedChallenges:     "",
+			},
+		},
+	}, nil
+}
+
+func (s serverTest) UpdateEventFinishDate(context.Context, *pbc.UpdateEventRequest) (*pbc.UpdateResponse, error) {
+	return &pbc.UpdateResponse{Message:"ok"}, nil
+}
+
+func (s serverTest) UpdateTeamSolvedChallenge(context.Context, *pbc.UpdateTeamSolvedChallengeRequest) (*pbc.UpdateResponse, error) {
+	return &pbc.UpdateResponse{Message:"ok"}, nil
+}
+
+func (s serverTest) UpdateTeamLastAccess(context.Context, *pbc.UpdateTeamLastAccessRequest) (*pbc.UpdateResponse, error) {
+	return &pbc.UpdateResponse{Message:"ok"}, nil
+}
+
+func CreateTestServer() (func(string, time.Duration) (net.Conn, error), func() error){
+	const oneMegaByte = 1024 * 1024
+	lis := bufconn.Listen(oneMegaByte)
+
+	//lis, err := net.Listen("tcp", port)
+	//if err != nil {
+	//	return err
+	//}
+	s := grpc.NewServer()
+	pbc.RegisterStoreServer(s, &serverTest{store:nil})
+	go func() {
+		s.Serve(lis)
+	}()
+	dialer := func(string, time.Duration) (net.Conn, error) {
+		return lis.Dial()
+	}
+
+	return dialer, lis.Close
 }

@@ -7,7 +7,6 @@ package store
 import (
 	"context"
 	"errors"
-	"fmt"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rs/zerolog/log"
@@ -114,9 +113,7 @@ func NewEventStore (conf EventConfig, dbc pbc.StoreClient) (Event, error){
 	if err != nil{
 		return Event{}, err
 	}
-	fmt.Println("creating event store for the event: " + string(conf.Tag))
 	for _, teamDB := range teamsDB.Teams{
-		fmt.Println(teamDB)
 		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {

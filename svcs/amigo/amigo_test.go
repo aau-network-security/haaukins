@@ -2,26 +2,82 @@ package amigo_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/aau-network-security/haaukins/store"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
+	"google.golang.org/grpc"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+)
 
-	"github.com/aau-network-security/haaukins"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs/amigo"
-	"github.com/google/uuid"
+const (
+	address     = "localhost:50051"
 )
 
 func TestVerifyFlag(t *testing.T) {
-	skey := "someTestingKey"
-	validFlag := haaukins.Flag(uuid.New())
-	team := haaukins.NewTeam("test@aau.dk", "TesterTeam", "secretpass")
-	team.AddChallenge(haaukins.Challenge{}, validFlag)
+	skey := "testing"
 
-	validToken, err := amigo.GetTokenForTeam([]byte(skey), team)
+	dialer, close := store.CreateTestServer()
+	defer close()
+
+	conn, err := grpc.DialContext(context.Background(), "bufnet",
+		grpc.WithDialer(dialer),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		t.Fatalf("failed to dial bufnet: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewStoreClient(conn)
+
+	ts, err := store.NewEventStore(store.EventConfig{
+		Name:           "Test Event",
+		Tag:            "test",
+		Available:      1,
+		Capacity:       2,
+		Lab:            store.Lab{},
+		StartedAt:      nil,
+		FinishExpected: nil,
+		FinishedAt:     nil,
+	}, client)
+
+	var chals = []store.FlagConfig{
+		{
+			Tag:         "test",
+			Name:        "Test Challenge",
+			EnvVar:      "",
+			Static:      "",
+			Points:      10,
+			Description: "",
+			Category:    "",
+		},
+	}
+
+	var flag store.Flag
+
+	for _, team := range ts.GetTeams() {
+		for _, chal := range chals {
+			tag, _ := store.NewTag(string(chal.Tag))
+			flag, _ = team.AddChallenge(store.Challenge{
+				Tag:   tag,
+				Name:  chal.Name,
+				Value: store.NewFlag().String(),
+			})
+		}
+	}
+
+	team, err := ts.GetTeamByEmail("test@test.dk")
+	if err != nil {
+		t.Fatalf("unable to get the team by email: %v", err)
+	}
+
+	validToken, err := store.GetTokenForTeam([]byte(skey), team)
 	if err != nil {
 		t.Fatalf("unable to get token: %s", err)
 	}
@@ -49,7 +105,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "valid flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s"}`, uuid.UUID(validFlag).String()),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flag.String(), chals[0].Tag),
 		},
 		{
 			name:   "unknown flag",
@@ -60,7 +116,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "already taken flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s"}`, uuid.UUID(validFlag).String()),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flag.String(), chals[0].Tag),
 			err:    "Flag is already completed",
 		},
 	}
@@ -70,11 +126,11 @@ func TestVerifyFlag(t *testing.T) {
 		Status string `json:"status"`
 	}
 
-	ts := store.NewTeamStore(team)
+
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			am := amigo.NewAmigo(ts, skey, tc.opts...)
-			srv := httptest.NewServer(am.Handler())
+			am := amigo.NewAmigo(ts, chals, tc.opts...)
+			srv := httptest.NewServer(am.Handler(nil, http.NewServeMux()))
 
 			req, err := http.NewRequest("POST", srv.URL+"/flags/verify", bytes.NewBuffer([]byte(tc.input)))
 			if err != nil {
