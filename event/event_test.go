@@ -12,18 +12,14 @@ import (
 	"io"
 	"testing"
 
-	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
-	"github.com/aau-network-security/haaukins/virtual/docker"
 )
 
 const (
-	CREATED = 0
 	STARTED = 1
 	CLOSED  = 2
-	STOPPED = 3
 )
 
 type testGuac struct {
@@ -49,28 +45,6 @@ func (guac *testGuac) CreateRDPConn(opts guacamole.CreateRDPConnOpts) error {
 	return nil
 }
 
-type testEnvironment struct {
-	exercise.Environment
-}
-
-func (te *testEnvironment) Challenges() []store.Challenge {
-	return nil
-}
-
-type testLab struct {
-	status   int
-	rdpPorts []uint
-	lab.Lab
-}
-
-func (lab *testLab) RdpConnPorts() []uint {
-	return lab.rdpPorts
-}
-
-func (lab *testLab) Environment() exercise.Environment {
-	return &testEnvironment{}
-}
-
 type testLabHub struct {
 	status int
 	lab    lab.Lab
@@ -89,22 +63,6 @@ func (hub *testLabHub) Close() error {
 
 func (hub *testLabHub) GetLabByTag(string) (lab.Lab, error) {
 	return nil, nil
-}
-
-type testDockerHost struct {
-	docker.Host
-}
-
-func (dh *testDockerHost) GetDockerHostIP() (string, error) {
-	return "1.2.3.4", nil
-}
-
-type testEvent struct {
-	store.Event
-}
-
-func (ef *testEvent) GetTeams() []store.Team {
-	return []store.Team{}
 }
 
 func TestEvent_StartAndClose(t *testing.T) {
