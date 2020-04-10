@@ -238,7 +238,7 @@ func New(conf *Config) (*daemon, error) {
 		exercises: ef,
 		eventPool: eventPool,
 		frontends: ff,
-		ehost:     event.NewHost(vlib, ef, dbc),
+		ehost:     event.NewHost(vlib, ef, conf.EventsDir, dbc),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 	}
