@@ -43,6 +43,9 @@ func stateString(state int32) string {
 		colorFunc = a.Brown
 		stateStr = "not running"
 	case 2:
+		colorFunc = a.Yellow
+		stateStr = "suspended"
+	case 3:
 		colorFunc = a.Red
 		stateStr = "error"
 	}
