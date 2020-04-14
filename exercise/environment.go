@@ -27,6 +27,10 @@ type Environment interface {
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
 	Stop() error
+	Suspend(ctx context.Context) error
+	// When resuming from suspend Resume must be used instead of Environment.Start
+	// This is because Start reinitialises dhcp and dns containers
+	Resume(ctx context.Context) error
 	io.Closer
 }
 
@@ -139,6 +143,28 @@ func (ee *environment) Stop() error {
 
 	for _, e := range ee.exercises {
 		if err := e.Stop(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ee *environment) Suspend(ctx context.Context) error {
+	for _, e := range ee.exercises {
+		if err := e.Suspend(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// When resuming from suspend this must be used instead of Environment.Start
+// This is because Start reinitialises dhcp and dns containers
+func (ee *environment) Resume(ctx context.Context) error {
+	for _, e := range ee.exercises {
+		if err := e.Start(ctx); err != nil {
 			return err
 		}
 	}

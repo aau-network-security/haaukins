@@ -351,14 +351,34 @@ func (c *container) Start(ctx context.Context) error {
 		return ContNotCreatedErr
 	}
 
-	if err := DefaultClient.StartContainerWithContext(c.id, nil, ctx); err != nil {
-		return err
+	// If the docker is suspended unpause must be called instead
+	if c.state() == virtual.Suspended {
+		if err := DefaultClient.UnpauseContainer(c.id); err != nil {
+			return err
+		}
+	} else {
+		if err := DefaultClient.StartContainerWithContext(c.id, nil, ctx); err != nil {
+			return err
+		}
 	}
 
 	log.Debug().
 		Str("ID", c.id[0:8]).
 		Str("Image", c.conf.Image).
 		Msg("Started container")
+
+	return nil
+}
+
+func (c *container) Suspend(ctx context.Context) error {
+	if err := DefaultClient.PauseContainer(c.id); err != nil {
+		log.Error().Str("ID", c.id[0:8]).Msgf("Failed to suspend container: %s", err)
+		return err
+	}
+
+	log.Debug().
+		Str("ID", c.id[0:8]).
+		Msg("Stopped container")
 
 	return nil
 }
@@ -388,6 +408,9 @@ func (c *container) state() virtual.State {
 	cont, err := DefaultClient.InspectContainer(c.id)
 	if err != nil {
 		return virtual.Error
+	}
+	if cont.State.Paused {
+		return virtual.Suspended
 	}
 	if cont.State.Running {
 		return virtual.Running

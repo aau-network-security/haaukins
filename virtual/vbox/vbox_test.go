@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	tst "github.com/aau-network-security/haaukins/testing"
+	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 )
 
@@ -53,9 +54,26 @@ func TestVmBase(t *testing.T) {
 		t.Fatalf("expected virtual machine to have been added")
 	}
 
-	err = vm.Start(ctx)
+	teststart := func() {
+		err = vm.Start(ctx)
+		if err != nil {
+			t.Fatalf("unexpected error when starting vm: %s", err)
+		}
+
+		output, err = execute("list", "runningvms")
+		if err != nil {
+			t.Fatalf("unexpected error when listing running vms: %s", err)
+		}
+
+		if !strings.Contains(output, name) {
+			t.Fatalf("expected virtual machine to be running")
+		}
+	}
+	teststart()
+
+	err = vm.Suspend(ctx)
 	if err != nil {
-		t.Fatalf("unexpected error when starting vm: %s", err)
+		t.Fatalf("unexpected error when suspending vm: %s", err)
 	}
 
 	output, err = execute("list", "runningvms")
@@ -63,9 +81,16 @@ func TestVmBase(t *testing.T) {
 		t.Fatalf("unexpected error when listing running vms: %s", err)
 	}
 
-	if !strings.Contains(output, name) {
-		t.Fatalf("expected virtual machine to be running")
+	if strings.Contains(output, name) {
+		t.Fatalf("expected virtual machine to have been stopped")
 	}
+
+	// Check state using info command
+	if info := vm.Info(); info.State != virtual.Suspended {
+		t.Fatalf("expected virtual machine to be suspended")
+	}
+
+	teststart()
 
 	if err := vm.Stop(); err != nil {
 		t.Fatalf("unexpected error when stopping vm: %s", err)

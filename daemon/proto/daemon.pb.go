@@ -1777,6 +1777,61 @@ func (m *GetTeamInfoResponse_Instance) GetState() int32 {
 	return 0
 }
 
+type SetTeamSuspendRequest struct {
+	TeamId               string   `protobuf:"bytes,1,opt,name=teamId,proto3" json:"teamId,omitempty"`
+	EventTag             string   `protobuf:"bytes,2,opt,name=eventTag,proto3" json:"eventTag,omitempty"`
+	Suspend              bool     `protobuf:"varint,3,opt,name=suspend,proto3" json:"suspend,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetTeamSuspendRequest) Reset()         { *m = SetTeamSuspendRequest{} }
+func (m *SetTeamSuspendRequest) String() string { return proto.CompactTextString(m) }
+func (*SetTeamSuspendRequest) ProtoMessage()    {}
+func (*SetTeamSuspendRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{28}
+}
+
+func (m *SetTeamSuspendRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetTeamSuspendRequest.Unmarshal(m, b)
+}
+func (m *SetTeamSuspendRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetTeamSuspendRequest.Marshal(b, m, deterministic)
+}
+func (m *SetTeamSuspendRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetTeamSuspendRequest.Merge(m, src)
+}
+func (m *SetTeamSuspendRequest) XXX_Size() int {
+	return xxx_messageInfo_SetTeamSuspendRequest.Size(m)
+}
+func (m *SetTeamSuspendRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetTeamSuspendRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetTeamSuspendRequest proto.InternalMessageInfo
+
+func (m *SetTeamSuspendRequest) GetTeamId() string {
+	if m != nil {
+		return m.TeamId
+	}
+	return ""
+}
+
+func (m *SetTeamSuspendRequest) GetEventTag() string {
+	if m != nil {
+		return m.EventTag
+	}
+	return ""
+}
+
+func (m *SetTeamSuspendRequest) GetSuspend() bool {
+	if m != nil {
+		return m.Suspend
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*Team)(nil), "Team")
 	proto.RegisterType((*LoginUserRequest)(nil), "LoginUserRequest")
@@ -1813,6 +1868,7 @@ func init() {
 	proto.RegisterType((*GetTeamInfoRequest)(nil), "GetTeamInfoRequest")
 	proto.RegisterType((*GetTeamInfoResponse)(nil), "GetTeamInfoResponse")
 	proto.RegisterType((*GetTeamInfoResponse_Instance)(nil), "GetTeamInfoResponse.Instance")
+	proto.RegisterType((*SetTeamSuspendRequest)(nil), "SetTeamSuspendRequest")
 }
 
 func init() { proto.RegisterFile("daemon.proto", fileDescriptor_3ec90cbc4aa12fc6) }
@@ -1910,6 +1966,7 @@ var fileDescriptor_3ec90cbc4aa12fc6 = []byte{
 	0xd7, 0xd0, 0x5d, 0xe8, 0x18, 0x53, 0x34, 0x0d, 0xcd, 0x06, 0xa9, 0x98, 0xad, 0xd2, 0xb5, 0x77,
 	0x60, 0x59, 0x8f, 0xb0, 0x54, 0x78, 0x9d, 0x14, 0x86, 0x1a, 0xae, 0x9d, 0x36, 0xe5, 0x5f, 0x05,
 	0xf7, 0xff, 0x09, 0x00, 0x00, 0xff, 0xff, 0xeb, 0xc7, 0x9c, 0x42, 0x3a, 0x10, 0x00, 0x00,
+
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1943,6 +2000,7 @@ type DaemonClient interface {
 	GetTeamInfo(ctx context.Context, in *GetTeamInfoRequest, opts ...grpc.CallOption) (*GetTeamInfoResponse, error)
 	MonitorHost(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Daemon_MonitorHostClient, error)
 	Version(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*VersionResponse, error)
+	SetTeamSuspend(ctx context.Context, in *SetTeamSuspendRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type daemonClient struct {
@@ -2262,6 +2320,15 @@ func (c *daemonClient) Version(ctx context.Context, in *Empty, opts ...grpc.Call
 	return out, nil
 }
 
+func (c *daemonClient) SetTeamSuspend(ctx context.Context, in *SetTeamSuspendRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/Daemon/SetTeamSuspend", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DaemonServer is the server API for Daemon service.
 type DaemonServer interface {
 	LoginUser(context.Context, *LoginUserRequest) (*LoginUserResponse, error)
@@ -2283,6 +2350,7 @@ type DaemonServer interface {
 	GetTeamInfo(context.Context, *GetTeamInfoRequest) (*GetTeamInfoResponse, error)
 	MonitorHost(*Empty, Daemon_MonitorHostServer) error
 	Version(context.Context, *Empty) (*VersionResponse, error)
+	SetTeamSuspend(context.Context, *SetTeamSuspendRequest) (*Empty, error)
 }
 
 // UnimplementedDaemonServer can be embedded to have forward compatible implementations.
@@ -2345,6 +2413,9 @@ func (*UnimplementedDaemonServer) MonitorHost(req *Empty, srv Daemon_MonitorHost
 }
 func (*UnimplementedDaemonServer) Version(ctx context.Context, req *Empty) (*VersionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
+}
+func (*UnimplementedDaemonServer) SetTeamSuspend(ctx context.Context, req *SetTeamSuspendRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetTeamSuspend not implemented")
 }
 
 func RegisterDaemonServer(s *grpc.Server, srv DaemonServer) {
@@ -2711,6 +2782,24 @@ func _Daemon_Version_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Daemon_SetTeamSuspend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTeamSuspendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).SetTeamSuspend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Daemon/SetTeamSuspend",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).SetTeamSuspend(ctx, req.(*SetTeamSuspendRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Daemon_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "Daemon",
 	HandlerType: (*DaemonServer)(nil),
@@ -2766,6 +2855,10 @@ var _Daemon_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Version",
 			Handler:    _Daemon_Version_Handler,
+		},
+		{
+			MethodName: "SetTeamSuspend",
+			Handler:    _Daemon_SetTeamSuspend_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
