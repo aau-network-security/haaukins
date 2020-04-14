@@ -722,12 +722,10 @@ func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool,a
 		}
 
 		var logger KeyLogger
-		//if t.DataConsent() {
-		//	logger, err = keyLoggerPool.GetLogger(t)
-		//	if err != nil {
-		//		log.Warn().Msg("Failed to create keylogger")
-		//	}
-		//}
+		logger, err = keyLoggerPool.GetLogger(*t)
+		if err != nil {
+			log.Warn().Msg("Failed to create keylogger")
+		}
 
 		rHeader := http.Header{}
 		copyHeaders(r.Header, rHeader, wsHeaders)
@@ -788,7 +786,7 @@ func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool,a
 
 		log.Debug().
 			Str("id", t.ID()).
-			//Str("event", string(ef.)).
+			Str("event", string(ef.Tag)).
 			Msg("team connected")
 
 		var msgFormat string
@@ -803,7 +801,7 @@ func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool,a
 		if ok && e.Code == websocket.CloseNoStatusReceived {
 			log.Debug().
 				Str("id", t.ID()).
-				//Str("event", string(ef.Read().Tag)).
+				Str("event", string(ef.Tag)).
 				Msg("team disconnected")
 		} else if !ok || e.Code != websocket.CloseNormalClosure {
 			log.Error().Msgf(msgFormat, err)

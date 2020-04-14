@@ -11,6 +11,8 @@ import (
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rs/zerolog/log"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -78,6 +80,7 @@ func (e EventConfig) Validate() error {
 }
 
 type Event struct {
+	Dir string
 	dbc pbc.StoreClient
 	TeamStore
 	EventConfig
@@ -106,7 +109,7 @@ func (e Event) Finish(time time.Time) error {
 // The connection with the DB
 // A new TeamStore that contains all the teams retrieved from the DB (if no teams are retrieved the TeamStore will be empty)
 // The EventConfiguration
-func NewEventStore (conf EventConfig, dbc pbc.StoreClient) (Event, error){
+func NewEventStore (conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, error){
 	ctx := context.Background()
 	ts := NewTeamStore(conf, dbc)
 
@@ -114,9 +117,7 @@ func NewEventStore (conf EventConfig, dbc pbc.StoreClient) (Event, error){
 	if err != nil{
 		return Event{}, err
 	}
-	fmt.Println("creating event store for the event: " + string(conf.Tag))
 	for _, teamDB := range teamsDB.Teams{
-		fmt.Println(teamDB)
 		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {
@@ -127,7 +128,14 @@ func NewEventStore (conf EventConfig, dbc pbc.StoreClient) (Event, error){
 		ts.teams[team.ID()]=team
 	}
 
+	if _, err := os.Stat(eDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(eDir, os.ModePerm); err != nil {
+			return Event{}, err
+		}
+	}
+
 	return Event{
+		Dir:		 eDir,
 		dbc:         dbc,
 		TeamStore:   ts,
 		EventConfig: conf,
@@ -144,4 +152,33 @@ func GetTokenForTeam(key []byte, t *Team) (string, error) {
 		return "", err
 	}
 	return tokenStr, nil
+}
+
+func GetDirNameForEvent(path string, tag Tag, date *time.Time) (string, error) {
+	dirDate := date.Format("02-01-06")
+	dirName := fmt.Sprintf("%s-%s", tag, dirDate)
+
+	_, dirErr := os.Stat(filepath.Join(path, dirName))
+
+	if os.IsNotExist(dirErr) {
+		return dirName, nil
+	}
+
+	for i := 1; i < 999; i++ {
+		dirname := fmt.Sprintf("%s-%s-%d", tag, dirDate, i)
+
+		_, dirErr := os.Stat(filepath.Join(path, dirname))
+
+		if os.IsNotExist(dirErr) {
+			return dirName, nil
+		}
+	}
+
+	if _, err := os.Stat(dirName); os.IsNotExist(err) {
+		if err := os.MkdirAll(dirName, os.ModePerm); err != nil {
+			return "", err
+		}
+	}
+
+	return dirName, nil
 }

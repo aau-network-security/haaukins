@@ -7,6 +7,7 @@ package guacamole
 import (
 	"bytes"
 	"github.com/aau-network-security/haaukins/logging"
+	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"io"
@@ -178,8 +179,7 @@ func NewKeyLogger(logger *zerolog.Logger) (KeyLogger, error) {
 }
 
 type KeyLoggerPool interface {
-	//todo commented stufff
-	//GetLogger(t store.Team) (KeyLogger, error)
+	GetLogger(t store.Team) (KeyLogger, error)
 	io.Closer
 }
 
@@ -187,14 +187,13 @@ type keyLoggerPool struct {
 	logpool logging.Pool
 }
 
-//todo uncomment this
-//func (klp *keyLoggerPool) GetLogger(t store.Team) (KeyLogger, error) {
-//	logger, err := klp.logpool.GetLogger(t.Id)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return NewKeyLogger(logger)
-//}
+func (klp *keyLoggerPool) GetLogger(t store.Team) (KeyLogger, error) {
+	logger, err := klp.logpool.GetLogger(t.ID())
+	if err != nil {
+		return nil, err
+	}
+	return NewKeyLogger(logger)
+}
 
 func (klp *keyLoggerPool) Close() error {
 	return klp.logpool.Close()
