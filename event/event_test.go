@@ -80,48 +80,42 @@ func TestEvent_StartAndClose(t *testing.T) {
 
 	client := pb.NewStoreClient(conn)
 
-	tt := []struct {
-		name string
-	}{
-		{name: "Normal"},
-	}
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			guac := testGuac{}
-			hub := testLabHub{}
+	t.Run("Normal", func(t *testing.T) {
+		guac := testGuac{}
+		hub := testLabHub{}
 
-			ts, _ := store.NewEventStore(store.EventConfig{
-				Name:           "Test Event",
-				Tag:            "test",
-				Available:      1,
-				Capacity:       2,
-				Lab:            store.Lab{},
-				StartedAt:      nil,
-				FinishExpected: nil,
-				FinishedAt:     nil,
-			}, client)
+		ts, _ := store.NewEventStore(store.EventConfig{
+			Name:           "Test Event",
+			Tag:            "test",
+			Available:      1,
+			Capacity:       2,
+			Lab:            store.Lab{},
+			StartedAt:      nil,
+			FinishExpected: nil,
+			FinishedAt:     nil,
+		}, client)
 
-			ev := event{
-				guac:    &guac,
-				labhub:  &hub,
-				closers: []io.Closer{&guac, &hub},
-				store:  ts,
-			}
+		ev := event{
+			guac:    &guac,
+			labhub:  &hub,
+			closers: []io.Closer{&guac, &hub},
+			store:  ts,
+		}
 
-			ev.Start(context.Background())
+		ev.Start(context.Background())
 
-			if guac.status != STARTED {
-				t.Fatalf("Expected Guacamole to be started, but hasn't")
-			}
+		if guac.status != STARTED {
+			t.Fatalf("Expected Guacamole to be started, but hasn't")
+		}
 
-			ev.Close()
+		ev.Close()
 
-			if guac.status != CLOSED {
-				t.Fatalf("Expected Guacamole to be stopped, but hasn't")
-			}
-			if hub.status != CLOSED {
-				t.Fatalf("Expected LabHub to be stopped, but hasn't")
-			}
-		})
-	}
+		if guac.status != CLOSED {
+			t.Fatalf("Expected Guacamole to be stopped, but hasn't")
+		}
+		if hub.status != CLOSED {
+			t.Fatalf("Expected LabHub to be stopped, but hasn't")
+		}
+	})
+
 }

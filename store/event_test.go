@@ -50,22 +50,34 @@ func TestTeamSolveTask(t *testing.T) {
 	}
 
 	flag, _ := team.AddChallenge(chal)
-	if err := team.VerifyFlag(chal, flag); err != nil {
-		t.Fatalf("expected no error when solving task for team: %s", err)
+
+	tt := []struct{
+		name	string
+		team 	*store.Team
+		chal 	store.Challenge
+		flag 	store.Flag
+		err 	string
+	}{
+		{name: "Normal", team: team, chal: chal, flag: flag, err: ""},	//correct example
+		{name: "Solved chal", team: team, chal: chal, flag: flag, err: "expected error when solving challenge already solved"},
+		{name: "Unknown flag", team: team, chal: chal, flag: store.NewFlag(), err: "expected error when solving challenge with wrong flag"},
 	}
 
-	if err := team.VerifyFlag(chal, flag); err == nil {
-		t.Fatalf("expected error when solving challenge already solved: %s", err)
-	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			res := tc.team.VerifyFlag(tc.chal, tc.flag)
+			if res != nil{
+				if tc.err == "" {
+					t.Fatalf("expected error but received none: %s", tc.err)
+				}
+				return
+			}
 
-	if err := team.VerifyFlag(store.Challenge{
-		Name:  "Test",
-		Tag:   "test",
-		Value: store.NewFlag().String(),
-	}, flag); err == nil {
-		t.Fatalf("expected error when solving unknown challenge")
+			if tc.err != "" {
+				t.Fatalf("expected error but received none: %s", tc.err)
+			}
+		})
 	}
-
 }
 
 func TestCreateToken(t *testing.T) {
@@ -208,73 +220,6 @@ func TestGetTokenForTeam(t *testing.T) {
 
 			if team.Email() != tc.team.Email() {
 				t.Fatalf("received unexpected team: %+v", team)
-			}
-		})
-	}
-}
-
-func TestDeleteToken(t *testing.T) {
-	dialer, close := store.CreateTestServer()
-	defer close()
-
-	conn, err := grpc.DialContext(context.Background(), "bufnet",
-		grpc.WithDialer(dialer),
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		t.Fatalf("failed to dial bufnet: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewStoreClient(conn)
-
-	tt := []struct {
-		name        string
-		inputToken  string
-		deleteToken string
-		err         string
-	}{
-		{name: "Normal", inputToken: "some_token", deleteToken: "some_token"},
-		{name: "Empty token", inputToken: "some_token", deleteToken: ""},
-		{name: "Unknown token", inputToken: "some_token", deleteToken: "some_other_token", err: "Unknown token"},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-
-			ts, _ := store.NewEventStore(store.EventConfig{
-				Name:           "Test Event",
-				Tag:            "test",
-				Available:      1,
-				Capacity:       2,
-				Lab:            store.Lab{},
-				StartedAt:      nil,
-				FinishExpected: nil,
-				FinishedAt:     nil,
-			}, client)
-
-			team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
-
-			if err := ts.SaveTeam(team); err != nil {
-				t.Fatalf("expected no error when creating team")
-			}
-
-			err := ts.SaveTokenForTeam(tc.inputToken, team)
-			if err != nil {
-				t.Fatalf("expected no error when creating token")
-			}
-
-			err = ts.DeleteToken(tc.deleteToken)
-			if err != nil {
-				if tc.err != "" {
-					if tc.err != err.Error() {
-						t.Fatalf("unexpected error (expected: \"%s\") when getting team by token: %s", tc.err, err)
-					}
-
-					return
-				}
-
-				t.Fatalf("received error when getting team by token, but expected none: %s", err)
 			}
 		})
 	}

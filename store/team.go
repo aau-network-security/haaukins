@@ -31,7 +31,6 @@ type TeamStore interface {
 	GetTeamByEmail(string) (*Team, error)
 	GetTeams() []*Team
 	SaveTokenForTeam(string, *Team) error
-	DeleteToken(string) error
 }
 
 type teamstore struct {
@@ -160,17 +159,6 @@ func (es *teamstore) GetTeams() []*Team {
 
 	return teams
 }
-
-// Used for test purpose
-func (es *teamstore) DeleteToken(token string) error {
-	es.m.Lock()
-	defer es.m.Unlock()
-
-	delete(es.tokens, token)
-
-	return nil
-}
-
 
 type Challenge struct {
 	Name    string			//challenge name

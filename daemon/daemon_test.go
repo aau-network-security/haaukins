@@ -906,7 +906,6 @@ func TestResetExercise(t *testing.T) {
 
 			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 1; i <= 2; i++ {
-				//g := store.Team{Id: fmt.Sprintf("team-%d", i)}
 				g := store.NewTeam(fmt.Sprintf("team-%d@team.dk", i),"whatever","",fmt.Sprintf("team-%d", i),"","", nil)
 				ev.teams = append(ev.teams, g)
 			}
