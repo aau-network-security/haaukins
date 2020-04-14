@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aau-network-security/haaukins"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
 )
