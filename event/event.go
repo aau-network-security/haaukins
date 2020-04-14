@@ -37,6 +37,7 @@ var (
 
 type Host interface {
 	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
+	UpdateEventFile(store.EventConfig) (store.EventFile, error)
 	CreateEventFromEventFile(context.Context, store.EventFile) (Event, error)
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
 }
@@ -48,6 +49,10 @@ func NewHost(vlib vbox.Library, elib store.ExerciseStore, efh store.EventFileHub
 		vlib: vlib,
 		elib: elib,
 	}
+}
+
+func CreateBookedEvent(eventFile store.EventFile) *event {
+	return &event{store: eventFile} // used only for events which are booked
 }
 
 type eventHost struct {
@@ -98,8 +103,25 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 	if err != nil {
 		return nil, err
 	}
+	log.Debug().Msgf("Create event from config function ! ")
+	eventFileConfig := ef.Read()
+	if eventFileConfig.IsBooked {
+		log.Debug().Str("Name", eventFileConfig.Name).
+			Str("Tag", string(eventFileConfig.Tag)).
+			Str("StartTime", eventFileConfig.StartedAt.String()).
+			Str("FinishTime", eventFileConfig.FinishExpected.String()).
+			Msg("Booked !")
 
+		return &event{store: ef}, nil
+	}
 	return eh.CreateEventFromEventFile(ctx, ef)
+}
+func (eh *eventHost) UpdateEventFile(eventConfig store.EventConfig) (store.EventFile, error) {
+	ef, err := eh.efh.UpdateEventFile(eventConfig)
+	if err != nil {
+		return nil, err
+	}
+	return ef, nil
 }
 
 type Auth struct {
@@ -172,6 +194,12 @@ func NewEvent(ctx context.Context, ef store.EventFile, hub lab.Hub, flags []stor
 		keyLoggerPool: keyLoggerPool,
 	}
 
+	if conf.IsBooked {
+		ev := &event{
+			store: ef,
+		}
+		return ev, nil
+	}
 	return ev, nil
 }
 

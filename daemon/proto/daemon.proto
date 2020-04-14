@@ -7,6 +7,7 @@ service Daemon {
 
   rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
+  rpc StartEvent(Empty) returns (StartEventResponse){}
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
@@ -49,6 +50,8 @@ message SignupUserRequest {
 
 message InviteUserRequest {
   bool super_user = 1;
+  bool non_priv_user = 2;
+
 }
 
 message InviteUserResponse {
@@ -63,8 +66,13 @@ message CreateEventRequest {
   repeated string exercises = 4;
   int32 available = 5;
   int32 capacity = 6;
+  string startTime = 7;
+  string finishTime = 8;
 }
 
+message StartEventResponse{
+  string status = 1;
+}
 message ListEventsRequest {}
 message ListEventsResponse {
   message Events {
@@ -74,6 +82,8 @@ message ListEventsResponse {
     string exercises = 4;
     int32 capacity = 5;
     string creationTime = 6;
+    string finishTime = 7;
+    bool isBooked = 8;
   }
 
   repeated Events events = 1;
@@ -108,12 +118,19 @@ message UpdateExercisesFileResponse {
 }
 message ListExercisesResponse {
   message Exercise {
+    message ExerciseInfo{
+      string tag = 1;
+      string name = 2;
+      int32 points = 3;
+      string category = 4;
+      string description = 5;
+    }
     repeated string tags = 1;
     string name = 2;
     int32 dockerImageCount = 3;
     int32 vboxImageCount = 4;
+    repeated ExerciseInfo exerciseinfo = 5;
   }
-
   repeated Exercise exercises = 1;
 }
 
@@ -132,6 +149,7 @@ message EventStatus {
 }
 
 message LabStatus {
+  string Message = 1;
   string errorMessage = 2;
 }
 
