@@ -10,6 +10,7 @@ import (
 	"fmt"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"io"
@@ -43,12 +44,13 @@ type Host interface {
 
 }
 
-func NewHost(vlib vbox.Library, elib store.ExerciseStore, dbc pbc.StoreClient) Host {
+func NewHost(vlib vbox.Library, elib store.ExerciseStore, eDir string, dbc pbc.StoreClient) Host {
 	return &eventHost{
 		ctx:  context.Background(),
 		dbc:  dbc,
 		vlib: vlib,
 		elib: elib,
+		dir: eDir,
 	}
 }
 
@@ -57,6 +59,7 @@ type eventHost struct {
 	dbc  pbc.StoreClient
 	vlib vbox.Library
 	elib store.ExerciseStore
+	dir string
 }
 
 //Create the event configuration for the event got from the DB
@@ -82,7 +85,7 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		return nil, err
 	}
 
-	es, err := store.NewEventStore(conf, eh.dbc)
+	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
 		return nil, err
 	}
@@ -159,10 +162,14 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 		return nil, err
 	}
 
+	dirname, err := store.GetDirNameForEvent(e.Dir, e.Tag, e.StartedAt)
+	if err != nil {
+		return nil, err
+	}
+
 	dockerHost := docker.NewHost()
 	amigoOpt := amigo.WithEventName(e.Name)
-	//todo fix this
-	//keyLoggerPool, err := guacamole.NewKeyLoggerPool(ef.ArchiveDir())
+	keyLoggerPool, err := guacamole.NewKeyLoggerPool(filepath.Join(e.Dir, dirname))
 	if err != nil {
 		return nil, err
 	}
@@ -174,10 +181,9 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: guacamole.NewGuacUserStore(),
-		//closers:       []io.Closer{ guac, hub, keyLoggerPool},
-		closers:       []io.Closer{ guac, hub},
+		closers:       []io.Closer{ guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
-		//keyLoggerPool: keyLoggerPool,
+		keyLoggerPool: keyLoggerPool,
 	}
 
 	return ev, nil
@@ -292,7 +298,6 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			Name:  chal.Name,
 			Value: chal.Value,
 		})
-		fmt.Println("This is the flag: " + f.String())
 		log.Info().Str("chal-tag", string(tag)).
 			Str("chal-val", f.String()).
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())

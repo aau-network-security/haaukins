@@ -203,8 +203,6 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			}
 
 			session := c.Value
-			log.Debug().Msgf("Value of cookie %s",session)
-			//t, err := gtl.teamStore.GetTeamByToken(session)
 			t, err := gtl.amigo.TeamStore.GetTeamByToken(session)
 			if err != nil {
 				log.Warn().
@@ -227,7 +225,6 @@ func (gtl *guacTokenLoginEndpoint) Intercept(next http.Handler) http.Handler {
 			}
 
 			token, err := gtl.loginFunc(u.Username, u.Password)
-			log.Debug().Msgf("TOKEN : %s",token)
 			if err != nil {
 				log.Warn().
 					Err(err).
