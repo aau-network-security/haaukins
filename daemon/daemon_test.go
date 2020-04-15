@@ -6,26 +6,25 @@ package daemon
 
 import (
 	"fmt"
+	"github.com/aau-network-security/haaukins/event"
+	"github.com/aau-network-security/haaukins/exercise"
+	"github.com/aau-network-security/haaukins/lab"
+	"github.com/aau-network-security/haaukins/virtual"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"context"
 
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	"github.com/aau-network-security/haaukins/app/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/aau-network-security/haaukins/event"
-	"github.com/aau-network-security/haaukins/exercise"
-	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -358,11 +357,7 @@ type fakeEventHost struct {
 	event.Host
 }
 
-func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (event.Event, error) {
-	return eh.event, nil
-}
-
-func (eh fakeEventHost) CreateEventFromEventFile(context.Context, store.EventFile) (event.Event, error) {
+func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig, store.RawEvent) (event.Event, error) {
 	return eh.event, nil
 }
 
@@ -373,7 +368,7 @@ type fakeEvent struct {
 	close     int
 	register  int
 	finished  int
-	teams     []store.Team
+	teams     []*store.Team
 	lab       *fakeLab
 	conf      store.EventConfig
 	event.Event
@@ -428,7 +423,7 @@ func (fe *fakeEvent) GetConfig() store.EventConfig {
 	return fe.conf
 }
 
-func (fe *fakeEvent) GetTeams() []store.Team {
+func (fe *fakeEvent) GetTeams() []*store.Team {
 	fe.m.Lock()
 	defer fe.m.Unlock()
 
@@ -816,10 +811,10 @@ func TestListEventTeams(t *testing.T) {
 				},
 			}
 
-			ev := fakeEvent{conf: store.EventConfig{Tag: store.Tag(tc.tag)}, teams: []store.Team{}, lab: &fakeLab{environment: &fakeEnvironment{}}}
+			ev := fakeEvent{conf: store.EventConfig{Tag: store.Tag(tc.tag)}, teams: []*store.Team{}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 0; i < tc.nExpectedTeams; i++ {
 				g := store.Team{}
-				ev.teams = append(ev.teams, g)
+				ev.teams = append(ev.teams, &g)
 			}
 			eventPool.AddEvent(&ev)
 
@@ -911,7 +906,7 @@ func TestResetExercise(t *testing.T) {
 
 			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 1; i <= 2; i++ {
-				g := store.Team{Id: fmt.Sprintf("team-%d", i)}
+				g := store.NewTeam(fmt.Sprintf("team-%d@team.dk", i),"whatever","",fmt.Sprintf("team-%d", i),"","", nil)
 				ev.teams = append(ev.teams, g)
 			}
 			eventPool.AddEvent(ev)

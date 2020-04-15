@@ -4,7 +4,6 @@ import (
 	"errors"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"strings"
 )
@@ -21,15 +20,15 @@ var (
 
 func NewGRPClientDBConnection(server, certFile string, tls bool) (pbc.StoreClient, error) {
 
-	if tls {
-		creds, _ := credentials.NewClientTLSFromFile(certFile, "")
-		conn, err := grpc.Dial(server, grpc.WithTransportCredentials(creds))
-		if err != nil{
-			return nil, TranslateRPCErr(err)
-		}
-		c := pbc.NewStoreClient(conn)
-		return c, nil
-	}
+	//if tls {
+	//	creds, _ := credentials.NewClientTLSFromFile(certFile, "")
+	//	conn, err := grpc.Dial(server, grpc.WithTransportCredentials(creds))
+	//	if err != nil{
+	//		return nil, TranslateRPCErr(err)
+	//	}
+	//	c := pbc.NewStoreClient(conn)
+	//	return c, nil
+	//}
 
 	conn, err := grpc.Dial(server, grpc.WithInsecure())
 	if err != nil {

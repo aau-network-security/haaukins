@@ -7,7 +7,6 @@ package store
 import (
 	"context"
 	"errors"
-	"fmt"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rs/zerolog/log"

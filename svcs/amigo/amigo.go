@@ -253,7 +253,6 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 		}
 
 		tag := store.Tag(msg.Tag)
-		fmt.Println("amigooooooooooo flag verify per tag: "+string(tag))
 		if err := team.VerifyFlag(store.Challenge{Tag: tag}, flag); err != nil {
 			replyJson(http.StatusOK, w, errReply{err.Error()})
 			return
