@@ -43,7 +43,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	}, client)
+	}, "events", client)
 
 	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
 

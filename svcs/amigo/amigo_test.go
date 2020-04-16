@@ -41,7 +41,7 @@ func TestVerifyFlag(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	}, client)
+	}, "events", client)
 
 	var chal = store.FlagConfig{
 			Tag:         "test",

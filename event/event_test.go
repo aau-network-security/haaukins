@@ -93,7 +93,7 @@ func TestEvent_StartAndClose(t *testing.T) {
 			StartedAt:      nil,
 			FinishExpected: nil,
 			FinishedAt:     nil,
-		}, client)
+		}, "events", client)
 
 		ev := event{
 			guac:    &guac,

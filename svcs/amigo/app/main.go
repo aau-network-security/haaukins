@@ -35,7 +35,7 @@ func main() {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	}, client)
+	}, "events", client)
 
 	chals := []store.FlagConfig{
 		{
