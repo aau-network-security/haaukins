@@ -80,6 +80,8 @@ type Config struct {
 		InSecure uint `yaml:"insecure,omitempty"`
 	}
 	DBServer 		   string 							`yaml:"db-server,omitempty"`
+	AuthKey 		   string 							`yaml:"db-auth-key,omitempty"`
+	SignKey 		   string 							`yaml:"db-sign-key,omitempty"`
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
@@ -221,7 +223,14 @@ func New(conf *Config) (*daemon, error) {
 		}
 	}
 
-	dbc, err := store.NewGRPClientDBConnection(conf.DBServer, conf.TLS.CertFile, conf.TLS.Enabled)
+	dbConn := store.DBConn{
+		Server:   conf.DBServer,
+		CertFile: conf.TLS.CertFile,
+		Tls:      conf.TLS.Enabled,
+		AuthKey:  conf.AuthKey,
+		SignKey:  conf.SignKey,
+	}
+	dbc, err := store.NewGRPClientDBConnection(dbConn)
 	if err != nil {
 		return nil, err
 	}
