@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 f=dist/hknd_linux_amd64/hknd
-user=ntpd
-hostname=sec02.lab.es.aau.dk
+user=haaukins
+hostname=sec01.lab.es.aau.dk
 keyfile=./travis_deploy_key
-deploy_path=/home/ntpd/daemon/hknd
+deploy_path=/home/haaukins/daemon/hknd
 
 if [ -f $f ]; then
     echo "Deploying '$f' to '$hostname'"
