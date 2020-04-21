@@ -11,7 +11,7 @@
                 </button>
             </div>
         </div>
-        <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted"></challenge-modal>
+        <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
     </div>
 </template>
 
@@ -29,9 +29,8 @@
             }
         },
         created: function() {
-            let url = new URL('/challengesFrontend', window.location.href);
-            url.protocol = url.protocol.replace('http', 'ws');
-            this.connectToWS(url.href);
+
+            this.connectToWS();
         },
         methods: {
             sortChallenges: function(){
@@ -55,12 +54,13 @@
                 this.challengesFromAmigo = challenges;
             },
             openModal: function (obj) {
-                window.console.log(obj);
                 this.chalInfo = obj.challenge;
                 this.teamsCompleted = obj.teamsCompleted;
                 this.$bvModal.show('challengeModal')
             },
-            connectToWS: function(url) {
+            connectToWS: function() {
+                let url = new URL('/challengesFrontend', window.location.href);
+                url.protocol = url.protocol.replace('http', 'ws');
                 let self = this;
                 let ws = new WebSocket(url);
                 ws.onmessage = self.receiveMsg;
@@ -80,6 +80,9 @@
                 }
                 this.sortChallenges();
             },
+            challengeCompleteReload: function () {
+                this.connectToWS()
+            }
         }
     }
 </script>

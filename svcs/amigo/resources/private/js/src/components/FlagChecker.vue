@@ -18,20 +18,6 @@
         </form>
     </div>
 
-<!--        <div class="input-group mb-3">-->
-<!--            <span class="icon-flag" v-bind:class="{ 'text-success': successMsg, 'text-danger': errorMsg }">-->
-<!--                <i class="fa fa-flag" aria-hidden="true"></i>-->
-<!--            </span>-->
-<!--            <input type="text" class="form-control mybtn" placeholder="Flag..." aria-describedby="button-flag" @keydown="clearMessages" @click="clearMessages" v-model="flag" v-bind:class="{ 'flagSuccess': successMsg, 'flagError': errorMsg }" style="padding-left: 35px;">-->
-<!--            <div class="input-group-append">-->
-<!--                <button class="btn btn-haaukins nofocus" type="submit" id="button-flag">Submit</button>-->
-<!--            </div>-->
-<!--        </div>-->
-<!--        <div class="text-center">-->
-<!--            <p v-if="errorMsg" class="text-danger">{{ errorMsg }}</p>-->
-<!--            <p v-if="successMsg" class="text-success">{{ successMsg }}</p>-->
-<!--        </div>-->
-
 </template>
 
 <script>
@@ -79,7 +65,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tag: this.challengeTag, flag: this.flag })
                 };
-                window.console.log({ tag: this.challengeTag, flag: this.flag });
                 const res = await fetch('/flags/verify', opts).
                 then(res => res.json());
 
@@ -89,10 +74,12 @@
                 }
 
                 if (res.status === "ok") {
+                    let that = this;
                     this.successMsg = "You found a flag!";
                     this.flag = '';
                     setTimeout(function () {
-                        window.location.reload()
+                        that.$bvModal.hide('challengeModal')
+                        that.$emit('challengeComplete')
                     }, 800);
                 }
             }
