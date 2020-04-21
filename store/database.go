@@ -47,16 +47,18 @@ func (c Creds) RequireTransportSecurity() bool {
 
 func NewGRPClientDBConnection(dbConn DBConn) (pbc.StoreClient, error) {
 
-	if dbConn.Tls {
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			AUTH_KEY: dbConn.AuthKey,
-		})
-		tokenString, err := token.SignedString([]byte(dbConn.SignKey))
-		if err != nil {
-			return nil, TranslateRPCErr(err)
-		}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		AUTH_KEY: dbConn.AuthKey,
+	})
+	tokenString, err := token.SignedString([]byte(dbConn.SignKey))
+	if err != nil {
+		return nil, TranslateRPCErr(err)
+	}
 
-		authCreds := Creds{Token: tokenString}
+	authCreds := Creds{Token: tokenString}
+
+	if dbConn.Tls {
+
 		creds, _ := credentials.NewClientTLSFromFile(dbConn.CertFile, "")
 
 		dialOpts := []grpc.DialOption{
@@ -71,7 +73,8 @@ func NewGRPClientDBConnection(dbConn DBConn) (pbc.StoreClient, error) {
 		return c, nil
 	}
 
-	conn, err := grpc.Dial(dbConn.Server, grpc.WithInsecure())
+	authCreds.Insecure = true
+	conn, err := grpc.Dial(dbConn.Server, grpc.WithInsecure(), grpc.WithPerRPCCredentials(authCreds))
 	if err != nil {
 		return nil, TranslateRPCErr(err)
 	}

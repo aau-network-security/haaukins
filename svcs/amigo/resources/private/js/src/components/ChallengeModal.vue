@@ -18,7 +18,7 @@
                         <span class="chal-desc mb-5">
                             <p>{{challenge.Description}}</p>
                         </span>
-                        <FlagChecker :challengeTag="challenge.Tag" class="mt-5"></FlagChecker>
+                        <FlagChecker :challengeTag="challenge.Tag" v-on:challengeComplete="$emit('challengeCompleteReload')" class="mt-5"></FlagChecker>
                     </div>
                     <div class="tab-pane fade" id="nav-solves" role="tabpanel" aria-labelledby="nav-solves-tab">
                         <table class="table table-striped text-center mt-4">
@@ -60,7 +60,6 @@
         },
         methods: {
             checkTeams: function (teamsCompleted) {
-                window.console.log(teamsCompleted)
                 if (teamsCompleted != null) {
                     return teamsCompleted.length
                 }
