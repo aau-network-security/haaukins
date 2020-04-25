@@ -2,6 +2,7 @@ package amigo
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/aau-network-security/haaukins/store"
 	"time"
 )
@@ -10,6 +11,15 @@ type Message struct {
 	Values  interface{} `json:"values"`
 }
 
+type ChalPoint struct {
+	Chal	string		`json:"name"`
+	Points	uint		`json:"points"`
+}
+
+type ChalRow struct {
+	Category		string		`json:"category"`
+	Chals			[]ChalPoint	`json:"chals"`
+}
 
 type TeamRow struct {
 	Id          		string       `json:"id"`
@@ -21,7 +31,7 @@ type TeamRow struct {
 }
 
 type Scoreboard struct {
-	Chals 	[]string	`json:"challenges"`
+	Chals 	[]ChalRow	`json:"challenges"`
 	TeamRow []TeamRow	`json:"teams"`
 }
 
@@ -29,12 +39,28 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 
 	teams := fd.ts.GetTeams()
 	rows := make([]TeamRow, len(teams))
+	challenges := make([]ChalRow, 5)
+
+	category := [5]string{"Web exploitation", "Forensics", "Cryptography", "Binary", "Reverse Engineering"}
+	for i, c := range category{
+		challenges[i] = ChalRow{
+			Category: c,
+			Chals: []ChalPoint{},
+		}
+	}
 
 	chalsHelper := make([]store.FlagConfig, len(fd.challenges))
-	chals := make([]string, len(fd.challenges))
 	for j, c := range fd.challenges {
 		chalsHelper[j] = c
-		chals[j] = c.Name
+		for i, rc := range challenges{
+			if rc.Category == c.Category{
+				fmt.Print(c.Name)
+				challenges[i].Chals = append(challenges[i].Chals, ChalPoint{
+					Chal:   c.Name,
+					Points: c.Points,
+				})
+			}
+		}
 	}
 
 	for i, t := range teams {
@@ -49,30 +75,13 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	msg := Message{
 		Message: "scoreboard",
 		Values:  Scoreboard{
-			Chals:   chals,
+			Chals:   challenges,
 			TeamRow: rows,
 		},
 	}
 	rawMsg, _ := json.Marshal(msg)
 
 	return rawMsg
-	//teams := fd.ts.GetTeams()
-	//rows := make([]TeamRow, len(teams))
-	//for i, t := range teams {
-	//	r := TeamRowFromTeam(t)
-	//	if t.ID() == teamId {
-	//		r.IsUser = true
-	//	}
-	//	rows[i] = r
-	//}
-	//
-	//msg := Message{
-	//	Message: "teams",
-	//	Values:  rows,
-	//}
-	//rawMsg, _ := json.Marshal(msg)
-	//
-	//return rawMsg
 }
 
 func TeamRowFromTeam(t *store.Team, chals []store.FlagConfig) TeamRow {

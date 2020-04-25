@@ -28,7 +28,7 @@ body {
 }
 
 .mb-botpage{
-    margin-bottom: 100px;
+    margin-bottom: 180px;
 }
 
 
@@ -465,6 +465,30 @@ table tr:last-child td:last-child {
     border-bottom: 2px solid #d9d9d9;
 }
 
+.my-container {
+    width: 100%;
+    padding-right: 15px;
+    padding-left: 15px;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.scoreboard-border{
+    border-style: solid;
+    border-width: 2px;
+    border-color: #a5b1d4;
+    border-top: none;
+    border-bottom: none;
+}
+.scoreboard-border:last-child{
+    border-style: solid;
+    border-width: 2px;
+    border-color: #a5b1d4;
+    border-top: none;
+    border-bottom: none;
+    border-right: none!important;
+}
+
 /*big screen*/
 @media (min-width: 992px) {
     #mainNav {
@@ -510,7 +534,7 @@ table tr:last-child td:last-child {
 @media screen and (max-width: 992px){
 
     .mb-botpage{
-        margin-bot: 120px;
+        margin-bot: 140px;
     }
     .mt-toppage{
         margin-top: 120px;
@@ -557,4 +581,28 @@ table tr:last-child td:last-child {
         font-size: 14px;
     }
 
+}
+
+@media (min-width: 576px) {
+    .my-container {
+        max-width: 540px;
+    }
+}
+
+@media (min-width: 768px) {
+    .my-container {
+        max-width: 720px;
+    }
+}
+
+@media (min-width: 992px) {
+    .my-container {
+        max-width: 1260px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .my-container {
+        max-width: 1840px;
+    }
 }

@@ -6,7 +6,7 @@
             </div>
             <div class="col-lg-3 col-md-4" v-for="el in category" v-bind:key="el.challenge.Tag">
                 <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted}">
-                    <p>{{el.challenge.Name}}</p>
+                    <p class="chal-name-font">{{el.challenge.Name}}</p>
                     <span>{{el.challenge.Points}}</span>
                 </button>
             </div>
@@ -105,5 +105,8 @@
     .btn-success:hover{
         background-color: #55a04a;
         border-color: #55a04a;
+    }
+    .chal-name-font{
+        font-size: 14px;
     }
 </style>
