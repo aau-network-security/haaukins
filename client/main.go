@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/aau-network-security/haaukins/app/client/cli"
+	"github.com/aau-network-security/haaukins/client/cli"
 )
 
 func main() {

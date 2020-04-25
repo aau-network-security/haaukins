@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/aau-network-security/haaukins/svcs/dns"
+	"github.com/aau-network-security/haaukins/network/dns"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 )
 

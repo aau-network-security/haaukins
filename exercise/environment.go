@@ -9,9 +9,9 @@ import (
 	"io"
 	"sync"
 
+	"github.com/aau-network-security/haaukins/network/dhcp"
+	"github.com/aau-network-security/haaukins/network/dns"
 	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs/dhcp"
-	"github.com/aau-network-security/haaukins/svcs/dns"
 	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"

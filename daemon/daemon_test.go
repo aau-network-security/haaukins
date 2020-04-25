@@ -22,7 +22,7 @@ import (
 
 	"context"
 
-	"github.com/aau-network-security/haaukins/app/client/cli"
+	"github.com/aau-network-security/haaukins/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog"
