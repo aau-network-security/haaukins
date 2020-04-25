@@ -10,6 +10,9 @@ import (
 	pb "github.com/aau-network-security/haaukins/store/proto"
 	"google.golang.org/grpc"
 	"io"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/aau-network-security/haaukins/lab"
@@ -66,6 +69,12 @@ func (hub *testLabHub) GetLabByTag(string) (lab.Lab, error) {
 }
 
 func TestEvent_StartAndClose(t *testing.T) {
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
 	dialer, close := store.CreateTestServer()
 	defer close()
 
@@ -93,7 +102,7 @@ func TestEvent_StartAndClose(t *testing.T) {
 			StartedAt:      nil,
 			FinishExpected: nil,
 			FinishedAt:     nil,
-		}, "events", client)
+		},tmp , client)
 
 		ev := event{
 			guac:    &guac,

@@ -10,6 +10,9 @@ import (
 	pb "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 	"time"
 )
@@ -81,7 +84,11 @@ func TestTeamSolveTask(t *testing.T) {
 }
 
 func TestCreateToken(t *testing.T) {
-
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
 	dialer, close := store.CreateTestServer()
 	defer close()
 
@@ -120,7 +127,7 @@ func TestCreateToken(t *testing.T) {
 				StartedAt:      nil,
 				FinishExpected: nil,
 				FinishedAt:     nil,
-			}, "events", client)
+			},tmp, client)
 
 			var team store.Team
 			if tc.team != nil {
@@ -152,6 +159,12 @@ func TestCreateToken(t *testing.T) {
 }
 
 func TestGetTokenForTeam(t *testing.T) {
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
 	dialer, close := store.CreateTestServer()
 	defer close()
 
@@ -175,7 +188,7 @@ func TestGetTokenForTeam(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	}, "events", client)
+	}, tmp, client)
 
 	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
 
