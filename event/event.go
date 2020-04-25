@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
 	"path/filepath"
@@ -120,10 +121,6 @@ func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error 
 	return nil
 }
 
-type Auth struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
 
 type Event interface {
 	Start(context.Context) error

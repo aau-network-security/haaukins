@@ -6,10 +6,10 @@ package lab
 
 import (
 	"context"
+
 	"testing"
 
 	"github.com/aau-network-security/haaukins/exercise"
-	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 )
