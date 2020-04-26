@@ -11,12 +11,22 @@ import (
 	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"google.golang.org/grpc"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
 func TestGuacLoginTokenInterceptor(t *testing.T) {
+	// temporary events directory for NewStoreEvent
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
 	dialer, close := store.CreateTestServer()
 	defer close()
 
@@ -43,7 +53,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	}, "events", client)
+	},tmp, client)
 
 	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
 
