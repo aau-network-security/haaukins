@@ -2,9 +2,9 @@ package store
 
 import (
 	"errors"
+	yaml "gopkg.in/yaml.v2"
 	"os"
 	"sync"
-	yaml "gopkg.in/yaml.v2"
 )
 
 var (
@@ -61,21 +61,21 @@ func PlayFromExercises(name, description string, exercises ...Tag) Play {
 }
 
 type playstore struct {
-	m     sync.Mutex
+	m      sync.Mutex
 	tagmap map[Tag]*Play
-	plays []Play
-	hooks []func(PlayStore) error
+	plays  []Play
+	hooks  []func(PlayStore) error
 }
 
 func NewPlayStore(plays []Play, hooks ...func(PlayStore) error) PlayStore {
 	ps := &playstore{
 		tagmap: map[Tag]*Play{},
-		plays: plays,
-		hooks: hooks,
+		plays:  plays,
+		hooks:  hooks,
 	}
 
-	for _, p := range plays {
-		ps.tagmap[p.Tag] = &p	
+	for i, p := range plays {
+		ps.tagmap[p.Tag] = &plays[i]
 	}
 
 	return ps
@@ -86,7 +86,7 @@ func NewPlayStoreFile(path string) (PlayStore, error) {
 	var conf struct {
 		Plays []Play `yaml:"plays"`
 	}
-	
+
 	// Load file content
 	f, err := os.Open(path)
 	if err == nil {
