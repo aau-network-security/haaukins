@@ -54,7 +54,7 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 		chalsHelper[j] = c
 		for i, rc := range challenges{
 			if rc.Category == c.Category{
-				fmt.Print(c.Name)
+				
 				challenges[i].Chals = append(challenges[i].Chals, ChalPoint{
 					Chal:   c.Name,
 					Points: c.Points,
