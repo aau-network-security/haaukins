@@ -10,7 +10,9 @@ type Message struct {
 	Message string      `json:"msg"`
 	Values  interface{} `json:"values"`
 }
-
+var (
+       ChallengeCategories = [5]string{"Web exploitation", "Forensics", "Cryptography", "Binary", "Reverse Engineering"}
+)
 type ChalPoint struct {
 	Chal	string		`json:"name"`
 	Points	uint		`json:"points"`
