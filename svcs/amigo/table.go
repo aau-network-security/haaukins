@@ -43,8 +43,8 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	rows := make([]TeamRow, len(teams))
 	challenges := make([]ChalRow, 5)
 
-	category := [5]string{"Web exploitation", "Forensics", "Cryptography", "Binary", "Reverse Engineering"}
-	for i, c := range category{
+	
+	for i, c := range ChallengeCategories {
 		challenges[i] = ChalRow{
 			Category: c,
 			Chals: []ChalPoint{},
