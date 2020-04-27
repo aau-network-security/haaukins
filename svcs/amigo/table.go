@@ -2,7 +2,6 @@ package amigo
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/aau-network-security/haaukins/store"
 	"time"
 )
