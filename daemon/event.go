@@ -103,21 +103,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.FinishExpected =&expectedFinishTime
 	}
 
-	raw := store.RawEvent{
-		Name:           req.Name,
-		Tag:            req.Tag,
-		Available:      req.Available,
-		Capacity:       req.Capacity,
-		Exercises:      strings.Join(req.Exercises, ","),
-		Frontends:      strings.Join(req.Frontends, ","),
-		StartedAt:      now.Format(displayTimeFormat),
-		FinishExpected: conf.FinishExpected.Format(displayTimeFormat),
-	}
-
 	loggerInstance := &GrpcLogger{resp: resp}
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 
-	ev, err := d.ehost.CreateEventFromConfig(ctx, conf, raw)
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	if err != nil {
 		return err
 	}
@@ -209,37 +198,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 
 
 
-func (d *daemon) createEventFromEventDB(ctx context.Context, ef store.RawEvent) error {
-
-	tags := make([]store.Tag, len(strings.Split(ef.Exercises, ",")))
-	for i, s := range strings.Split(ef.Exercises, ",") {
-		t, err := store.NewTag(s)
-		if err != nil {
-			return err
-		}
-		// check exercise before creating event file
-		_, tagErr := d.exercises.GetExercisesByTags(t)
-		if tagErr != nil {
-			return tagErr
-		}
-		tags[i] = t
-	}
-	evtag, _ := store.NewTag(ef.Tag)
-	startTime, _ := time.Parse(displayTimeFormat, ef.StartedAt)
-	expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.FinishExpected)
-
-	conf := store.EventConfig{
-		Name:      ef.Name,
-		Tag:       evtag,
-		Available: int(ef.Available),
-		Capacity:  int(ef.Capacity),
-		StartedAt: &startTime,
-		FinishExpected: &expectedFinishTime,
-		Lab: store.Lab{
-			Frontends: d.frontends.GetFrontends(strings.Split(ef.Frontends, ",")...),
-			Exercises: tags,
-		},
-	}
+func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventConfig) error {
 
 	if err := conf.Validate(); err != nil {
 		return err

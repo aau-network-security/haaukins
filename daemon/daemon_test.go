@@ -70,7 +70,7 @@ type fakeEventHost struct {
 	event.Host
 }
 
-func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig, store.RawEvent) (event.Event, error) {
+func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (event.Event, error) {
 	return eh.event, nil
 }
 

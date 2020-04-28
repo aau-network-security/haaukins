@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -232,22 +233,36 @@ func New(conf *Config) (*daemon, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	var instanceConfig []store.InstanceConfig
+	var exercises  []store.Tag
 	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
+
 	if err != nil {
 		return nil, store.TranslateRPCErr(err)
 	}
 	for _, ef := range eventsFromDB.Events {
 		if ef.FinishedAt == "" { //check if the event is finished or not
-			err := d.createEventFromEventDB(context.Background(), store.RawEvent{
+			startedAt, _ := time.Parse(displayTimeFormat,ef.StartedAt)
+			finishedAt, _ := time.Parse(displayTimeFormat,ef.FinishedAt)
+			listOfExercises := strings.Split(ef.Exercises,",")
+			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
+			for _, e := range listOfExercises {
+				exercises = append(exercises,store.Tag(e) )
+			}
+			eventConfig := store.EventConfig{
 				Name:           ef.Name,
-				Tag:            ef.Tag,
-				Available:      ef.Available,
-				Capacity:       ef.Capacity,
-				Exercises:      ef.Exercises,
-				Frontends:      ef.Frontends,
-				StartedAt:      ef.StartedAt,
-				FinishExpected: ef.ExpectedFinishTime,
-			})
+				Tag:            store.Tag(ef.Tag),
+				Available:      int(ef.Available),
+				Capacity:       int(ef.Capacity),
+				Lab:            store.Lab{
+					Frontends: instanceConfig ,
+					Exercises: exercises ,
+				},
+				StartedAt:      &startedAt,
+				FinishExpected: nil,
+				FinishedAt:     &finishedAt,
+			}
+			err := d.createEventFromEventDB(context.Background(),eventConfig)
 			if err != nil {
 				return nil, err
 			}
