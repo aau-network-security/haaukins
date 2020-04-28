@@ -8,6 +8,7 @@ import (
 	"context"
 	"github.com/aau-network-security/haaukins/store"
 	pb "github.com/aau-network-security/haaukins/store/proto"
+	mockserver "github.com/aau-network-security/haaukins/testing"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"io/ioutil"
@@ -28,7 +29,7 @@ func TestNewTeam(t *testing.T) {
 
 func TestTeamSolveTask(t *testing.T) {
 
-	dialer, close := store.CreateTestServer()
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
@@ -89,7 +90,7 @@ func TestCreateToken(t *testing.T) {
 		log.Fatal(err)
 	}
 	defer os.RemoveAll(tmp)
-	dialer, close := store.CreateTestServer()
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
@@ -165,7 +166,7 @@ func TestGetTokenForTeam(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	dialer, close := store.CreateTestServer()
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",

@@ -8,6 +8,7 @@ import (
 	"github.com/aau-network-security/haaukins/store"
 	pb "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
+	mockserver "github.com/aau-network-security/haaukins/testing"
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
@@ -26,7 +27,7 @@ func TestVerifyFlag(t *testing.T) {
 	defer os.RemoveAll(tmp)
 
 	skey := "testing"
-	dialer, close := store.CreateTestServer()
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",

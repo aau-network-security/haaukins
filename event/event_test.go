@@ -8,6 +8,7 @@ package event
 import (
 	"context"
 	pb "github.com/aau-network-security/haaukins/store/proto"
+	mockserver "github.com/aau-network-security/haaukins/testing"
 	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
@@ -60,7 +61,7 @@ func TestEvent_StartAndClose(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	dialer, close := store.CreateTestServer()
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",

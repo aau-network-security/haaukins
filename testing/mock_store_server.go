@@ -1,4 +1,4 @@
-package store
+package testing
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func (s serverTest) UpdateTeamLastAccess(context.Context, *pbc.UpdateTeamLastAcc
 	return &pbc.UpdateResponse{Message:"ok"}, nil
 }
 
-func CreateTestServer() (func(string, time.Duration) (net.Conn, error), func() error){
+func Create() (func(string, time.Duration) (net.Conn, error), func() error){
 	const oneMegaByte = 1024 * 1024
 	lis := bufconn.Listen(oneMegaByte)
 

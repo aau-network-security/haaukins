@@ -10,6 +10,7 @@ import (
 	pb "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	mockserver "github.com/aau-network-security/haaukins/testing"
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
@@ -27,7 +28,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	dialer, close := store.CreateTestServer()
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
