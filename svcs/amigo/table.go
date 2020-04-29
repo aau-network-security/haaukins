@@ -2,25 +2,28 @@ package amigo
 
 import (
 	"encoding/json"
-
 	"github.com/aau-network-security/haaukins/store"
+	"sort"
 	"time"
 )
+
+var (
+	ChallengeCategories = [5]string{"Web exploitation", "Forensics", "Cryptography", "Binary", "Reverse Engineering"}
+)
+
 type Message struct {
 	Message string      `json:"msg"`
 	Values  interface{} `json:"values"`
 }
-var (
-       ChallengeCategories = [5]string{"Web exploitation", "Forensics", "Cryptography", "Binary", "Reverse Engineering"}
-)
-type ChalPoint struct {
+
+type Chal struct {
 	Chal	string		`json:"name"`
 	Points	uint		`json:"points"`
 }
 
-type ChalRow struct {
+type ChalCategory struct {
 	Category		string		`json:"category"`
-	Chals			[]ChalPoint	`json:"chals"`
+	Chals			[]Chal		`json:"chals"`
 }
 
 type TeamRow struct {
@@ -33,7 +36,7 @@ type TeamRow struct {
 }
 
 type Scoreboard struct {
-	Chals 	[]ChalRow	`json:"challenges"`
+	Chals 	[]ChalCategory	`json:"challenges"`
 	TeamRow []TeamRow	`json:"teams"`
 }
 
@@ -41,23 +44,21 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 
 	teams := fd.ts.GetTeams()
 	rows := make([]TeamRow, len(teams))
-	challenges := make([]ChalRow, 5)
-
+	var challenges []ChalCategory
+	var realChallenges []ChalCategory
 	
-	for i, c := range ChallengeCategories {
-		challenges[i] = ChalRow{
+	for _, c := range ChallengeCategories {
+		challenges = append(challenges, ChalCategory{
 			Category: c,
-			Chals: []ChalPoint{},
-		}
+			Chals: []Chal{},
+		})
 	}
 
-	chalsHelper := make([]store.FlagConfig, len(fd.challenges))
-	for j, c := range fd.challenges {
-		chalsHelper[j] = c
+	for _, c := range fd.challenges {
 		for i, rc := range challenges{
 			if rc.Category == c.Category{
-				
-				challenges[i].Chals = append(challenges[i].Chals, ChalPoint{
+
+				challenges[i].Chals = append(challenges[i].Chals, Chal{
 					Chal:   c.Name,
 					Points: c.Points,
 				})
@@ -65,8 +66,17 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 		}
 	}
 
+	for _, c := range challenges{
+		if len(c.Chals) > 0 {
+			sort.SliceStable(c.Chals, func(i, j int) bool {
+				return c.Chals[i].Points < c.Chals[j].Points
+			})
+			realChallenges = append(realChallenges, c)
+		}
+	}
+
 	for i, t := range teams {
-		r := TeamRowFromTeam(t, chalsHelper)
+		r := TeamInfo(t, realChallenges)
 		if t.ID() == teamId {
 			r.IsUser = true
 		}
@@ -77,7 +87,7 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	msg := Message{
 		Message: "scoreboard",
 		Values:  Scoreboard{
-			Chals:   challenges,
+			Chals:   realChallenges,
 			TeamRow: rows,
 		},
 	}
@@ -86,16 +96,18 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	return rawMsg
 }
 
-func TeamRowFromTeam(t *store.Team, chals []store.FlagConfig) TeamRow {
-	completions := make([]*time.Time, len(chals))
-	points := make([]uint, len(chals))
+func TeamInfo(t *store.Team, chalCategories []ChalCategory) TeamRow {
+	var completions	[]*time.Time
+	var points 		[]uint
 	var totalPoints uint = 0
-	for i, c := range chals {
-		solved := t.IsTeamSolvedChallenge(string(c.Tag))
-		completions[i] = solved
-		points[i] = c.Points
-		if solved != nil {
-			totalPoints += c.Points
+	for _, cc := range chalCategories {
+		for _, c := range cc.Chals{
+			solved := t.IsTeamSolvedChallenge(c.Chal)
+			completions = append(completions, solved)
+			points = append(points, c.Points)
+			if solved != nil {
+				totalPoints += c.Points
+			}
 		}
 	}
 
@@ -107,20 +119,6 @@ func TeamRowFromTeam(t *store.Team, chals []store.FlagConfig) TeamRow {
 		TotalPoints: 		totalPoints,
 	}
 }
-
-//func TeamRowFromTeam(t *haaukins.Team) TeamRow {
-//	chals := t.GetChallenges()
-//	completions := make([]*time.Time, len(chals))
-//	for i, chal := range chals {
-//		completions[i] = chal.CompletedAt
-//	}
-//
-//	return TeamRow{
-//		Id:          t.ID(),
-//		Name:        t.Name(),
-//		Completions: completions,
-//	}
-//}
 
 type ChallengeF struct {
 	ChalInfo        store.FlagConfig `json:"challenge"`

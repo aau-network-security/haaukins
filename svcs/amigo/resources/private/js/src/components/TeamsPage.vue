@@ -80,7 +80,7 @@
                     let msg = messages[i];
                     let json = JSON.parse(msg);
                     if (json.msg === "scoreboard"){
-                        this.teams = json.values.teams;
+                        this.teams = json.values.teams.sort((a, b)=> a.tpoints - b.tpoints);
                         this.sortSolvedData()
                     }
                 }

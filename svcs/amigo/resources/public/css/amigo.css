@@ -489,6 +489,22 @@ table tr:last-child td:last-child {
     border-right: none!important;
 }
 
+.rank-col{
+    width: 50px;
+    position:sticky;
+    left:0px;
+}
+.team-col{
+    width: 180px;
+    position:sticky;
+    left:50px;
+}
+.score-col{
+    width: 70px;
+    position:sticky;
+    left:230px;
+}
+
 /*big screen*/
 @media (min-width: 992px) {
     #mainNav {
