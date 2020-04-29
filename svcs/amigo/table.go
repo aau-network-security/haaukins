@@ -2,6 +2,7 @@ package amigo
 
 import (
 	"encoding/json"
+
 	"github.com/aau-network-security/haaukins/store"
 	"time"
 )
@@ -122,9 +123,9 @@ func TeamRowFromTeam(t *store.Team, chals []store.FlagConfig) TeamRow {
 //}
 
 type ChallengeF struct {
-	ChalInfo  store.FlagConfig		`json:"challenge"`
-	IsUserCompleted bool			`json:"isUserCompleted"`
-	TeamsCompleted []TeamsCompleted	`json:"teamsCompleted"`
+	ChalInfo        store.FlagConfig `json:"challenge"`
+	IsUserCompleted bool              `json:"isUserCompleted"`
+	TeamsCompleted  []TeamsCompleted  `json:"teamsCompleted"`
 }
 
 type TeamsCompleted struct {

@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
 	"path/filepath"
@@ -27,9 +29,7 @@ import (
 
 var (
 	RdpConfErr      = errors.New("error too few rdp connections")
-	//StartingCtfdErr = errors.New("error while starting ctfd")
 	StartingGuacErr = errors.New("error while starting guac")
-	//StartingRevErr  = errors.New("error while starting reverse proxy")
 	//EmptyNameErr    = errors.New("event requires a name")
 	//EmptyTagErr     = errors.New("event requires a tag")
 
@@ -40,7 +40,7 @@ var (
 type Host interface {
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
 	CreateEventFromEventDB(context.Context, store.EventConfig) (Event, error)
-	CreateEventFromConfig(context.Context, store.EventConfig, store.RawEvent) (Event, error)
+	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
 
 }
 
@@ -93,16 +93,20 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 }
 
 //Save the event in the DB and create the event configuration
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, raw store.RawEvent) (Event, error){
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error){
+	var exercises []string
+	for _, e := range conf.Lab.Exercises {
+		exercises = append(exercises, string(e))
+	}
 	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
-		Name:                 raw.Name,
-		Tag:                  raw.Tag,
-		Frontends:            raw.Frontends,
-		Exercises:            raw.Exercises,
-		Available:            raw.Available,
-		Capacity:             raw.Capacity,
-		StartTime:			  raw.StartedAt,
-		ExpectedFinishTime:   raw.FinishExpected,
+		Name:                 conf.Name,
+		Tag:                  string(conf.Tag),
+		Frontends:            conf.Lab.Frontends[0].Image,
+		Exercises:            strings.Join(exercises,","),
+		Available:            int32(conf.Available),
+		Capacity:             int32(conf.Capacity),
+		StartTime:			  conf.StartedAt.String(),
+		ExpectedFinishTime:   conf.FinishExpected.String(),
 	})
 
 	if err != nil {
@@ -120,10 +124,6 @@ func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error 
 	return nil
 }
 
-type Auth struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
 
 type Event interface {
 	Start(context.Context) error

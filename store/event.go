@@ -32,17 +32,6 @@ var (
 	//UnknownChallengeErr = errors.New("Unknown challenge")
 )
 
-type RawEvent struct {
-	Name			string
-	Tag				string
-	Available		int32
-	Capacity		int32
-	Exercises  		string
-	Frontends 		string
-	StartedAt		string
-	FinishExpected 	string
-}
-
 type EventConfig struct {
 	Name       		string
 	Tag        		Tag
@@ -60,6 +49,7 @@ type Lab struct {
 }
 
 func (e EventConfig) Validate() error {
+
 	if e.Name == "" {
 		return &EmptyVarErr{Var: "Name", Type: "Event"}
 	}
@@ -76,6 +66,7 @@ func (e EventConfig) Validate() error {
 		return &EmptyVarErr{Var: "Frontends", Type: "Event"}
 	}
 
+	log.Info().Msg("Event config validation is done")
 	return nil
 }
 

@@ -8,17 +8,26 @@ import (
 	"github.com/aau-network-security/haaukins/store"
 	pb "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
+	mockserver "github.com/aau-network-security/haaukins/testing"
 	"google.golang.org/grpc"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
 func TestVerifyFlag(t *testing.T) {
-	skey := "testing"
+	// temporary events directory for NewStoreEvent
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
 
-	dialer, close := store.CreateTestServer()
+	skey := "testing"
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
@@ -41,7 +50,7 @@ func TestVerifyFlag(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	}, "events", client)
+	},tmp ,client)
 
 	var chal = store.FlagConfig{
 			Tag:         "test",

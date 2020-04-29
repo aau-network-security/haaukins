@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/aau-network-security/haaukins/store"
 	"hash/crc32"
 	"io"
 	"os"
@@ -22,7 +23,6 @@ import (
 	"math"
 	"regexp"
 
-	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"

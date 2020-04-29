@@ -8,8 +8,12 @@ package event
 import (
 	"context"
 	pb "github.com/aau-network-security/haaukins/store/proto"
+	mockserver "github.com/aau-network-security/haaukins/testing"
 	"google.golang.org/grpc"
 	"io"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/aau-network-security/haaukins/lab"
@@ -37,14 +41,6 @@ func (guac *testGuac) Close() error {
 	return nil
 }
 
-func (guac *testGuac) CreateUser(username string, password string) error {
-	return nil
-}
-
-func (guac *testGuac) CreateRDPConn(opts guacamole.CreateRDPConnOpts) error {
-	return nil
-}
-
 type testLabHub struct {
 	status int
 	lab    lab.Lab
@@ -52,21 +48,20 @@ type testLabHub struct {
 	lab.Hub
 }
 
-func (hub *testLabHub) Queue() <-chan lab.Lab {
-	return nil
-}
-
 func (hub *testLabHub) Close() error {
 	hub.status = CLOSED
 	return nil
 }
 
-func (hub *testLabHub) GetLabByTag(string) (lab.Lab, error) {
-	return nil, nil
-}
 
 func TestEvent_StartAndClose(t *testing.T) {
-	dialer, close := store.CreateTestServer()
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
@@ -93,7 +88,7 @@ func TestEvent_StartAndClose(t *testing.T) {
 			StartedAt:      nil,
 			FinishExpected: nil,
 			FinishedAt:     nil,
-		}, "events", client)
+		},tmp , client)
 
 		ev := event{
 			guac:    &guac,

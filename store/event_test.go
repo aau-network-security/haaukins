@@ -8,8 +8,12 @@ import (
 	"context"
 	"github.com/aau-network-security/haaukins/store"
 	pb "github.com/aau-network-security/haaukins/store/proto"
+	mockserver "github.com/aau-network-security/haaukins/testing"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 	"time"
 )
@@ -25,7 +29,7 @@ func TestNewTeam(t *testing.T) {
 
 func TestTeamSolveTask(t *testing.T) {
 
-	dialer, close := store.CreateTestServer()
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
@@ -81,8 +85,12 @@ func TestTeamSolveTask(t *testing.T) {
 }
 
 func TestCreateToken(t *testing.T) {
-
-	dialer, close := store.CreateTestServer()
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
@@ -120,7 +128,7 @@ func TestCreateToken(t *testing.T) {
 				StartedAt:      nil,
 				FinishExpected: nil,
 				FinishedAt:     nil,
-			}, "events", client)
+			},tmp, client)
 
 			var team store.Team
 			if tc.team != nil {
@@ -152,7 +160,13 @@ func TestCreateToken(t *testing.T) {
 }
 
 func TestGetTokenForTeam(t *testing.T) {
-	dialer, close := store.CreateTestServer()
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
+	dialer, close := mockserver.Create()
 	defer close()
 
 	conn, err := grpc.DialContext(context.Background(), "bufnet",
@@ -175,7 +189,7 @@ func TestGetTokenForTeam(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	}, "events", client)
+	}, tmp, client)
 
 	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
 
