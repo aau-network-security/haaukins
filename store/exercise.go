@@ -132,6 +132,44 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 	return opts
 }
 
+type ExerciseProviderInfo struct {
+	Name        string
+	Description string
+}
+
+// Provides exercises and flags for event and amigo.
+// Enables more dynamic environments such as Play
+type ExerciseProvider interface {
+	GetExerciseTags() []Tag
+	Info() ExerciseProviderInfo
+}
+
+type exerciselist struct {
+	exercises []Tag
+	info      ExerciseProviderInfo
+}
+
+// Create a bare bones ExerciseProvider from a list of tags
+func NewExerciseProvider(name, description string, exercises []Tag) ExerciseProvider {
+	el := &exerciselist{
+		exercises: exercises,
+		info: ExerciseProviderInfo{
+			Name:        name,
+			Description: description,
+		},
+	}
+
+	return el
+}
+
+func (el *exerciselist) GetExerciseTags() []Tag {
+	return el.exercises
+}
+
+func (el *exerciselist) Info() ExerciseProviderInfo {
+	return el.info
+}
+
 type RecordConfig struct {
 	Type  string `yaml:"type"`
 	Name  string `yaml:"name"`
@@ -273,11 +311,11 @@ func (ic InstanceConfig) Validate() error {
 }
 
 type exercisestore struct {
-	m         sync.Mutex
-	tags      map[Tag]*Exercise
-	exercises []*Exercise
+	m            sync.Mutex
+	tags         map[Tag]*Exercise
+	exercises    []*Exercise
 	exerciseInfo []FlagConfig
-	hooks     []func([]Exercise) error
+	hooks        []func([]Exercise) error
 }
 
 func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error) {
@@ -309,8 +347,8 @@ func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (Ex
 		}
 	}
 
-	for _, e := range s.exercises{
-		for _,i :=range e.Flags(){
+	for _, e := range s.exercises {
+		for _, i := range e.Flags() {
 			s.exerciseInfo = append(s.exerciseInfo, i)
 		}
 	}
@@ -326,7 +364,7 @@ func (es *exercisestore) GetExercisesInfo(tag Tag) []FlagConfig {
 	var exer []FlagConfig
 
 	for _, e := range es.exerciseInfo {
-		if strings.Contains(string(e.Tag), string(tag)){
+		if strings.Contains(string(e.Tag), string(tag)) {
 			exer = append(exer, e)
 		}
 	}

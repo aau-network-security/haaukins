@@ -44,9 +44,9 @@ var (
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-  NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
-	
-  version string
+	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
+
+	version string
 )
 
 const (
@@ -79,12 +79,13 @@ type Config struct {
 		Secure   uint `yaml:"secure,omitempty"`
 		InSecure uint `yaml:"insecure,omitempty"`
 	}
-	DBServer 		   string 							`yaml:"db-server,omitempty"`
-	AuthKey 		   string 							`yaml:"db-auth-key,omitempty"`
-	SignKey 		   string 							`yaml:"db-sign-key,omitempty"`
+	DBServer           string                           `yaml:"db-server,omitempty"`
+	AuthKey            string                           `yaml:"db-auth-key,omitempty"`
+	SignKey            string                           `yaml:"db-sign-key,omitempty"`
 	UsersFile          string                           `yaml:"users-file,omitempty"`
 	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
 	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
+	PlayFile           string                           `yaml:"play-file,omitempty"`
 	OvaDir             string                           `yaml:"ova-directory,omitempty"`
 	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
@@ -93,8 +94,8 @@ type Config struct {
 	TLS                struct {
 		Enabled   bool   `yaml:"enabled"`
 		Directory string `yaml:"directory"`
-		CertFile string `yaml:"certfile"`
-		CertKey string `yaml:"certkey"`
+		CertFile  string `yaml:"certfile"`
+		CertKey   string `yaml:"certkey"`
 	} `yaml:"tls,omitempty"`
 }
 
@@ -156,6 +157,10 @@ func NewConfigFromFile(path string) (*Config, error) {
 		c.FrontendsFile = "frontends.yml"
 	}
 
+	if c.PlayFile == "" {
+		c.PlayFile = "plays.yml"
+	}
+
 	if c.EventsDir == "" {
 		c.EventsDir = "events"
 	}
@@ -178,6 +183,7 @@ type daemon struct {
 	auth      Authenticator
 	users     store.UsersFile
 	exercises store.ExerciseStore
+	plays     store.PlayStore
 	eventPool *eventPool
 	frontends store.FrontendStore
 	ehost     event.Host
@@ -199,6 +205,11 @@ func New(conf *Config) (*daemon, error) {
 	ff, err := store.NewFrontendsFile(conf.FrontendsFile)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
+	}
+
+	pf, err := store.NewPlayStoreFile(conf.PlayFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read plays file %s: %w", conf.PlayFile, err)
 	}
 
 	vlib := vbox.NewLibrary(conf.OvaDir)
@@ -245,6 +256,7 @@ func New(conf *Config) (*daemon, error) {
 		auth:      NewAuthenticator(uf, conf.SigningKey),
 		users:     uf,
 		exercises: ef,
+		plays:     pf,
 		eventPool: eventPool,
 		frontends: ff,
 		ehost:     event.NewHost(vlib, ef, conf.EventsDir, dbc),
@@ -461,15 +473,15 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, ef store.RawEvent) 
 	expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.FinishExpected)
 
 	conf := store.EventConfig{
-		Name:      ef.Name,
-		Tag:       evtag,
-		Available: int(ef.Available),
-		Capacity:  int(ef.Capacity),
-		StartedAt: &startTime,
+		Name:           ef.Name,
+		Tag:            evtag,
+		Available:      int(ef.Available),
+		Capacity:       int(ef.Capacity),
+		StartedAt:      &startTime,
 		FinishExpected: &expectedFinishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(strings.Split(ef.Frontends, ",")...),
-			Exercises: tags,
+			Exercises: store.NewExerciseProvider(ef.Name, "", tags),
 		},
 	}
 
@@ -503,7 +515,7 @@ func (d *daemon) startEvent(ev event.Event) {
 		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
-	 ev.Start(context.TODO())
+	ev.Start(context.TODO())
 
 	d.eventPool.AddEvent(ev)
 }
@@ -550,19 +562,18 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 	evtag, _ := store.NewTag(req.Tag)
 
-
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
 
 	conf := store.EventConfig{
-		Name:      req.Name,
-		Tag:       evtag,
-		Available: int(req.Available),
-		Capacity:  int(req.Capacity),
-		StartedAt: &now,
+		Name:           req.Name,
+		Tag:            evtag,
+		Available:      int(req.Available),
+		Capacity:       int(req.Capacity),
+		StartedAt:      &now,
 		FinishExpected: &finishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
-			Exercises: tags,
+			Exercises: store.NewExerciseProvider(req.Name, "", tags),
 		},
 	}
 
@@ -585,8 +596,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.String() == "" {
-		expectedFinishTime := now.AddDate(0,0,15)
-		conf.FinishExpected =&expectedFinishTime
+		expectedFinishTime := now.AddDate(0, 0, 15)
+		conf.FinishExpected = &expectedFinishTime
 	}
 
 	raw := store.RawEvent{
@@ -676,23 +687,23 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		}
 
 		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
-		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]){
+		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]) {
 
 			exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
-				Tag:                  string(e.Tag),
-				Name:                 e.Name,
-				Points:               int32(e.Points),
-				Category:             e.Category,
-				Description:          e.Description,
+				Tag:         string(e.Tag),
+				Name:        e.Name,
+				Points:      int32(e.Points),
+				Category:    e.Category,
+				Description: e.Description,
 			})
 		}
 
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
-			Name:             	  e.Name,
-			Tags:             	  tags,
-			DockerImageCount: 	  int32(len(e.DockerConfs)),
-			VboxImageCount:   	  int32(len(e.VboxConfs)),
-			Exerciseinfo:         exercisesInfo,
+			Name:             e.Name,
+			Tags:             tags,
+			DockerImageCount: int32(len(e.DockerConfs)),
+			VboxImageCount:   int32(len(e.VboxConfs)),
+			Exerciseinfo:     exercisesInfo,
 		})
 	}
 
@@ -770,19 +781,19 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
 
-		var exercises [] string
-		for _, ex := range conf.Lab.Exercises {
+		var exercises []string
+		for _, ex := range conf.Lab.Exercises.GetExerciseTags() {
 			exercises = append(exercises, string(ex))
 		}
 
 		events = append(events, &pb.ListEventsResponse_Events{
-			Tag:           string(conf.Tag),
-			Name:          conf.Name,
-			TeamCount:     int32(len(event.GetTeams())),
-			Exercises: 	   strings.Join(exercises, ","),
-			Capacity:      int32(conf.Capacity),
-			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
-			FinishTime:    conf.FinishExpected.Format(displayTimeFormat),
+			Tag:          string(conf.Tag),
+			Name:         conf.Name,
+			TeamCount:    int32(len(event.GetTeams())),
+			Exercises:    strings.Join(exercises, ","),
+			Capacity:     int32(conf.Capacity),
+			CreationTime: conf.StartedAt.Format(displayTimeFormat),
+			FinishTime:   conf.FinishExpected.Format(displayTimeFormat),
 		})
 	}
 
@@ -995,9 +1006,9 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.TLS.Enabled {
-		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.CertFile,d.conf.TLS.CertKey)
-		if err !=nil {
-			log.Error().Msgf("Error reading certificate from file %s ",err)
+		creds, err := credentials.NewServerTLSFromFile(d.conf.TLS.CertFile, d.conf.TLS.CertKey)
+		if err != nil {
+			log.Error().Msgf("Error reading certificate from file %s ", err)
 		}
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
@@ -1009,7 +1020,7 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		if d.conf.TLS.Enabled {
-			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.TLS.CertFile, d.conf.TLS.CertKey, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
 			return

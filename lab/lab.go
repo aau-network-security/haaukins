@@ -24,12 +24,12 @@ var (
 
 type Config struct {
 	Frontends []store.InstanceConfig
-	Exercises []store.Exercise
+	Exercises exercise.Container
 }
 
 func (conf Config) Flags() []store.FlagConfig {
 	var res []store.FlagConfig
-	for _, exercise := range conf.Exercises {
+	for _, exercise := range conf.Exercises.GetExercises() {
 		res = append(res, exercise.Flags()...)
 	}
 	return res
@@ -50,7 +50,7 @@ func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
 		return nil, err
 	}
 
-	if err := env.Add(ctx, lh.Conf.Exercises...); err != nil {
+	if err := env.Add(ctx, lh.Conf.Exercises.GetExercises()...); err != nil {
 		return nil, err
 	}
 
