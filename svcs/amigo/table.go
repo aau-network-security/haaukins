@@ -16,14 +16,16 @@ type Message struct {
 	Values  interface{} `json:"values"`
 }
 
-type Chal struct {
-	Chal	string		`json:"name"`
+// Challenge name and the points relative that challenge
+type Challenge struct {
+	Name	string		`json:"name"`
 	Points	uint		`json:"points"`
 }
 
-type ChalCategory struct {
-	Category		string		`json:"category"`
-	Chals			[]Chal		`json:"chals"`
+// Contains a list of Challenges relative the CategoryName
+type Category struct {
+	CategoryName		string			`json:"category"`
+	Challenges			[]Challenge		`json:"chals"`
 }
 
 type TeamRow struct {
@@ -36,30 +38,30 @@ type TeamRow struct {
 }
 
 type Scoreboard struct {
-	Chals 	[]ChalCategory	`json:"challenges"`
-	TeamRow []TeamRow	`json:"teams"`
+	Category 	[]Category	`json:"challenges"`
+	TeamRow 	[]TeamRow	`json:"teams"`
 }
 
 func (fd *FrontendData) initTeams(teamId string) []byte {
 
 	teams := fd.ts.GetTeams()
 	rows := make([]TeamRow, len(teams))
-	var challenges []ChalCategory
-	var realChallenges []ChalCategory
+	var challenges []Category
+	var realChallenges []Category		//used to filter out the empty categories
 	
 	for _, c := range ChallengeCategories {
-		challenges = append(challenges, ChalCategory{
-			Category: c,
-			Chals: []Chal{},
+		challenges = append(challenges, Category{
+			CategoryName: c,
+			Challenges: []Challenge{},
 		})
 	}
 
 	for _, c := range fd.challenges {
 		for i, rc := range challenges{
-			if rc.Category == c.Category{
+			if rc.CategoryName == c.Category{
 
-				challenges[i].Chals = append(challenges[i].Chals, Chal{
-					Chal:   c.Name,
+				challenges[i].Challenges = append(challenges[i].Challenges, Challenge{
+					Name:   c.Name,
 					Points: c.Points,
 				})
 			}
@@ -67,9 +69,9 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	}
 
 	for _, c := range challenges{
-		if len(c.Chals) > 0 {
-			sort.SliceStable(c.Chals, func(i, j int) bool {
-				return c.Chals[i].Points < c.Chals[j].Points
+		if len(c.Challenges) > 0 {
+			sort.SliceStable(c.Challenges, func(i, j int) bool {
+				return c.Challenges[i].Points < c.Challenges[j].Points
 			})
 			realChallenges = append(realChallenges, c)
 		}
@@ -87,7 +89,7 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	msg := Message{
 		Message: "scoreboard",
 		Values:  Scoreboard{
-			Chals:   realChallenges,
+			Category:   realChallenges,
 			TeamRow: rows,
 		},
 	}
@@ -96,13 +98,13 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	return rawMsg
 }
 
-func TeamInfo(t *store.Team, chalCategories []ChalCategory) TeamRow {
+func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
 	var completions	[]*time.Time
 	var points 		[]uint
 	var totalPoints uint = 0
 	for _, cc := range chalCategories {
-		for _, c := range cc.Chals{
-			solved := t.IsTeamSolvedChallenge(c.Chal)
+		for _, c := range cc.Challenges{
+			solved := t.IsTeamSolvedChallenge(c.Name)
 			completions = append(completions, solved)
 			points = append(points, c.Points)
 			if solved != nil {
@@ -120,7 +122,9 @@ func TeamInfo(t *store.Team, chalCategories []ChalCategory) TeamRow {
 	}
 }
 
-type ChallengeF struct {
+// Challenge for Challenges Page. It contains the challenge information, which team has solved that challenge and if
+// the current user has solve that challenge
+type ChallengeCP struct {
 	ChalInfo        store.FlagConfig `json:"challenge"`
 	IsUserCompleted bool              `json:"isUserCompleted"`
 	TeamsCompleted  []TeamsCompleted  `json:"teamsCompleted"`
@@ -134,10 +138,10 @@ type TeamsCompleted struct {
 func (fd *FrontendData) initChallenges(teamId string) []byte {
 	team, err := fd.ts.GetTeamByID(teamId)
 	teams := fd.ts.GetTeams()
-	rows := make([]ChallengeF, len(fd.challenges))
+	rows := make([]ChallengeCP, len(fd.challenges))
 
 	for i, c := range fd.challenges {
-		r :=  ChallengeF{
+		r :=  ChallengeCP{
 			ChalInfo:        c,
 		}
 

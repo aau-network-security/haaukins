@@ -1,12 +1,17 @@
 <template>
     <div class="table-responsive">
-        <table class="table table-striped" id="scoreboardtable" style="min-width: 1500px!important;">
+        <table class="table table-striped" id="scoreboardtable">
             <thead class="thead-dark-custom text-center">
                 <tr>
                     <th class="text-center rank-col">#</th>
                     <th class="team-col">Team</th>
                     <th class="score-col">Score</th>
-                    <th v-for="c in challenges" v-bind:colspan="c.chals.length" class="scoreboard-border" v-bind:key="c.category">{{category_name(c.category, c.chals.length)}}</th>
+                    <th v-for="c in challenges" v-bind:colspan="c.chals.length" class="scoreboard-border" v-bind:key="c.category" v-bind:id="c.category">
+                        {{category_name(c.category, c.chals.length)}}
+                        <b-tooltip v-bind:target="c.category" triggers="hover" placement="top">
+                            {{c.category}}
+                        </b-tooltip>
+                    </th>
                 </tr>
                 <tr>
                     <th class="rank-col"></th>
@@ -107,7 +112,7 @@
 <style>
     table#scoreboardtable {
         table-layout: fixed!important;
-        border-spacing: 2px;
+        min-width: 1800px!important;
     }
 
     .table .thead-dark-custom th{
