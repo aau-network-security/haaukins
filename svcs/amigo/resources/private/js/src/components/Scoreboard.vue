@@ -105,7 +105,10 @@
 </script>
 
 <style>
-    table { table-layout: fixed!important; }
+    table#scoreboardtable {
+        table-layout: fixed!important;
+        border-spacing: 2px;
+    }
 
     .table .thead-dark-custom th{
         color:#fff!important;

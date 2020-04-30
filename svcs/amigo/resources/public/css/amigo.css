@@ -492,17 +492,21 @@ table tr:last-child td:last-child {
 .rank-col{
     width: 50px;
     position:sticky;
+    position: -webkit-sticky;
     left:0px;
 }
 .team-col{
     width: 180px;
     position:sticky;
+    position: -webkit-sticky;
     left:50px;
 }
 .score-col{
     width: 70px;
     position:sticky;
+    position: -webkit-sticky;
     left:230px;
+    border-right: none!important;
 }
 
 /*big screen*/
@@ -596,7 +600,20 @@ table tr:last-child td:last-child {
     #indexpage p{
         font-size: 14px;
     }
-
+    .rank-col{
+        width: 50px;
+        position:static;
+    }
+    .team-col{
+        width: 180px;
+        position:sticky;
+        left:0px;
+    }
+    .score-col{
+        width: 70px;
+        position:static;
+        border-right: none!important;
+    }
 }
 
 @media (min-width: 576px) {

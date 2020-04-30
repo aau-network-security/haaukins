@@ -11,7 +11,7 @@
             </thead>
             <tbody v-if="teams.length > 0">
                 <tr v-for="(team, index) in teams" v-bind:key="team.id">
-                    <td>{{index}}</td>
+                    <td class="text-center">{{index}}</td>
                     <td>{{team.name}}</td>
                     <td>{{team.tpoints}}</td>
                 </tr>
