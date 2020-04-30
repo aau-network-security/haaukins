@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-var (
-	ChallengeCategories = [5]string{"Web exploitation", "Forensics", "Cryptography", "Binary", "Reverse Engineering"}
-)
 
 type Message struct {
 	Message string      `json:"msg"`
@@ -42,14 +39,34 @@ type Scoreboard struct {
 	TeamRow 	[]TeamRow	`json:"teams"`
 }
 
+// Retrieve categories directly from given challenges
+//  mapping is required to prevent duplicate values in
+// returning list
+func (fd *FrontendData) getChallengeCategories()[]string {
+	keys := make(map[string]bool)
+	challengeCats := []string{}
+	for _, challenge := range fd.challenges {
+		if _, value := keys[challenge.Category]; !value {
+			keys[challenge.Category] = true
+			challengeCats = append(challengeCats, challenge.Category)
+		}
+	}
+	return challengeCats
+}
+
+
+
 func (fd *FrontendData) initTeams(teamId string) []byte {
 
 	teams := fd.ts.GetTeams()
 	rows := make([]TeamRow, len(teams))
 	var challenges []Category
-	var realChallenges []Category		//used to filter out the empty categories
-	
-	for _, c := range ChallengeCategories {
+
+	// this part contains a lot of loops
+	// in my opinion structs are not well defined
+	// todo: refactor structs in order to get rid off from too much for loops
+
+	for _, c := range fd.getChallengeCategories() {
 		challenges = append(challenges, Category{
 			CategoryName: c,
 			Challenges: []Challenge{},
@@ -73,12 +90,11 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 			sort.SliceStable(c.Challenges, func(i, j int) bool {
 				return c.Challenges[i].Points < c.Challenges[j].Points
 			})
-			realChallenges = append(realChallenges, c)
 		}
 	}
 
 	for i, t := range teams {
-		r := TeamInfo(t, realChallenges)
+		r := TeamInfo(t, challenges)
 		if t.ID() == teamId {
 			r.IsUser = true
 		}
@@ -89,7 +105,7 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	msg := Message{
 		Message: "scoreboard",
 		Values:  Scoreboard{
-			Category:   realChallenges,
+			Category:   challenges,
 			TeamRow: rows,
 		},
 	}
