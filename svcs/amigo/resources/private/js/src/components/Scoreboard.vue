@@ -1,15 +1,22 @@
 <template>
     <div class="table-responsive">
-        <table class="table table-striped ">
+        <table class="table table-striped" id="scoreboardtable">
             <thead class="thead-dark-custom text-center">
                 <tr>
-                    <th colspan="3"></th>
-                    <th v-for="chal in get_categories(challenges)" v-bind:colspan="get_challenges_categories(challenges, chal.category).length" class="scoreboard-border" v-bind:key="chal.category">{{chal.category}}</th>
+                    <th class="text-center rank-col">#</th>
+                    <th class="team-col">Team</th>
+                    <th class="score-col">Score</th>
+                    <th v-for="c in challenges" v-bind:colspan="c.chals.length" class="scoreboard-border" v-bind:key="c.category" v-bind:id="c.category">
+                        {{category_name(c.category, c.chals.length)}}
+                        <b-tooltip v-bind:target="c.category" triggers="hover" placement="top">
+                            {{c.category}}
+                        </b-tooltip>
+                    </th>
                 </tr>
                 <tr>
-                    <th class="text-center">#</th>
-                    <th>Team</th>
-                    <th>Score</th>
+                    <th class="rank-col"></th>
+                    <th class="team-col"></th>
+                    <th class="score-col"></th>
                     <th v-for="chal in get_challenges(challenges)" v-bind:key="chal.name" v-bind:id="chal.name" class="scoreboard-border">
                         <span class="chal-points-font">{{chal.points}}</span>
                         <b-tooltip v-bind:target="chal.name" triggers="hover" placement="bottom">
@@ -38,7 +45,6 @@
             return {
                 teams: [],
                 challenges: [],
-                rows_color: ['#25308B', '#3A4496', '#25308B', '#3A4496', '#3A4496']
             }
         },
         created: function() {
@@ -47,40 +53,31 @@
             this.connectToWS(url.href);
         },
         methods: {
-            get_categories: function(full_categories){
-                let categories = []
-                for (let i in full_categories){
-                    if (full_categories[i].chals.length > 0) {
-                        full_categories[i].color = this.rows_color[i]
-                        categories.push(full_categories[i])
-                    }
-                }
-                window.console.log(categories)
-                return categories
-            },
             get_challenges: function(full_challenges){
                 let challenges = []
                 for (let i in full_challenges){
-                    if (full_challenges[i].chals.length > 0) {
-                        for (let j in full_challenges[i].chals){
-                            challenges.push(full_challenges[i].chals[j])
-                        }
+                    for (let j in full_challenges[i].chals){
+                        challenges.push(full_challenges[i].chals[j])
                     }
                 }
                 return challenges
             },
-            get_challenges_categories: function(full_challenges, chal_category){
-                let challenges = []
-                for (let i in full_challenges){
-                    if (full_challenges[i].chals.length > 0) {
-                        for (let j in full_challenges[i].chals){
-                            if (full_challenges[i].category === chal_category) {
-                                challenges.push(full_challenges[i].chals[j])
-                            }
-                        }
-                    }
+            category_name: function(category_name, category_num){
+                if(category_num > 3){
+                    return category_name
                 }
-                return challenges
+                switch (category_name) {
+                    case "Web exploitation":
+                        return "Web E."
+                    case "Forensics":
+                        return "For.."
+                    case "Cryptography":
+                        return "Cry.."
+                    case "Binary":
+                        return "Bin.."
+                    case "Reverse Engineering":
+                        return "R. Eng."
+                }
             },
             connectToWS: function(url) {
                 let self = this;
@@ -113,6 +110,11 @@
 </script>
 
 <style>
+    table#scoreboardtable {
+        table-layout: fixed!important;
+        min-width: 1500px!important;
+    }
+
     .table .thead-dark-custom th{
         color:#fff!important;
         background-color:#211A52;
