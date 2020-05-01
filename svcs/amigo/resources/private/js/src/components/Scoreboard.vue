@@ -112,7 +112,7 @@
 <style>
     table#scoreboardtable {
         table-layout: fixed!important;
-        min-width: 1800px!important;
+        min-width: 1500px!important;
     }
 
     .table .thead-dark-custom th{
