@@ -73,7 +73,9 @@ message CreateEventRequest {
 message StartEventResponse{
   string status = 1;
 }
-message ListEventsRequest {}
+message ListEventsRequest {
+  bool isGraphsPage = 1;
+}
 message ListEventsResponse {
   message Events {
     string tag = 1;

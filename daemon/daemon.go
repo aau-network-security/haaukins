@@ -568,7 +568,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 		for _, event := range d.eventPool.GetAllEvents() {
 			eventConfig := event.GetConfig()
-			totalCost += eventConfig.Capacity
+			if eventConfig.CreatedBy == u.Username {
+				totalCost += eventConfig.Capacity
+			}
 		}
 		if totalCost > maxCapacityForNonPrivUsers {
 			log.Debug().Msgf("User %s hit the capacity ", u.Username)
@@ -607,7 +609,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		},
 	}
 
-	if requestedStartTime.After(now) {
+	t,_:= time.Parse(time.RFC3339,req.StartTime)
+	// difference  in days
+	// if there is no difference in days it means event  will be
+	// started immediately
+	difference := int(t.Sub(now).Hours()/24)
+	if difference < 1 {
+		conf.IsBooked = false
+	} else {
 		conf.IsBooked = true
 	}
 
@@ -650,6 +659,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		if conf.IsBooked {
 			d.eventPool.events[conf.Tag] = ev
 		}
+	}
+	if calculateTotalConsumption(d) > 90 {
+		log.Debug().Str("Event:", conf.Name).
+					Str("Tag: ", string(conf.Tag)).
+					Str("CreatedBy",conf.CreatedBy).
+					Str("At :", conf.StartedAt.String()).
+					Str("with expected finishdate: ", conf.FinishExpected.String()).
+					Msg("Could not created due to intensive usage of memory ")
 	}
 
 	return nil
@@ -825,7 +842,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	u, _ := getUserFromIncomingContext(ctx)
 	for _, e := range d.eventPool.GetAllEvents() {
 		conf := e.GetConfig()
-		if (u.Username == conf.CreatedBy && u.NonPrivUser) || !u.NonPrivUser {
+		if (u.Username == conf.CreatedBy && u.NonPrivUser) || !u.NonPrivUser || req.IsGraphsPage {
 			var exercises []string
 			for _, ex := range conf.Lab.Exercises {
 				exercises = append(exercises, string(ex))
