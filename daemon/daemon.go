@@ -7,6 +7,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"github.com/aau-network-security/haaukins/api"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/logging"
@@ -331,6 +332,11 @@ func (d *daemon) Run() error {
 
 	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
+
+
+	learningMaterialAPI := api.NewLearningMaterialAPI()
+
+	http.ListenAndServe(":8888", learningMaterialAPI.Handler())
 
 	return s.Serve(lis)
 }
