@@ -336,7 +336,6 @@ func (d *daemon) Run() error {
 
 	learningMaterialAPI := api.NewLearningMaterialAPI()
 
-	http.ListenAndServe(":8888", learningMaterialAPI.Handler())
-
+	go http.ListenAndServe(":8888", learningMaterialAPI.Handler())
 	return s.Serve(lis)
 }
