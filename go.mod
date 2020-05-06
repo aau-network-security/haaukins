@@ -7,7 +7,6 @@ replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.2019071716
 replace github.com/schollz/progressbar v1.0.0 => github.com/schollz/progressbar/v2 v2.14.0
 
 require (
-	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/coreos/go-semver v0.3.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -34,7 +33,6 @@ require (
 	golang.org/x/sys v0.0.0-20191018095205-727590c5006e // indirect
 	google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03 // indirect
 	google.golang.org/grpc v1.28.0
-	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v2 v2.2.4
 )

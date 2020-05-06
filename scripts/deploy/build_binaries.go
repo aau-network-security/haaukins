@@ -24,7 +24,7 @@ var (
 	DARWIN  = OperatingSystems{"darwin", ""}
 
 	DAEMON = app{"daemon", "hknd", "github.com/aau-network-security/haaukins/daemon"}
-	CLIENT = app{"client", "hkn", "github.com/aau-network-security/haaukins/app/client/cli"}
+	CLIENT = app{"client", "hkn", "github.com/aau-network-security/haaukins/client/cli"}
 )
 
 type OperatingSystems struct {
