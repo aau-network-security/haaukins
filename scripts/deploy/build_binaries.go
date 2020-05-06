@@ -23,7 +23,7 @@ var (
 	LINUX   = OperatingSystems{"linux", ""}
 	DARWIN  = OperatingSystems{"darwin", ""}
 
-	DAEMON = app{"daemon", "hknd", "github.com/aau-network-security/haaukins/daemon"}
+	DAEMON = app{"", "hknd", "github.com/aau-network-security/haaukins"}
 	CLIENT = app{"client", "hkn", "github.com/aau-network-security/haaukins/client/cli"}
 )
 
