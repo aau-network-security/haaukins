@@ -53,7 +53,7 @@ func (bc *buildContext) outputFilePath() string {
 }
 
 func (bc *buildContext) packageName() string {
-	return fmt.Sprintf("github.com/aau-network-security/haaukins/app/%s", bc.App.Subdirectory)
+	return fmt.Sprintf("github.com/aau-network-security/haaukins/%s", bc.App.Subdirectory)
 }
 
 func (bc *buildContext) linkFlags(version string) string {
