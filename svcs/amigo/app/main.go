@@ -1,276 +1,106 @@
 package main
 
 import (
-
 	"context"
-	"fmt"
+	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
-	pb "github.com/aau-network-security/haaukins/store/proto"
+	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
-	mockserver "github.com/aau-network-security/haaukins/testing"
-	"google.golang.org/grpc"
 	"log"
 	"net/http"
+	"strings"
+	"time"
+)
+
+const (
+	server = "cli2.sec-aau.dk:50051"
+	certFile = ""
+	certKey = ""
+	certCA = ""
+	tls = true
+	authKey = ""
+	signKey = ""
+	configExercisePath = "" //absolute path
 )
 
 func main() {
 
-	dialer, close := mockserver.Create()
-	defer close()
 
-	conn, err := grpc.DialContext(context.Background(), "bufnet",
-		grpc.WithDialer(dialer),
-		grpc.WithInsecure(),
-	)
+	dbConn := 	store.DBConfig{
+		Grpc:     server,
+		AuthKey:  authKey,
+		SignKey:  signKey,
+		Enabled:  tls,
+		CertFile: certFile,
+		CertKey:  certKey,
+		CAFile:   certCA,
+	}
+	dbc, err := store.NewGRPClientDBConnection(dbConn)
 	if err != nil {
-		log.Fatalf("failed to dial bufnet: %v", err)
+		log.Fatalf("Error on DB connection %s", err.Error())
 	}
-	defer conn.Close()
-
-	client := pb.NewStoreClient(conn)
+	eventsFromDB, err := dbc.GetEvents(context.Background(), &pbc.EmptyRequest{})
+	if err != nil {
+		log.Fatalf("Error on Getting events %s", err.Error())
+	}
+	var instanceConfig []store.InstanceConfig
+	var challenges  []store.Tag
+	displayTimeFormat := "2006-01-02 15:04:05"
+	alphaEvent := eventsFromDB.Events[0]
+	startedAt, _ := time.Parse(displayTimeFormat,alphaEvent.StartedAt)
+	finishedAt, _ := time.Parse(displayTimeFormat,alphaEvent.FinishedAt)
+	listOfExercises := strings.Split(alphaEvent.Exercises,",")
+	instanceConfig = append(instanceConfig,store.InstanceConfig{
+		Image:    "kali",
+		MemoryMB: 4096,
+		CPU:      1,
+	} )
+	for _, e := range listOfExercises {
+		challenges = append(challenges, store.Tag(e))
+	}
 	ts, _ := store.NewEventStore(store.EventConfig{
-		Name:           "Test Event",
-		Tag:            "test",
-		Available:      1,
-		Capacity:       2,
-		Lab:            store.Lab{},
-		StartedAt:      nil,
+		Name:           alphaEvent.Name,
+		Tag:            store.Tag(alphaEvent.Tag),
+		Available:      int(alphaEvent.Available),
+		Capacity:       int(alphaEvent.Capacity),
+		Lab:            store.Lab{
+			Exercises: challenges,
+			Frontends: instanceConfig,
+		},
+		StartedAt:       &startedAt,
 		FinishExpected: nil,
-		FinishedAt:     nil,
-	}, "events", client)
+		FinishedAt:     &finishedAt,
+	}, "events", dbc)
 
-
-	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
-
-	if err := ts.SaveTeam(team); err != nil {
-		fmt.Print("expected no error when creating team")
+	ef, err := store.NewExerciseFile(configExercisePath)
+	if err != nil {
+		log.Println(err)
+	}
+	exer, err := ef.GetExercisesByTags(challenges...)
+	if err != nil {
+		log.Println("Get exercises by tags error: "+err.Error())
+	}
+	labConf := lab.Config{
+		Exercises: exer,
+	}
+	var res []store.FlagConfig
+	for _, exercise := range labConf.Exercises {
+		res = append(res, exercise.Flags()...)
 	}
 
-	team2 := store.NewTeam("some2@email.com", "some name", "password", "", "", "", client)
-
-	if err := ts.SaveTeam(team2); err != nil {
-		fmt.Print("expected no error when creating team")
+	// Add the challenges to the teams
+	// It not precise cause it tae the challenge main tag and not the children challenges
+	for _, t := range ts.GetTeams(){
+		for _, c := range exer{
+			_, _ = t.AddChallenge(store.Challenge{
+				Name:  c.Name,
+				Tag:   c.Tags[0],
+				Value: store.NewFlag().String(),
+			})
+		}
 	}
-
-	chals := []store.FlagConfig{
-		{
-			Tag:         "test",
-			Name:        "test",
-			EnvVar:      "",
-			Static:      "",
-			Points:      0,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-1",
-			Name:        "test-1",
-			EnvVar:      "",
-			Static:      "",
-			Points:      10,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-3",
-			Name:        "test-3",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-2",
-			Name:        "test-2",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-13",
-			Name:        "test-13",
-			EnvVar:      "",
-			Static:      "",
-			Points:      3,
-			Description: "this is a test",
-			Category:    "Reverse Engineering",
-		},
-		{
-			Tag:         "test-23",
-			Name:        "test-23",
-			EnvVar:      "",
-			Static:      "",
-			Points:      4,
-			Description: "this is a test",
-			Category:    "Reverse Engineering",
-		},
-		{
-			Tag:         "test1",
-			Name:        "test1",
-			EnvVar:      "",
-			Static:      "",
-			Points:      0,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-11",
-			Name:        "test-11",
-			EnvVar:      "",
-			Static:      "",
-			Points:      10,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-31",
-			Name:        "test-31",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-21",
-			Name:        "test-21",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-131",
-			Name:        "test-131",
-			EnvVar:      "",
-			Static:      "",
-			Points:      3,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-231",
-			Name:        "test-231",
-			EnvVar:      "",
-			Static:      "",
-			Points:      4,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test2",
-			Name:        "test2",
-			EnvVar:      "",
-			Static:      "",
-			Points:      0,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-21",
-			Name:        "test-12",
-			EnvVar:      "",
-			Static:      "",
-			Points:      10,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-23",
-			Name:        "test-23",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-22",
-			Name:        "test-22",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-123",
-			Name:        "test-123",
-			EnvVar:      "",
-			Static:      "",
-			Points:      3,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-223",
-			Name:        "test-223",
-			EnvVar:      "",
-			Static:      "",
-			Points:      4,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test3",
-			Name:        "test3",
-			EnvVar:      "",
-			Static:      "",
-			Points:      0,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-31",
-			Name:        "test-31",
-			EnvVar:      "",
-			Static:      "",
-			Points:      10,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-33",
-			Name:        "test-33",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Forensics",
-		},
-		{
-			Tag:         "test-32",
-			Name:        "test-32",
-			EnvVar:      "",
-			Static:      "",
-			Points:      5,
-			Description: "this is a test",
-			Category:    "Web exploitation",
-		},
-		{
-			Tag:         "test-133",
-			Name:        "test-133",
-			EnvVar:      "",
-			Static:      "",
-			Points:      3,
-			Description: "this is a test",
-			Category:    "Cryptography",
-		},
-		{
-			Tag:         "test-233",
-			Name:        "test-233",
-			EnvVar:      "",
-			Static:      "",
-			Points:      4,
-			Description: "this is a test",
-			Category:    "Binary",
-		},
-	}
-	am := amigo.NewAmigo(ts, chals)
+	am := amigo.NewAmigo(ts, res)
 
 	log.Fatal(http.ListenAndServe(":8080", am.Handler(nil, http.NewServeMux())))
 }
+

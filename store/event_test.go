@@ -114,7 +114,7 @@ func TestCreateToken(t *testing.T) {
 	}{
 		{name: "Normal", team: team, token: uuid.New().String()},
 		{name: "Empty token", team: team, token: "", err: "Token cannot be empty"},
-		{name: "Unknown team", token: uuid.New().String(), err: "Unknown team"},
+		{name: "Unknown team", token: uuid.New().String(), err: "SaveTokenForTeam function error Unknown team"},
 	}
 
 	for _, tc := range tt {

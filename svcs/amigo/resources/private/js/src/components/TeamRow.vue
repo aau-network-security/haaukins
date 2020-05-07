@@ -5,10 +5,10 @@
               <i class="fas fa-trophy"></i>
             </span>
         </td>
-        <td v-else class="text-center rank-col" v-bind:class="get_background(pos)">{{ pos }}</td>
-        <td class="team-col" v-bind:class="get_background(pos)"><strong>{{ team.name }}</strong></td>
-        <td class="text-center score-col" v-bind:class="get_background(pos)">{{ team.tpoints }}</td>
-        <challenge-cell v-for="comp in team.completions" v-bind:key="comp" :completed="comp != null"></challenge-cell>
+        <td v-else class="text-center rank-col" v-bind:class="get_background(pos, team.is_user)">{{ pos }}</td>
+        <td class="team-col" v-bind:class="get_background(pos, team.is_user)"><strong>{{ team.name }}</strong></td>
+        <td class="text-center score-col" v-bind:class="get_background(pos, team.is_user)">{{ team.tpoints }}</td>
+        <challenge-cell v-for="comp in team.completions" v-bind:key="comp" :completed="comp != null"  v-bind:class="get_background(pos, team.is_user)"></challenge-cell>
     </tr>
 </template>
 

@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -145,21 +146,27 @@ func NewClient() (*Client, error) {
 		grpc.WithUnaryInterceptor(versionCheckInterceptor),
 	}
 
-	ssl := os.Getenv("HKN_SSL_OFF")
-	if strings.ToLower(ssl) == "true" {
+
+	ssl_off := os.Getenv("HKN_SSL_OFF")
+	endpoint := fmt.Sprintf("%s:%s", host, port)
+	var creds credentials.TransportCredentials
+	if strings.ToLower(ssl_off) == "true" {
 		authCreds.Insecure = true
 		dialOpts = append(dialOpts,
 			grpc.WithInsecure(),
 			grpc.WithPerRPCCredentials(authCreds))
 	} else {
-		pool, _ := x509.SystemCertPool()
-		creds := credentials.NewClientTLSFromCert(pool, "")
+		if host == "localhost" {
+			creds = devEnvironment()
+		} else {
+			certPool,_ := x509.SystemCertPool()
+			creds = credentials.NewClientTLSFromCert(certPool, "")
+		}
 		dialOpts = append(dialOpts,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithPerRPCCredentials(authCreds))
 	}
 
-	endpoint := fmt.Sprintf("%s:%s", host, port)
 	conn, err := grpc.Dial(endpoint, dialOpts...)
 	if err != nil {
 		return nil, err
@@ -168,6 +175,33 @@ func NewClient() (*Client, error) {
 	c.rpcClient = pb.NewDaemonClient(conn)
 
 	return c, nil
+}
+
+func devEnvironment() credentials.TransportCredentials {
+	wd, _ := os.Getwd()
+
+	// todo: this will gonna change
+	certificate, err := tls.LoadX509KeyPair(wd+"/client/cli/devcerts/localhost.crt", wd+"/client/cli/devcerts/localhost.key")
+	if err != nil {
+		log.Printf("could not load client key pair: %s", err)
+	}
+
+	// Create a certificate pool from the certificate authority
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(wd+"/client/cli/devcerts/haaukins-store.com.crt")
+	if err != nil {
+		log.Printf("could not read ca certificate: %s", err)
+	}
+
+	// Append the certificates from the CA
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Println("failed to append ca certs")
+	}
+	creds := credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		RootCAs:      certPool,
+	})
+	return creds
 }
 
 func (c *Client) LoadToken() error {

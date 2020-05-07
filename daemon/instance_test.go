@@ -63,9 +63,9 @@ func TestListFrontends(t *testing.T) {
 
 			ctx := context.Background()
 
-			d := &daemon{
+			var d = &daemon{
 				conf: &Config{
-					OvaDir: tmpDir,
+					ConfFiles:Files{OvaDir:tmpDir},
 				},
 				eventPool: NewEventPool(""),
 				frontends: &fakeFrontendStore{},
@@ -73,7 +73,6 @@ func TestListFrontends(t *testing.T) {
 					allowed: !tc.unauthorized,
 				},
 			}
-
 			dialer, close := getServer(d)
 			defer close()
 

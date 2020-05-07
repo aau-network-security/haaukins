@@ -62,24 +62,40 @@ type Config struct {
 		Secure   uint `yaml:"secure,omitempty"`
 		InSecure uint `yaml:"insecure,omitempty"`
 	}
-	DBServer 		   string 							`yaml:"db-server,omitempty"`
-	AuthKey 		   string 							`yaml:"db-auth-key,omitempty"`
-	SignKey 		   string 							`yaml:"db-sign-key,omitempty"`
-	UsersFile          string                           `yaml:"users-file,omitempty"`
-	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
-	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
+	Certs			   CertificateConfig				`yaml:"tls,omitempty"`
+	Database		   DatabaseConfig					`yaml:"db-config,omitempty"`
+	ConfFiles		   Files 						    `yaml:"files,omitempty"`
+	SigningKey         string                           `yaml:"sign-key,omitempty"`
+	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
+}
+
+
+type CertificateConfig struct {
+
+	Enabled   bool   `yaml:"enabled"`
+	Directory string `yaml:"directory"`
+	CertFile string `yaml:"certfile"`
+	CertKey string `yaml:"certkey"`
+	CAFile	string `yaml:"cafile"`
+
+}
+
+type DatabaseConfig struct {
+	Grpc 	string `yaml:"grpc,omitempty"`
+	AuthKey string `yaml:"db-auth-key,omitempty"`
+	SignKey string `yaml:"db-sign-key,omitempty"`
+	CertConfig CertificateConfig `yaml:"tls,omitempty"`
+}
+
+type Files struct {
 	OvaDir             string                           `yaml:"ova-directory,omitempty"`
 	LogDir             string                           `yaml:"log-directory,omitempty"`
 	EventsDir          string                           `yaml:"events-directory,omitempty"`
-	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
-	SigningKey         string                           `yaml:"sign-key,omitempty"`
-	TLS                struct {
-		Enabled   bool   `yaml:"enabled"`
-		Directory string `yaml:"directory"`
-		CertFile string `yaml:"certfile"`
-		CertKey string `yaml:"certkey"`
-	} `yaml:"tls,omitempty"`
+	UsersFile          string                           `yaml:"users-file,omitempty"`
+	ExercisesFile      string                           `yaml:"exercises-file,omitempty"`
+	FrontendsFile      string                           `yaml:"frontends-file,omitempty"`
 }
+
 
 
 

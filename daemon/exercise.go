@@ -44,7 +44,7 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 
 
 func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
-	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ExercisesFile)
+	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ConfFiles.ExercisesFile)
 	if err != nil {
 		return nil, err
 	}
