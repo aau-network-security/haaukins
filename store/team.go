@@ -238,7 +238,6 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 			CompletedAt: &completedAt,
 		})
 	}
-fmt.Println(solvedChallenges)
 	return solvedChallenges, nil
 }
 

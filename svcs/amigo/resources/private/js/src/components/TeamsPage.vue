@@ -11,7 +11,7 @@
             </thead>
             <tbody v-if="teams.length > 0">
                 <tr v-for="(team, index) in teams" v-bind:key="team.id">
-                    <td class="text-center">{{index}}</td>
+                    <td class="text-center">{{index + 1}}</td>
                     <td>{{team.name}}</td>
                     <td>{{team.tpoints}}</td>
                 </tr>
@@ -80,7 +80,7 @@
                     let msg = messages[i];
                     let json = JSON.parse(msg);
                     if (json.msg === "scoreboard"){
-                        this.teams = json.values.teams.sort((a, b)=> a.tpoints - b.tpoints);
+                        this.teams = json.values.teams.sort((a, b)=> b.tpoints - a.tpoints);
                         this.sortSolvedData()
                     }
                 }
