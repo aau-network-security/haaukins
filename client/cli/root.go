@@ -188,32 +188,32 @@ func NewClient() (*Client, error) {
 // Downloads necessary localhost certificates
 // for local development
 func downloadCerts(certMap map[string]string) error {
-
-	for k,v := range certMap {
-		// Get the data
-		resp, err := http.Get(v)
-		if err != nil {
-			return err
+	_, err := os.Stat("localcerts")
+	if os.IsNotExist(err) {
+		errDir := os.MkdirAll("localcerts", 0755)
+		if errDir != nil {
+			log.Fatal(err)
 		}
-		defer resp.Body.Close()
-		// Create the file
-		_, err = os.Stat("localcerts")
-		if os.IsNotExist(err) {
-			errDir := os.MkdirAll("localcerts", 0755)
-			if errDir != nil {
-				log.Fatal(err)
+		for k,v := range certMap {
+			// Get the data
+			resp, err := http.Get(v)
+			if err != nil {
+				return err
 			}
-		}
-		out, err := os.Create("localcerts/"+k)
-		if err != nil {
-			return  err
-		}
+			defer resp.Body.Close()
+			// Create the file
 
-		defer out.Close()
-		// Write the body to file
-		_, err = io.Copy(out, resp.Body)
-		if err !=nil {
-			return  err
+			out, err := os.Create("localcerts/"+k)
+			if err != nil {
+				return  err
+			}
+
+			defer out.Close()
+			// Write the body to file
+			_, err = io.Copy(out, resp.Body)
+			if err !=nil {
+				return  err
+			}
 		}
 	}
 	return nil
