@@ -89,7 +89,9 @@ func NewGRPClientDBConnection(dbConn DBConfig) (pbc.StoreClient, error) {
 		}
 
 		creds := credentials.NewTLS(&tls.Config{
-			ServerName:   dbConn.Grpc,
+			// no need to give specific Grpc address
+			// if it is given certificates should be generated
+			// per given address
 			Certificates: []tls.Certificate{certificate},
 			RootCAs:      certPool,
 		})

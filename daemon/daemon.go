@@ -342,7 +342,7 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 
 		// Create the TLS credentials
 		creds := credentials.NewTLS(&tls.Config{
-			ClientAuth:   tls.RequireAndVerifyClientCert,
+			// no need to RequireAndVerifyClientCert
 			Certificates: []tls.Certificate{certificate},
 			ClientCAs:    certPool,
 		})
