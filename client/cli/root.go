@@ -200,9 +200,6 @@ func downloadCerts(certMap map[string]string) error {
 			if err != nil {
 				return err
 			}
-			if resp.StatusCode != 200 {
-				return errors.New("Not accessible error " + string(resp.StatusCode))
-			}
 			defer resp.Body.Close()
 			// Create the file
 
