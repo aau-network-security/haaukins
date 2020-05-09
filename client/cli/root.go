@@ -200,19 +200,22 @@ func downloadCerts(certMap map[string]string) error {
 			if err != nil {
 				return err
 			}
+			if resp.StatusCode != 200 {
+				return errors.New("Not accessible error " + string(resp.StatusCode))
+			}
 			defer resp.Body.Close()
 			// Create the file
 
-			out, err := os.Create("localcerts/"+k)
+			out, err := os.Create("localcerts/" + k)
 			if err != nil {
-				return  err
+				return err
 			}
 
 			defer out.Close()
 			// Write the body to file
 			_, err = io.Copy(out, resp.Body)
-			if err !=nil {
-				return  err
+			if err != nil {
+				return err
 			}
 		}
 	}
