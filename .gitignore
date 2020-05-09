@@ -30,3 +30,6 @@ logs
 store/test_ymls/
 dist/*
 node_modules/
+
+# no need to push local certificates
+localcerts/
