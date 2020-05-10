@@ -76,9 +76,9 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
 	var respList []*pb.ListFrontendsResponse_Frontend
 
-	err := filepath.Walk(d.conf.OvaDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(d.conf.ConfFiles.OvaDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".ova" {
-			relativePath, err := filepath.Rel(d.conf.OvaDir, path)
+			relativePath, err := filepath.Rel(d.conf.ConfFiles.OvaDir, path)
 			if err != nil {
 				return err
 			}

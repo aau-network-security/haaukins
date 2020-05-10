@@ -67,7 +67,7 @@ func (es *teamstore) GetTeamByToken(token string) (*Team, error) {
 
 	t, ok := es.teams[id]
 	if !ok {
-		return &Team{}, UnknownTeamErr
+		return &Team{}, fmt.Errorf("GetTeamByToken function error %v", UnknownTeamErr)
 	}
 
 	return t, nil
@@ -110,7 +110,7 @@ func(es *teamstore) SaveTokenForTeam (token string, in *Team) error {
 		return &EmptyVarErr{Var:"Token"}
 	}
 	if in.ID() == "" {
-		return errors.New("Unknown team")
+		return fmt.Errorf("SaveTokenForTeam function error %v", UnknownTeamErr)
 	}
 	es.tokens[token]= in.ID()
 	return nil
@@ -122,7 +122,7 @@ func (es *teamstore) GetTeamByID(id string) (*Team, error) {
 	t, ok := es.teams[id]
 	if !ok {
 		es.m.RUnlock()
-		return nil, ErrUnknownTeam
+		return nil, fmt.Errorf("GetTeamByID function error %v", UnknownTeamErr)
 	}
 
 	es.m.RUnlock()
@@ -135,12 +135,12 @@ func (es *teamstore) GetTeamByEmail(email string) (*Team, error) {
 	tid, ok := es.emails[email]
 	if !ok {
 		es.m.RUnlock()
-		return nil, ErrUnknownTeam
+		return nil, fmt.Errorf("GetTeamByEmail function error %v", UnknownTeamErr)
 	}
 	t, ok := es.teams[tid]
 	if !ok {
 		es.m.RUnlock()
-		return nil, ErrUnknownTeam
+		return nil, fmt.Errorf("GetTeamByEmail function error %v", UnknownTeamErr)
 	}
 	es.m.RUnlock()
 	return t, nil
@@ -238,7 +238,6 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 			CompletedAt: &completedAt,
 		})
 	}
-fmt.Println(solvedChallenges)
 	return solvedChallenges, nil
 }
 

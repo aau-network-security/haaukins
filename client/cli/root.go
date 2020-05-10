@@ -6,10 +6,13 @@ package cli
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -36,6 +39,11 @@ const (
 var (
 	UnreachableDaemonErr = errors.New("Daemon seems to be unreachable")
 	UnauthorizedErr      = errors.New("You seem to not be logged in")
+	LocalCertificates    =map[string]string{
+		"CERT":"https://gist.githubusercontent.com/mrturkmen06/c53edc50ca777bcece6fca8c21d62ce1/raw/f13ca172eb70c84e0abdfc957cdb563a9a072dcc/localhost.crt",
+		"CERT_KEY": "https://gist.githubusercontent.com/mrturkmen06/2b11591ddda806ce8fa2036693ee347b/raw/2b17c484b520380935102c5268de9911ef2a16eb/localhost.key",
+		"CERT_CA_FILE":  "https://gist.githubusercontent.com/mrturkmen06/5de6d51cd398be1c3d7df691fc0e4c71/raw/fb557eba6e55ab753b7ac73f32c5e02e820ed802/haaukins-store.com.crt",
+	}
 )
 
 type Creds struct {
@@ -145,21 +153,28 @@ func NewClient() (*Client, error) {
 		grpc.WithUnaryInterceptor(versionCheckInterceptor),
 	}
 
-	ssl := os.Getenv("HKN_SSL_OFF")
-	if strings.ToLower(ssl) == "true" {
+
+	ssl_off := os.Getenv("HKN_SSL_OFF")
+	endpoint := fmt.Sprintf("%s:%s", host, port)
+	var creds credentials.TransportCredentials
+	if strings.ToLower(ssl_off) == "true" {
 		authCreds.Insecure = true
 		dialOpts = append(dialOpts,
 			grpc.WithInsecure(),
 			grpc.WithPerRPCCredentials(authCreds))
 	} else {
-		pool, _ := x509.SystemCertPool()
-		creds := credentials.NewClientTLSFromCert(pool, "")
+		if host == "localhost" {
+			devCertPool := x509.NewCertPool()
+			creds = setCertConfig(false,devCertPool)
+		} else {
+			certPool,_ := x509.SystemCertPool()
+			creds = setCertConfig(true,certPool)
+		}
 		dialOpts = append(dialOpts,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithPerRPCCredentials(authCreds))
 	}
 
-	endpoint := fmt.Sprintf("%s:%s", host, port)
 	conn, err := grpc.Dial(endpoint, dialOpts...)
 	if err != nil {
 		return nil, err
@@ -168,6 +183,75 @@ func NewClient() (*Client, error) {
 	c.rpcClient = pb.NewDaemonClient(conn)
 
 	return c, nil
+}
+
+// Downloads necessary localhost certificates
+// for local development
+func downloadCerts(certMap map[string]string) error {
+	_, err := os.Stat("localcerts")
+	if os.IsNotExist(err) {
+		errDir := os.MkdirAll("localcerts", 0755)
+		if errDir != nil {
+			log.Fatal(err)
+		}
+		for k,v := range certMap {
+			// Get the data
+			resp, err := http.Get(v)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			// Create the file
+
+			out, err := os.Create("localcerts/" + k)
+			if err != nil {
+				return err
+			}
+
+			defer out.Close()
+			// Write the body to file
+			_, err = io.Copy(out, resp.Body)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+
+}
+
+
+func setCertConfig(isProd bool,certPool *x509.CertPool) credentials.TransportCredentials {
+	var certificates []tls.Certificate
+	creds := credentials.NewTLS(&tls.Config{})
+	// todo: this will gonna change
+	// Create a certificate pool from the certificate authority
+	if !isProd {
+		if err := downloadCerts(LocalCertificates); err!=nil {
+			log.Printf("Error on dowloading certificates from given path %s", err)
+		}
+		certificate, err := tls.LoadX509KeyPair("localcerts/CERT","localcerts/CERT_KEY")
+		if err != nil {
+			log.Printf("could not load client key pair: %s", err)
+		}
+		ca, err := ioutil.ReadFile("localcerts/CERT_CA_FILE")
+		if err != nil {
+			log.Printf("could not read ca certificate: %s", err)
+		}
+		// Append the certificates from the CA
+		if ok := certPool.AppendCertsFromPEM(ca); !ok {
+			log.Println("failed to append ca certs")
+		}
+		certificates = append(certificates, certificate)
+		creds = credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			RootCAs:   certPool,
+		})
+	}
+	creds = credentials.NewTLS(&tls.Config{
+		RootCAs:      certPool,
+	})
+	return creds
 }
 
 func (c *Client) LoadToken() error {

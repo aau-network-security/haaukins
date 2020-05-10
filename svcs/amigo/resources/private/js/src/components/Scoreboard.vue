@@ -63,6 +63,9 @@
                 return challenges
             },
             category_name: function(category_name, category_num){
+                if (this.challenges.length < 10) {
+                    return category_name
+                }
                 if(category_num > 3){
                     return category_name
                 }

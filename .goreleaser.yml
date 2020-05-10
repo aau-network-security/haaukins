@@ -10,7 +10,7 @@ builds:
 
     # Path to main.go file or main package.
     # Default is `.`.
-    main: ./app/client/main.go
+    main: ./client/main.go
 
     # Binary name.
     # Can be a path (e.g. `bin/app`) to wrap the binary in a directory.
@@ -49,7 +49,7 @@ builds:
   - id: "hknd"
     env:
       - CGO_ENABLED=0
-    main: ./app/daemon/main.go
+    main: ./daemon/main.go
     binary: hknd
     flags:
       - -tags=netgo

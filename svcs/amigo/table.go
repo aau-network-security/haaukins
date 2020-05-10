@@ -16,6 +16,7 @@ type Message struct {
 // Challenge name and the points relative that challenge
 type Challenge struct {
 	Name	string		`json:"name"`
+	Tag     string		`json:"tag"`
 	Points	uint		`json:"points"`
 }
 
@@ -79,6 +80,7 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 
 				challenges[i].Challenges = append(challenges[i].Challenges, Challenge{
 					Name:   c.Name,
+					Tag: 	string(c.Tag),
 					Points: c.Points,
 				})
 			}
@@ -120,7 +122,7 @@ func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
 	var totalPoints uint = 0
 	for _, cc := range chalCategories {
 		for _, c := range cc.Challenges{
-			solved := t.IsTeamSolvedChallenge(c.Name)
+			solved := t.IsTeamSolvedChallenge(c.Tag)
 			completions = append(completions, solved)
 			points = append(points, c.Points)
 			if solved != nil {

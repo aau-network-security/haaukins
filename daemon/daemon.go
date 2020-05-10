@@ -6,6 +6,8 @@ package daemon
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"github.com/aau-network-security/haaukins/api"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
@@ -40,8 +42,7 @@ var (
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
   	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
-	
-  version string
+  	version string
 )
 
 const (
@@ -89,6 +90,7 @@ func (m *MngtPortErr) Error() string {
 }
 
 
+
 func NewConfigFromFile(path string) (*Config, error) {
 	f, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -104,6 +106,9 @@ func NewConfigFromFile(path string) (*Config, error) {
 	for _, repo := range c.DockerRepositories {
 		docker.Registries[repo.ServerAddress] = repo
 	}
+
+	// todo: replace all if statement with something better
+	// change the way of handling configuration files
 
 	if c.SigningKey == "" {
 		return nil, &MissingConfigErr{"Management signing key"}
@@ -125,39 +130,57 @@ func NewConfigFromFile(path string) (*Config, error) {
 		c.Port.Secure = 443
 	}
 
-	if c.OvaDir == "" {
+	if c.ConfFiles.OvaDir == "" {
 		dir, _ := os.Getwd()
-		c.OvaDir = filepath.Join(dir, "vbox")
+		c.ConfFiles.OvaDir = filepath.Join(dir, "vbox")
 	}
 
-	if c.LogDir == "" {
+	if c.ConfFiles.LogDir == "" {
 		dir, _ := os.Getwd()
-		c.LogDir = filepath.Join(dir, "logs")
+		c.ConfFiles.LogDir = filepath.Join(dir, "logs")
 	}
 
-	if c.UsersFile == "" {
-		c.UsersFile = "users.yml"
+	if c.ConfFiles.UsersFile == "" {
+		c.ConfFiles.UsersFile = "users.yml"
 	}
 
-	if c.ExercisesFile == "" {
-		c.ExercisesFile = "exercises.yml"
+	if c.ConfFiles.ExercisesFile == "" {
+		c.ConfFiles.ExercisesFile = "exercises.yml"
 	}
 
-	if c.FrontendsFile == "" {
-		c.FrontendsFile = "frontends.yml"
+	if c.ConfFiles.FrontendsFile == "" {
+		c.ConfFiles.FrontendsFile = "frontends.yml"
 	}
 
-	if c.EventsDir == "" {
-		c.EventsDir = "events"
+	if c.ConfFiles.EventsDir == "" {
+		c.ConfFiles.EventsDir = "events"
 	}
 
-	if c.TLS.Enabled {
-		if c.TLS.Directory == "" {
+	if c.Database.AuthKey == "" {
+		log.Info().Str("DB AUTH KEY","development-environment").
+			       Msg("Database authentication key set ")
+		c.Database.AuthKey = "development-environment"
+	}
+
+	if c.Database.SignKey == "" {
+		log.Info().Str("DB Signin KEY","dev-env").
+			Msg("Database authentication key set ")
+		c.Database.SignKey = "dev-env"
+	}
+
+	if c.Database.Grpc == "" {
+		log.Info().Str("DB GRPC Server","localhost:50051").
+			Msg("DB GRPC connection default value for dev environment ")
+		c.Database.Grpc = "localhost:50051"
+	}
+
+	if c.Certs.Enabled {
+		if c.Certs.Directory == "" {
 			usr, err := user.Current()
 			if err != nil {
 				return nil, errors.New("Invalid user")
 			}
-			c.TLS.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
+			c.Certs.Directory = filepath.Join(usr.HomeDir, ".local", "share", "certmagic")
 		}
 	}
 
@@ -166,22 +189,22 @@ func NewConfigFromFile(path string) (*Config, error) {
 
 
 func New(conf *Config) (*daemon, error) {
-	uf, err := store.NewUserFile(conf.UsersFile)
+	uf, err := store.NewUserFile(conf.ConfFiles.UsersFile)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.UsersFile))
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.ConfFiles.UsersFile))
 	}
 
-	ef, err := store.NewExerciseFile(conf.ExercisesFile)
+	ef, err := store.NewExerciseFile(conf.ConfFiles.ExercisesFile)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ExercisesFile))
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ConfFiles.ExercisesFile))
 	}
 
-	ff, err := store.NewFrontendsFile(conf.FrontendsFile)
+	ff, err := store.NewFrontendsFile(conf.ConfFiles.FrontendsFile)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to read frontends file: %s", conf.FrontendsFile))
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to read frontends file: %s", conf.ConfFiles.FrontendsFile))
 	}
 
-	vlib := vbox.NewLibrary(conf.OvaDir)
+	vlib := vbox.NewLibrary(conf.ConfFiles.OvaDir)
 	eventPool := NewEventPool(conf.Host.Http)
 
 	if len(uf.ListUsers()) == 0 && len(uf.ListSignupKeys()) == 0 {
@@ -202,22 +225,34 @@ func New(conf *Config) (*daemon, error) {
 			log.Info().Str("key", k.String()).Msg("Found key")
 		}
 	}
+	// todo: could be done in much better way.
 
-	dbConn := store.DBConn{
-		Server:   conf.DBServer,
-		CertFile: conf.TLS.CertFile,
-		Tls:      conf.TLS.Enabled,
-		AuthKey:  conf.AuthKey,
-		SignKey:  conf.SignKey,
-	}
-	dbc, err := store.NewGRPClientDBConnection(dbConn)
-	if err != nil {
-		return nil, err
+	dbConfig := store.DBConfig{
+		Grpc:     conf.Database.Grpc,
+		AuthKey:  conf.Database.AuthKey,
+		SignKey:  conf.Database.SignKey,
+		Enabled:  conf.Database.CertConfig.Enabled,
+		CertFile: conf.Database.CertConfig.CertFile,
+		CertKey:  conf.Database.CertConfig.CertKey,
+		CAFile:   conf.Database.CertConfig.CAFile,
 	}
 
-	logPool, err := logging.NewPool(conf.LogDir)
+	dbc, err := store.NewGRPClientDBConnection(dbConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
+	}
+	events, err := dbc.GetEvents(context.Background(),&pbc.EmptyRequest{})
+	if err !=nil {
+		log.Error().Msgf("Error on getting events from database %v", err)
+		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
+	}
+	for _, e := range events.Events {
+		log.Info().Str("Event Name", e.Name).
+					Str("Event Tag", e.Tag).Msg("Event: ")
+	}
+	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
+	if err != nil {
+		return nil, fmt.Errorf("Error on creating new pool for looging :  %v", err)
 	}
 
 	d := &daemon{
@@ -227,7 +262,7 @@ func New(conf *Config) (*daemon, error) {
 		exercises: ef,
 		eventPool: eventPool,
 		frontends: ff,
-		ehost:     event.NewHost(vlib, ef, conf.EventsDir, dbc),
+		ehost:     event.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 	}
@@ -265,7 +300,7 @@ func New(conf *Config) (*daemon, error) {
 			}
 			err := d.createEventFromEventDB(context.Background(),eventConfig)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Error on creating event from db: %v", err)
 			}
 		}
 	}
@@ -286,11 +321,33 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 }
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
-	if d.conf.TLS.Enabled {
-		creds,err := credentials.NewServerTLSFromFile(d.conf.TLS.CertFile,d.conf.TLS.CertKey)
-		if err !=nil {
-			log.Error().Msgf("Error reading certificate from file %s ",err)
+	if d.conf.Certs.Enabled {
+		// Load cert pairs
+		certificate, err := tls.LoadX509KeyPair(d.conf.Certs.CertFile,d.conf.Certs.CertKey)
+		if err != nil {
+			return nil,fmt.Errorf("could not load server key pair: %s", err)
 		}
+
+		// Create a certificate pool from the certificate authority
+		certPool := x509.NewCertPool()
+		ca, err := ioutil.ReadFile(d.conf.Certs.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("HAAUKINS Grpc could not read ca certificate: %s", err)
+		}
+		// CA file for let's encrypt is located under domain conf as `chain.pem`
+		// pass chain.pem location
+		// Append the client certificates from the CA
+		if ok := certPool.AppendCertsFromPEM(ca); !ok {
+			return nil, errors.New("failed to append client certs")
+		}
+
+		// Create the TLS credentials
+		creds := credentials.NewTLS(&tls.Config{
+			// no need to RequireAndVerifyClientCert
+			Certificates: []tls.Certificate{certificate},
+			ClientCAs:    certPool,
+		})
+
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
 	return []grpc.ServerOption{}, nil
@@ -300,8 +357,8 @@ func (d *daemon) Run() error {
 
 	// start frontend
 	go func() {
-		if d.conf.TLS.Enabled {
-			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure),d.conf.TLS.CertFile,d.conf.TLS.CertKey,d.eventPool); err != nil {
+		if d.conf.Certs.Enabled {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.Certs.CertFile,d.conf.Certs.CertKey,d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
 			return
@@ -311,7 +368,7 @@ func (d *daemon) Run() error {
 		}
 	}()
 	// redirect if TLS enabled only...
-	if d.conf.TLS.Enabled {
+	if d.conf.Certs.Enabled {
 		go http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
 		}))
@@ -325,7 +382,7 @@ func (d *daemon) Run() error {
 
 	opts, err := d.grpcOpts()
 	if err != nil {
-		return GrpcOptsErr
+		return errors.Wrap(GrpcOptsErr, err.Error())
 	}
 	s := d.GetServer(opts...)
 	pb.RegisterDaemonServer(s, d)
