@@ -94,6 +94,7 @@ type Guacamole interface {
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
+	GetPort() uint
 	RawLogin(username, password string) ([]byte, error)
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo) svcs.ProxyConnector
 }
@@ -127,6 +128,10 @@ func New(ctx context.Context, conf Config) (Guacamole, error) {
 	}
 
 	return guac, nil
+}
+
+func (guac *guacamole) GetPort() uint {
+	return guac.webPort
 }
 
 func (guac *guacamole) Close() error {

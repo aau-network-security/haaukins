@@ -1,17 +1,11 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins/lab"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
-	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
 	"sync"
@@ -54,23 +48,37 @@ func (lm *LearningMaterialAPI) RequestFromLearningMaterial() http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		challengesFromLink := mux.Vars(r)["chals"]
-		//challenges := strings.Split(challengesFromLink, ",")
-		//
-		//lm.crs.m.RLock()
-		//defer lm.crs.m.RUnlock()
-		//
-		//clientR, ok := lm.crs.clientsR[r.Host]
-		//
-		//if !ok { 	// the user is new
-		//	clientR = lm.crs.NewClientRequest(r.Host)
-		//	_, err := clientR.CreateEnvironment(challenges)
-		//	if err != nil {
-		//		//implement me
-		//		//return error page
-		//	}
-		//	//redirect to guacamole url
-		//
-		//}
+		challenges := strings.Split(challengesFromLink, ",")
+
+		lm.crs.m.RLock()
+		defer lm.crs.m.RUnlock()
+
+		clientR, ok := lm.crs.clientsR[r.Host]
+
+		if !ok { 	// the user is new
+			go func() {
+				env, _ := newEnvironment(challenges)
+				client := lm.crs.NewClientRequest(r.Host)
+				err := env.Assign(client)
+				fmt.Println(err)
+			}()
+
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(waitingHTMLTemplate))
+
+
+		}
+
+		cookie, ok := clientR.cookies["ftp"]
+		if !ok {
+			fmt.Println("error getting the cookie")
+		}
+		authC := http.Cookie{Name: "GUAC_AUTH", Value: cookie, Path: "/guacamole/"}
+		http.SetCookie(w, &authC)
+		str := "dwada"
+		http.Redirect(w, r, "http://localhost:"+str+"/guacamole", http.StatusFound)
+		//http.Redirect(w, r, "http://127.0.0.1:"+string(1234)+"/guacamole", http.StatusFound)
 		//
 		//token, ok := clientR.cookies[challengesFromLink]
 		//if !ok {	// the challenge requested is new
@@ -84,11 +92,14 @@ func (lm *LearningMaterialAPI) RequestFromLearningMaterial() http.HandlerFunc{
 		//fmt.Println(token)
 
 
-		aa, err := CreateGuacamole()
-		fmt.Println(err)
-		fmt.Println(aa)
-		fmt.Fprintf(w, challengesFromLink)
-		//http.Redirect(w, r, "/login", http.StatusSeeOther)
+		//CreateGuacamole()
+		//if err != nil {
+		//	fmt.Println("daddada")
+		//	authC := http.Cookie{Name: "GUAC_AUTH", Value: token, Path: "/guacamole/"}
+		//	http.SetCookie(w, &authC)
+		//	http.Redirect(w, r, "/guacamole", http.StatusFound)
+		//}
+
 	}
 }
 
@@ -107,6 +118,8 @@ func NewClientRequestStore() *ClientRequestStore {
 func (crs *ClientRequestStore) NewClientRequest(host string) *ClientRequest {
 
 	cl := &ClientRequest{
+		username:	  uuid.New().String(),
+		password:     uuid.New().String(),
 		cookies: 	  map[string]string{},
 		host:		  host,
 		requestsMade: 0,
@@ -117,6 +130,8 @@ func (crs *ClientRequestStore) NewClientRequest(host string) *ClientRequest {
 }
 
 type ClientRequest struct {
+	username 		string
+	password 		string
 	cookies			map[string]string				//map with challenge tag
 	host			string
 	requestsMade 	int
@@ -135,20 +150,22 @@ func (cr *ClientRequest) GetTokenByChallenges(chals []string) (string, error){
 
 // Create the environment for the new request (run guacamole and the selected challenges)
 // return the url of guacamole
-func (cr *ClientRequest) CreateEnvironment(chals []string) (string, error){
+func (cr *ClientRequest) CreateEnvironment(chals []string) error{
 
-	challenges := strings.Join(chals, ",")
+	//challenges := strings.Join(chals, ",")
 
-	token, err := cr.CreateTokenForClientByChallenge(token_key, challenges)
-	if err != nil {
-		return "", ErrorCreateToken
-	}
-	//create guacamole  and the challenge
 
-	cr.cookies[challenges] = token
-	cr.requestsMade += 1
 
-	return "url", nil
+	//token, err := cr.CreateTokenForClientByChallenge(token_key, challenges)
+	//if err != nil {
+	//	return "", ErrorCreateToken
+	//}
+	////create guacamole  and the challenge
+	//
+	//cr.cookies[challenges] = token
+	//cr.requestsMade += 1
+
+	return nil
 }
 
 //Create the token for the challenge per client
@@ -162,105 +179,4 @@ func (cr *ClientRequest) CreateTokenForClientByChallenge(key, chals string) (str
 		return "", err
 	}
 	return tokenStr, nil
-}
-
-func CreateGuacamole() (string, error){
-
-	ctx := context.Background()
-	ef, err := store.NewExerciseFile("/home/gian/Documents/haaukins_files/configs/exercises.yml")
-	exercises := store.Tag("ftp")
-	exer, err := ef.GetExercisesByTags(exercises)
-	if err != nil {
-		return "", err
-	}
-
-	labConf := lab.Config{
-		Exercises: exer,
-		Frontends: []store.InstanceConfig{{
-			Image: "kali",
-			MemoryMB: uint(4096),
-		}},
-	}
-
-	vlib := vbox.NewLibrary("/home/gian/Documents/ova")
-
-	lh := lab.LabHost{
-		Vlib: vlib,
-		Conf: labConf,
-	}
-	labhub, err := lab.NewHub(ctx, &lh, 1, 2)
-	if err != nil {
-		return "", err
-	}
-
-
-	guac, err := guacamole.New(ctx, guacamole.Config{})
-	if err != nil {
-		return "", err
-	}
-
-	if err := guac.Start(ctx); err != nil {
-		return "", err
-	}
-
-	lab, ok := <-labhub.Queue()
-	if !ok {
-		return "", errors.New("not enough lab")
-	}
-
-	if err := AssignLab("team", lab, guac); err != nil {
-		fmt.Println("Issue assigning lab: ", err)
-		return "", err
-	}
-
-	return "ok", nil
-}
-
-func AssignLab(user string, lab lab.Lab, guac guacamole.Guacamole) error{
-	rdpPorts := lab.RdpConnPorts()
-	if n := len(rdpPorts); n == 0 {
-		log.
-			Debug().
-			Int("amount", n).
-			Msg("Too few RDP connections")
-
-		return errors.New("RdpConfErr")
-	}
-	u := guacamole.GuacUser{
-		Username: user,
-		Password: user,
-	}
-
-	if err := guac.CreateUser(u.Username, u.Password); err != nil {
-		log.
-			Debug().
-			Str("err", err.Error()).
-			Msg("Unable to create guacamole user")
-		return err
-	}
-
-	dockerHost := docker.NewHost()
-	hostIp, err := dockerHost.GetDockerHostIP()
-	if err != nil {
-		return err
-	}
-
-	for i, port := range rdpPorts {
-		num := i + 1
-		name := fmt.Sprintf("%s-client%d", user, num)
-
-		log.Debug().Str("team", user).Uint("port", port).Msg("Creating RDP Connection for group")
-		if err := guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
-			Host:     hostIp,
-			Port:     port,
-			Name:     name,
-			GuacUser: u.Username,
-			Username: &u.Username,
-			Password: &u.Password,
-		}); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
