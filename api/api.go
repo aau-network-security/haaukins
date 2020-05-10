@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -47,8 +48,10 @@ func (lm *LearningMaterialAPI) Handler() http.Handler {
 func (lm *LearningMaterialAPI) RequestFromLearningMaterial() http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		challengesFromLink := mux.Vars(r)["chals"]
-		challenges := strings.Split(challengesFromLink, ",")
+
+
+		//challengesFromLink := mux.Vars(r)["chals"]
+		//challenges := strings.Split(challengesFromLink, ",")
 
 		lm.crs.m.RLock()
 		defer lm.crs.m.RUnlock()
@@ -57,27 +60,34 @@ func (lm *LearningMaterialAPI) RequestFromLearningMaterial() http.HandlerFunc{
 
 		if !ok { 	// the user is new
 			go func() {
-				env, _ := newEnvironment(challenges)
+				env, _ := newEnvironment([]string{"ftp"})
 				client := lm.crs.NewClientRequest(r.Host)
-				err := env.Assign(client)
-				fmt.Println(err)
+				_ = env.Assign(client)
 			}()
 
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write([]byte(waitingHTMLTemplate))
-
+			return
 
 		}
-
+		//
 		cookie, ok := clientR.cookies["ftp"]
 		if !ok {
 			fmt.Println("error getting the cookie")
 		}
-		authC := http.Cookie{Name: "GUAC_AUTH", Value: cookie, Path: "/guacamole/"}
+		port, ok := clientR.ports["ftp"]
+		if !ok {
+			fmt.Println("error getting the port")
+		}
+		fmt.Println(cookie)
+		authC := http.Cookie{Name: "GUAC_AUTH", Value: cookie , Path: "/guacamole/"}
 		http.SetCookie(w, &authC)
-		str := "dwada"
-		http.Redirect(w, r, "http://localhost:"+str+"/guacamole", http.StatusFound)
+		host := fmt.Sprintf("http://localhost:%s/guacamole", strconv.Itoa(int(port)))
+		fmt.Println(host)
+		http.Redirect(w, r, host, http.StatusFound)
+
+
 		//http.Redirect(w, r, "http://127.0.0.1:"+string(1234)+"/guacamole", http.StatusFound)
 		//
 		//token, ok := clientR.cookies[challengesFromLink]
@@ -122,6 +132,7 @@ func (crs *ClientRequestStore) NewClientRequest(host string) *ClientRequest {
 		password:     uuid.New().String(),
 		cookies: 	  map[string]string{},
 		host:		  host,
+		ports:  	  map[string]uint{},
 		requestsMade: 0,
 	}
 
@@ -134,6 +145,7 @@ type ClientRequest struct {
 	password 		string
 	cookies			map[string]string				//map with challenge tag
 	host			string
+	ports 			map[string]uint
 	requestsMade 	int
 }
 

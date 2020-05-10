@@ -15,7 +15,7 @@ import (
 
 const waitingHTMLTemplate = `
 <html lang="en" dir="ltr">
-		  <meta http-equiv="refresh" content="60" />
+		  <meta http-equiv="refresh" content="70" />
 		  <head>
 			<style>
 				html, body {

@@ -10,6 +10,7 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -32,6 +33,8 @@ func (e environment) Assign(client *ClientRequest) error {
 
 		return errors.New("RdpConfErr")
 	}
+	fmt.Println(client.username)
+	fmt.Println(client.password)
 	u := guacamole.GuacUser{
 		Username: client.username,
 		Password: client.password,
@@ -73,7 +76,10 @@ func (e environment) Assign(client *ClientRequest) error {
 		return err
 	}
 	fmt.Println(string(content))
-	client.cookies[strings.Join(e.challenges, ",")] = string(content)
+	aa :=  url.QueryEscape(string(content))
+	fmt.Println(aa)
+	client.cookies[strings.Join(e.challenges, ",")] = aa
+	client.ports[strings.Join(e.challenges, ",")] = e.guacPort
 	return nil
 }
 
@@ -117,16 +123,6 @@ func newEnvironment(challenges []string) (Environment, error){
 		Conf: labConf,
 	}
 
-	lab, err := lh.NewLab(ctx)
-	if err != nil {
-		log.Error().Msgf("Error while creating new lab %s", err.Error())
-		return environment{}, err
-	}
-
-	if err := lab.Start(ctx); err != nil {
-		log.Error().Msgf("Error while starting lab %s", err.Error())
-	}
-
 	guac, err := guacamole.New(ctx, guacamole.Config{})
 	if err != nil {
 		log.Error().Msgf("Error while creating new guacamole %s", err.Error())
@@ -137,6 +133,17 @@ func newEnvironment(challenges []string) (Environment, error){
 		log.Error().Msgf("Error while starting guacamole %s", err.Error())
 		return environment{}, err
 	}
+
+	lab, err := lh.NewLab(ctx)
+	if err != nil {
+		log.Error().Msgf("Error while creating new lab %s", err.Error())
+		return environment{}, err
+	}
+
+	if err := lab.Start(ctx); err != nil {
+		log.Error().Msgf("Error while starting lab %s", err.Error())
+	}
+
 
 	fmt.Println(guac.GetPort())
 	env := &environment{
