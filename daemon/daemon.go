@@ -390,9 +390,10 @@ func (d *daemon) Run() error {
 	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
 
+	learningMaterialAPI, err := api.NewLearningMaterialAPI()
+	if err == nil {
+		go http.ListenAndServe(":8888", learningMaterialAPI.Handler())
+	}
 
-	learningMaterialAPI := api.NewLearningMaterialAPI()
-
-	go http.ListenAndServe(":8888", learningMaterialAPI.Handler())
 	return s.Serve(lis)
 }

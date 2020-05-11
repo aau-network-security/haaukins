@@ -8,7 +8,6 @@ import (
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
 	"net/url"
 	"strings"
@@ -17,7 +16,7 @@ import (
 
 type environment struct {
 	timer		*time.Time
-	challenges 	[]string
+	challenges 	[]store.Tag
 	lab 		lab.Lab
 	guacamole 	guacamole.Guacamole
 	guacPort 	uint
@@ -33,8 +32,7 @@ func (e environment) Assign(client *ClientRequest) error {
 
 		return errors.New("RdpConfErr")
 	}
-	fmt.Println(client.username)
-	fmt.Println(client.password)
+
 	u := guacamole.GuacUser{
 		Username: client.username,
 		Password: client.password,
@@ -58,7 +56,7 @@ func (e environment) Assign(client *ClientRequest) error {
 		num := i + 1
 		name := fmt.Sprintf("%s-client%d", client.username, num)
 
-		log.Debug().Str("team", client.username).Uint("port", port).Msg("Creating RDP Connection for group")
+		log.Debug().Str("client", client.username).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := e.guacamole.CreateRDPConn(guacamole.CreateRDPConnOpts{
 			Host:     hostIp,
 			Port:     port,
@@ -73,13 +71,21 @@ func (e environment) Assign(client *ClientRequest) error {
 
 	content, err := e.guacamole.RawLogin(client.username, client.password)
 	if err != nil {
+		log.
+			Debug().
+			Str("err", err.Error()).
+			Msg("Unable to login to guacamole")
 		return err
 	}
-	fmt.Println(string(content))
-	aa :=  url.QueryEscape(string(content))
-	fmt.Println(aa)
-	client.cookies[strings.Join(e.challenges, ",")] = aa
-	client.ports[strings.Join(e.challenges, ",")] = e.guacPort
+	cookie :=  url.QueryEscape(string(content))
+
+	challeges := make([]string, len(e.challenges))
+	for i, c := range e.challenges{
+		challeges[i] = string(c)
+	}
+
+	client.cookies[strings.Join(challeges, ",")] = cookie
+	client.ports[strings.Join(challeges, ",")] = e.guacPort
 	return nil
 }
 
@@ -93,33 +99,21 @@ func (e environment) Start() error {
 
 type Environment interface {
 	Assign(*ClientRequest) error
-	Close() error
-	Start() error
+	Close() error //close the dockers and the vms
 }
 
-func newEnvironment(challenges []string) (Environment, error){
+func (lm *LearningMaterialAPI) newEnvironment(challenges []store.Tag) (Environment, error){
 
-	//todo implement the challenges
 	ctx := context.Background()
-	ef, err := store.NewExerciseFile("/home/gian/Documents/haaukins_files/configs/exercises.yml")
-	exercises := store.Tag("ftp")
-	exer, err := ef.GetExercisesByTags(exercises)
-	if err != nil {
-		return environment{}, err
-	}
+	exercises, _ := lm.exStore.GetExercisesByTags(challenges...)
 
 	labConf := lab.Config{
-		Exercises: exer,
-		Frontends: []store.InstanceConfig{{
-			Image: "kali",
-			MemoryMB: uint(4096),
-		}},
+		Exercises: exercises,
+		Frontends: lm.frontend,
 	}
 
-	vlib := vbox.NewLibrary("/home/gian/Documents/ova")
-
 	lh := lab.LabHost{
-		Vlib: vlib,
+		Vlib: lm.vlib,
 		Conf: labConf,
 	}
 
@@ -143,7 +137,6 @@ func newEnvironment(challenges []string) (Environment, error){
 	if err := lab.Start(ctx); err != nil {
 		log.Error().Msgf("Error while starting lab %s", err.Error())
 	}
-
 
 	fmt.Println(guac.GetPort())
 	env := &environment{
