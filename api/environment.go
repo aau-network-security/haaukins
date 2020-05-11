@@ -84,16 +84,13 @@ func (e environment) Assign(client *ClientRequest) error {
 		challeges[i] = string(c)
 	}
 
+	//map the cookie and the guacamole port with the challenges the user requested
 	client.cookies[strings.Join(challeges, ",")] = cookie
 	client.ports[strings.Join(challeges, ",")] = e.guacPort
 	return nil
 }
 
 func (e environment) Close() error {
-	panic("implement me")
-}
-
-func (e environment) Start() error {
 	panic("implement me")
 }
 

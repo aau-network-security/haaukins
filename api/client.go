@@ -35,8 +35,8 @@ func (crs *ClientRequestStore) NewClientRequest(host string) *ClientRequest {
 type ClientRequest struct {
 	username 		string
 	password 		string
-	cookies			map[string]string				//map with challenge tag
+	cookies			map[string]string				//map cookie with challenges tag
 	host			string
-	ports 			map[string]uint
+	ports 			map[string]uint					//map guacamole port with challenges tag
 	requestsMade 	int
 }
