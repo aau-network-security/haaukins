@@ -278,7 +278,7 @@ func New(conf *Config) (*daemon, error) {
 	for _, ef := range eventsFromDB.Events {
 		if ef.FinishedAt == "" { //check if the event is finished or not
 			startedAt, _ := time.Parse(displayTimeFormat,ef.StartedAt)
-			finishedAt, _ := time.Parse(displayTimeFormat,ef.FinishedAt)
+			expectedFinishTime, _ := time.Parse(displayTimeFormat,ef.ExpectedFinishTime)
 			listOfExercises := strings.Split(ef.Exercises,",")
 			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
 			for _, e := range listOfExercises {
@@ -294,8 +294,7 @@ func New(conf *Config) (*daemon, error) {
 					Exercises: exercises ,
 				},
 				StartedAt:      &startedAt,
-				FinishExpected: nil,
-				FinishedAt:     &finishedAt,
+				FinishExpected: &expectedFinishTime,
 			}
 			err := d.createEventFromEventDB(context.Background(),eventConfig)
 			if err != nil {

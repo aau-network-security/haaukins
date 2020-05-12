@@ -27,6 +27,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const displayTimeFormat = "2006-01-02 15:04:05"
+
 var (
 	RdpConfErr      = errors.New("error too few rdp connections")
 	StartingGuacErr = errors.New("error while starting guac")
@@ -105,8 +107,8 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		Exercises:            strings.Join(exercises,","),
 		Available:            int32(conf.Available),
 		Capacity:             int32(conf.Capacity),
-		StartTime:			  conf.StartedAt.String(),
-		ExpectedFinishTime:   conf.FinishExpected.String(),
+		StartTime:			  conf.StartedAt.Format(displayTimeFormat),
+		ExpectedFinishTime:   conf.FinishExpected.Format(displayTimeFormat),
 	})
 
 	if err != nil {

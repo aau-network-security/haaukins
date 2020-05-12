@@ -189,9 +189,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			Exercises: 	   strings.Join(exercises, ","),
 			Capacity:      int32(conf.Capacity),
 			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
-			// There is no finishexpected field for develop-a branch.
-			// When booking is applied on this branch it can be added as well.
-			FinishTime:    conf.FinishedAt.Format(displayTimeFormat),
+			FinishTime:    conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
 		})
 	}
 
