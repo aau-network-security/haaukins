@@ -24,12 +24,12 @@ var (
 
 type Config struct {
 	Frontends []store.InstanceConfig
-	Exercises exercise.Container
+	Exercises []store.Exercise
 }
 
 func (conf Config) Flags() []store.FlagConfig {
 	var res []store.FlagConfig
-	for _, exercise := range conf.Exercises.GetExercises() {
+	for _, exercise := range conf.Exercises {
 		res = append(res, exercise.Flags()...)
 	}
 	return res
@@ -50,7 +50,10 @@ func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
 		return nil, err
 	}
 
-	if err := env.Add(ctx, lh.Conf.Exercises.GetExercises()...); err != nil {
+	tracker := exercise.NewTracker(lh.Conf.Exercises)
+
+	err := env.Add(ctx, tracker.GetExercises()...)
+	if err != nil {
 		return nil, err
 	}
 
@@ -59,6 +62,7 @@ func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
 		tag:         generateTag(),
 		lib:         lh.Vlib,
 		environment: env,
+		tracker:     tracker,
 		dockerHost:  dockerHost,
 		frontends:   map[uint]frontendConf{},
 	}
@@ -83,12 +87,14 @@ type Lab interface {
 	Tag() string
 	InstanceInfo() []virtual.InstanceInfo
 	Close() error
+	AttachTeam(t *store.Team) error
 }
 
 type lab struct {
 	tag         string
 	lib         vbox.Library
 	environment exercise.Environment
+	tracker     exercise.Tracker
 	frontends   map[uint]frontendConf
 	dockerHost  docker.Host
 }
@@ -252,6 +258,11 @@ func (l *lab) InstanceInfo() []virtual.InstanceInfo {
 	}
 	instances = append(instances, l.environment.InstanceInfo()...)
 	return instances
+}
+
+func (l *lab) AttachTeam(t *store.Team) error {
+	ctx := context.Background()
+	return l.tracker.AttachTeam(ctx, t)
 }
 
 func generateTag() string {

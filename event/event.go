@@ -16,7 +16,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
@@ -65,10 +64,7 @@ type eventHost struct {
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error) {
 
-	exer, err := exercise.NewContainerFromProvider(eh.elib, conf.Lab.Exercises)
-	if err != nil {
-		return nil, err
-	}
+	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 
 	labConf := lab.Config{
 		Exercises: exer,
@@ -286,6 +282,10 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	}
 
 	ev.labs[t.ID()] = lab
+	err = lab.AttachTeam(t)
+	if err != nil {
+		return err
+	}
 	chals := lab.Environment().Challenges()
 
 	for _, chal := range chals {
@@ -312,6 +312,9 @@ func (ev *event) Handler() http.Handler {
 			}
 
 			if err := ev.AssignLab(t, lab); err != nil {
+				log.Error().Err(err).
+					Str("team", t.ID()).
+					Msg("Could not assign lab for team")
 				return err
 			}
 		default:

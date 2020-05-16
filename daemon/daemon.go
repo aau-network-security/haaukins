@@ -481,7 +481,7 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, ef store.RawEvent) 
 		FinishExpected: &expectedFinishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(strings.Split(ef.Frontends, ",")...),
-			Exercises: store.NewExerciseProvider(ef.Name, "", tags),
+			Exercises: tags,
 		},
 	}
 
@@ -573,7 +573,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		FinishExpected: &finishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
-			Exercises: store.NewExerciseProvider(req.Name, "", tags),
+			Exercises: tags,
 		},
 	}
 
@@ -782,7 +782,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		conf := event.GetConfig()
 
 		var exercises []string
-		for _, ex := range conf.Lab.Exercises.GetExerciseTags() {
+		for _, ex := range conf.Lab.Exercises {
 			exercises = append(exercises, string(ex))
 		}
 

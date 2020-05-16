@@ -56,7 +56,7 @@ type EventConfig struct {
 
 type Lab struct {
 	Frontends []InstanceConfig
-	Exercises ExerciseProvider
+	Exercises []Tag
 }
 
 func (e EventConfig) Validate() error {
@@ -68,7 +68,7 @@ func (e EventConfig) Validate() error {
 		return &EmptyVarErr{Var: "Tag", Type: "Event"}
 	}
 
-	if len(e.Lab.Exercises.GetExerciseTags()) == 0 {
+	if len(e.Lab.Exercises) == 0 {
 		return &EmptyVarErr{Var: "Exercises", Type: "Event"}
 	}
 

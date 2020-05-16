@@ -140,17 +140,17 @@ type ExerciseProviderInfo struct {
 // Provides exercises and flags for event and amigo.
 // Enables more dynamic environments such as Play
 type ExerciseProvider interface {
-	GetExerciseTags() []Tag
+	GetExercises() []Exercise
 	Info() ExerciseProviderInfo
 }
 
 type exerciselist struct {
-	exercises []Tag
+	exercises []Exercise
 	info      ExerciseProviderInfo
 }
 
 // Create a bare bones ExerciseProvider from a list of tags
-func NewExerciseProvider(name, description string, exercises []Tag) ExerciseProvider {
+func NewExerciseProvider(name, description string, exercises []Exercise) ExerciseProvider {
 	el := &exerciselist{
 		exercises: exercises,
 		info: ExerciseProviderInfo{
@@ -162,7 +162,7 @@ func NewExerciseProvider(name, description string, exercises []Tag) ExerciseProv
 	return el
 }
 
-func (el *exerciselist) GetExerciseTags() []Tag {
+func (el *exerciselist) GetExercises() []Exercise {
 	return el.exercises
 }
 
