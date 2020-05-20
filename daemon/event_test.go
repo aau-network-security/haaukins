@@ -270,7 +270,7 @@ func TestListEvents(t *testing.T) {
 			finishDate, _ := time.Parse(time.Now().String(), displayTimeFormat)
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *ev
-				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i)),FinishedAt:&finishDate}
+				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i)),FinishExpected:&finishDate}
 				d.startEvent(&tempEvent)
 			}
 
