@@ -40,8 +40,8 @@ var (
 	InvalidArgumentsErr = errors.New("Invalid arguments provided")
 	UnknownTeamErr      = errors.New("Unable to find team by that id")
 	GrpcOptsErr         = errors.New("failed to retrieve server options")
-  	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
-  	version string
+	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
+	version             string
 )
 
 const (
@@ -82,13 +82,9 @@ func (m *MissingConfigErr) Error() string {
 	return fmt.Sprintf("%s cannot be empty", m.Option)
 }
 
-
-
 func (m *MngtPortErr) Error() string {
 	return fmt.Sprintf("failed to listen on management port %s", m.port)
 }
-
-
 
 func NewConfigFromFile(path string) (*Config, error) {
 	f, err := ioutil.ReadFile(path)
@@ -156,19 +152,19 @@ func NewConfigFromFile(path string) (*Config, error) {
 	}
 
 	if c.Database.AuthKey == "" {
-		log.Info().Str("DB AUTH KEY","development-environment").
-			       Msg("Database authentication key set ")
+		log.Info().Str("DB AUTH KEY", "development-environment").
+			Msg("Database authentication key set ")
 		c.Database.AuthKey = "development-environment"
 	}
 
 	if c.Database.SignKey == "" {
-		log.Info().Str("DB Signin KEY","dev-env").
+		log.Info().Str("DB Signin KEY", "dev-env").
 			Msg("Database authentication key set ")
 		c.Database.SignKey = "dev-env"
 	}
 
 	if c.Database.Grpc == "" {
-		log.Info().Str("DB GRPC Server","localhost:50051").
+		log.Info().Str("DB GRPC Server", "localhost:50051").
 			Msg("DB GRPC connection default value for dev environment ")
 		c.Database.Grpc = "localhost:50051"
 	}
@@ -185,7 +181,6 @@ func NewConfigFromFile(path string) (*Config, error) {
 
 	return &c, nil
 }
-
 
 func New(conf *Config) (*daemon, error) {
 	uf, err := store.NewUserFile(conf.ConfFiles.UsersFile)
@@ -240,15 +235,15 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
 	}
-	events, err := dbc.GetEvents(context.Background(),&pbc.EmptyRequest{})
-	if err !=nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
+	if err != nil {
 		log.Error().Msgf("Error on getting events from database %v", err)
-		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
+		return nil, store.TranslateRPCErr(err)
 	}
-	for _, e := range events.Events {
-		log.Info().Str("Event Name", e.Name).
-					Str("Event Tag", e.Tag).Msg("Event: ")
-	}
+
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error on creating new pool for looging :  %v", err)
@@ -266,38 +261,32 @@ func New(conf *Config) (*daemon, error) {
 		closers:   []io.Closer{logPool, eventPool},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
 	var instanceConfig []store.InstanceConfig
-	var exercises  []store.Tag
-	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
+	var exercises []store.Tag
 
-	if err != nil {
-		return nil, store.TranslateRPCErr(err)
-	}
 	for _, ef := range eventsFromDB.Events {
 		if ef.FinishedAt == "" { //check if the event is finished or not
-			startedAt, _ := time.Parse(displayTimeFormat,ef.StartedAt)
-			finishedAt, _ := time.Parse(displayTimeFormat,ef.FinishedAt)
-			listOfExercises := strings.Split(ef.Exercises,",")
+			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
+			finishedAt, _ := time.Parse(displayTimeFormat, ef.FinishedAt)
+			listOfExercises := strings.Split(ef.Exercises, ",")
 			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
 			for _, e := range listOfExercises {
-				exercises = append(exercises,store.Tag(e) )
+				exercises = append(exercises, store.Tag(e))
 			}
 			eventConfig := store.EventConfig{
-				Name:           ef.Name,
-				Tag:            store.Tag(ef.Tag),
-				Available:      int(ef.Available),
-				Capacity:       int(ef.Capacity),
-				Lab:            store.Lab{
-					Frontends: instanceConfig ,
-					Exercises: exercises ,
+				Name:      ef.Name,
+				Tag:       store.Tag(ef.Tag),
+				Available: int(ef.Available),
+				Capacity:  int(ef.Capacity),
+				Lab: store.Lab{
+					Frontends: instanceConfig,
+					Exercises: exercises,
 				},
 				StartedAt:      &startedAt,
 				FinishExpected: nil,
 				FinishedAt:     &finishedAt,
 			}
-			err := d.createEventFromEventDB(context.Background(),eventConfig)
+			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
 			}
@@ -306,7 +295,6 @@ func New(conf *Config) (*daemon, error) {
 
 	return d, nil
 }
-
 
 func (l *GrpcLogger) Msg(msg string) error {
 	s := pb.LabStatus{
@@ -322,9 +310,9 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.Certs.Enabled {
 		// Load cert pairs
-		certificate, err := tls.LoadX509KeyPair(d.conf.Certs.CertFile,d.conf.Certs.CertKey)
+		certificate, err := tls.LoadX509KeyPair(d.conf.Certs.CertFile, d.conf.Certs.CertKey)
 		if err != nil {
-			return nil,fmt.Errorf("could not load server key pair: %s", err)
+			return nil, fmt.Errorf("could not load server key pair: %s", err)
 		}
 
 		// Create a certificate pool from the certificate authority
@@ -357,7 +345,7 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		if d.conf.Certs.Enabled {
-			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.Certs.CertFile,d.conf.Certs.CertKey,d.eventPool); err != nil {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.Certs.CertFile, d.conf.Certs.CertKey, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
 			return
