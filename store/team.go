@@ -34,9 +34,9 @@ type TeamStore interface {
 }
 
 type teamstore struct {
-	dbc pbc.StoreClient
-	eConf EventConfig
-	m sync.RWMutex
+	dbc    pbc.StoreClient
+	eConf  EventConfig
+	m      sync.RWMutex
 	teams  map[string]*Team
 	tokens map[string]string
 	emails map[string]string
@@ -45,7 +45,7 @@ type teamstore struct {
 
 func NewTeamStore(conf EventConfig, dbc pbc.StoreClient) *teamstore {
 	ts := &teamstore{
-		dbc:	dbc,
+		dbc:    dbc,
 		eConf:  conf,
 		teams:  map[string]*Team{},
 		tokens: map[string]string{},
@@ -84,11 +84,11 @@ func (es *teamstore) SaveTeam(t *Team) error {
 		return ErrEmailAlreadyExists
 	}
 	_, err := es.dbc.AddTeam(context.Background(), &pbc.AddTeamRequest{
-		Id:                   t.ID(),
-		EventTag:             string(es.eConf.Tag),
-		Email:                t.Email(),
-		Name:                 t.Name(),
-		Password:             t.GetHashedPassword(),
+		Id:       strings.TrimSpace(t.ID()),
+		EventTag: strings.TrimSpace(string(es.eConf.Tag)),
+		Email:    strings.TrimSpace(t.Email()),
+		Name:     t.Name(),
+		Password: t.GetHashedPassword(),
 	})
 	if err != nil {
 		es.m.Unlock()
@@ -103,16 +103,16 @@ func (es *teamstore) SaveTeam(t *Team) error {
 	return nil
 }
 
-func(es *teamstore) SaveTokenForTeam (token string, in *Team) error {
+func (es *teamstore) SaveTokenForTeam(token string, in *Team) error {
 	es.m.Lock()
 	defer es.m.Unlock()
 	if token == "" {
-		return &EmptyVarErr{Var:"Token"}
+		return &EmptyVarErr{Var: "Token"}
 	}
 	if in.ID() == "" {
 		return fmt.Errorf("SaveTokenForTeam function error %v", UnknownTeamErr)
 	}
-	es.tokens[token]= in.ID()
+	es.tokens[token] = in.ID()
 	return nil
 }
 
@@ -161,20 +161,20 @@ func (es *teamstore) GetTeams() []*Team {
 }
 
 type Challenge struct {
-	Name    string			//challenge name
-	Tag     Tag				//challenge tag
-	Value   string			//challenge flag value
+	Name  string //challenge name
+	Tag   Tag    //challenge tag
+	Value string //challenge flag value
 }
 
 type Team struct {
-	m 			   sync.RWMutex
-	dbc 		   pbc.StoreClient
+	m              sync.RWMutex
+	dbc            pbc.StoreClient
 	id             string
 	email          string
 	name           string
 	hashedPassword string
 	challenges     map[Flag]TeamChallenge
-	solvedChalsDB  []TeamChallenge			//json got from the DB containing list of solved Challenges
+	solvedChalsDB  []TeamChallenge //json got from the DB containing list of solved Challenges
 }
 
 type TeamChallenge struct {
@@ -184,15 +184,15 @@ type TeamChallenge struct {
 
 func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pbc.StoreClient) *Team {
 	var hPass []byte
-	if hashedPass==""{
-		hPass ,_ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if hashedPass == "" {
+		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	} else {
 		hPass = []byte(hashedPass)
 	}
 
 	email = strings.ToLower(email)
 	if id == "" {
-		id =  uuid.New().String()[0:8]
+		id = uuid.New().String()[0:8]
 	}
 
 	solvedChals, err := ParseSolvedChallenges(solvedChalsDB)
@@ -201,7 +201,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 	}
 
 	return &Team{
-		dbc:			dbc,
+		dbc:            dbc,
 		id:             id,
 		email:          email,
 		name:           name,
@@ -214,8 +214,8 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 
 	type Challenge struct {
-		Tag  		string		`json:"tag"`
-		CompletedAt string		`json:"completed-at"`
+		Tag         string `json:"tag"`
+		CompletedAt string `json:"completed-at"`
 	}
 
 	var solvedChallengesDB []Challenge
@@ -226,11 +226,11 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 		return solvedChallenges, nil
 	}
 
-	if err := json.Unmarshal([]byte(solvedChalsDB), &solvedChallengesDB); err != nil{
+	if err := json.Unmarshal([]byte(solvedChalsDB), &solvedChallengesDB); err != nil {
 		return solvedChallenges, err
 	}
 
-	for _, chal := range solvedChallengesDB{
+	for _, chal := range solvedChallengesDB {
 		completedAt, _ := time.Parse(displayTimeFormat, chal.CompletedAt)
 
 		solvedChallenges = append(solvedChallenges, TeamChallenge{
@@ -269,26 +269,26 @@ func (t *Team) AddChallenge(c Challenge) (Flag, error) {
 		}
 	}
 
-	f , err := NewFlagFromString(c.Value)
-	if err !=nil {
+	f, err := NewFlagFromString(c.Value)
+	if err != nil {
 		logger.Debug().Msgf("Error creating haaukins flag from given string %s", err)
 		return Flag{}, err
 	}
 
 	//get the solved challenge if solved
 	var solvedOne TeamChallenge
-	for _, solvedChal := range t.solvedChalsDB{
-		if solvedChal.Tag == c.Tag{
+	for _, solvedChal := range t.solvedChalsDB {
+		if solvedChal.Tag == c.Tag {
 			solvedOne = solvedChal
 		}
 	}
 
-	if solvedOne != (TeamChallenge{}){
+	if solvedOne != (TeamChallenge{}) {
 		t.challenges[f] = TeamChallenge{
-			Tag: c.Tag,
+			Tag:         c.Tag,
 			CompletedAt: solvedOne.CompletedAt,
 		}
-	}else{
+	} else {
 		t.challenges[f] = TeamChallenge{
 			Tag: c.Tag,
 		}
@@ -307,7 +307,7 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 		return ErrUnknownFlag
 	}
 
-	if chal.Tag != tag.Tag{
+	if chal.Tag != tag.Tag {
 		t.m.Unlock()
 		return ErrUnknownFlag
 	}
@@ -330,11 +330,11 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 }
 
 // Update the Team access time on the DB
-func (t *Team) UpdateTeamAccessed(time time.Time) error{
+func (t *Team) UpdateTeamAccessed(time time.Time) error {
 	t.m.RLock()
 	_, err := t.dbc.UpdateTeamLastAccess(context.Background(), &pbc.UpdateTeamLastAccessRequest{
-		TeamId:               t.ID(),
-		AccessAt:             time.Format(displayTimeFormat),
+		TeamId:   t.ID(),
+		AccessAt: time.Format(displayTimeFormat),
 	})
 
 	if err != nil {
@@ -347,12 +347,12 @@ func (t *Team) UpdateTeamAccessed(time time.Time) error{
 }
 
 // Update the Team Solved Challenges on the DB
-func (t *Team) UpdateTeamSolvedChallenges(chal TeamChallenge) error{
+func (t *Team) UpdateTeamSolvedChallenges(chal TeamChallenge) error {
 
 	_, err := t.dbc.UpdateTeamSolvedChallenge(context.Background(), &pbc.UpdateTeamSolvedChallengeRequest{
-		TeamId:               t.id,
-		Tag:                  string(chal.Tag),
-		CompletedAt:          chal.CompletedAt.Format(displayTimeFormat),
+		TeamId:      t.id,
+		Tag:         string(chal.Tag),
+		CompletedAt: chal.CompletedAt.Format(displayTimeFormat),
 	})
 
 	if err != nil {
@@ -377,7 +377,7 @@ func (t *Team) Email() string {
 	return email
 }
 
-func(t *Team) GetHashedPassword() string{
+func (t *Team) GetHashedPassword() string {
 	t.m.RLock()
 	defer t.m.RUnlock()
 	return t.hashedPassword

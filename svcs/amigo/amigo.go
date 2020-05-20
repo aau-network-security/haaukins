@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"text/template"
 	"time"
 
@@ -27,7 +28,7 @@ var (
 	ErrInvalidTokenFormat   = errors.New("invalid token format")
 	ErrInvalidFlag          = errors.New("invalid flag")
 	ErrIncorrectCredentials = errors.New("Credentials does not match")
-	wd = GetWd()
+	wd                      = GetWd()
 )
 
 type siteInfo struct {
@@ -59,7 +60,7 @@ func WithMaxReadBytes(b int64) AmigoOpt {
 }
 
 func WithEventName(eventName string) AmigoOpt {
-	return  func (am *Amigo){
+	return func(am *Amigo) {
 		am.globalInfo.EventName = eventName
 	}
 }
@@ -101,7 +102,7 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	return info
 }
 
-func (am *Amigo) Handler(hook func(t *store.Team) error,guacHandler http.Handler) http.Handler {
+func (am *Amigo) Handler(hook func(t *store.Team) error, guacHandler http.Handler) http.Handler {
 	fd := newFrontendData(am.TeamStore, am.challenges...)
 	go fd.runFrontendData()
 
@@ -128,9 +129,9 @@ func (am *Amigo) Handler(hook func(t *store.Team) error,guacHandler http.Handler
 
 func (am *Amigo) handleIndex() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/index.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/index.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -151,9 +152,9 @@ func (am *Amigo) handleIndex() http.HandlerFunc {
 
 func (am *Amigo) handleChallenges() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/challenges.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/challenges.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -179,9 +180,9 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 
 func (am *Amigo) handleTeams() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/teams.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/teams.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -202,9 +203,9 @@ func (am *Amigo) handleTeams() http.HandlerFunc {
 
 func (am *Amigo) handleScoreBoard() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/scoreboard.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/scoreboard.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -289,9 +290,9 @@ func (am *Amigo) handleSignup(hook func(t *store.Team) error) http.HandlerFunc {
 
 func (am *Amigo) handleSignupGET() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/signup.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/signup.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -306,9 +307,9 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 
 func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/signup.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/signup.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -323,9 +324,9 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 
 	readParams := func(r *http.Request) (signupData, error) {
 		data := signupData{
-			Email:    r.PostFormValue("email"),
-			TeamName: r.PostFormValue("team-name"),
-			Password: r.PostFormValue("password"),
+			Email:    strings.TrimSpace(r.PostFormValue("email")),
+			TeamName: strings.TrimSpace(r.PostFormValue("team-name")),
+			Password: strings.TrimSpace(r.PostFormValue("password")),
 		}
 
 		if data.Email == "" {
@@ -340,7 +341,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			return data, fmt.Errorf("Password needs to be at least six characters")
 		}
 
-		if data.Password != r.PostFormValue("password-repeat") {
+		if data.Password != strings.TrimSpace(r.PostFormValue("password-repeat")) {
 			return data, fmt.Errorf("Password needs to match")
 		}
 
@@ -364,7 +365,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			return
 		}
 
-		if len(am.TeamStore.GetTeams())==am.TeamStore.Capacity {
+		if len(am.TeamStore.GetTeams()) == am.TeamStore.Capacity {
 			displayErr(w, params, errors.New("capacity reached for this event"))
 			return
 		}
@@ -380,14 +381,14 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			displayErr(w, params, err)
 			return
 		}
-		token, err:= store.GetTokenForTeam(am.signingKey, t)
-		if err !=nil {
+		token, err := store.GetTokenForTeam(am.signingKey, t)
+		if err != nil {
 			logger.Debug().Msgf("Error on getting token from amigo %s", token)
 			return
 		}
 
-		if err := am.TeamStore.SaveTokenForTeam(token,t); err != nil {
-			logger.Debug().Msgf("Create token for team error %s",err)
+		if err := am.TeamStore.SaveTokenForTeam(token, t); err != nil {
+			logger.Debug().Msgf("Create token for team error %s", err)
 			return
 		}
 
@@ -418,9 +419,9 @@ func (am *Amigo) handleLogin() http.HandlerFunc {
 
 func (am *Amigo) handleLoginGET() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/login.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/login.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
@@ -435,9 +436,9 @@ func (am *Amigo) handleLoginGET() http.HandlerFunc {
 
 func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 	tmpl, err := template.ParseFiles(
-		wd + "/svcs/amigo/resources/private/base.tmpl.html",
-		wd + "/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd + "/svcs/amigo/resources/private/login.tmpl.html",
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/login.tmpl.html",
 	)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
@@ -451,8 +452,8 @@ func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 
 	readParams := func(r *http.Request) (loginData, error) {
 		data := loginData{
-			Email:    r.PostFormValue("email"),
-			Password: r.PostFormValue("password"),
+			Email:    strings.TrimSpace(r.PostFormValue("email")),
+			Password: strings.TrimSpace(r.PostFormValue("password")),
 		}
 
 		if data.Email == "" {
@@ -632,7 +633,7 @@ func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
-func GetWd ()string {
+func GetWd() string {
 	path, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
