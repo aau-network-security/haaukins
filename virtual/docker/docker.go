@@ -766,8 +766,13 @@ func (dbr *defaultBridge) Close() error {
 func getResolvFile(ns []string) (string, error) {
 	sort.Strings(ns)
 	s := md5.Sum([]byte(strings.Join(ns, ",")))
-
-	path := filepath.Join("/tmp", fmt.Sprintf("resolvconf-%x", s))
+	// check whether env variable $TMPDIR is set
+	// if so, that dir for conf files for both zone and config
+	tmpdir := os.Getenv("TMPDIR")
+	if tmpdir == "" {
+		tmpdir = "/tmp"
+	}
+	path := filepath.Join(tmpdir, fmt.Sprintf("resolvconf-%x", s))
 
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
