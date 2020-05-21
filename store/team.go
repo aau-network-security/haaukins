@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/google/uuid"
 	logger "github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
@@ -22,6 +23,7 @@ var (
 	ErrUnknownFlag         = errors.New("Unknown flag")
 	ErrFlagAlreadyComplete = errors.New("Flag is already completed")
 	ErrChallengeDuplicate  = errors.New("Challenge duplication")
+	ErrTeamAlreadyExist    = errors.New("Team is already exists")
 )
 
 type TeamStore interface {
@@ -83,12 +85,22 @@ func (es *teamstore) SaveTeam(t *Team) error {
 		es.m.Unlock()
 		return ErrEmailAlreadyExists
 	}
+	username := t.Name()
+	_, ok = es.names[username]
+	if ok {
+		es.m.Unlock()
+		return ErrTeamAlreadyExist
+	}
+	es.names[username] = t.Name()
+	es.emails[email] = t.ID()
+	es.teams[t.ID()] = t
+
 	_, err := es.dbc.AddTeam(context.Background(), &pbc.AddTeamRequest{
 		Id:       strings.TrimSpace(t.ID()),
 		EventTag: strings.TrimSpace(string(es.eConf.Tag)),
 		Email:    strings.TrimSpace(t.Email()),
-		Name:     t.Name(),
-		Password: t.GetHashedPassword(),
+		Name:     strings.TrimSpace(t.Name()),
+		Password: strings.TrimSpace(t.GetHashedPassword()),
 	})
 	if err != nil {
 		es.m.Unlock()
@@ -97,8 +109,6 @@ func (es *teamstore) SaveTeam(t *Team) error {
 
 	t.dbc = es.dbc
 
-	es.emails[email] = t.ID()
-	es.teams[t.ID()] = t
 	es.m.Unlock()
 	return nil
 }
@@ -203,8 +213,8 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 	return &Team{
 		dbc:            dbc,
 		id:             id,
-		email:          email,
-		name:           name,
+		email:          strings.TrimSpace(email),
+		name:           strings.TrimSpace(name),
 		hashedPassword: string(hPass),
 		challenges:     map[Flag]TeamChallenge{},
 		solvedChalsDB:  solvedChals,
@@ -385,8 +395,8 @@ func (t *Team) GetHashedPassword() string {
 
 func (t *Team) Name() string {
 	t.m.RLock()
+	defer t.m.RUnlock()
 	name := t.name
-	t.m.RUnlock()
 
 	return name
 }

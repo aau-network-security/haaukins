@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	logger "github.com/rs/zerolog/log"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"text/template"
 	"time"
+
+	logger "github.com/rs/zerolog/log"
 
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/dgrijalva/jwt-go"
@@ -326,7 +327,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 		data := signupData{
 			Email:    strings.TrimSpace(r.PostFormValue("email")),
 			TeamName: strings.TrimSpace(r.PostFormValue("team-name")),
-			Password: strings.TrimSpace(r.PostFormValue("password")),
+			Password: r.PostFormValue("password"),
 		}
 
 		if data.Email == "" {
@@ -341,7 +342,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			return data, fmt.Errorf("Password needs to be at least six characters")
 		}
 
-		if data.Password != strings.TrimSpace(r.PostFormValue("password-repeat")) {
+		if data.Password != r.PostFormValue("password-repeat") {
 			return data, fmt.Errorf("Password needs to match")
 		}
 
@@ -370,7 +371,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			return
 		}
 
-		t := store.NewTeam(params.Email, params.TeamName, params.Password, "", "", "", nil)
+		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -453,7 +454,7 @@ func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 	readParams := func(r *http.Request) (loginData, error) {
 		data := loginData{
 			Email:    strings.TrimSpace(r.PostFormValue("email")),
-			Password: strings.TrimSpace(r.PostFormValue("password")),
+			Password: r.PostFormValue("password"),
 		}
 
 		if data.Email == "" {
