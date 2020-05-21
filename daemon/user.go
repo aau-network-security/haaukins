@@ -2,11 +2,19 @@ package daemon
 
 import (
 	"context"
+	"errors"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	NoPrivilegeToDelete     = errors.New("No privilege to delete users ")
+	NoUserInformation       = errors.New("No user information retrieved from the request !")
+	NoDestroyOnAdmin        = errors.New("An admin account cannot destroy another admin account !")
+	NoPrivilegeToChangePass = errors.New("No privilege to change passwd of user ! ")
+)
 
 func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.LoginUserResponse, error) {
 	log.Ctx(ctx).
@@ -21,7 +29,6 @@ func (d *daemon) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.L
 
 	return &pb.LoginUserResponse{Token: token}, nil
 }
-
 
 func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb.LoginUserResponse, error) {
 	log.Ctx(ctx).
@@ -58,7 +65,6 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 	return &pb.LoginUserResponse{Token: token}, nil
 }
 
-
 func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb.InviteUserResponse, error) {
 	log.Ctx(ctx).Info().Msg("invite user")
 
@@ -83,4 +89,96 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 	return &pb.InviteUserResponse{
 		Key: k.String(),
 	}, nil
+}
+
+// ListUsers function lists users which are eligible to access commandline and
+// webclient of Haaukins, who have credeentials will be displayed
+func (d *daemon) ListUsers(ctx context.Context) (*pb.ListUsersResponse, error) {
+	var usersResp []*pb.ListUsersResponse_UserInfo
+	requester, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.ListUsersResponse{}, err
+	}
+
+	if !requester.SuperUser {
+		return &pb.ListUsersResponse{}, NoPrivilegeToDelete
+	}
+
+	//todo: add users' events as well.
+
+	for _, usr := range d.users.ListUsers() {
+		usersResp = append(usersResp, &pb.ListUsersResponse_UserInfo{
+			Username:    usr.Username,
+			CreatedAt:   usr.CreatedAt.Format(displayTimeFormat),
+			IsSuperUser: usr.SuperUser,
+		})
+	}
+
+	return &pb.ListUsersResponse{Users: usersResp}, nil
+
+}
+
+//DestroyUser function deletes user only admin accounts
+// An admin account should not delete another admin account
+func (d *daemon) DestroyUser(ctx context.Context, request *pb.DestroyUserRequest) (*pb.DestroyUserResponse, error) {
+
+	requester, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.DestroyUserResponse{}, err
+	}
+
+	if !requester.SuperUser {
+		return &pb.DestroyUserResponse{}, NoPrivilegeToDelete
+	}
+	if (request.Username == requester.Username) && requester.SuperUser {
+		return &pb.DestroyUserResponse{}, NoDestroyOnAdmin
+	}
+
+	if err := d.users.DeleteUserByUsername(request.Username); err != nil {
+		log.Error().Msgf("User delete error %v", err)
+		return &pb.DestroyUserResponse{}, nil
+	}
+
+	return &pb.DestroyUserResponse{Message: "User " + request.Username + " deleted successfully !"}, nil
+
+}
+
+// ChangeUserPasswd provides ability to change user password
+func (d *daemon) ChangeUserPasswd(ctx context.Context, request *pb.UpdatePasswdRequest) (*pb.UpdatePasswdResponse, error) {
+	// LoginUserRequest is used to update passwd,
+	// because it has required fields in it which are username and password.
+	requester, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.UpdatePasswdResponse{}, err
+	}
+
+	// if user is not authenticated for the request
+	// return error message to user
+	if !requester.SuperUser {
+		return &pb.UpdatePasswdResponse{Message: NoPrivilegeToChangePass.Error()}, NoPrivilegeToChangePass
+	}
+
+	if (request.Username == requester.Username) && requester.SuperUser {
+		return &pb.UpdatePasswdResponse{Message: NoPrivilegeToChangePass.Error()}, NoPrivilegeToChangePass
+	}
+
+	updateError := d.users.UpdatePasswd(request.Username, request.Password)
+	if updateError != nil {
+		return &pb.UpdatePasswdResponse{Message: "Error on updating passwd of user: " + updateError.Error()}, updateError
+	}
+	return &pb.UpdatePasswdResponse{Message: "Success"}, nil
+}
+
+// getUserFromIncomingContext extracts user information from incoming context
+func getUserFromIncomingContext(ctx context.Context) (*store.User, error) {
+	u, ok := ctx.Value(us{}).(store.User)
+	if !ok {
+		log.Error().Msgf("%v", NoUserInformation)
+		return &u, NoUserInformation
+	}
+	return &u, nil
+
 }

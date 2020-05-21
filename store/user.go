@@ -34,19 +34,26 @@ type User struct {
 	CreatedAt      time.Time `yaml:"created-at"`
 }
 
-func NewUser(username, password string) (User, error) {
+func generateHashedPasswd(password string) (string, error) {
 	if len(password) < 6 {
-		return User{}, PasswdTooShortErr
+		return "", PasswdTooShortErr
 	}
-
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedBytes[:]), nil
+}
+
+func NewUser(username, password string) (User, error) {
+	hashedPass, err := generateHashedPasswd(password)
 	if err != nil {
 		return User{}, err
 	}
 
 	return User{
 		Username:       strings.ToLower(username),
-		HashedPassword: string(hashedBytes[:]),
+		HashedPassword: hashedPass,
 	}, nil
 }
 
@@ -57,6 +64,7 @@ func (u User) IsCorrectPassword(pass string) bool {
 type UserStore interface {
 	DeleteUserByUsername(string) error
 	CreateUser(User) error
+	UpdatePasswd(string, string) error
 	GetUserByUsername(string) (User, error)
 	ListUsers() []User
 }
@@ -100,6 +108,23 @@ func (us *userstore) DeleteUserByUsername(username string) error {
 			break
 		}
 	}
+
+	return us.RunHooks()
+}
+
+func (us *userstore) UpdatePasswd(username, password string) error {
+	us.m.Lock()
+	defer us.m.Unlock()
+
+	u, ok := us.userMap[username]
+	if !ok {
+		return UserNotFoundErr
+	}
+	updatedHashPass, err := generateHashedPasswd(password)
+	if err != nil {
+		return err
+	}
+	u.HashedPassword = updatedHashPass
 
 	return us.RunHooks()
 }
