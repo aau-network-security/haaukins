@@ -7,9 +7,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/aau-network-security/haaukins/daemon"
 	"github.com/rs/zerolog"
@@ -41,6 +43,14 @@ func main() {
 
 	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
 	flag.Parse()
+
+	// ensure that gRPC port is free to allocate
+	conn, err := net.DialTimeout("tcp", daemon.MngtPort, time.Second)
+	if conn != nil {
+		_ = conn.Close()
+		fmt.Printf("Checking gRPC port %s report: %v\n", daemon.MngtPort, daemon.PortIsAllocatedError)
+		return
+	}
 
 	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
