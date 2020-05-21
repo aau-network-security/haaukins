@@ -93,7 +93,7 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 
 // ListUsers function lists users which are eligible to access commandline and
 // webclient of Haaukins, who have credeentials will be displayed
-func (d *daemon) ListUsers(ctx context.Context) (*pb.ListUsersResponse, error) {
+func (d *daemon) ListUsers(ctx context.Context, req *pb.Empty) (*pb.ListUsersResponse, error) {
 	var usersResp []*pb.ListUsersResponse_UserInfo
 	requester, err := getUserFromIncomingContext(ctx)
 	if err != nil {
