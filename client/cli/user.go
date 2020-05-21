@@ -76,14 +76,26 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			var (
 				username  string
+				name      string
+				surname   string
+				email     string
 				signupKey string
 			)
-
+			// todo: should be improved !
 			fmt.Print("Signup key: ")
 			fmt.Scanln(&signupKey)
 
 			fmt.Print("Username: ")
 			fmt.Scanln(&username)
+
+			fmt.Print("Name: ")
+			fmt.Scanln(&name)
+
+			fmt.Print("Surname: ")
+			fmt.Scanln(&surname)
+
+			fmt.Print("Email: ")
+			fmt.Scanln(&email)
 
 			password, err := ReadSecret("Password: ")
 			if err != nil {
@@ -105,6 +117,9 @@ func (c *Client) CmdSignupUser() *cobra.Command {
 			r, err := c.rpcClient.SignupUser(ctx, &pb.SignupUserRequest{
 				Key:      signupKey,
 				Username: username,
+				Name:     name,
+				Surname:  surname,
+				Email:    email,
 				Password: password,
 			})
 			if err != nil {
@@ -184,8 +199,8 @@ func (c *Client) CmdListUsers() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"Username", "Admin", "Created At"},
-				fields: []string{"Username", "IsSuperUser", "CreatedAt"},
+				header: []string{"Username", "Name", "Surname", "Email", "Admin", "Created At"},
+				fields: []string{"Username", "Name", "Surname", "Email", "IsSuperUser", "CreatedAt"},
 			}
 			var elements []formatElement
 			for _, u := range r.Users {

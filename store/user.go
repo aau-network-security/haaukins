@@ -29,6 +29,9 @@ var (
 
 type User struct {
 	Username       string    `yaml:"username"`
+	Name           string    `yaml:"name"`
+	Surname        string    `yaml:"surname"`
+	Email          string    `yaml:"email"`
 	HashedPassword string    `yaml:"hashed-password"`
 	SuperUser      bool      `yaml:"super-user"`
 	CreatedAt      time.Time `yaml:"created-at"`
@@ -45,7 +48,7 @@ func generateHashedPasswd(password string) (string, error) {
 	return string(hashedBytes[:]), nil
 }
 
-func NewUser(username, password string) (User, error) {
+func NewUser(username, name, surname, email, password string) (User, error) {
 	hashedPass, err := generateHashedPasswd(password)
 	if err != nil {
 		return User{}, err
@@ -53,6 +56,9 @@ func NewUser(username, password string) (User, error) {
 
 	return User{
 		Username:       strings.ToLower(username),
+		Name:           strings.TrimSpace(name),
+		Surname:        strings.TrimSpace(surname),
+		Email:          strings.TrimSpace(email),
 		HashedPassword: hashedPass,
 	}, nil
 }

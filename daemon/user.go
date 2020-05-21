@@ -11,6 +11,7 @@ import (
 
 var (
 	NoPrivilegeToDelete     = errors.New("No privilege to delete users ")
+	NoPrivilegeToList       = errors.New("No privilege to list users")
 	NoUserInformation       = errors.New("No user information retrieved from the request !")
 	NoDestroyOnAdmin        = errors.New("An admin account cannot destroy another admin account !")
 	NoPrivilegeToChangePass = errors.New("No privilege to change passwd of user ! ")
@@ -36,7 +37,7 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 		Str("username", req.Username).
 		Msg("signup user")
 
-	u, err := store.NewUser(req.Username, req.Password)
+	u, err := store.NewUser(req.Username, req.Name, req.Surname, req.Email, req.Password)
 	if err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
 	}
@@ -102,7 +103,7 @@ func (d *daemon) ListUsers(ctx context.Context, req *pb.Empty) (*pb.ListUsersRes
 	}
 
 	if !requester.SuperUser {
-		return &pb.ListUsersResponse{}, NoPrivilegeToDelete
+		return &pb.ListUsersResponse{}, NoPrivilegeToList
 	}
 
 	//todo: add users' events as well.
@@ -110,6 +111,9 @@ func (d *daemon) ListUsers(ctx context.Context, req *pb.Empty) (*pb.ListUsersRes
 	for _, usr := range d.users.ListUsers() {
 		usersResp = append(usersResp, &pb.ListUsersResponse_UserInfo{
 			Username:    usr.Username,
+			Name:        usr.Name,
+			Surname:     usr.Username,
+			Email:       usr.Email,
 			CreatedAt:   usr.CreatedAt.Format(displayTimeFormat),
 			IsSuperUser: usr.SuperUser,
 		})

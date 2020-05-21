@@ -63,7 +63,10 @@ message LoginUserResponse {
 message SignupUserRequest {
   string key = 1;
   string username = 2;
-  string password = 3;
+  string name = 3;
+  string surname = 4;
+  string email = 5;
+  string password = 6;
 }
 
 message InviteUserRequest {
@@ -78,8 +81,11 @@ message InviteUserResponse {
 message ListUsersResponse {
   message UserInfo {
     string username = 1;
-    string createdAt = 2;
-    bool isSuperUser = 3;
+    string name = 2;
+    string surname = 3;
+    string email = 4;
+    string createdAt = 5;
+    bool isSuperUser = 6;
   }
   repeated UserInfo users = 1;
 
