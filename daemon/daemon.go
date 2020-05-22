@@ -9,6 +9,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
+	"time"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/logging"
@@ -22,30 +32,22 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"gopkg.in/yaml.v2"
-	"io"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"os"
-	"os/user"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 var (
-	DuplicateEventErr   = errors.New("Event with that tag already exists")
-	UnknownEventErr     = errors.New("Unable to find event by that tag")
-	MissingTokenErr     = errors.New("No security token provided")
-	InvalidArgumentsErr = errors.New("Invalid arguments provided")
-	UnknownTeamErr      = errors.New("Unable to find team by that id")
-	GrpcOptsErr         = errors.New("failed to retrieve server options")
-  	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
-  	version string
+	DuplicateEventErr    = errors.New("Event with that tag already exists")
+	UnknownEventErr      = errors.New("Unable to find event by that tag")
+	MissingTokenErr      = errors.New("No security token provided")
+	InvalidArgumentsErr  = errors.New("Invalid arguments provided")
+	UnknownTeamErr       = errors.New("Unable to find team by that id")
+	GrpcOptsErr          = errors.New("failed to retrieve server options")
+	NoLabByTeamIdErr     = errors.New("Lab is nil, no lab found for given team id ! ")
+	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
+	version              string
 )
 
 const (
-	mngtPort          = ":5454"
+	MngtPort          = ":5454"
 	displayTimeFormat = "2006-01-02 15:04:05"
 )
 
@@ -82,13 +84,9 @@ func (m *MissingConfigErr) Error() string {
 	return fmt.Sprintf("%s cannot be empty", m.Option)
 }
 
-
-
 func (m *MngtPortErr) Error() string {
 	return fmt.Sprintf("failed to listen on management port %s", m.port)
 }
-
-
 
 func NewConfigFromFile(path string) (*Config, error) {
 	f, err := ioutil.ReadFile(path)
@@ -156,19 +154,19 @@ func NewConfigFromFile(path string) (*Config, error) {
 	}
 
 	if c.Database.AuthKey == "" {
-		log.Info().Str("DB AUTH KEY","development-environment").
-			       Msg("Database authentication key set ")
+		log.Info().Str("DB AUTH KEY", "development-environment").
+			Msg("Database authentication key set ")
 		c.Database.AuthKey = "development-environment"
 	}
 
 	if c.Database.SignKey == "" {
-		log.Info().Str("DB Signin KEY","dev-env").
+		log.Info().Str("DB Signin KEY", "dev-env").
 			Msg("Database authentication key set ")
 		c.Database.SignKey = "dev-env"
 	}
 
 	if c.Database.Grpc == "" {
-		log.Info().Str("DB GRPC Server","localhost:50051").
+		log.Info().Str("DB GRPC Server", "localhost:50051").
 			Msg("DB GRPC connection default value for dev environment ")
 		c.Database.Grpc = "localhost:50051"
 	}
@@ -185,7 +183,6 @@ func NewConfigFromFile(path string) (*Config, error) {
 
 	return &c, nil
 }
-
 
 func New(conf *Config) (*daemon, error) {
 	uf, err := store.NewUserFile(conf.ConfFiles.UsersFile)
@@ -240,14 +237,14 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
 	}
-	events, err := dbc.GetEvents(context.Background(),&pbc.EmptyRequest{})
-	if err !=nil {
+	events, err := dbc.GetEvents(context.Background(), &pbc.EmptyRequest{})
+	if err != nil {
 		log.Error().Msgf("Error on getting events from database %v", err)
 		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
 	}
 	for _, e := range events.Events {
 		log.Info().Str("Event Name", e.Name).
-					Str("Event Tag", e.Tag).Msg("Event: ")
+			Str("Event Tag", e.Tag).Msg("Event: ")
 	}
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
 	if err != nil {
@@ -269,7 +266,7 @@ func New(conf *Config) (*daemon, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	var instanceConfig []store.InstanceConfig
-	var exercises  []store.Tag
+	var exercises []store.Tag
 	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
 
 	if err != nil {
@@ -277,26 +274,26 @@ func New(conf *Config) (*daemon, error) {
 	}
 	for _, ef := range eventsFromDB.Events {
 		if ef.FinishedAt == "" { //check if the event is finished or not
-			startedAt, _ := time.Parse(displayTimeFormat,ef.StartedAt)
-			expectedFinishTime, _ := time.Parse(displayTimeFormat,ef.ExpectedFinishTime)
-			listOfExercises := strings.Split(ef.Exercises,",")
+			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
+			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
+			listOfExercises := strings.Split(ef.Exercises, ",")
 			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
 			for _, e := range listOfExercises {
-				exercises = append(exercises,store.Tag(e) )
+				exercises = append(exercises, store.Tag(e))
 			}
 			eventConfig := store.EventConfig{
-				Name:           ef.Name,
-				Tag:            store.Tag(ef.Tag),
-				Available:      int(ef.Available),
-				Capacity:       int(ef.Capacity),
-				Lab:            store.Lab{
-					Frontends: instanceConfig ,
-					Exercises: exercises ,
+				Name:      ef.Name,
+				Tag:       store.Tag(ef.Tag),
+				Available: int(ef.Available),
+				Capacity:  int(ef.Capacity),
+				Lab: store.Lab{
+					Frontends: instanceConfig,
+					Exercises: exercises,
 				},
 				StartedAt:      &startedAt,
 				FinishExpected: &expectedFinishTime,
 			}
-			err := d.createEventFromEventDB(context.Background(),eventConfig)
+			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
 			}
@@ -305,7 +302,6 @@ func New(conf *Config) (*daemon, error) {
 
 	return d, nil
 }
-
 
 func (l *GrpcLogger) Msg(msg string) error {
 	s := pb.LabStatus{
@@ -321,9 +317,9 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.Certs.Enabled {
 		// Load cert pairs
-		certificate, err := tls.LoadX509KeyPair(d.conf.Certs.CertFile,d.conf.Certs.CertKey)
+		certificate, err := tls.LoadX509KeyPair(d.conf.Certs.CertFile, d.conf.Certs.CertKey)
 		if err != nil {
-			return nil,fmt.Errorf("could not load server key pair: %s", err)
+			return nil, fmt.Errorf("could not load server key pair: %s", err)
 		}
 
 		// Create a certificate pool from the certificate authority
@@ -356,7 +352,7 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		if d.conf.Certs.Enabled {
-			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.Certs.CertFile,d.conf.Certs.CertKey,d.eventPool); err != nil {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.Certs.CertFile, d.conf.Certs.CertKey, d.eventPool); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
 			return
@@ -372,9 +368,9 @@ func (d *daemon) Run() error {
 		}))
 	}
 	// start gRPC daemon
-	lis, err := net.Listen("tcp", mngtPort)
+	lis, err := net.Listen("tcp", MngtPort)
 	if err != nil {
-		return &MngtPortErr{mngtPort}
+		return &MngtPortErr{MngtPort}
 	}
 	log.Info().Msg("gRPC daemon has been started  ! on port :5454")
 
