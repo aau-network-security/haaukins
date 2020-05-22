@@ -6,21 +6,22 @@ package store_test
 
 import (
 	"context"
-	"github.com/aau-network-security/haaukins/store"
-	pb "github.com/aau-network-security/haaukins/store/proto"
-	mockserver "github.com/aau-network-security/haaukins/testing"
-	"github.com/google/uuid"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/aau-network-security/haaukins/store"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	mockserver "github.com/aau-network-security/haaukins/testing"
+	"github.com/google/uuid"
+	"google.golang.org/grpc"
 )
 
-func TestNewTeam(t *testing.T) {
+func TestTeam_GetHashedPassword(t *testing.T) {
 	password := "some_password"
-	team := store.NewTeam("some@email.com", "some name", password, "", "", "",nil)
+	team := store.NewTeam("some@email.com", "some name", password, "", "", "", nil)
 
 	if team.GetHashedPassword() == password {
 		t.Fatalf("expected password to be hashed")
@@ -55,14 +56,14 @@ func TestTeamSolveTask(t *testing.T) {
 
 	flag, _ := team.AddChallenge(chal)
 
-	tt := []struct{
-		name	string
-		team 	*store.Team
-		chal 	store.Challenge
-		flag 	store.Flag
-		err 	string
+	tt := []struct {
+		name string
+		team *store.Team
+		chal store.Challenge
+		flag store.Flag
+		err  string
 	}{
-		{name: "Normal", team: team, chal: chal, flag: flag, err: ""},	//correct example
+		{name: "Normal", team: team, chal: chal, flag: flag, err: ""}, //correct example
 		{name: "Solved chal", team: team, chal: chal, flag: flag, err: "expected error when solving challenge already solved"},
 		{name: "Unknown flag", team: team, chal: chal, flag: store.NewFlag(), err: "expected error when solving challenge with wrong flag"},
 	}
@@ -70,7 +71,7 @@ func TestTeamSolveTask(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			res := tc.team.VerifyFlag(tc.chal, tc.flag)
-			if res != nil{
+			if res != nil {
 				if tc.err == "" {
 					t.Fatalf("expected error but received none: %s", tc.err)
 				}
@@ -128,7 +129,7 @@ func TestCreateToken(t *testing.T) {
 				StartedAt:      nil,
 				FinishExpected: nil,
 				FinishedAt:     nil,
-			},tmp, client)
+			}, tmp, client)
 
 			var team store.Team
 			if tc.team != nil {

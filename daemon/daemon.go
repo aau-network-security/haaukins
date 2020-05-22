@@ -35,6 +35,7 @@ import (
 )
 
 var (
+
 	DuplicateEventErr    = errors.New("Event with that tag already exists")
 	UnknownEventErr      = errors.New("Unable to find event by that tag")
 	MissingTokenErr      = errors.New("No security token provided")
@@ -44,6 +45,7 @@ var (
 	NoLabByTeamIdErr     = errors.New("Lab is nil, no lab found for given team id ! ")
 	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
 	version              string
+
 )
 
 const (
@@ -237,15 +239,17 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
 	}
-	events, err := dbc.GetEvents(context.Background(), &pbc.EmptyRequest{})
+
+  ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
 	if err != nil {
 		log.Error().Msgf("Error on getting events from database %v", err)
-		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
+		return nil, store.TranslateRPCErr(err)
+
 	}
-	for _, e := range events.Events {
-		log.Info().Str("Event Name", e.Name).
-			Str("Event Tag", e.Tag).Msg("Event: ")
-	}
+
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error on creating new pool for looging :  %v", err)
@@ -263,20 +267,15 @@ func New(conf *Config) (*daemon, error) {
 		closers:   []io.Closer{logPool, eventPool},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
 	var instanceConfig []store.InstanceConfig
 	var exercises []store.Tag
-	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
 
-	if err != nil {
-		return nil, store.TranslateRPCErr(err)
-	}
 	for _, ef := range eventsFromDB.Events {
 		if ef.FinishedAt == "" { //check if the event is finished or not
 			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
 			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
-			listOfExercises := strings.Split(ef.Exercises, ",")
+
+      listOfExercises := strings.Split(ef.Exercises, ",")
 			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
 			for _, e := range listOfExercises {
 				exercises = append(exercises, store.Tag(e))

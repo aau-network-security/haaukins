@@ -10,9 +10,6 @@ import (
 	"time"
 )
 
-
-
-
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 func (d *daemon) startEvent(ev event.Event) {
 	conf := ev.GetConfig()
@@ -33,7 +30,6 @@ func (d *daemon) startEvent(ev event.Event) {
 
 	d.eventPool.AddEvent(ev)
 }
-
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
 
@@ -64,15 +60,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 	evtag, _ := store.NewTag(req.Tag)
 
-
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
 
 	conf := store.EventConfig{
-		Name:      req.Name,
-		Tag:       evtag,
-		Available: int(req.Available),
-		Capacity:  int(req.Capacity),
-		StartedAt: &now,
+		Name:           req.Name,
+		Tag:            evtag,
+		Available:      int(req.Available),
+		Capacity:       int(req.Capacity),
+		StartedAt:      &now,
 		FinishExpected: &finishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
@@ -99,8 +94,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.String() == "" {
-		expectedFinishTime := now.AddDate(0,0,15)
-		conf.FinishExpected =&expectedFinishTime
+		expectedFinishTime := now.AddDate(0, 0, 15)
+		conf.FinishExpected = &expectedFinishTime
 	}
 
 	loggerInstance := &GrpcLogger{resp: resp}
@@ -113,7 +108,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	d.startEvent(ev)
 	return nil
 }
-
 
 func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
 	var eventTeams []*pb.ListEventTeamsResponse_Teams
@@ -130,9 +124,9 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 
 	for _, t := range teams {
 		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-			Id:    t.ID(),
-			Name:  t.Name(),
-			Email: t.Email(),
+			Id:    strings.TrimSpace(t.ID()),
+			Name:  strings.TrimSpace(t.Name()),
+			Email: strings.TrimSpace(t.Email()),
 		})
 
 		//todo Explain the meaning of this
@@ -169,20 +163,19 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	return nil
 }
 
-
-
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
 
 	for _, event := range d.eventPool.GetAllEvents() {
 		conf := event.GetConfig()
 
-		var exercises [] string
+		var exercises []string
 		for _, ex := range conf.Lab.Exercises {
 			exercises = append(exercises, string(ex))
 		}
 
 		events = append(events, &pb.ListEventsResponse_Events{
+      
 			Tag:           string(conf.Tag),
 			Name:          conf.Name,
 			TeamCount:     int32(len(event.GetTeams())),
@@ -190,13 +183,12 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			Capacity:      int32(conf.Capacity),
 			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
 			FinishTime:    conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
-		})
+
+    })
 	}
 
 	return &pb.ListEventsResponse{Events: events}, nil
 }
-
-
 
 func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventConfig) error {
 
