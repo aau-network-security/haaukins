@@ -175,16 +175,16 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		}
 
 		events = append(events, &pb.ListEventsResponse_Events{
-			Tag:          string(conf.Tag),
-			Name:         conf.Name,
-			TeamCount:    int32(len(event.GetTeams())),
-			Exercises:    strings.Join(exercises, ","),
-			Capacity:     int32(conf.Capacity),
-			CreationTime: conf.StartedAt.Format(displayTimeFormat),
-			// There is no finishexpected field for develop-a branch.
-			// When booking is applied on this branch it can be added as well.
-			FinishTime: conf.FinishedAt.Format(displayTimeFormat),
-		})
+      
+			Tag:           string(conf.Tag),
+			Name:          conf.Name,
+			TeamCount:     int32(len(event.GetTeams())),
+			Exercises: 	   strings.Join(exercises, ","),
+			Capacity:      int32(conf.Capacity),
+			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
+			FinishTime:    conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
+
+    })
 	}
 
 	return &pb.ListEventsResponse{Events: events}, nil

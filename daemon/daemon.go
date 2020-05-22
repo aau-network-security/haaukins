@@ -9,6 +9,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
+	"time"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/logging"
@@ -22,30 +32,24 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"gopkg.in/yaml.v2"
-	"io"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"os"
-	"os/user"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 var (
-	DuplicateEventErr   = errors.New("Event with that tag already exists")
-	UnknownEventErr     = errors.New("Unable to find event by that tag")
-	MissingTokenErr     = errors.New("No security token provided")
-	InvalidArgumentsErr = errors.New("Invalid arguments provided")
-	UnknownTeamErr      = errors.New("Unable to find team by that id")
-	GrpcOptsErr         = errors.New("failed to retrieve server options")
-	NoLabByTeamIdErr    = errors.New("Lab is nil, no lab found for given team id ! ")
-	version             string
+
+	DuplicateEventErr    = errors.New("Event with that tag already exists")
+	UnknownEventErr      = errors.New("Unable to find event by that tag")
+	MissingTokenErr      = errors.New("No security token provided")
+	InvalidArgumentsErr  = errors.New("Invalid arguments provided")
+	UnknownTeamErr       = errors.New("Unable to find team by that id")
+	GrpcOptsErr          = errors.New("failed to retrieve server options")
+	NoLabByTeamIdErr     = errors.New("Lab is nil, no lab found for given team id ! ")
+	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
+	version              string
+
 )
 
 const (
-	mngtPort          = ":5454"
+	MngtPort          = ":5454"
 	displayTimeFormat = "2006-01-02 15:04:05"
 )
 
@@ -235,13 +239,15 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+  ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
 	if err != nil {
 		log.Error().Msgf("Error on getting events from database %v", err)
 		return nil, store.TranslateRPCErr(err)
+
 	}
 
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
@@ -267,8 +273,9 @@ func New(conf *Config) (*daemon, error) {
 	for _, ef := range eventsFromDB.Events {
 		if ef.FinishedAt == "" { //check if the event is finished or not
 			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
-			finishedAt, _ := time.Parse(displayTimeFormat, ef.FinishedAt)
-			listOfExercises := strings.Split(ef.Exercises, ",")
+			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
+
+      listOfExercises := strings.Split(ef.Exercises, ",")
 			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
 			for _, e := range listOfExercises {
 				exercises = append(exercises, store.Tag(e))
@@ -283,8 +290,7 @@ func New(conf *Config) (*daemon, error) {
 					Exercises: exercises,
 				},
 				StartedAt:      &startedAt,
-				FinishExpected: nil,
-				FinishedAt:     &finishedAt,
+				FinishExpected: &expectedFinishTime,
 			}
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
@@ -361,9 +367,9 @@ func (d *daemon) Run() error {
 		}))
 	}
 	// start gRPC daemon
-	lis, err := net.Listen("tcp", mngtPort)
+	lis, err := net.Listen("tcp", MngtPort)
 	if err != nil {
-		return &MngtPortErr{mngtPort}
+		return &MngtPortErr{MngtPort}
 	}
 	log.Info().Msg("gRPC daemon has been started  ! on port :5454")
 

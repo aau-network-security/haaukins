@@ -13,7 +13,7 @@ import (
 )
 
 func TestUser(t *testing.T) {
-	u, err := store.NewUser("tkp", "test123")
+	u, err := store.NewUser("tkp", "", "", "", "test123")
 	if err != nil {
 		t.Fatalf("expected no error when creating user struct, got: %s", err)
 	}
@@ -41,7 +41,7 @@ func TestUserStore(t *testing.T) {
 		t.Fatalf("unexpected amount of users, exptected: 0, got: %d", n)
 	}
 
-	u, err := store.NewUser("tkp", "test123")
+	u, err := store.NewUser("tkp", "", "", "", "test123")
 	if err != nil {
 		t.Fatalf("expected no error when creating user struct, got: %s", err)
 	}
@@ -66,7 +66,7 @@ func TestUserStore(t *testing.T) {
 		t.Fatalf("expected hook to have been run with zero users")
 	}
 
-	u2, err := store.NewUser("kh", "test123")
+	u2, err := store.NewUser("tkp", "", "", "", "test123")
 	if err != nil {
 		t.Fatalf("expected no error when creating user struct, got: %s", err)
 	}
@@ -129,7 +129,7 @@ func TestUserFile(t *testing.T) {
 		t.Fatalf("expected no error when creating userfile")
 	}
 
-	u, err := store.NewUser("tkp", "test123")
+	u, err := store.NewUser("tkp", "", "", "", "test123")
 	if err != nil {
 		t.Fatalf("expected no error when creating user struct, got: %s", err)
 	}
