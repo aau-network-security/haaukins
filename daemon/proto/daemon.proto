@@ -4,6 +4,10 @@ service Daemon {
   rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {}
   rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {}
   rpc InviteUser (InviteUserRequest) returns (InviteUserResponse) {}
+  rpc ListUsers (Empty) returns (ListUsersResponse) {}
+  rpc ChangeUserPasswd (UpdatePasswdRequest) returns (UpdatePasswdResponse) {}
+  rpc DestroyUser (DestroyUserRequest) returns (DestroyUserResponse) {}
+
 
   rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
@@ -29,6 +33,22 @@ message Team {
   string Id = 1;
 }
 
+message DestroyUserRequest {
+  string username = 1;
+}
+
+message DestroyUserResponse {
+  string message = 1;
+}
+
+message UpdatePasswdRequest{
+  string username = 1;
+  string password = 2;
+}
+
+message UpdatePasswdResponse {
+  string message = 1;
+}
 
 message LoginUserRequest {
   string username = 1;
@@ -43,7 +63,10 @@ message LoginUserResponse {
 message SignupUserRequest {
   string key = 1;
   string username = 2;
-  string password = 3;
+  string name = 3;
+  string surname = 4;
+  string email = 5;
+  string password = 6;
 }
 
 message InviteUserRequest {
@@ -52,6 +75,19 @@ message InviteUserRequest {
 
 message InviteUserResponse {
   string key = 1;
+  string error = 2;
+}
+
+message ListUsersResponse {
+  message UserInfo {
+    string username = 1;
+    string name = 2;
+    string surname = 3;
+    string email = 4;
+    string createdAt = 5;
+    bool isSuperUser = 6;
+  }
+  repeated UserInfo users = 1;
   string error = 2;
 }
 

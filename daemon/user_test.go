@@ -3,19 +3,18 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/aau-network-security/haaukins/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-	"testing"
 )
-
 
 func (a *noAuth) TokenForUser(username, password string) (string, error) {
 	return respToken, nil
 }
-
 
 func TestSignupUser(t *testing.T) {
 	tt := []struct {
@@ -114,7 +113,6 @@ func TestSignupUser(t *testing.T) {
 	}
 }
 
-
 func TestInviteUser(t *testing.T) {
 	tt := []struct {
 		name      string
@@ -200,10 +198,12 @@ func TestInviteUser(t *testing.T) {
 	}
 }
 
-
 func TestLoginUser(t *testing.T) {
 	type user struct {
 		u string
+		n string
+		s string
+		e string
 		p string
 	}
 
@@ -213,7 +213,7 @@ func TestLoginUser(t *testing.T) {
 		user       user
 		err        string
 	}{
-		{name: "Normal", createUser: true, user: user{u: "tkp", p: "tkptkp"}},
+		{name: "Normal", createUser: true, user: user{u: "tkp", n: "", p: "tkptkp"}},
 		{name: "Unknown user", user: user{u: "tkp", p: "tkptkp"}, err: "Invalid username or password"},
 		{name: "No username", user: user{u: "", p: "whatever"}, err: "Username cannot be empty"},
 		{name: "No password", user: user{u: "tkp", p: ""}, err: "Password cannot be empty"},
@@ -223,7 +223,7 @@ func TestLoginUser(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var users []store.User
 			if tc.createUser {
-				u, err := store.NewUser(tc.user.u, tc.user.p)
+				u, err := store.NewUser(tc.user.u, tc.user.n, tc.user.s, tc.user.e, tc.user.p)
 				if err != nil {
 					t.Fatalf("unexpected error when creating user: %s", err)
 				}
