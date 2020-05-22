@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
@@ -99,11 +100,11 @@ func (d *daemon) ListUsers(ctx context.Context, req *pb.Empty) (*pb.ListUsersRes
 	requester, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return &pb.ListUsersResponse{}, err
+		return &pb.ListUsersResponse{Users: usersResp, Error: fmt.Sprintf("No logged in user information found error: %v", err)}, err
 	}
 
 	if !requester.SuperUser {
-		return &pb.ListUsersResponse{}, NoPrivilegeToList
+		return &pb.ListUsersResponse{Error: NoPrivilegeToList.Error()}, NoPrivilegeToList
 	}
 
 	//todo: add users' events as well.
@@ -123,26 +124,26 @@ func (d *daemon) ListUsers(ctx context.Context, req *pb.Empty) (*pb.ListUsersRes
 
 }
 
-//DestroyUser function deletes user only admin accounts
+// DestroyUser function deletes user only admin accounts
 // An admin account should not delete another admin account
 func (d *daemon) DestroyUser(ctx context.Context, request *pb.DestroyUserRequest) (*pb.DestroyUserResponse, error) {
 
 	requester, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return &pb.DestroyUserResponse{}, err
+		return &pb.DestroyUserResponse{Message: fmt.Sprintf("No logged in user information found error: %v", err)}, err
 	}
 
 	if !requester.SuperUser {
 		return &pb.DestroyUserResponse{}, NoPrivilegeToDelete
 	}
 	if (request.Username == requester.Username) && requester.SuperUser {
-		return &pb.DestroyUserResponse{}, NoDestroyOnAdmin
+		return &pb.DestroyUserResponse{Message: NoDestroyOnAdmin.Error()}, NoDestroyOnAdmin
 	}
 
 	if err := d.users.DeleteUserByUsername(request.Username); err != nil {
 		log.Error().Msgf("User delete error %v", err)
-		return &pb.DestroyUserResponse{}, nil
+		return &pb.DestroyUserResponse{Message: fmt.Sprintf("Error on deleting user %s, error: %v", request.Username, err)}, nil
 	}
 
 	return &pb.DestroyUserResponse{Message: "User " + request.Username + " deleted successfully !"}, nil
@@ -156,7 +157,7 @@ func (d *daemon) ChangeUserPasswd(ctx context.Context, request *pb.UpdatePasswdR
 	requester, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return &pb.UpdatePasswdResponse{}, err
+		return &pb.UpdatePasswdResponse{Message: fmt.Sprintf("No logged in user information found error: %v", err)}, err
 	}
 
 	// if user is not authenticated for the request
@@ -183,6 +184,7 @@ func getUserFromIncomingContext(ctx context.Context) (*store.User, error) {
 		log.Error().Msgf("%v", NoUserInformation)
 		return &u, NoUserInformation
 	}
+
 	return &u, nil
 
 }

@@ -88,7 +88,7 @@ message ListUsersResponse {
     bool isSuperUser = 6;
   }
   repeated UserInfo users = 1;
-
+  string error = 2;
 }
 
 message CreateEventRequest {
