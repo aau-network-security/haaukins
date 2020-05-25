@@ -2,16 +2,18 @@ package daemon
 
 import (
 	"context"
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/aau-network-security/haaukins/event"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/rs/zerolog/log"
 	"strings"
 	"time"
+
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/rs/zerolog/log"
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
-func (d *daemon) startEvent(ev event.Event) {
+func (d *daemon) startEvent(ev guacamole.Event) {
 	conf := ev.GetConfig()
 
 	var frontendNames []string
@@ -123,16 +125,16 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	teams := ev.GetTeams()
 
 	for _, t := range teams {
+
+		accesedTime := t.LastAccessTime()
+
 		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-			Id:    strings.TrimSpace(t.ID()),
-			Name:  strings.TrimSpace(t.Name()),
-			Email: strings.TrimSpace(t.Email()),
+			Id:         strings.TrimSpace(t.ID()),
+			Name:       strings.TrimSpace(t.Name()),
+			Email:      strings.TrimSpace(t.Email()),
+			AccessedAt: accesedTime.Format(displayTimeFormat),
 		})
 
-		//todo Explain the meaning of this
-		//if t.AccessedAt != nil {
-		//	eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
-		//}
 	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
@@ -175,16 +177,16 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		}
 
 		events = append(events, &pb.ListEventsResponse_Events{
-      
-			Tag:           string(conf.Tag),
-			Name:          conf.Name,
-			TeamCount:     int32(len(event.GetTeams())),
-			Exercises: 	   strings.Join(exercises, ","),
-			Capacity:      int32(conf.Capacity),
-			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
-			FinishTime:    conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
 
-    })
+			Tag:          string(conf.Tag),
+			Name:         conf.Name,
+			TeamCount:    int32(len(event.GetTeams())),
+			Exercises:    strings.Join(exercises, ","),
+			Capacity:     int32(conf.Capacity),
+			CreationTime: conf.StartedAt.Format(displayTimeFormat),
+			FinishTime:   conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
+
+		})
 	}
 
 	return &pb.ListEventsResponse{Events: events}, nil

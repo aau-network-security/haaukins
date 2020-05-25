@@ -2,12 +2,13 @@ package daemon
 
 import (
 	"context"
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/rs/zerolog/log"
 )
 
 func (d *daemon) SetFrontendMemory(ctx context.Context, in *pb.SetFrontendMemoryRequest) (*pb.Empty, error) {
@@ -19,8 +20,6 @@ func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuReques
 	err := d.frontends.SetCpu(in.Image, float64(in.Cpu))
 	return &pb.Empty{}, err
 }
-
-
 
 func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_ResetFrontendsServer) error {
 	log.Ctx(stream.Context()).Info().
@@ -70,8 +69,6 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 
 	return nil
 }
-
-
 
 func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
 	var respList []*pb.ListFrontendsResponse_Frontend

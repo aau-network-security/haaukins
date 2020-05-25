@@ -9,9 +9,10 @@ import (
 	"testing"
 
 	"time"
-	tst "github.com/aau-network-security/haaukins/testing"
+
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/store"
+	tst "github.com/aau-network-security/haaukins/testing"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/rs/zerolog"
 )

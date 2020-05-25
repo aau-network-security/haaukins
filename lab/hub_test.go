@@ -17,8 +17,10 @@ import (
 )
 
 type testLab struct {
-	started chan<- bool
-	closed  chan<- bool
+	started   chan<- bool
+	suspended chan<- bool
+	resumed   chan<- bool
+	closed    chan<- bool
 }
 
 func (tl *testLab) Close() error {
@@ -28,6 +30,16 @@ func (tl *testLab) Close() error {
 
 func (tl *testLab) Start(context.Context) error {
 	tl.started <- true
+	return nil
+}
+
+func (tl *testLab) Suspend(context.Context) error {
+	tl.suspended <- true
+	return nil
+}
+
+func (tl *testLab) Resume(context.Context) error {
+	tl.resumed <- true
 	return nil
 }
 
@@ -98,9 +110,11 @@ func TestHub(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			started := make(chan bool, 1000)
+			resumed := make(chan bool, 1000)
+			suspended := make(chan bool, 1000)
 			closed := make(chan bool, 1000)
 			ctx := context.Background()
-			c := &testCreator{lab: &testLab{started, closed}}
+			c := &testCreator{lab: &testLab{started, suspended, resumed, closed}}
 			h, err := NewHub(ctx, c, tc.buf, tc.cap)
 			if err != nil {
 				t.Fatalf("unable to create hub: %s", err)

@@ -3,13 +3,14 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"io"
+	"testing"
+
 	"github.com/aau-network-security/haaukins/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-	"io"
-	"testing"
 )
 
 func TestResetExercise(t *testing.T) {
@@ -67,7 +68,7 @@ func TestResetExercise(t *testing.T) {
 
 			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 1; i <= 2; i++ {
-				g := store.NewTeam(fmt.Sprintf("team-%d@team.dk", i),"whatever","",fmt.Sprintf("team-%d", i),"","", nil)
+				g := store.NewTeam(fmt.Sprintf("team-%d@team.dk", i), "whatever", "", fmt.Sprintf("team-%d", i), "", "", nil)
 				ev.teams = append(ev.teams, g)
 			}
 			eventPool.AddEvent(ev)
@@ -122,4 +123,3 @@ func TestResetExercise(t *testing.T) {
 		})
 	}
 }
-

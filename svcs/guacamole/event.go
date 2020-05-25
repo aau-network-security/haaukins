@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPLv3
 // license that can be found in the LICENSE file.
 
-package event
+package guacamole
 
 import (
 	"context"
@@ -10,10 +10,11 @@ import (
 	"fmt"
 	"strings"
 
-	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"net/http"
 	"path/filepath"
 	"time"
+
+	pbc "github.com/aau-network-security/haaukins/store/proto"
 
 	"io"
 	"sync"
@@ -21,7 +22,6 @@ import (
 	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/amigo"
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/rs/zerolog/log"
@@ -43,7 +43,6 @@ type Host interface {
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
 	CreateEventFromEventDB(context.Context, store.EventConfig) (Event, error)
 	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
-
 }
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, eDir string, dbc pbc.StoreClient) Host {
@@ -52,7 +51,7 @@ func NewHost(vlib vbox.Library, elib store.ExerciseStore, eDir string, dbc pbc.S
 		dbc:  dbc,
 		vlib: vlib,
 		elib: elib,
-		dir: eDir,
+		dir:  eDir,
 	}
 }
 
@@ -61,12 +60,11 @@ type eventHost struct {
 	dbc  pbc.StoreClient
 	vlib vbox.Library
 	elib store.ExerciseStore
-	dir string
+	dir  string
 }
 
 //Create the event configuration for the event got from the DB
-func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error){
-
+func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error) {
 
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
@@ -95,20 +93,20 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 }
 
 //Save the event in the DB and create the event configuration
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error){
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
 	var exercises []string
 	for _, e := range conf.Lab.Exercises {
 		exercises = append(exercises, string(e))
 	}
 	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
-		Name:                 conf.Name,
-		Tag:                  string(conf.Tag),
-		Frontends:            conf.Lab.Frontends[0].Image,
-		Exercises:            strings.Join(exercises,","),
-		Available:            int32(conf.Available),
-		Capacity:             int32(conf.Capacity),
-		StartTime:			  conf.StartedAt.Format(displayTimeFormat),
-		ExpectedFinishTime:   conf.FinishExpected.Format(displayTimeFormat),
+		Name:               conf.Name,
+		Tag:                string(conf.Tag),
+		Frontends:          conf.Lab.Frontends[0].Image,
+		Exercises:          strings.Join(exercises, ","),
+		Available:          int32(conf.Available),
+		Capacity:           int32(conf.Capacity),
+		StartTime:          conf.StartedAt.Format(displayTimeFormat),
+		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
 	})
 
 	if err != nil {
@@ -126,7 +124,6 @@ func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error 
 	return nil
 }
 
-
 type Event interface {
 	Start(context.Context) error
 	Close() error
@@ -141,25 +138,23 @@ type Event interface {
 }
 
 type event struct {
-	amigo   *amigo.Amigo
-	guac   guacamole.Guacamole
+	amigo  *amigo.Amigo
+	guac   Guacamole
 	labhub lab.Hub
 
 	labs          map[string]lab.Lab
 	store         store.Event
-	keyLoggerPool guacamole.KeyLoggerPool
+	keyLoggerPool KeyLoggerPool
 
-	guacUserStore *guacamole.GuacUserStore
+	guacUserStore *GuacUserStore
 	dockerHost    docker.Host
 
 	closers []io.Closer
 }
 
-
 func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig) (Event, error) {
 
-
-	guac, err := guacamole.New(ctx, guacamole.Config{})
+	guac, err := New(ctx, Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +166,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 
 	dockerHost := docker.NewHost()
 	amigoOpt := amigo.WithEventName(e.Name)
-	keyLoggerPool, err := guacamole.NewKeyLoggerPool(filepath.Join(e.Dir, dirname))
+	keyLoggerPool, err := NewKeyLoggerPool(filepath.Join(e.Dir, dirname))
 	if err != nil {
 		return nil, err
 	}
@@ -179,11 +174,11 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	ev := &event{
 		store:         e,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(e,flags,amigoOpt),
+		amigo:         amigo.NewAmigo(e, flags, amigoOpt),
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
-		guacUserStore: guacamole.NewGuacUserStore(),
-		closers:       []io.Closer{ guac, hub, keyLoggerPool},
+		guacUserStore: NewGuacUserStore(),
+		closers:       []io.Closer{guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
 		keyLoggerPool: keyLoggerPool,
 	}
@@ -253,7 +248,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 
 		return RdpConfErr
 	}
-	u := guacamole.GuacUser{
+	u := GuacUser{
 		Username: t.Name(),
 		Password: t.GetHashedPassword(),
 	}
@@ -278,7 +273,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 		name := fmt.Sprintf("%s-client%d", t.ID(), num)
 
 		log.Debug().Str("team", t.Name()).Uint("port", port).Msg("Creating RDP Connection for group")
-		if err := ev.guac.CreateRDPConn(guacamole.CreateRDPConnOpts{
+		if err := ev.guac.CreateRDPConn(CreateRDPConnOpts{
 			Host:     hostIp,
 			Port:     port,
 			Name:     name,
@@ -294,7 +289,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	chals := lab.Environment().Challenges()
 
 	for _, chal := range chals {
-		tag, _:= store.NewTag(string(chal.Tag))
+		tag, _ := store.NewTag(string(chal.Tag))
 		f, _ := t.AddChallenge(store.Challenge{
 			Tag:   tag,
 			Name:  chal.Name,
@@ -304,11 +299,11 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			Str("chal-val", f.String()).
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}
-
 	return nil
 }
 
 func (ev *event) Handler() http.Handler {
+
 	reghook := func(t *store.Team) error {
 		select {
 		case lab, ok := <-ev.labhub.Queue():
@@ -326,9 +321,9 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
-	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool,ev.amigo)(ev.store)
+	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)
 
-	return  ev.amigo.Handler(reghook,guacHandler)
+	return ev.amigo.Handler(reghook, guacHandler)
 }
 
 func (ev *event) GetHub() lab.Hub {

@@ -2,12 +2,13 @@ package amigo
 
 import (
 	"fmt"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -119,8 +120,6 @@ func (fd *FrontendData) handleConns() http.HandlerFunc {
 //func serveWs(sb *Scoreboard, w http.ResponseWriter, r *http.Request) {
 //}
 
-
-
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -173,7 +172,6 @@ func getTeamInfoFromToken(token string) (*team, error) {
 	if err != nil {
 		return nil, err
 	}
-
 
 	claims, ok := jwtToken.Claims.(jwt.MapClaims)
 	if !ok || !jwtToken.Valid {

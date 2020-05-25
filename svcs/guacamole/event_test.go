@@ -3,22 +3,22 @@
 // Use of this source code is governed by a GPLv3
 // license that can be found in the LICENSE file.
 
-package event
+package guacamole
 
 import (
 	"context"
-	pb "github.com/aau-network-security/haaukins/store/proto"
-	mockserver "github.com/aau-network-security/haaukins/testing"
-	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"testing"
 
-	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	mockserver "github.com/aau-network-security/haaukins/testing"
+	"google.golang.org/grpc"
+
+	"github.com/aau-network-security/haaukins/lab"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 
 type testGuac struct {
 	status int
-	guacamole.Guacamole
+	Guacamole
 }
 
 func (guac *testGuac) Start(ctx context.Context) error {
@@ -52,7 +52,6 @@ func (hub *testLabHub) Close() error {
 	hub.status = CLOSED
 	return nil
 }
-
 
 func TestEvent_StartAndClose(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "")
@@ -88,13 +87,13 @@ func TestEvent_StartAndClose(t *testing.T) {
 			StartedAt:      nil,
 			FinishExpected: nil,
 			FinishedAt:     nil,
-		},tmp , client)
+		}, tmp, client)
 
 		ev := event{
 			guac:    &guac,
 			labhub:  &hub,
 			closers: []io.Closer{&guac, &hub},
-			store:  ts,
+			store:   ts,
 		}
 
 		ev.Start(context.Background())

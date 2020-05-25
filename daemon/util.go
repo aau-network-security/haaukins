@@ -2,18 +2,16 @@ package daemon
 
 import (
 	"context"
+	"io"
+	"strings"
+	"sync"
+
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"net/http"
-	"strings"
-	"sync"
 )
-
-
 
 func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 	nonAuth := []string{"LoginUser", "SignupUser"}
@@ -115,15 +113,14 @@ func (d *daemon) Close() error {
 	return errs
 }
 
-
-func notFoundHandler() http.Handler {
-	p := []byte(notfoundpage)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(p)
-	})
-}
-
 func (s *contextStream) Context() context.Context {
 	return s.ctx
+}
+
+func combineErrors(errors []error) []string {
+	var errorString []string
+	for _, e := range errors {
+		errorString = append(errorString, e.Error())
+	}
+	return errorString
 }

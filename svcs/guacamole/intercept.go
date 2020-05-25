@@ -6,11 +6,13 @@ package guacamole
 
 import (
 	"errors"
-	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"net/http"
 	"sync"
 	"time"
+
 	"github.com/aau-network-security/haaukins/store"
+
+	"github.com/aau-network-security/haaukins/svcs/amigo"
 	"github.com/rs/zerolog/log"
 )
 
@@ -153,7 +155,7 @@ func (us *GuacUserStore) CreateUserForTeam(tid string, u GuacUser) {
 	us.m.RLock()
 	defer us.m.RUnlock()
 	us.teams[tid] = u
-	log.Debug().Msgf("CreateUserForTeam function teamid: %s user guide : %s", tid,u.Username )
+	log.Debug().Msgf("CreateUserForTeam function teamid: %s user guide : %s", tid, u.Username)
 }
 
 func (us *GuacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
@@ -171,16 +173,16 @@ func (us *GuacUserStore) GetUserForTeam(tid string) (*GuacUser, error) {
 type guacTokenLoginEndpoint struct {
 	users     *GuacUserStore
 	loginFunc func(string, string) (string, error)
-	teamStore store.TeamStore
+	teamStore store.Event
 	amigo     *amigo.Amigo
 }
 
-func NewGuacTokenLoginEndpoint(users *GuacUserStore, ts store.TeamStore, am *amigo.Amigo, loginFunc func(string, string) (string, error)) *guacTokenLoginEndpoint {
+func NewGuacTokenLoginEndpoint(users *GuacUserStore, ts store.Event, am *amigo.Amigo, loginFunc func(string, string) (string, error)) *guacTokenLoginEndpoint {
 	return &guacTokenLoginEndpoint{
 		teamStore: ts,
 		users:     users,
 		loginFunc: loginFunc,
-		amigo:	   am,
+		amigo:     am,
 	}
 }
 

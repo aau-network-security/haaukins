@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/aau-network-security/haaukins/store"
 	"hash/crc32"
 	"io"
 	"os"
@@ -23,6 +22,7 @@ import (
 	"math"
 	"regexp"
 
+	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -31,7 +31,7 @@ import (
 
 const (
 	stateRegex = `State:\s*(.*)`
-	nicRegex  = "\\bNIC\\b"
+	nicRegex   = "\\bNIC\\b"
 
 	vboxBin          = "VBoxManage"
 	vboxModVM        = "modifyvm"
@@ -142,6 +142,23 @@ func (vm *vm) Stop() error {
 	log.Debug().
 		Str("ID", vm.id).
 		Msg("Stopped VM")
+
+	return nil
+}
+
+// Will call savestate on vm
+func (vm *vm) Suspend(ctx context.Context) error {
+	_, err := VBoxCmdContext(ctx, vboxCtrlVM, vm.id, "savestate")
+	if err != nil {
+		log.Error().
+			Str("ID", vm.id).
+			Msgf("Failed to suspend VM: %s", err)
+		return err
+	}
+
+	log.Debug().
+		Str("ID", vm.id).
+		Msgf("Suspended vm")
 
 	return nil
 }
@@ -322,6 +339,10 @@ func (v *vm) state() virtual.State {
 		return virtual.Running
 	}
 
+	if strings.Contains(string(matched[0]), "saved") {
+		return virtual.Suspended
+	}
+
 	return virtual.Stopped
 }
 
@@ -468,7 +489,6 @@ func VmExists(image string, checksum string) (VM, bool) {
 	return nil, false
 }
 
-//
 func VBoxCmdContext(ctx context.Context, cmd string, cmds ...string) ([]byte, error) {
 	command := append([]string{cmd}, cmds...)
 

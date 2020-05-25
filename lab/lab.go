@@ -6,6 +6,10 @@ package lab
 
 import (
 	"context"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
@@ -13,9 +17,6 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/rs/zerolog/log"
-	"math/rand"
-	"sync"
-	"time"
 )
 
 var (
@@ -77,6 +78,8 @@ type Lab interface {
 	Start(context.Context) error
 	Stop() error
 	Restart(context.Context) error
+	Suspend(context.Context) error
+	Resume(context.Context) error
 	Environment() exercise.Environment
 	ResetFrontends(ctx context.Context) error
 	RdpConnPorts() []uint
@@ -258,4 +261,33 @@ func generateTag() string {
 	// seed for our GetRandomName
 	rand.Seed(time.Now().UnixNano())
 	return namesgenerator.GetRandomName(0)
+}
+
+func (l *lab) Suspend(ctx context.Context) error {
+
+	if err := l.environment.Suspend(ctx); err != nil {
+		return err
+	}
+
+	for _, fconf := range l.frontends {
+		if err := fconf.vm.Suspend(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (l *lab) Resume(ctx context.Context) error {
+	if err := l.environment.Resume(ctx); err != nil {
+		return err
+	}
+
+	for _, fconf := range l.frontends {
+		if err := fconf.vm.Start(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

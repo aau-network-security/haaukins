@@ -8,11 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	pbar "github.com/schollz/progressbar"
 	"github.com/spf13/cobra"
-	"io"
-	"time"
 )
 
 var (
@@ -38,11 +39,11 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 func (c *Client) CmdEventCreate() *cobra.Command {
 	var (
-		name      string
-		available int
-		capacity  int
-		frontends []string
-		exercises []string
+		name       string
+		available  int
+		capacity   int
+		frontends  []string
+		exercises  []string
 		finishTime string
 	)
 
@@ -55,13 +56,13 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:                 name,
-				Tag:                  tag,
-				Frontends:            frontends,
-				Exercises:            exercises,
-				Available:            int32(available),
-				Capacity:             int32(capacity),
-				FinishTime:           finishTime,
+				Name:       name,
+				Tag:        tag,
+				Frontends:  frontends,
+				Exercises:  exercises,
+				Available:  int32(available),
+				Capacity:   int32(capacity),
+				FinishTime: finishTime,
 			})
 			if err != nil {
 				PrintError(err)

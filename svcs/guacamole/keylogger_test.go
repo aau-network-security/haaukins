@@ -6,13 +6,15 @@ package guacamole_test
 
 import (
 	"bufio"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/aau-network-security/haaukins/store"
+
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
 )
 
 func TestKeyLogger(t *testing.T) {

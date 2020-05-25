@@ -273,11 +273,11 @@ func (ic InstanceConfig) Validate() error {
 }
 
 type exercisestore struct {
-	m         sync.Mutex
-	tags      map[Tag]*Exercise
-	exercises []*Exercise
+	m            sync.Mutex
+	tags         map[Tag]*Exercise
+	exercises    []*Exercise
 	exerciseInfo []FlagConfig
-	hooks     []func([]Exercise) error
+	hooks        []func([]Exercise) error
 }
 
 func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error) {
@@ -309,8 +309,8 @@ func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (Ex
 		}
 	}
 
-	for _, e := range s.exercises{
-		for _,i :=range e.Flags(){
+	for _, e := range s.exercises {
+		for _, i := range e.Flags() {
 			s.exerciseInfo = append(s.exerciseInfo, i)
 		}
 	}
@@ -326,7 +326,7 @@ func (es *exercisestore) GetExercisesInfo(tag Tag) []FlagConfig {
 	var exer []FlagConfig
 
 	for _, e := range es.exerciseInfo {
-		if strings.Contains(string(e.Tag), string(tag)){
+		if strings.Contains(string(e.Tag), string(tag)) {
 			exer = append(exer, e)
 		}
 	}

@@ -6,10 +6,7 @@ package daemon
 
 import (
 	"fmt"
-	"github.com/aau-network-security/haaukins/exercise"
-	"github.com/aau-network-security/haaukins/lab"
-	"github.com/aau-network-security/haaukins/event"
-	"github.com/aau-network-security/haaukins/virtual"
+
 	"net"
 	"net/http"
 	"sync"
@@ -17,6 +14,11 @@ import (
 	"time"
 
 	"context"
+
+	"github.com/aau-network-security/haaukins/exercise"
+	"github.com/aau-network-security/haaukins/lab"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	"github.com/aau-network-security/haaukins/virtual"
 
 	"github.com/aau-network-security/haaukins/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
@@ -66,11 +68,11 @@ func getServer(d *daemon) (func(string, time.Duration) (net.Conn, error), func()
 }
 
 type fakeEventHost struct {
-	event event.Event
-	event.Host
+	event guacamole.Event
+	guacamole.Host
 }
 
-func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (event.Event, error) {
+func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (guacamole.Event, error) {
 	return eh.event, nil
 }
 
@@ -84,7 +86,7 @@ type fakeEvent struct {
 	teams     []*store.Team
 	lab       *fakeLab
 	conf      store.EventConfig
-	event.Event
+	guacamole.Event
 }
 
 func (fe *fakeEvent) Start(context.Context) error {
@@ -185,7 +187,6 @@ func (fe *fakeFrontendStore) GetFrontends(names ...string) []store.InstanceConfi
 	}
 	return res
 }
-
 
 func TestListEventTeams(t *testing.T) {
 	tt := []struct {

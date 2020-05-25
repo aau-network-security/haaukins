@@ -7,10 +7,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"time"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
-	"time"
 )
 
 func (c *Client) CmdTeam() *cobra.Command {
@@ -22,6 +23,8 @@ func (c *Client) CmdTeam() *cobra.Command {
 
 	cmd.AddCommand(
 		c.CmdTeamInfo(),
+		c.CmdTeamSuspend(),
+		c.CmdTeamResume(),
 	)
 
 	return cmd
@@ -41,6 +44,9 @@ func stateString(state int32) string {
 		colorFunc = a.Brown
 		stateStr = "not running"
 	case 2:
+		colorFunc = a.Yellow
+		stateStr = "suspended"
+	case 3:
 		colorFunc = a.Red
 		stateStr = "error"
 	}
@@ -99,6 +105,61 @@ func (c *Client) CmdTeamInfo() *cobra.Command {
 				return
 			}
 			fmt.Printf(table)
+		},
+	}
+
+	return cmd
+}
+func (c *Client) CmdTeamSuspend() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "suspend [team id] [event tag]",
+		Short:   "Suspend a teams lab",
+		Example: "hkn team suspend azbu29c1 test-event",
+		Args:    cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+
+			teamId := args[0]
+			eventTag := args[1]
+			req := &pb.SetTeamSuspendRequest{
+				TeamId:   teamId,
+				EventTag: eventTag,
+				Suspend:  true,
+			}
+			_, err := c.rpcClient.SetTeamSuspend(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+		},
+	}
+
+	return cmd
+}
+
+func (c *Client) CmdTeamResume() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "resume [team id] [event tag]",
+		Short:   "Resume a teams suspended lab",
+		Example: "hkn team resume azbu29c1 test-event",
+		Args:    cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+
+			teamId := args[0]
+			eventTag := args[1]
+			req := &pb.SetTeamSuspendRequest{
+				TeamId:   teamId,
+				EventTag: eventTag,
+				Suspend:  false,
+			}
+			_, err := c.rpcClient.SetTeamSuspend(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
 		},
 	}
 
