@@ -351,23 +351,6 @@ func (c *container) Start(ctx context.Context) error {
 		return ContNotCreatedErr
 	}
 
-	// If the docker is suspended unpause must be called instead
-	switch state := c.state(); state {
-	case virtual.Running:
-		fmt.Println("running ")
-	case virtual.Stopped:
-		fmt.Println("stopped.")
-
-	case virtual.Suspended:
-		fmt.Println("suspended")
-	case virtual.Error:
-		fmt.Println("error")
-	default:
-		// freebsd, openbsd,
-		// plan9, windows...
-		fmt.Println("no state retrieved")
-	}
-
 	if c.state() == virtual.Suspended {
 		if err := DefaultClient.UnpauseContainer(c.id); err != nil {
 			return err

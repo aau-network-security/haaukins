@@ -111,14 +111,13 @@ func (d *daemon) suspendTeams() error {
 	for _, e := range events {
 		for _, t := range e.GetTeams() {
 			if !t.LastAccessTime().IsZero() {
-				difference := math.Round(now.Sub(t.LastAccessTime()).Minutes()) // get in rounded format in hours
+				difference := math.Round(now.Sub(t.LastAccessTime()).Hours()) // get in rounded format in hours
 				if difference > INACTIVITY_DURATION {
 					lab, ok := e.GetLabByTeam(t.ID())
 					if !ok {
 						return UnknownTeamErr
 					}
 					// check if it is already suspended or not.
-					lab.InstanceInfo()
 					for _, instanceInfo := range lab.InstanceInfo() {
 						if instanceInfo.State != virtual.Suspended {
 							go func() {

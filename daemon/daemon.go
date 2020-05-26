@@ -48,8 +48,9 @@ var (
 )
 
 const (
-	MngtPort          = ":5454"
-	displayTimeFormat = "2006-01-02 15:04:05"
+	MngtPort             = ":5454"
+	displayTimeFormat    = "2006-01-02 15:04:05"
+	teamLabCheckInterval = 5
 )
 
 type MissingConfigErr struct {
@@ -346,7 +347,7 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 }
 
 func (d *daemon) Sleep() error {
-	ticker := time.NewTicker(5 * time.Hour) // every 5 hour check teams on each event
+	ticker := time.NewTicker(teamLabCheckInterval * time.Hour) // every 5 hour check teams on each event
 	var err error
 	go func() {
 		for {
