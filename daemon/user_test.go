@@ -25,7 +25,7 @@ func TestSignupUser(t *testing.T) {
 		err       string
 	}{
 		{name: "Normal", createKey: true, user: "tkp", pass: "tkptkp"},
-		{name: "Too short password", createKey: true, user: "tkp", pass: "tkp", err: "Password too short, requires atleast six characters"},
+		{name: "Too short password", createKey: true, user: "tkp", pass: "tkp", err: "Password too short, requires at least six characters"},
 		{name: "No key", user: "tkp", pass: "tkptkp", err: "Signup key not found"},
 	}
 
