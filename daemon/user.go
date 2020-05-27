@@ -143,7 +143,7 @@ func (d *daemon) DestroyUser(ctx context.Context, request *pb.DestroyUserRequest
 
 	if err := d.users.DeleteUserByUsername(request.Username); err != nil {
 		log.Error().Msgf("User delete error %v", err)
-		return &pb.DestroyUserResponse{Message: fmt.Sprintf("Error on deleting user %s, error: %v", request.Username, err)}, nil
+		return &pb.DestroyUserResponse{Message: fmt.Sprintf("Error on deleting user %s, error: %v", request.Username, err)}, err
 	}
 
 	return &pb.DestroyUserResponse{Message: "User " + request.Username + " deleted successfully !"}, nil
