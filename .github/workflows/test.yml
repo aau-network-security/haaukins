@@ -18,7 +18,7 @@ jobs:
       - name: Check branch name
         run: |
           echo "Checking ${BRANCH_NAME}..."
-          curl -o check-branch-name.py https://raw.githubusercontent.com/aau-network-security/richkit/develop/.githooks/check-branch-name.py
+          curl --silent -o check-branch-name.py https://raw.githubusercontent.com/aau-network-security/richkit/develop/.githooks/check-branch-name.py
           python3 check-branch-name.py "$BRANCH_NAME"
 
   test:
