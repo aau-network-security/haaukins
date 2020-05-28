@@ -62,11 +62,8 @@
                 }
                 return challenges
             },
-            category_name: function(category_name, category_num){
-                if (this.challenges.length < 10) {
-                    return category_name
-                }
-                if(category_num > 3){
+            category_name: function(category_name, challenges_num){
+                if(challenges_num > 3){
                     return category_name
                 }
                 switch (category_name) {
@@ -115,7 +112,7 @@
 <style>
     table#scoreboardtable {
         table-layout: fixed!important;
-        min-width: 1500px!important;
+        min-width: 1800px!important;
     }
 
     .table .thead-dark-custom th{
