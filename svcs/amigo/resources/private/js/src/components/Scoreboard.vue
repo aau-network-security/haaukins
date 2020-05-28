@@ -29,7 +29,7 @@
                 <team-row v-for="(team, index) in teams" v-bind:key="team.id" :team="team" :pos="index + 1"></team-row>
             </tbody>
             <tbody v-else>
-                <tr class="text-center"><td :colspan="challenges.length + 3">No team registered to this event!</td></tr>
+                <tr class="text-center"><td :colspan="get_challenges(challenges).length+ 3">No team registered to this event!</td></tr>
             </tbody>
         </table>
 

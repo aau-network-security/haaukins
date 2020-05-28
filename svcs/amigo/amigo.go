@@ -446,19 +446,19 @@ func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 	}
 
 	type loginData struct {
-		Email      string
+		Username   string
 		Password   string
 		LoginError string
 	}
 
 	readParams := func(r *http.Request) (loginData, error) {
 		data := loginData{
-			Email:    strings.TrimSpace(r.PostFormValue("email")),
+			Username: strings.TrimSpace(r.PostFormValue("username")),
 			Password: r.PostFormValue("password"),
 		}
 
-		if data.Email == "" {
-			return data, fmt.Errorf("Email cannot be empty")
+		if data.Username == "" {
+			return data, fmt.Errorf("Username cannot be empty")
 		}
 
 		if data.Password == "" {
@@ -485,7 +485,7 @@ func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 			return
 		}
 
-		t, err := am.TeamStore.GetTeamByEmail(params.Email)
+		t, err := am.TeamStore.GetTeamByUsername(params.Username)
 		if err != nil {
 			displayErr(w, params, ErrIncorrectCredentials)
 			return

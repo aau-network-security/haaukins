@@ -31,6 +31,7 @@ type TeamStore interface {
 	SaveTeam(*Team) error
 	GetTeamByID(string) (*Team, error)
 	GetTeamByEmail(string) (*Team, error)
+	GetTeamByUsername(string) (*Team, error)
 	GetTeams() []*Team
 	SaveTokenForTeam(string, *Team) error
 }
@@ -91,7 +92,7 @@ func (es *teamstore) SaveTeam(t *Team) error {
 		es.m.Unlock()
 		return ErrTeamAlreadyExist
 	}
-	es.names[username] = t.Name()
+	es.names[username] = t.ID()
 	es.emails[email] = t.ID()
 	es.teams[t.ID()] = t
 
@@ -151,6 +152,23 @@ func (es *teamstore) GetTeamByEmail(email string) (*Team, error) {
 	if !ok {
 		es.m.RUnlock()
 		return nil, fmt.Errorf("GetTeamByEmail function error %v", UnknownTeamErr)
+	}
+	es.m.RUnlock()
+	return t, nil
+}
+
+func (es *teamstore) GetTeamByUsername(username string) (*Team, error) {
+	es.m.RLock()
+
+	tid, ok := es.names[username]
+	if !ok {
+		es.m.RUnlock()
+		return nil, fmt.Errorf("GetTeamByUsername function error %v", UnknownTeamErr)
+	}
+	t, ok := es.teams[tid]
+	if !ok {
+		es.m.RUnlock()
+		return nil, fmt.Errorf("GetTeamByUsername function error %v", UnknownTeamErr)
 	}
 	es.m.RUnlock()
 	return t, nil
