@@ -21,7 +21,7 @@ var (
 	UserStoreNoFileErr = errors.New("Unable to find user store file")
 	UserExistsErr      = errors.New("User already exists")
 	UserNotFoundErr    = errors.New("User not found")
-	PasswdTooShortErr  = errors.New("Password too short, requires atleast six characters")
+	PasswdTooShortErr  = errors.New("Password too short, requires at least six characters")
 
 	SignupKeyExistsErr   = errors.New("Signup key already exists")
 	SignupKeyNotFoundErr = errors.New("Signup key not found")

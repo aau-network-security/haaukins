@@ -5,17 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aau-network-security/haaukins/store"
-	pb "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/aau-network-security/haaukins/svcs/amigo"
-	mockserver "github.com/aau-network-security/haaukins/testing"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/aau-network-security/haaukins/store"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
+	mockserver "github.com/aau-network-security/haaukins/testing"
+	"google.golang.org/grpc"
 )
 
 func TestVerifyFlag(t *testing.T) {
@@ -50,19 +51,19 @@ func TestVerifyFlag(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	},tmp ,client)
+	}, tmp, client)
 
 	var chal = store.FlagConfig{
-			Tag:         "test",
-			Name:        "Test Challenge",
-			EnvVar:      "",
-			Static:      "",
-			Points:      10,
-			Description: "",
-			Category:    "",
+		Tag:         "test",
+		Name:        "Test Challenge",
+		EnvVar:      "",
+		Static:      "",
+		Points:      10,
+		Description: "",
+		Category:    "",
 	}
 
-	addTeam := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
+	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", client)
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}
@@ -74,7 +75,7 @@ func TestVerifyFlag(t *testing.T) {
 		Value: store.NewFlag().String(),
 	})
 
-	team, err := ts.GetTeamByEmail("some@email.com")
+	team, err := ts.GetTeamByUsername("somename")
 	if err != nil {
 		t.Fatalf("unable to get the team by email: %v", err)
 	}
