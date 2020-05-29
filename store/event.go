@@ -42,6 +42,7 @@ type EventConfig struct {
 	StartedAt      *time.Time
 	FinishExpected *time.Time
 	FinishedAt     *time.Time
+	Status         string
 }
 
 type Lab struct {
@@ -92,6 +93,21 @@ func (e Event) Finish(time time.Time) error {
 	})
 	if err != nil {
 
+		return err
+	}
+	return nil
+}
+
+// SetStatus will set status of event on db
+func (e Event) SetStatus(eventTag, status string) error {
+	_, err := e.dbc.SetEventStatus(context.Background(), &pbc.SetEventStatusRequest{
+		EventTag: eventTag,
+		Status:   status,
+	})
+
+	e.Status = status
+
+	if err != nil {
 		return err
 	}
 	return nil

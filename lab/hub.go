@@ -7,9 +7,10 @@ package lab
 import (
 	"context"
 	"errors"
+	"sync"
+
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 var (
@@ -20,6 +21,8 @@ var (
 type Hub interface {
 	Queue() <-chan Lab
 	Close() error
+	Suspend(context.Context) error
+	Resume(context.Context) error
 }
 
 type hub struct {
@@ -157,4 +160,33 @@ func (h *hub) Queue() <-chan Lab {
 func (h *hub) Close() error {
 	close(h.stop)
 	return nil
+}
+
+func (h *hub) Suspend(ctx context.Context) error {
+	var suspendError error
+	go func() {
+		for _, l := range h.labs {
+			if err := l.Suspend(ctx); err != nil {
+				err = suspendError
+			}
+		}
+	}()
+
+	return suspendError
+}
+
+func (h *hub) Resume(ctx context.Context) error {
+
+	var resumeError error
+
+	go func() {
+
+		for _, l := range h.labs {
+			if err := l.Resume(ctx); err != nil {
+				err = resumeError
+			}
+		}
+	}()
+
+	return resumeError
 }

@@ -27,7 +27,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const displayTimeFormat = "2006-01-02 15:04:05"
+const (
+	displayTimeFormat = "2006-01-02 15:04:05"
+	Running           = "Running"
+	Suspended         = "Suspended"
+)
 
 var (
 	RdpConfErr      = errors.New("error too few rdp connections")
@@ -65,7 +69,6 @@ type eventHost struct {
 
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error) {
-
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
 		return nil, err
@@ -89,6 +92,7 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	if err != nil {
 		return nil, err
 	}
+
 	return NewEvent(eh.ctx, es, hub, labConf.Flags())
 }
 
@@ -105,6 +109,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		Exercises:          strings.Join(exercises, ","),
 		Available:          int32(conf.Available),
 		Capacity:           int32(conf.Capacity),
+		Status:             conf.Status,
 		StartTime:          conf.StartedAt.Format(displayTimeFormat),
 		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
 	})
@@ -127,9 +132,14 @@ func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error 
 type Event interface {
 	Start(context.Context) error
 	Close() error
+	Suspend(context.Context) error
+	Resume(context.Context) error
+
 	Finish()
 	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
+
+	SetStatus(status string)
 
 	GetConfig() store.EventConfig
 	GetTeams() []*store.Team
@@ -186,6 +196,11 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	return ev, nil
 }
 
+// SetStatus sets status of event in cache
+func (ev *event) SetStatus(status string) {
+	ev.store.Status = status
+}
+
 func (ev *event) Start(ctx context.Context) error {
 
 	if err := ev.guac.Start(ctx); err != nil {
@@ -211,6 +226,34 @@ func (ev *event) Start(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+//Suspend function suspends event by using from event hub.
+func (ev *event) Suspend(ctx context.Context) error {
+	var teamLabSuspendError error
+	if err := ev.labhub.Suspend(ctx); err != nil {
+		return err
+	}
+
+	if err := ev.store.SetStatus(string(ev.store.Tag), Suspended); err != nil {
+		return err
+	}
+	return teamLabSuspendError
+}
+
+//Resume function resumes event by using event hub
+func (ev *event) Resume(ctx context.Context) error {
+	var teamLabResumeError error
+	if err := ev.labhub.Resume(ctx); err != nil {
+		return err
+	}
+
+	// sets status of the event on haaukins store
+	if err := ev.store.SetStatus(string(ev.store.Tag), Running); err != nil {
+		return err
+	}
+
+	return teamLabResumeError
 }
 
 func (ev *event) Close() error {

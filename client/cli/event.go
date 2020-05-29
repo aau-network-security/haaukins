@@ -30,8 +30,11 @@ func (c *Client) CmdEvent() *cobra.Command {
 	cmd.AddCommand(
 		c.CmdEventCreate(),
 		c.CmdEventStop(),
+		c.CmdEventSuspend(),
+		c.CmdEventResume(),
 		c.CmdEventList(),
 		c.CmdEventTeams(),
+
 		c.CmdEventTeamRestart())
 
 	return cmd
@@ -143,6 +146,74 @@ func (c *Client) CmdEventStop() *cobra.Command {
 	}
 }
 
+func (c *Client) CmdEventSuspend() *cobra.Command {
+	return &cobra.Command{
+		Use:     "suspend",
+		Short:   "Suspends event",
+		Example: "hkn event suspend <event-tag>",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			tag := args[0]
+			stream, err := c.rpcClient.SuspendEvent(ctx, &pb.SuspendEventRequest{
+				EventTag: tag,
+				Suspend:  true,
+			})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					PrintError(err)
+					return
+				}
+			}
+		},
+	}
+}
+
+func (c *Client) CmdEventResume() *cobra.Command {
+	return &cobra.Command{
+		Use:     "resume",
+		Short:   "Resumes event",
+		Example: "hkn event resume <event-tag>",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			tag := args[0]
+			stream, err := c.rpcClient.SuspendEvent(ctx, &pb.SuspendEventRequest{
+				EventTag: tag,
+				Suspend:  false,
+			})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					PrintError(err)
+					return
+				}
+			}
+		},
+	}
+}
+
 func (c *Client) CmdEvents() *cobra.Command {
 	return &cobra.Command{
 		Use:     "events",
@@ -159,8 +230,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME"},
-				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "STATUS", "CREATION TIME", "EXPECTED FINISH TIME"},
+				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "Status", "CreationTime", "FinishTime"},
 			}
 
 			var elements []formatElement

@@ -271,7 +271,8 @@ func New(conf *Config) (*daemon, error) {
 	var exercises []store.Tag
 
 	for _, ef := range eventsFromDB.Events {
-		if ef.FinishedAt == "" { //check if the event is finished or not
+
+		if ef.FinishedAt == "" { //check if the event is finished or suspended
 			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
 			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
 
@@ -291,12 +292,16 @@ func New(conf *Config) (*daemon, error) {
 				},
 				StartedAt:      &startedAt,
 				FinishExpected: &expectedFinishTime,
+				Status:         ef.Status,
 			}
+
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
+
 			}
 		}
+
 	}
 
 	return d, nil

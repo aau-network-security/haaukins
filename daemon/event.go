@@ -12,6 +12,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	Running   = "Running"
+	Suspended = "Suspended"
+)
+
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 func (d *daemon) startEvent(ev guacamole.Event) {
 	conf := ev.GetConfig()
@@ -65,16 +70,18 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
 
 	conf := store.EventConfig{
-		Name:           req.Name,
-		Tag:            evtag,
-		Available:      int(req.Available),
-		Capacity:       int(req.Capacity),
+		Name:      req.Name,
+		Tag:       evtag,
+		Available: int(req.Available),
+		Capacity:  int(req.Capacity),
+
 		StartedAt:      &now,
 		FinishExpected: &finishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
+		Status: Running,
 	}
 
 	if err := conf.Validate(); err != nil {
@@ -185,7 +192,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			Capacity:     int32(conf.Capacity),
 			CreationTime: conf.StartedAt.Format(displayTimeFormat),
 			FinishTime:   conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
-
+			Status:       conf.Status,
 		})
 	}
 
@@ -205,5 +212,34 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventCon
 	}
 
 	d.startEvent(ev)
+
+	return nil
+}
+
+// SuspendEvent manages suspension and resuming of given event
+// according to isSuspend value from request, resume or suspend function will be called
+func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_SuspendEventServer) error {
+	eventTag := store.Tag(req.EventTag)
+	isSuspend := req.Suspend
+	event, err := d.eventPool.GetEvent(eventTag)
+	if err != nil {
+		//return nil, err
+		return err
+	}
+	if isSuspend {
+		if err := event.Suspend(context.Background()); err != nil {
+			//return &pb.EventStatus{Status: "error", Entity: err.Error()}, err
+			return err
+		}
+		event.SetStatus(Suspended)
+		d.eventPool.handlers[eventTag] = suspendEventHandler()
+		return nil
+	}
+
+	if err := event.Resume(context.Background()); err != nil {
+		return err
+	}
+	d.eventPool.handlers[eventTag] = event.Handler()
+	event.SetStatus(Running)
 	return nil
 }

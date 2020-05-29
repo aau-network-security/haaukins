@@ -8,7 +8,9 @@ service Store {
     //Select
     rpc GetEvents (EmptyRequest) returns (GetEventResponse) {}
     rpc GetEventTeams (GetEventTeamsRequest) returns (GetEventTeamsResponse) {}
+    rpc GetEventStatus (GetEventStatusRequest) returns (EventStatus) {}
 
+    rpc SetEventStatus (SetEventStatusRequest) returns (EventStatus) {}
     //Update
     rpc UpdateEventFinishDate (UpdateEventRequest) returns (UpdateResponse) {}
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
@@ -16,6 +18,20 @@ service Store {
 }
 
 message EmptyRequest {}
+
+message GetEventStatusRequest {
+    string eventTag = 1;
+}
+
+message SetEventStatusRequest {
+    string eventTag = 1;
+    string status = 2;
+}
+
+message EventStatus {
+    string status = 1;
+}
+
 
 message AddEventRequest{
     string name = 1;
@@ -26,6 +42,7 @@ message AddEventRequest{
     int32 capacity = 6;
     string startTime = 7;
     string expectedFinishTime = 8;
+    string status = 9;
 }
 
 message AddTeamRequest{
@@ -52,6 +69,7 @@ message GetEventResponse{
         string startedAt = 7;
         string expectedFinishTime = 8;
         string finishedAt = 9;
+        string status = 10;
     }
     repeated Events events = 1;
     string errorMessage = 2;

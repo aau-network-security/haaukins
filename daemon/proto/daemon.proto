@@ -11,6 +11,7 @@ service Daemon {
 
   rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
+  rpc SuspendEvent(SuspendEventRequest) returns (stream EventStatus) {}
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
@@ -31,6 +32,11 @@ service Daemon {
 
 message Team {
   string Id = 1;
+}
+
+message SuspendEventRequest {
+  string eventTag = 1;
+  bool suspend = 2;
 }
 
 message SetTeamSuspendRequest {
@@ -117,6 +123,7 @@ message ListEventsResponse {
     int32 capacity = 5;
     string creationTime = 6;
     string finishTime = 7;
+    string status = 8;
   }
 
   repeated Events events = 1;
