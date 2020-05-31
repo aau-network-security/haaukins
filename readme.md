@@ -5,6 +5,9 @@
 <a href="https://beta.ntp-event.dk">
   <img src=https://img.shields.io/badge/platform-try%20haaukins-brightgreen>
   </a>
+  <a href="https://www.blackhat.com/eu-19/arsenal/schedule/#haaukins-a-highly-accessible-and-automated-virtualization-platform-for-security-education-18208">
+    <img src=https://img.shields.io/badge/BlackHat%20EU%202019%20-Arsenal-%2323211a52
+   </a>
   <a href="https://travis-ci.com/aau-network-security/haaukins">
     <img src="https://travis-ci.com/aau-network-security/haaukins.svg?branch=master" alt="Build Status">
   </a>
