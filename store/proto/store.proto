@@ -25,11 +25,11 @@ message GetEventStatusRequest {
 
 message SetEventStatusRequest {
     string eventTag = 1;
-    string status = 2;
+    int32 status = 2;
 }
 
 message EventStatus {
-    string status = 1;
+    int32 status = 1;
 }
 
 
@@ -42,7 +42,7 @@ message AddEventRequest{
     int32 capacity = 6;
     string startTime = 7;
     string expectedFinishTime = 8;
-    string status = 9;
+    int32 status = 9;
 }
 
 message AddTeamRequest{
@@ -69,7 +69,7 @@ message GetEventResponse{
         string startedAt = 7;
         string expectedFinishTime = 8;
         string finishedAt = 9;
-        string status = 10;
+        int32 status = 10;
     }
     repeated Events events = 1;
     string errorMessage = 2;

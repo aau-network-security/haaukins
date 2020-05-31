@@ -29,9 +29,13 @@ import (
 
 const (
 	displayTimeFormat = "2006-01-02 15:04:05"
-	Running           = "Running"
-	Suspended         = "Suspended"
+	Running           = State(0)
+	Booked            = State(1) // todo: will be added
+	Suspended         = State(2)
+	Error             = State(3)
 )
+
+type State int
 
 var (
 	RdpConfErr      = errors.New("error too few rdp connections")
@@ -109,7 +113,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		Exercises:          strings.Join(exercises, ","),
 		Available:          int32(conf.Available),
 		Capacity:           int32(conf.Capacity),
-		Status:             conf.Status,
+		Status:             int32(conf.Status),
 		StartTime:          conf.StartedAt.Format(displayTimeFormat),
 		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
 	})
@@ -139,7 +143,8 @@ type Event interface {
 	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
 
-	SetStatus(status string)
+	SetStatus(int32)
+	GetStatus() int32
 
 	GetConfig() store.EventConfig
 	GetTeams() []*store.Team
@@ -169,6 +174,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 		return nil, err
 	}
 
+	// todo: could be removed
 	dirname, err := store.GetDirNameForEvent(e.Dir, e.Tag, e.StartedAt)
 	if err != nil {
 		return nil, err
@@ -197,8 +203,12 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 }
 
 // SetStatus sets status of event in cache
-func (ev *event) SetStatus(status string) {
-	ev.store.Status = status
+func (ev *event) SetStatus(state int32) {
+	ev.store.Status = state
+}
+
+func (ev *event) GetStatus() int32 {
+	return ev.store.Status
 }
 
 func (ev *event) Start(ctx context.Context) error {
@@ -235,7 +245,7 @@ func (ev *event) Suspend(ctx context.Context) error {
 		return err
 	}
 
-	if err := ev.store.SetStatus(string(ev.store.Tag), Suspended); err != nil {
+	if err := ev.store.SetStatus(string(ev.store.Tag), int32(Suspended)); err != nil {
 		return err
 	}
 	return teamLabSuspendError
@@ -249,7 +259,7 @@ func (ev *event) Resume(ctx context.Context) error {
 	}
 
 	// sets status of the event on haaukins store
-	if err := ev.store.SetStatus(string(ev.store.Tag), Running); err != nil {
+	if err := ev.store.SetStatus(string(ev.store.Tag), int32(Running)); err != nil {
 		return err
 	}
 

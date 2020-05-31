@@ -12,11 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	Running   = "Running"
-	Suspended = "Suspended"
-)
-
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 func (d *daemon) startEvent(ev guacamole.Event) {
 	conf := ev.GetConfig()
@@ -81,7 +76,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
-		Status: Running,
+		Status: int32(guacamole.Running),
 	}
 
 	if err := conf.Validate(); err != nil {
@@ -231,7 +226,7 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_Susp
 			//return &pb.EventStatus{Status: "error", Entity: err.Error()}, err
 			return err
 		}
-		event.SetStatus(Suspended)
+		event.SetStatus(int32(guacamole.Suspended))
 		d.eventPool.handlers[eventTag] = suspendEventHandler()
 		return nil
 	}
@@ -240,6 +235,6 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_Susp
 		return err
 	}
 	d.eventPool.handlers[eventTag] = event.Handler()
-	event.SetStatus(Running)
+	event.SetStatus(int32(guacamole.Running))
 	return nil
 }

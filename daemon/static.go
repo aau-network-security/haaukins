@@ -11,14 +11,14 @@ const (
   <title>404 Not Found &mdash; Haaukins </title>
   <style>
 			   
-		@import url('https://fonts.googleapis.com/css?family=Roboto+Mono');
-
+		//@import url('https://fonts.googleapis.com/css?family=Roboto+Mono');
+		@import url('https://fonts.googleapis.com/css?family=Orbitron|Ubuntu&display=swap')
 		// helper
 		
 		
 		html, body {
-		  font-family: 'Roboto Mono', monospace;
-		  font-size: 16px;
+		  font-family: 'Orbitron|Ubuntu', monospace;
+		  font-size: 24px;
 		}
 		
 		html {
@@ -48,16 +48,6 @@ const (
 		  font-size: 24px;
 		  letter-spacing: .2px;
 		  margin: 0;
-		}
-		
-		.handle {
-		  background: #ffe500;
-		  width: 14px;
-		  height: 30px;
-		  top: 0;
-		  left: 0;
-		  margin-top: 1px;
-		  position: absolute;
 		}
 		
 		#cb-replay {
@@ -116,7 +106,6 @@ const (
     <p>
       404 Not Found
     </p>
-    <span class="handle"></span>
     <img src="https://raw.githubusercontent.com/aau-network-security/haaukins/master/.github/logo/white240px.png"  class="center">
     
     <div class="link-container">
