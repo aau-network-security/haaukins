@@ -3,15 +3,16 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"github.com/aau-network-security/haaukins/client/cli"
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/aau-network-security/haaukins/client/cli"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func TestListFrontends(t *testing.T) {
@@ -65,7 +66,7 @@ func TestListFrontends(t *testing.T) {
 
 			var d = &daemon{
 				conf: &Config{
-					ConfFiles:Files{OvaDir:tmpDir},
+					ConfFiles: Files{OvaDir: tmpDir},
 				},
 				eventPool: NewEventPool(""),
 				frontends: &fakeFrontendStore{},

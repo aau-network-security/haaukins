@@ -19,8 +19,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/aau-network-security/haaukins/event"
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/aau-network-security/haaukins/store"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
@@ -35,7 +36,6 @@ import (
 )
 
 var (
-
 	DuplicateEventErr    = errors.New("Event with that tag already exists")
 	UnknownEventErr      = errors.New("Unable to find event by that tag")
 	MissingTokenErr      = errors.New("No security token provided")
@@ -45,12 +45,12 @@ var (
 	NoLabByTeamIdErr     = errors.New("Lab is nil, no lab found for given team id ! ")
 	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
 	version              string
-
 )
 
 const (
-	MngtPort          = ":5454"
-	displayTimeFormat = "2006-01-02 15:04:05"
+	MngtPort             = ":5454"
+	displayTimeFormat    = "2006-01-02 15:04:05"
+	teamLabCheckInterval = 5
 )
 
 type MissingConfigErr struct {
@@ -77,7 +77,7 @@ type daemon struct {
 	exercises store.ExerciseStore
 	eventPool *eventPool
 	frontends store.FrontendStore
-	ehost     event.Host
+	ehost     guacamole.Host
 	logPool   logging.Pool
 	closers   []io.Closer
 }
@@ -240,7 +240,7 @@ func New(conf *Config) (*daemon, error) {
 		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
 	}
 
-  ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
@@ -262,7 +262,7 @@ func New(conf *Config) (*daemon, error) {
 		exercises: ef,
 		eventPool: eventPool,
 		frontends: ff,
-		ehost:     event.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc),
+		ehost:     guacamole.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 	}
@@ -271,11 +271,12 @@ func New(conf *Config) (*daemon, error) {
 	var exercises []store.Tag
 
 	for _, ef := range eventsFromDB.Events {
-		if ef.FinishedAt == "" { //check if the event is finished or not
+
+		if ef.FinishedAt == "" { //check if the event is finished or suspended
 			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
 			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
 
-      listOfExercises := strings.Split(ef.Exercises, ",")
+			listOfExercises := strings.Split(ef.Exercises, ",")
 			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
 			for _, e := range listOfExercises {
 				exercises = append(exercises, store.Tag(e))
@@ -291,12 +292,16 @@ func New(conf *Config) (*daemon, error) {
 				},
 				StartedAt:      &startedAt,
 				FinishExpected: &expectedFinishTime,
+				Status:         ef.Status,
 			}
+
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
+
 			}
 		}
+
 	}
 
 	return d, nil
@@ -346,6 +351,22 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	return []grpc.ServerOption{}, nil
 }
 
+func (d *daemon) Sleep() error {
+	ticker := time.NewTicker(teamLabCheckInterval * time.Hour) // every 5 hour check teams on each event
+	var err error
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if err := d.suspendTeams(); err != nil {
+					err = err
+				}
+			}
+		}
+	}()
+	return err
+}
+
 func (d *daemon) Run() error {
 
 	// start frontend
@@ -382,6 +403,8 @@ func (d *daemon) Run() error {
 
 	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
-
+	if err := d.Sleep(); err != nil {
+		log.Warn().Msgf("Error in sleep %v", err)
+	}
 	return s.Serve(lis)
 }

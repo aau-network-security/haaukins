@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	Running = State(0)
-	Stopped = State(1)
-	Error   = State(2)
+	Running   = State(0)
+	Stopped   = State(1)
+	Suspended = State(2)
+	Error     = State(3)
 )
 
 type State int
@@ -31,6 +32,7 @@ type Instance interface {
 	Create(context.Context) error
 	Start(context.Context) error
 	Run(context.Context) error
+	Suspend(context.Context) error
 	Stop() error
 	Info() InstanceInfo
 	io.Closer

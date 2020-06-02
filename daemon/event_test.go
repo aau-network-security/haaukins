@@ -3,14 +3,15 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"io"
+	"testing"
+	"time"
+
 	"github.com/aau-network-security/haaukins/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-	"io"
-	"testing"
-	"time"
 )
 
 func TestCreateEvent(t *testing.T) {
@@ -40,7 +41,7 @@ func TestCreateEvent(t *testing.T) {
 			ctx := context.Background()
 			eventPool := NewEventPool("")
 			d := &daemon{
-				conf:     &Config{},
+				conf:      &Config{},
 				eventPool: eventPool,
 				frontends: &fakeFrontendStore{},
 				exercises: exStore,
@@ -270,7 +271,7 @@ func TestListEvents(t *testing.T) {
 			finishDate, _ := time.Parse(time.Now().String(), displayTimeFormat)
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *ev
-				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i)),FinishExpected:&finishDate}
+				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i)), FinishExpected: &finishDate}
 				d.startEvent(&tempEvent)
 			}
 

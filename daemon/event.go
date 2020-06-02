@@ -2,16 +2,18 @@ package daemon
 
 import (
 	"context"
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/aau-network-security/haaukins/event"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/rs/zerolog/log"
 	"strings"
 	"time"
+
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/rs/zerolog/log"
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
-func (d *daemon) startEvent(ev event.Event) {
+func (d *daemon) startEvent(ev guacamole.Event) {
 	conf := ev.GetConfig()
 
 	var frontendNames []string
@@ -63,16 +65,18 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
 
 	conf := store.EventConfig{
-		Name:           req.Name,
-		Tag:            evtag,
-		Available:      int(req.Available),
-		Capacity:       int(req.Capacity),
+		Name:      req.Name,
+		Tag:       evtag,
+		Available: int(req.Available),
+		Capacity:  int(req.Capacity),
+
 		StartedAt:      &now,
 		FinishExpected: &finishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
+		Status: int32(guacamole.Running),
 	}
 
 	if err := conf.Validate(); err != nil {
@@ -123,16 +127,16 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	teams := ev.GetTeams()
 
 	for _, t := range teams {
+
+		accesedTime := t.LastAccessTime()
+
 		eventTeams = append(eventTeams, &pb.ListEventTeamsResponse_Teams{
-			Id:    strings.TrimSpace(t.ID()),
-			Name:  strings.TrimSpace(t.Name()),
-			Email: strings.TrimSpace(t.Email()),
+			Id:         strings.TrimSpace(t.ID()),
+			Name:       strings.TrimSpace(t.Name()),
+			Email:      strings.TrimSpace(t.Email()),
+			AccessedAt: accesedTime.Format(displayTimeFormat),
 		})
 
-		//todo Explain the meaning of this
-		//if t.AccessedAt != nil {
-		//	eventTeams[len(eventTeams)-1].AccessedAt = t.AccessedAt.Format(displayTimeFormat)
-		//}
 	}
 
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
@@ -175,16 +179,16 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		}
 
 		events = append(events, &pb.ListEventsResponse_Events{
-      
-			Tag:           string(conf.Tag),
-			Name:          conf.Name,
-			TeamCount:     int32(len(event.GetTeams())),
-			Exercises: 	   strings.Join(exercises, ","),
-			Capacity:      int32(conf.Capacity),
-			CreationTime:  conf.StartedAt.Format(displayTimeFormat),
-			FinishTime:    conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
 
-    })
+			Tag:          string(conf.Tag),
+			Name:         conf.Name,
+			TeamCount:    int32(len(event.GetTeams())),
+			Exercises:    strings.Join(exercises, ","),
+			Capacity:     int32(conf.Capacity),
+			CreationTime: conf.StartedAt.Format(displayTimeFormat),
+			FinishTime:   conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
+			Status:       conf.Status,
+		})
 	}
 
 	return &pb.ListEventsResponse{Events: events}, nil
@@ -203,5 +207,34 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventCon
 	}
 
 	d.startEvent(ev)
+
+	return nil
+}
+
+// SuspendEvent manages suspension and resuming of given event
+// according to isSuspend value from request, resume or suspend function will be called
+func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_SuspendEventServer) error {
+	eventTag := store.Tag(req.EventTag)
+	isSuspend := req.Suspend
+	event, err := d.eventPool.GetEvent(eventTag)
+	if err != nil {
+		//return nil, err
+		return err
+	}
+	if isSuspend {
+		if err := event.Suspend(context.Background()); err != nil {
+			//return &pb.EventStatus{Status: "error", Entity: err.Error()}, err
+			return err
+		}
+		event.SetStatus(int32(guacamole.Suspended))
+		d.eventPool.handlers[eventTag] = suspendEventHandler()
+		return nil
+	}
+
+	if err := event.Resume(context.Background()); err != nil {
+		return err
+	}
+	d.eventPool.handlers[eventTag] = event.Handler()
+	event.SetStatus(int32(guacamole.Running))
 	return nil
 }

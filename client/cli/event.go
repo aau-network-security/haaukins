@@ -8,11 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	pbar "github.com/schollz/progressbar"
 	"github.com/spf13/cobra"
-	"io"
-	"time"
 )
 
 var (
@@ -29,8 +30,11 @@ func (c *Client) CmdEvent() *cobra.Command {
 	cmd.AddCommand(
 		c.CmdEventCreate(),
 		c.CmdEventStop(),
+		c.CmdEventSuspend(),
+		c.CmdEventResume(),
 		c.CmdEventList(),
 		c.CmdEventTeams(),
+
 		c.CmdEventTeamRestart())
 
 	return cmd
@@ -38,11 +42,11 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 func (c *Client) CmdEventCreate() *cobra.Command {
 	var (
-		name      string
-		available int
-		capacity  int
-		frontends []string
-		exercises []string
+		name       string
+		available  int
+		capacity   int
+		frontends  []string
+		exercises  []string
 		finishTime string
 	)
 
@@ -55,13 +59,13 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:                 name,
-				Tag:                  tag,
-				Frontends:            frontends,
-				Exercises:            exercises,
-				Available:            int32(available),
-				Capacity:             int32(capacity),
-				FinishTime:           finishTime,
+				Name:       name,
+				Tag:        tag,
+				Frontends:  frontends,
+				Exercises:  exercises,
+				Available:  int32(available),
+				Capacity:   int32(capacity),
+				FinishTime: finishTime,
 			})
 			if err != nil {
 				PrintError(err)
@@ -142,6 +146,74 @@ func (c *Client) CmdEventStop() *cobra.Command {
 	}
 }
 
+func (c *Client) CmdEventSuspend() *cobra.Command {
+	return &cobra.Command{
+		Use:     "suspend",
+		Short:   "Suspends event",
+		Example: "hkn event suspend <event-tag>",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			tag := args[0]
+			stream, err := c.rpcClient.SuspendEvent(ctx, &pb.SuspendEventRequest{
+				EventTag: tag,
+				Suspend:  true,
+			})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					PrintError(err)
+					return
+				}
+			}
+		},
+	}
+}
+
+func (c *Client) CmdEventResume() *cobra.Command {
+	return &cobra.Command{
+		Use:     "resume",
+		Short:   "Resumes event",
+		Example: "hkn event resume <event-tag>",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			tag := args[0]
+			stream, err := c.rpcClient.SuspendEvent(ctx, &pb.SuspendEventRequest{
+				EventTag: tag,
+				Suspend:  false,
+			})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					PrintError(err)
+					return
+				}
+			}
+		},
+	}
+}
+
 func (c *Client) CmdEvents() *cobra.Command {
 	return &cobra.Command{
 		Use:     "events",
@@ -158,8 +230,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME"},
-				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "STATUS", "CREATION TIME", "EXPECTED FINISH TIME"},
+				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "Status", "CreationTime", "FinishTime"},
 			}
 
 			var elements []formatElement
