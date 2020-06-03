@@ -66,12 +66,6 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 			return MissingTagsErr
 		}
 
-		for _, t := range conf.Tags {
-			if _, ok := ee.tags[t]; ok {
-				return DuplicateTagErr
-			}
-		}
-
 		e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
 		if err := e.Create(ctx); err != nil {
 			return err

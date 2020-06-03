@@ -7,14 +7,16 @@ package lab
 import (
 	"context"
 	"errors"
+	"sync"
+
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 var (
 	ErrBufferSize = errors.New("Buffer cannot be larger than capacity")
 	ErrNoLabByTag = errors.New("Could not find lab by the specified tag")
+	MaxNewLabTry  = 5
 )
 
 type Hub interface {
@@ -46,9 +48,19 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int) (*hub, er
 		ctx := context.Background()
 		for range ready {
 			wg.Add(1)
-			lab, err := creator.NewLab(ctx)
+			var lab Lab
+			var err error
+			for i := 1; i < MaxNewLabTry; i++ {
+				lab, err = creator.NewLab(ctx)
+				if err == nil {
+					break
+				} else {
+					log.Error().Msgf("Error while creating new lab %s. Try n. %d", err.Error(), i)
+				}
+			}
 			if err != nil {
-				log.Error().Msgf("Error while creating new lab %s", err.Error())
+				log.Error().Msg("MaxNewLabTry reached (continue to don't cause haaukins crash)")
+				continue
 			}
 
 			if err := lab.Start(ctx); err != nil {
