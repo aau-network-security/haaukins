@@ -473,7 +473,7 @@ func NewNetwork() (Network, error) {
 			}},
 		},
 		Labels: map[string]string{
-			"kn": "lab_network",
+			"hkn": "lab_network",
 		},
 	}
 
