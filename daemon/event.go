@@ -46,9 +46,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
 	now := time.Now()
+	uniqueExercisesList := removeDuplicates(req.Exercises)
 
-	tags := make([]store.Tag, len(req.Exercises))
-	for i, s := range req.Exercises {
+	tags := make([]store.Tag, len(uniqueExercisesList))
+	for i, s := range uniqueExercisesList {
 		t, err := store.NewTag(s)
 		if err != nil {
 			return err
@@ -237,4 +238,19 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_Susp
 	d.eventPool.handlers[eventTag] = event.Handler()
 	event.SetStatus(int32(guacamole.Running))
 	return nil
+}
+
+//removeDuplicates removes duplicated values in given list
+// used incoming CreateEventRequest
+func removeDuplicates(exercises []string) []string {
+	k := make(map[string]bool)
+	var uniqueExercises []string
+
+	for _, e := range exercises {
+		if _, v := k[e]; !v {
+			k[e] = true
+			uniqueExercises = append(uniqueExercises, e)
+		}
+	}
+	return uniqueExercises
 }
