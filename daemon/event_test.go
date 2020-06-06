@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"testing"
 	"time"
 
@@ -323,6 +324,24 @@ func TestListEvents(t *testing.T) {
 				t.Fatalf("unexpected amount of events (expected: %d), received: %d", tc.count, n)
 			}
 
+		})
+	}
+}
+
+func Test_removeDuplicates(t *testing.T) {
+	tests := []struct {
+		name      string
+		exercises []string
+		want      []string
+	}{
+		{name: "List with duplicated values", exercises: []string{"test1", "test", "test2", "test1", "test3", "test23"}, want: []string{"test1", "test", "test2", "test3", "test23"}},
+		{name: "List without duplicated values", exercises: []string{"test", "test1", "test2"}, want: []string{"test", "test1", "test2"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := removeDuplicates(tt.exercises); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("removeDuplicates() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
