@@ -315,6 +315,7 @@ func (d *daemon) visitBookedEvents() error {
 
 	for _, event := range eventResponse.Events {
 		requestedStartTime, _ := time.Parse(time.RFC3339, event.StartedAt)
+		requestedFinishTime, _ := time.Parse(displayTimeFormat, event.ExpectedFinishTime)
 		if requestedStartTime.Before(now) || requestedStartTime.Equal(now) {
 			listOfExercises := strings.Split(event.Exercises, ",")
 			instanceConfig = append(instanceConfig, d.frontends.GetFrontends(event.Frontends)[0])
@@ -331,7 +332,7 @@ func (d *daemon) visitBookedEvents() error {
 					Exercises: exercises,
 				},
 				StartedAt:      &requestedStartTime,
-				FinishExpected: nil,
+				FinishExpected: &requestedFinishTime,
 				FinishedAt:     nil,
 				Status:         Running,
 			}
