@@ -52,6 +52,7 @@ const (
 	displayTimeFormat  = "2006-01-02 15:04:05"
 	labCheckInterval   = 5 * time.Hour
 	eventCheckInterval = 8 * time.Hour
+	closeEventCI       = 12 * time.Hour
 	Running            = int32(0)
 	Suspended          = int32(1)
 	Booked             = int32(2)
@@ -409,7 +410,8 @@ func (d *daemon) Run() error {
 
 	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
-	// scheduler part could be wrapped into something else for better code quality
+
+	// todo: scheduler part could be wrapped into something else for better code quality
 
 	// scheduler starts to suspend teams who are in inactivity mode for more than eight hours
 	if err := d.RunScheduler(d.suspendTeams, labCheckInterval); err != nil {
@@ -419,6 +421,12 @@ func (d *daemon) Run() error {
 	// scheduler for booked events
 	if err := d.RunScheduler(d.visitBookedEvents, eventCheckInterval); err != nil {
 		log.Warn().Msgf("Error in checking booked events %v", err)
+		return err
+	}
+
+	// scheduler for closing overdue events
+	if err := d.RunScheduler(d.closeEvents, closeEventCI); err != nil {
+		log.Warn().Msgf("Error in closing overdue events %v", err)
 		return err
 	}
 

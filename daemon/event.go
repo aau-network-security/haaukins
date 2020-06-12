@@ -344,3 +344,41 @@ func (d *daemon) visitBookedEvents() error {
 	}
 	return nil
 }
+
+// CloseEvents will fetch Running events from DB
+// compares finish time, closes events if required.
+func (d *daemon) closeEvents() error {
+
+	ctx := context.Background()
+	events, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: Running})
+	if err != nil {
+		log.Warn().Msgf("get events error on close overdue events %v ", err)
+		return err
+	}
+
+	for _, e := range events.Events {
+		eTag := store.Tag(e.Tag)
+
+		if checkTime(e.ExpectedFinishTime) {
+			event, err := d.eventPool.GetEvent(eTag)
+			if err != nil {
+				log.Warn().Msgf("event pool get event error %v ", err)
+				return err
+			}
+			if err := d.eventPool.RemoveEvent(eTag); err != nil {
+				return err
+			}
+			if err := event.Close(); err != nil {
+				return err
+			}
+			event.Finish() // Fini
+		}
+	}
+	return nil
+}
+
+func checkTime(customTime string) bool {
+	now := time.Now()
+	givenTime, _ := time.Parse(time.RFC3339, customTime)
+	return givenTime.Equal(now) || givenTime.Before(now)
+}
