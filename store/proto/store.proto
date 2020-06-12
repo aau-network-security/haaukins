@@ -6,7 +6,7 @@ service Store {
     rpc AddTeam (AddTeamRequest) returns (InsertResponse) {}
 
     //Select
-    rpc GetEvents (EmptyRequest) returns (GetEventResponse) {}
+    rpc GetEvents (GetEventRequest) returns (GetEventResponse) {}
     rpc GetEventTeams (GetEventTeamsRequest) returns (GetEventTeamsResponse) {}
     rpc GetEventStatus (GetEventStatusRequest) returns (EventStatus) {}
 
@@ -21,6 +21,14 @@ message EmptyRequest {}
 
 message GetEventStatusRequest {
     string eventTag = 1;
+}
+
+message GetEventRequest {
+    // this will indicate that whether all events requested or some by status
+    // status 0  > Running Events (which set as Running)
+    // status 1  > Suspended Events (which set as Suspended)
+    // status 2  > Booked Events (which are booked by client)
+    int32 status = 1;
 }
 
 message SetEventStatusRequest {

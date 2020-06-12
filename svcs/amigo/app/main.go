@@ -22,6 +22,9 @@ const (
 	authKey            = ""
 	signKey            = ""
 	configExercisePath = "" //absolute path
+	Running            = int32(0)
+	Suspended          = int32(1)
+	Booked             = int32(2)
 )
 
 func main() {
@@ -39,14 +42,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error on DB connection %s", err.Error())
 	}
-	eventsFromDB, err := dbc.GetEvents(context.Background(), &pbc.EmptyRequest{})
+	runningEvents, err := dbc.GetEvents(context.Background(), &pbc.GetEventRequest{Status: Running})
 	if err != nil {
 		log.Fatalf("Error on Getting events %s", err.Error())
 	}
 	var instanceConfig []store.InstanceConfig
 	var challenges []store.Tag
 	displayTimeFormat := "2006-01-02 15:04:05"
-	alphaEvent := eventsFromDB.Events[0]
+	alphaEvent := runningEvents.Events[0]
 	startedAt, _ := time.Parse(displayTimeFormat, alphaEvent.StartedAt)
 	finishedAt, _ := time.Parse(displayTimeFormat, alphaEvent.FinishedAt)
 	listOfExercises := strings.Split(alphaEvent.Exercises, ",")

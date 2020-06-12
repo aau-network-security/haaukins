@@ -48,9 +48,13 @@ var (
 )
 
 const (
-	MngtPort             = ":5454"
-	displayTimeFormat    = "2006-01-02 15:04:05"
-	teamLabCheckInterval = 5
+	MngtPort           = ":5454"
+	displayTimeFormat  = "2006-01-02 15:04:05"
+	labCheckInterval   = 5 * time.Hour
+	eventCheckInterval = 8 * time.Hour
+	Running            = int32(0)
+	Suspended          = int32(1)
+	Booked             = int32(2)
 )
 
 type MissingConfigErr struct {
@@ -80,6 +84,7 @@ type daemon struct {
 	ehost     guacamole.Host
 	logPool   logging.Pool
 	closers   []io.Closer
+	dbClient  pbc.StoreClient
 }
 
 func (m *MissingConfigErr) Error() string {
@@ -237,22 +242,22 @@ func New(conf *Config) (*daemon, error) {
 
 	dbc, err := store.NewGRPClientDBConnection(dbConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
+		return nil, fmt.Errorf("error on creating GRPClient DB Connection %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
+	// query running events only
+	runningEvents, err := dbc.GetEvents(ctx, &pbc.GetEventRequest{Status: Running})
 	if err != nil {
-		log.Error().Msgf("Error on getting events from database %v", err)
+		log.Error().Msgf("error on getting events from database %v", err)
 		return nil, store.TranslateRPCErr(err)
-
 	}
 
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
 	if err != nil {
-		return nil, fmt.Errorf("Error on creating new pool for looging :  %v", err)
+		return nil, fmt.Errorf("error on creating new pool for looging :  %v", err)
 	}
 
 	d := &daemon{
@@ -265,14 +270,15 @@ func New(conf *Config) (*daemon, error) {
 		ehost:     guacamole.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
+		dbClient:  dbc,
 	}
 
 	var instanceConfig []store.InstanceConfig
 	var exercises []store.Tag
 
-	for _, ef := range eventsFromDB.Events {
+	for _, ef := range runningEvents.Events {
 
-		if ef.FinishedAt == "" { //check if the event is finished or suspended
+		if ef.FinishedAt == "" { //check if the event is finished
 			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
 			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
 
@@ -351,20 +357,20 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	return []grpc.ServerOption{}, nil
 }
 
-func (d *daemon) Sleep() error {
-	ticker := time.NewTicker(teamLabCheckInterval * time.Hour) // every 5 hour check teams on each event
-	var err error
+func (d *daemon) RunScheduler(command func() error, timePeriod time.Duration) error {
+	ticker := time.NewTicker(timePeriod)
+	var schedulerError error
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				if err := d.suspendTeams(); err != nil {
-					err = err
+				if err := command(); err != nil {
+					schedulerError = err
 				}
 			}
 		}
 	}()
-	return err
+	return schedulerError
 }
 
 func (d *daemon) Run() error {
@@ -403,8 +409,33 @@ func (d *daemon) Run() error {
 
 	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
-	if err := d.Sleep(); err != nil {
+	// scheduler part could be wrapped into something else for better code quality
+
+	// scheduler starts to suspend teams who are in inactivity mode for more than eight hours
+	if err := d.RunScheduler(d.suspendTeams, labCheckInterval); err != nil {
 		log.Warn().Msgf("Error in sleep %v", err)
+		return err
 	}
+	// scheduler for booked events
+	if err := d.RunScheduler(d.visitBookedEvents, eventCheckInterval); err != nil {
+		log.Warn().Msgf("Error in checking booked events %v", err)
+		return err
+	}
+
 	return s.Serve(lis)
+}
+
+// calculateTotalConsumption will add up all running events resources
+func calculateTotalConsumption(d *daemon) int {
+	var totalConsumption int
+	for _, e := range d.eventPool.GetAllEvents() {
+		config := e.GetConfig()
+		if config.Status == Running {
+			totalConsumption += config.Capacity
+		}
+		// note that this is very raw calculation
+		// suspended resources could be excluded
+		totalConsumption += config.Available + len(e.GetTeams())
+	}
+	return totalConsumption
 }

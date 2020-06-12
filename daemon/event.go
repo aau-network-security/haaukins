@@ -2,8 +2,11 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
+
+	pbc "github.com/aau-network-security/haaukins/store/proto"
 
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 
@@ -43,6 +46,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Int32("capacity", req.Capacity).
 		Strs("frontends", req.Frontends).
 		Strs("exercises", req.Exercises).
+		Str("startTime", req.StartTime).
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
 	now := time.Now()
@@ -65,19 +69,31 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
 
+	// handling booked events might be changed
+	startTime, _ := time.Parse(time.RFC3339, req.StartTime)
+	// difference  in days
+	// if there is no difference in days it means event  will be
+	// started immediately
+	difference := int(startTime.Sub(now).Hours() / 24)
+	if difference > 1 {
+		if err := d.bookEvent(context.Background(), req); err != nil {
+			return err
+		}
+	}
+
 	conf := store.EventConfig{
 		Name:      req.Name,
 		Tag:       evtag,
 		Available: int(req.Available),
 		Capacity:  int(req.Capacity),
 
-		StartedAt:      &now,
+		StartedAt:      &startTime,
 		FinishExpected: &finishTime,
 		Lab: store.Lab{
 			Frontends: d.frontends.GetFrontends(req.Frontends...),
 			Exercises: tags,
 		},
-		Status: int32(guacamole.Running),
+		Status: Running,
 	}
 
 	if err := conf.Validate(); err != nil {
@@ -111,6 +127,34 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return err
 	}
 	d.startEvent(ev)
+
+	return nil
+}
+
+func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) error {
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return fmt.Errorf("invalid or no user information from incoming request %v", err)
+	}
+	if !user.SuperUser && calculateTotalConsumption(d) < 80 {
+		// todo: create db record as booked event
+		_, err := d.dbClient.AddEvent(ctx, &pbc.AddEventRequest{
+			Name: req.Name,
+			Tag:  req.Tag,
+			// risky getting value from static index
+			Frontends:          req.Frontends[0],
+			Exercises:          strings.Join(req.Exercises, ","),
+			Available:          req.Available,
+			Capacity:           req.Capacity,
+			StartTime:          req.StartTime,
+			ExpectedFinishTime: req.FinishTime,
+			Status:             Booked,
+		})
+		if err != nil {
+			log.Warn().Msgf("problem for inserting booked event into table, err %v", err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -227,7 +271,7 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_Susp
 			//return &pb.EventStatus{Status: "error", Entity: err.Error()}, err
 			return err
 		}
-		event.SetStatus(int32(guacamole.Suspended))
+		event.SetStatus(Suspended)
 		d.eventPool.handlers[eventTag] = suspendEventHandler()
 		return nil
 	}
@@ -236,7 +280,7 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_Susp
 		return err
 	}
 	d.eventPool.handlers[eventTag] = event.Handler()
-	event.SetStatus(int32(guacamole.Running))
+	event.SetStatus(Running)
 	return nil
 }
 
@@ -253,4 +297,49 @@ func removeDuplicates(exercises []string) []string {
 		}
 	}
 	return uniqueExercises
+}
+
+// a method which will start booked events by checking them in some predefined time intervals
+func (d *daemon) visitBookedEvents() error {
+	ctx := context.Background()
+	now := time.Now()
+	eventResponse, err := d.dbClient.GetEvents(context.Background(), &pbc.GetEventRequest{Status: Booked})
+	if err != nil {
+		log.Warn().Msgf("checking booked events error %v", err)
+		return err
+	}
+	var instanceConfig []store.InstanceConfig
+	var exercises []store.Tag
+
+	// code quality is NOT optimum :\
+
+	for _, event := range eventResponse.Events {
+		requestedStartTime, _ := time.Parse(time.RFC3339, event.StartedAt)
+		if requestedStartTime.Before(now) || requestedStartTime.Equal(now) {
+			listOfExercises := strings.Split(event.Exercises, ",")
+			instanceConfig = append(instanceConfig, d.frontends.GetFrontends(event.Frontends)[0])
+			for _, e := range listOfExercises {
+				exercises = append(exercises, store.Tag(e))
+			}
+			event := store.EventConfig{
+				Name:      event.Name,
+				Tag:       store.Tag(event.Tag),
+				Available: int(event.Available),
+				Capacity:  int(event.Capacity),
+				Lab: store.Lab{
+					Frontends: instanceConfig,
+					Exercises: exercises,
+				},
+				StartedAt:      &requestedStartTime,
+				FinishExpected: nil,
+				FinishedAt:     nil,
+				Status:         Running,
+			}
+			if err := d.createEventFromEventDB(ctx, event); err != nil {
+				log.Warn().Msgf("Error on creating booked event, event %s err %v", event.Tag, err)
+				return fmt.Errorf("error on booked event creation %v", err)
+			}
+		}
+	}
+	return nil
 }
