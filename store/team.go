@@ -166,6 +166,8 @@ type Challenge struct {
 	Value string //challenge flag value
 }
 
+type TeamSolvedHook func(*Team, TeamChallenge) error
+
 type Team struct {
 	m              sync.RWMutex
 	dbc            pbc.StoreClient
@@ -175,7 +177,7 @@ type Team struct {
 	hashedPassword string
 	challenges     map[Flag]TeamChallenge
 	solvedChalsDB  []TeamChallenge //json got from the DB containing list of solved Challenges
-	solvedHooks    []func(t *Team, chal TeamChallenge) error
+	solvedHooks    []TeamSolvedHook
 }
 
 type TeamChallenge struct {
@@ -327,8 +329,21 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 	if err != nil {
 		logger.Debug().Msgf("Unable to write the solved challenges in the DB")
 	}
-
 	t.m.Unlock()
+
+	// Run hooks using a copy of solvedHooks, this is because team should
+	// not be locked when running hooks on it.
+	t.m.RLock()
+	hooks := make([]TeamSolvedHook, len(t.solvedHooks))
+	copy(hooks, t.solvedHooks)
+	t.m.RUnlock()
+
+	for _, hook := range hooks {
+		if err := hook(t, chal); err != nil {
+			logger.Error().Err(err).Msg("Could not run solvedhook")
+		}
+	}
+
 	return nil
 }
 
@@ -363,18 +378,6 @@ func (t *Team) UpdateTeamSolvedChallenges(chal TeamChallenge) error {
 		return err
 	}
 
-	logger.Debug().Msgf("Running hooks %v", t.solvedHooks)
-	// Run hooks
-	t.m.RLock()
-	for _, hook := range t.solvedHooks {
-		logger.Debug().Msgf("Running hook %v", hook)
-		continue
-		if err := hook(t, chal); err != nil {
-			logger.Error().Err(err).Msg("Could not run solvedhook")
-		}
-	}
-	t.m.RUnlock()
-	logger.Debug().Msg("Done")
 	return nil
 }
 
