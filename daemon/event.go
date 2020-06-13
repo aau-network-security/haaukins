@@ -308,41 +308,52 @@ func (d *daemon) visitBookedEvents() error {
 		log.Warn().Msgf("checking booked events error %v", err)
 		return err
 	}
-	var instanceConfig []store.InstanceConfig
-	var exercises []store.Tag
 
 	// code quality is NOT optimum :\
 
 	for _, event := range eventResponse.Events {
 		requestedStartTime, _ := time.Parse(time.RFC3339, event.StartedAt)
-		requestedFinishTime, _ := time.Parse(displayTimeFormat, event.ExpectedFinishTime)
 		if requestedStartTime.Before(now) || requestedStartTime.Equal(now) {
-			listOfExercises := strings.Split(event.Exercises, ",")
-			instanceConfig = append(instanceConfig, d.frontends.GetFrontends(event.Frontends)[0])
-			for _, e := range listOfExercises {
-				exercises = append(exercises, store.Tag(e))
-			}
-			event := store.EventConfig{
-				Name:      event.Name,
-				Tag:       store.Tag(event.Tag),
-				Available: int(event.Available),
-				Capacity:  int(event.Capacity),
-				Lab: store.Lab{
-					Frontends: instanceConfig,
-					Exercises: exercises,
-				},
-				StartedAt:      &requestedStartTime,
-				FinishExpected: &requestedFinishTime,
-				FinishedAt:     nil,
-				Status:         Running,
-			}
-			if err := d.createEventFromEventDB(ctx, event); err != nil {
+			// set status to running if booked event startTime passed.
+			eventConfig := d.generateEventConfig(event, Running)
+			if err := d.createEventFromEventDB(ctx, eventConfig); err != nil {
 				log.Warn().Msgf("Error on creating booked event, event %s err %v", event.Tag, err)
 				return fmt.Errorf("error on booked event creation %v", err)
 			}
 		}
 	}
 	return nil
+}
+
+func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status int32) store.EventConfig {
+
+	var instanceConfig []store.InstanceConfig
+	var exercises []store.Tag
+
+	requestedStartTime, _ := time.Parse(time.RFC3339, event.StartedAt)
+	requestedFinishTime, _ := time.Parse(displayTimeFormat, event.ExpectedFinishTime)
+	listOfExercises := strings.Split(event.Exercises, ",")
+	instanceConfig = append(instanceConfig, d.frontends.GetFrontends(event.Frontends)[0])
+	for _, e := range listOfExercises {
+		exercises = append(exercises, store.Tag(e))
+	}
+
+	eventConfig := store.EventConfig{
+		Name:      event.Name,
+		Tag:       store.Tag(event.Tag),
+		Available: int(event.Available),
+		Capacity:  int(event.Capacity),
+		Lab: store.Lab{
+			Frontends: instanceConfig,
+			Exercises: exercises,
+		},
+		StartedAt:      &requestedStartTime,
+		FinishExpected: &requestedFinishTime,
+		FinishedAt:     nil,
+		Status:         status,
+	}
+
+	return eventConfig
 }
 
 // CloseEvents will fetch Running events from DB
@@ -371,7 +382,7 @@ func (d *daemon) closeEvents() error {
 			if err := event.Close(); err != nil {
 				return err
 			}
-			event.Finish() // Fini
+			event.Finish()
 		}
 	}
 	return nil

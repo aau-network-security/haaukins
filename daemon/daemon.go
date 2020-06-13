@@ -16,7 +16,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
@@ -274,33 +273,11 @@ func New(conf *Config) (*daemon, error) {
 		dbClient:  dbc,
 	}
 
-	var instanceConfig []store.InstanceConfig
-	var exercises []store.Tag
-
 	for _, ef := range runningEvents.Events {
 
 		if ef.FinishedAt == "" { //check if the event is finished
-			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
-			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
 
-			listOfExercises := strings.Split(ef.Exercises, ",")
-			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
-			for _, e := range listOfExercises {
-				exercises = append(exercises, store.Tag(e))
-			}
-			eventConfig := store.EventConfig{
-				Name:      ef.Name,
-				Tag:       store.Tag(ef.Tag),
-				Available: int(ef.Available),
-				Capacity:  int(ef.Capacity),
-				Lab: store.Lab{
-					Frontends: instanceConfig,
-					Exercises: exercises,
-				},
-				StartedAt:      &startedAt,
-				FinishExpected: &expectedFinishTime,
-				Status:         ef.Status,
-			}
+			eventConfig := d.generateEventConfig(ef, ef.Status)
 
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
