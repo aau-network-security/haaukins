@@ -308,9 +308,6 @@ func (d *daemon) visitBookedEvents() error {
 		log.Warn().Msgf("checking booked events error %v", err)
 		return err
 	}
-
-	// code quality is NOT optimum :\
-
 	for _, event := range eventResponse.Events {
 		requestedStartTime, _ := time.Parse(time.RFC3339, event.StartedAt)
 		if requestedStartTime.Before(now) || requestedStartTime.Equal(now) {

@@ -44,6 +44,7 @@ var (
 	NoLabByTeamIdErr     = errors.New("Lab is nil, no lab found for given team id ! ")
 	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
 	version              string
+	schedulers           []jobSpecs
 )
 
 const (
@@ -72,6 +73,11 @@ type contextStream struct {
 
 type GrpcLogger struct {
 	resp pb.Daemon_CreateEventServer
+}
+
+type jobSpecs struct {
+	function      func() error
+	checkInterval time.Duration
 }
 
 type daemon struct {
@@ -335,7 +341,9 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	return []grpc.ServerOption{}, nil
 }
 
-func (d *daemon) RunScheduler(command func() error, timePeriod time.Duration) error {
+func (d *daemon) RunScheduler(job jobSpecs) error {
+	timePeriod := job.checkInterval
+	command := job.function
 	ticker := time.NewTicker(timePeriod)
 	var schedulerError error
 	go func() {
@@ -388,22 +396,8 @@ func (d *daemon) Run() error {
 	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
 
-	// todo: scheduler part could be wrapped into something else for better code quality
-
-	// scheduler starts to suspend teams who are in inactivity mode for more than eight hours
-	if err := d.RunScheduler(d.suspendTeams, labCheckInterval); err != nil {
-		log.Warn().Msgf("Error in sleep %v", err)
-		return err
-	}
-	// scheduler for booked events
-	if err := d.RunScheduler(d.visitBookedEvents, eventCheckInterval); err != nil {
-		log.Warn().Msgf("Error in checking booked events %v", err)
-		return err
-	}
-
-	// scheduler for closing overdue events
-	if err := d.RunScheduler(d.closeEvents, closeEventCI); err != nil {
-		log.Warn().Msgf("Error in closing overdue events %v", err)
+	// initialize schedulers
+	if err := d.initializeScheduler(); err != nil {
 		return err
 	}
 
@@ -423,4 +417,30 @@ func calculateTotalConsumption(d *daemon) int {
 		totalConsumption += config.Available + len(e.GetTeams())
 	}
 	return totalConsumption
+}
+
+func (d *daemon) initializeScheduler() error {
+
+	jobs := make(map[string]jobSpecs)
+	jobs["Suspend Team Scheduler"] = jobSpecs{
+		function:      d.suspendTeams,
+		checkInterval: labCheckInterval,
+	}
+	jobs["Check Booked Event Scheduler"] = jobSpecs{
+		function:      d.visitBookedEvents,
+		checkInterval: eventCheckInterval,
+	}
+	jobs["Check Overdue Event Scheduler"] = jobSpecs{
+		function:      d.closeEvents,
+		checkInterval: closeEventCI,
+	}
+
+	for name, job := range jobs {
+		log.Info().Msgf("Running scheduler %s", name)
+		if err := d.RunScheduler(job); err != nil {
+			log.Error().Msgf("Error in scheduler with name %s and error %v ", name, err)
+			return err
+		}
+	}
+	return nil
 }
