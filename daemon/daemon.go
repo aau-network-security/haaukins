@@ -49,13 +49,17 @@ var (
 
 const (
 	MngtPort           = ":5454"
-	displayTimeFormat  = "2006-01-02 15:04:05"
+	displayTimeFormat  = time.RFC3339
 	labCheckInterval   = 5 * time.Hour
 	eventCheckInterval = 8 * time.Hour
 	closeEventCI       = 12 * time.Hour
 	Running            = int32(0)
 	Suspended          = int32(1)
 	Booked             = int32(2)
+
+	SuspendTeamS       = "Suspend Team Scheduler"
+	BookEventS         = "Check Booked Event Scheduler"
+	CheckOverdueEventS = "Check Overdue Event Scheduler"
 )
 
 type MissingConfigErr struct {
@@ -345,6 +349,7 @@ func (d *daemon) RunScheduler(job jobSpecs) error {
 	timePeriod := job.checkInterval
 	command := job.function
 	ticker := time.NewTicker(timePeriod)
+
 	var schedulerError error
 	go func() {
 		for {
@@ -354,8 +359,11 @@ func (d *daemon) RunScheduler(job jobSpecs) error {
 					schedulerError = err
 				}
 			}
+
 		}
+
 	}()
+
 	return schedulerError
 }
 
@@ -405,32 +413,30 @@ func (d *daemon) Run() error {
 }
 
 // calculateTotalConsumption will add up all running events resources
-func calculateTotalConsumption(d *daemon) int {
+func (d *daemon) calculateTotalConsumption() int {
 	var totalConsumption int
 	for _, e := range d.eventPool.GetAllEvents() {
 		config := e.GetConfig()
-		if config.Status == Running {
-			totalConsumption += config.Capacity
-		}
 		// note that this is very raw calculation
-		// suspended resources could be excluded
-		totalConsumption += config.Available + len(e.GetTeams())
+		//  only care Running events
+		if config.Status == Running {
+			totalConsumption += config.Available + len(e.GetTeams())
+		}
 	}
 	return totalConsumption
 }
 
 func (d *daemon) initializeScheduler() error {
-
 	jobs := make(map[string]jobSpecs)
-	jobs["Suspend Team Scheduler"] = jobSpecs{
+	jobs[SuspendTeamS] = jobSpecs{
 		function:      d.suspendTeams,
 		checkInterval: labCheckInterval,
 	}
-	jobs["Check Booked Event Scheduler"] = jobSpecs{
+	jobs[BookEventS] = jobSpecs{
 		function:      d.visitBookedEvents,
 		checkInterval: eventCheckInterval,
 	}
-	jobs["Check Overdue Event Scheduler"] = jobSpecs{
+	jobs[CheckOverdueEventS] = jobSpecs{
 		function:      d.closeEvents,
 		checkInterval: closeEventCI,
 	}

@@ -21,16 +21,12 @@ const (
 	ID_KEY            = "I"
 	TEAMNAME_KEY      = "TN"
 	token_key         = "testing"
-	displayTimeFormat = "2006-01-02 15:04:05"
+	displayTimeFormat = time.RFC3339
 )
 
 var (
-	//TeamExistsErr       = errors.New("Team already exists")
 	UnknownTeamErr  = errors.New("Unknown team")
 	UnknownTokenErr = errors.New("Unknown token")
-	//NoFrontendErr       = errors.New("lab requires at least one frontend")
-	// = errors.New("Incorrect value for flag")
-	//UnknownChallengeErr = errors.New("Unknown challenge")
 )
 
 type EventConfig struct {

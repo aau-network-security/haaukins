@@ -269,7 +269,7 @@ func TestListEvents(t *testing.T) {
 				},
 			}
 			startedAt, _ := time.Parse(tc.startedTime, displayTimeFormat)
-			finishDate, _ := time.Parse(time.Now().String(), displayTimeFormat)
+			finishDate, _ := time.Parse(time.Now().Format(displayTimeFormat), displayTimeFormat)
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *ev
 				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i)), FinishExpected: &finishDate}
@@ -341,6 +341,27 @@ func Test_removeDuplicates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := removeDuplicates(tt.exercises); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("removeDuplicates() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckTime(t *testing.T) {
+	now := time.Now()
+	noDelay := now.Add(time.Hour * 24).Format(displayTimeFormat)
+	tests := []struct {
+		name       string
+		customTime string
+		want       bool
+	}{
+		{name: "Current Time", customTime: time.Now().Format(displayTimeFormat), want: true},
+		{name: "Delayed", customTime: displayTimeFormat, want: true},
+		{name: "NotDelayed", customTime: noDelay, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isDelayed(tt.customTime); got != tt.want {
+				t.Errorf("isDelayed() = %v, want %v", got, tt.want)
 			}
 		})
 	}

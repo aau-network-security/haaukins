@@ -70,7 +70,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
 
 	// handling booked events might be changed
-	startTime, _ := time.Parse(time.RFC3339, req.StartTime)
+	startTime, _ := time.Parse(displayTimeFormat, req.StartTime)
 	// difference  in days
 	// if there is no difference in days it means event  will be
 	// started immediately
@@ -114,7 +114,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.String() == "" {
+	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.Format(displayTimeFormat) == "" {
 		expectedFinishTime := now.AddDate(0, 0, 15)
 		conf.FinishExpected = &expectedFinishTime
 	}
@@ -136,8 +136,7 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 	if err != nil {
 		return fmt.Errorf("invalid or no user information from incoming request %v", err)
 	}
-	if !user.SuperUser && calculateTotalConsumption(d) < 80 {
-		// todo: create db record as booked event
+	if !user.SuperUser && d.calculateTotalConsumption() < 80 {
 		_, err := d.dbClient.AddEvent(ctx, &pbc.AddEventRequest{
 			Name: req.Name,
 			Tag:  req.Tag,
@@ -309,7 +308,7 @@ func (d *daemon) visitBookedEvents() error {
 		return err
 	}
 	for _, event := range eventResponse.Events {
-		requestedStartTime, _ := time.Parse(time.RFC3339, event.StartedAt)
+		requestedStartTime, _ := time.Parse(displayTimeFormat, event.StartedAt)
 		if requestedStartTime.Before(now) || requestedStartTime.Equal(now) {
 			// set status to running if booked event startTime passed.
 			eventConfig := d.generateEventConfig(event, Running)
@@ -327,7 +326,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 	var instanceConfig []store.InstanceConfig
 	var exercises []store.Tag
 
-	requestedStartTime, _ := time.Parse(time.RFC3339, event.StartedAt)
+	requestedStartTime, _ := time.Parse(displayTimeFormat, event.StartedAt)
 	requestedFinishTime, _ := time.Parse(displayTimeFormat, event.ExpectedFinishTime)
 	listOfExercises := strings.Split(event.Exercises, ",")
 	instanceConfig = append(instanceConfig, d.frontends.GetFrontends(event.Frontends)[0])
@@ -356,7 +355,6 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 // CloseEvents will fetch Running events from DB
 // compares finish time, closes events if required.
 func (d *daemon) closeEvents() error {
-
 	ctx := context.Background()
 	events, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: Running})
 	if err != nil {
@@ -367,7 +365,7 @@ func (d *daemon) closeEvents() error {
 	for _, e := range events.Events {
 		eTag := store.Tag(e.Tag)
 
-		if checkTime(e.ExpectedFinishTime) {
+		if isDelayed(e.ExpectedFinishTime) {
 			event, err := d.eventPool.GetEvent(eTag)
 			if err != nil {
 				log.Warn().Msgf("event pool get event error %v ", err)
@@ -385,8 +383,8 @@ func (d *daemon) closeEvents() error {
 	return nil
 }
 
-func checkTime(customTime string) bool {
+func isDelayed(customTime string) bool {
 	now := time.Now()
-	givenTime, _ := time.Parse(time.RFC3339, customTime)
+	givenTime, _ := time.Parse(displayTimeFormat, customTime)
 	return givenTime.Equal(now) || givenTime.Before(now)
 }
