@@ -43,8 +43,11 @@ var (
 	GrpcOptsErr          = errors.New("failed to retrieve server options")
 	NoLabByTeamIdErr     = errors.New("Lab is nil, no lab found for given team id ! ")
 	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
-	version              string
-	schedulers           []jobSpecs
+	ReservedDomainErr    = errors.New("Reserved sub domain, change event tag !  ")
+
+	ReservedSubDomains = map[string]bool{"docs": true, "admin": true, "grpc": true}
+	version            string
+	schedulers         []jobSpecs
 )
 
 const (

@@ -49,7 +49,12 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Str("startTime", req.StartTime).
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
+
 	now := time.Now()
+	if ReservedSubDomains[strings.ToLower(req.Tag)] {
+		return ReservedDomainErr
+	}
+
 	uniqueExercisesList := removeDuplicates(req.Exercises)
 
 	tags := make([]store.Tag, len(uniqueExercisesList))
@@ -67,7 +72,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 	evtag, _ := store.NewTag(req.Tag)
 
-	finishTime, _ := time.Parse("2006-01-02", req.FinishTime)
+	finishTime, _ := time.Parse(displayTimeFormat, req.FinishTime)
 
 	// handling booked events might be changed
 	startTime, _ := time.Parse(displayTimeFormat, req.StartTime)
