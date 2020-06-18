@@ -2,7 +2,7 @@
 <p align="center"> 
 <img src=".github/logo/blue240px.png"  />
 <div align="center">
-<a href="https://beta.ntp-event.dk">
+<a href="https://alpha.haaukins.com">
   <img src=https://img.shields.io/badge/platform-try%20haaukins-brightgreen>
   </a>
   <a href="https://www.blackhat.com/eu-19/arsenal/schedule/#haaukins-a-highly-accessible-and-automated-virtualization-platform-for-security-education-18208">
@@ -38,7 +38,7 @@
 <h1>Haaukins </h1>
 </div>
 
-Haaukins is a highly accessible and automated virtualization platform for security education, it has three main components (Docker, Virtualbox and Golang), the communication and orchestration between the components managed using Go programming language. The main reason of having Go environment to manage and deploy something on Haaukins platform is that Go’s easy concurrency and parallelism mechanism. Want to get more insight about architecture of Haaukins visit [architecture page](https://github.com/aau-network-security/haaukins/wiki/Architecture-of-Haaukins)
+Haaukins is a highly accessible and automated virtualization platform for security education, it has three main components (Docker, Virtualbox and Golang), the communication and orchestration between the components managed using Go programming language. The main reason of having Go environment to manage and deploy something on Haaukins platform is that Go’s easy concurrency and parallelism mechanism. 
 
 Our primary aim to involve anyone who desire to learn capturing the flag concept in cyber security which is widely accepted approach to learn how to find vulnerability on a system. Despite of all existing platform, Haaukins provides its own virtualized environment to you with operating system which designed to find vulnerabilities
 
@@ -48,10 +48,10 @@ Our primary aim to involve anyone who desire to learn capturing the flag concept
 - [__Testing__](#testing)
 - [__Re-compile proto__](#re-compile-proto)
 - [__Version release__](#version-release)
+- [__Deployment__](#deployment)
 - [__Known issues__](#known-issues)
 - [__Contributing__](#contributing)
 - [__Event requests__](#event-requests)
-  - [Event Requests Form](#event-requests-form)
 - [__Credits__](#credits)  
 - [__License__](#license)
 
@@ -70,18 +70,7 @@ There is no prerequisites for installing client to your environment.
 
 ## __Installation__
 
-To install daemon or client of Haaukins,  there are some options, via binary files, which are ready to use, visit [releases](https://github.com/aau-network-security/haaukins/releases) page.
-
-More information about installation process, checkout following pages ; 
-
-* [Installation for client](https://github.com/aau-network-security/haaukins/wiki/Installation) 
-
-
-* [Configuration for daemon](https://github.com/aau-network-security/haaukins/wiki/Configuring-the-daemon)
-  - There are some configuration files to configure daemon, those configuration files should be in same directory with the binary file that you have just downloaded from [releases](https://github.com/aau-network-security/haaukins/releases) page. 
-  
-  - Want to try daemon on you local computer with pre-configured vagrant file check out this [repo](https://github.com/aau-network-security/sec0x) for more information. 
-
+Use documentation page for installation, other connected repositories and more through documentation site ; https://docs.haaukins.com
 
 ## __Getting Dependencies__
 
@@ -92,7 +81,7 @@ Haaukins platform uses `go modules` since version [1.6.4](https://github.com/aau
 Make sure that you are in `$GOPATH/src/github.com/aau-network-security/haaukins/` directory, to run all test files, following command can be used
 
 ```bash
-go test -v -short ./...
+go test -v --race  ./...
 ```
 
 ## __Re-compile proto__
@@ -105,20 +94,11 @@ protoc -I proto/ proto/daemon.proto --go_out=plugins=grpc:proto
 
 ## __Version release__
 
-In order to release a new version, run the `script/release/release.go` script as follows (choose depending on type of release):
-```bash
-$ go run $GOPATH/src/github.com/aau-network-security/haaukins/scripts/release/release.go major
-$ go run $GOPATH/src/github.com/aau-network-security/haaukins/scripts/release/release.go minor
-$ go run $GOPATH/src/github.com/aau-network-security/haaukins/scripts/release/release.go patch
-```
-The script will do the following:
+GoReleaser is handling release section, just tag the commit. 
 
-- Bump the version in `VERSION` and commit to git
-- Tag the current `HEAD` with the new version
-- Create new branch(es), which depends on the type of release.
-- Push to git
+## Deployment 
 
-Travis automatically creates a release on GitHub and deploys on `server`.
+Travis automatically deploys on `server`.
 
 Note: by default the script uses the `~/.ssh/id_rsa` key to push to GitHub.
 You can override this settings by the `HKN_RELEASE_PEMFILE` env var.
@@ -135,10 +115,7 @@ Check out the [Contributing Guide](.github/CONTRIBUTING.md) to get started.
 
 ## __Event requests__
 
-As AAU, we believe in power of open source community and would like to offer test our platform for organizations and events , if you would like to get your own domain which will be assigned by us please fill following the form and contact us in advance.
-After having your application, we will back to you as soon as possible 
-
-### [Event Requests Form](https://docs.google.com/forms/d/e/1FAIpQLSeyFTle_29Afck00hSHPU5nWT7QMWYd42yB76ABIoIMCewdRg/viewform)
+As AAU, we believe in power of open source community and would like to offer test our platform for organizations and users , if you would like to get your own domain which will be assigned by us please contact us in advance.
 
 ## __Credits__
 
