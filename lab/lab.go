@@ -50,9 +50,9 @@ func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
 		return nil, err
 	}
 
-	tracker := exercise.NewTracker(lh.Conf.Exercises)
+	tracker := exercise.NewTracker(lh.Conf.Exercises, env)
 
-	err := env.Add(ctx, tracker.GetExercises()...)
+	err := env.Add(ctx, lh.Conf.Exercises...)
 	if err != nil {
 		return nil, err
 	}

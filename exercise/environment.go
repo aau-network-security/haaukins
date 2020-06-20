@@ -6,6 +6,7 @@ package exercise
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -22,6 +23,7 @@ type Environment interface {
 	Create(context.Context) error
 	Add(context.Context, ...store.Exercise) error
 	ResetByTag(context.Context, string) error
+	RemoveByTag(context.Context, store.Tag) error
 	NetworkInterface() string
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
@@ -31,6 +33,8 @@ type Environment interface {
 }
 
 type environment struct {
+	// Locks the tags and exercise values
+	lock      sync.RWMutex
 	tags      map[store.Tag]*exercise
 	exercises []*exercise
 
@@ -61,6 +65,9 @@ func (ee *environment) Create(ctx context.Context) error {
 }
 
 func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
+	ee.lock.Lock()
+	defer ee.lock.Unlock()
+
 	for _, conf := range confs {
 		if len(conf.Tags) == 0 {
 			return MissingTagsErr
@@ -114,6 +121,8 @@ func (ee *environment) Start(ctx context.Context) error {
 
 	var res error
 	var wg sync.WaitGroup
+
+	ee.lock.RLock()
 	for _, ex := range ee.exercises {
 		wg.Add(1)
 		go func(e *exercise) {
@@ -123,6 +132,8 @@ func (ee *environment) Start(ctx context.Context) error {
 			wg.Done()
 		}(ex)
 	}
+	ee.lock.RUnlock()
+
 	wg.Wait()
 
 	return res
@@ -137,6 +148,9 @@ func (ee *environment) Stop() error {
 		return err
 	}
 
+	ee.lock.RLock()
+	defer ee.lock.RUnlock()
+
 	for _, e := range ee.exercises {
 		if err := e.Stop(); err != nil {
 			return err
@@ -148,6 +162,9 @@ func (ee *environment) Stop() error {
 
 func (ee *environment) Close() error {
 	var wg sync.WaitGroup
+
+	ee.lock.RLock()
+	defer ee.lock.RUnlock()
 
 	var closers []io.Closer
 	if ee.dhcpServer != nil {
@@ -187,10 +204,14 @@ func (ee *environment) ResetByTag(ctx context.Context, s string) error {
 		return err
 	}
 
+	ee.lock.RLock()
+
 	e, ok := ee.tags[t]
 	if !ok {
+		ee.lock.RUnlock()
 		return UnknownTagErr
 	}
+	ee.lock.RUnlock()
 
 	if err := e.Reset(ctx); err != nil {
 		return err
@@ -199,8 +220,47 @@ func (ee *environment) ResetByTag(ctx context.Context, s string) error {
 	return nil
 }
 
+func (ee *environment) RemoveByTag(ctx context.Context, t store.Tag) error {
+	fmt.Println("Exercises: %v", ee.tags)
+	e, ok := ee.tags[t]
+	if !ok {
+		return UnknownTagErr
+	}
+
+	ee.lock.Lock()
+	defer ee.lock.Unlock()
+
+	if err := e.Stop(); err != nil {
+		return err
+	}
+
+	if err := e.Close(); err != nil {
+		return err
+	}
+
+	// Remove from hashmap
+	delete(ee.tags, t)
+
+	// Kind of slow, this is only for feasability testing
+	var newarr []*exercise
+	for _, ex := range ee.exercises {
+		if ex == e {
+			continue
+		}
+		newarr = append(newarr, ex)
+	}
+
+	ee.exercises = newarr
+
+	return nil
+}
+
 func (ee *environment) Challenges() []store.Challenge {
 	var challenges []store.Challenge
+
+	ee.lock.RLock()
+	defer ee.lock.RUnlock()
+
 	for _, e := range ee.exercises {
 		challenges = append(challenges, e.Challenges()...)
 	}
@@ -210,6 +270,10 @@ func (ee *environment) Challenges() []store.Challenge {
 
 func (ee *environment) InstanceInfo() []virtual.InstanceInfo {
 	var instances []virtual.InstanceInfo
+
+	ee.lock.RLock()
+	defer ee.lock.RUnlock()
+
 	for _, e := range ee.exercises {
 		instances = append(instances, e.InstanceInfo()...)
 	}
@@ -228,11 +292,14 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 		}
 	}
 	var rrSet []dns.RR
+
+	ee.lock.RLock()
 	for _, e := range ee.exercises {
 		for _, record := range e.dnsRecords {
 			rrSet = append(rrSet, dns.RR{record.Name, record.Type, record.RData})
 		}
 	}
+	ee.lock.RUnlock()
 
 	serv, err := dns.New(rrSet)
 	if err != nil {

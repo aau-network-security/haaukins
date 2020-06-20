@@ -303,7 +303,6 @@ func (t *Team) AddChallenge(c Challenge) (Flag, error) {
 }
 
 func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
-	logger.Debug().Msg("Verify flag")
 	t.m.Lock()
 	chal, ok := t.challenges[f]
 
