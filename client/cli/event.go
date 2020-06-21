@@ -47,6 +47,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		capacity   int
 		frontends  []string
 		exercises  []string
+		startTime  string
 		finishTime string
 	)
 
@@ -65,6 +66,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Exercises:  exercises,
 				Available:  int32(available),
 				Capacity:   int32(capacity),
+				StartTime:  startTime,
 				FinishTime: finishTime,
 			})
 			if err != nil {
@@ -106,6 +108,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
 	cmd.Flags().StringVarP(&finishTime, "finishtime", "d", "", "expected finish time of the event")
+	// todo: fix timeformatting issue, important !, currently it is unable to format through CLI returns 0001-01-01 00:00:00
+	cmd.Flags().StringVarP(&startTime, "startTime", "s", time.Now().String(), "expected start time of the event")
 
 	cmd.MarkFlagRequired("name")
 

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -53,6 +54,7 @@ var (
 const (
 	MngtPort           = ":5454"
 	displayTimeFormat  = time.RFC3339
+	dbTimeFormat       = "2006-01-02 15:04:05"
 	labCheckInterval   = 5 * time.Hour
 	eventCheckInterval = 8 * time.Hour
 	closeEventCI       = 12 * time.Hour
@@ -416,17 +418,52 @@ func (d *daemon) Run() error {
 }
 
 // calculateTotalConsumption will add up all running events resources
-func (d *daemon) calculateTotalConsumption() int {
-	var totalConsumption int
-	for _, e := range d.eventPool.GetAllEvents() {
-		config := e.GetConfig()
-		// note that this is very raw calculation
-		//  only care Running events
-		if config.Status == Running {
-			totalConsumption += config.Available + len(e.GetTeams())
+func (d *daemon) isFree(sT, fT time.Time, capacity int32) (bool, error) {
+	log.Printf("Running isFree function")
+	ctx := context.Background()
+	m, err := d.dbClient.GetTimeSeries(ctx, &pbc.EmptyRequest{})
+	if err != nil {
+		log.Printf("Error on calculating cost %v", err)
+		return false, err
+	}
+
+	timeInterval := getDates(sT, fT)
+	for _, time := range timeInterval {
+		m.Timeseries[time.Format(dbTimeFormat)] += capacity
+		log.Printf("Checking availibility %d", m.Timeseries[time.Format(dbTimeFormat)])
+		if m.Timeseries[time.Format(dbTimeFormat)] > 80 {
+			// todo: return number of possible vms by dates
+			return false, errors.New("Not available resource to book/create the event!, you may choose different date range ")
 		}
 	}
-	return totalConsumption
+	return true, nil
+}
+
+func daysInDates(sT, fT time.Time) int {
+	days := fT.Sub(sT).Hours() / 24
+	return int(math.Round(days))
+}
+
+func zeroTime(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0000, time.UTC)
+}
+
+func getDates(sT, fT time.Time) []time.Time {
+	var dates []time.Time
+
+	// zeroing hour:minute:second and nanosecond and setting zone to UTC
+	sT = zeroTime(sT)
+	fT = zeroTime(fT)
+	// calculate # of days in between dates
+	days := daysInDates(sT, fT)
+	var count int
+	for count <= days {
+		date := sT
+		sT = date.AddDate(0, 0, 1)
+		dates = append(dates, date)
+		count++
+	}
+	return dates
 }
 
 func (d *daemon) initializeScheduler() error {

@@ -10,6 +10,8 @@ service Store {
     rpc GetEventTeams (GetEventTeamsRequest) returns (GetEventTeamsResponse) {}
     rpc GetEventStatus (GetEventStatusRequest) returns (EventStatus) {}
 
+    rpc GetTimeSeries(EmptyRequest) returns (GetTimeSeriesResponse) {}
+
     rpc SetEventStatus (SetEventStatusRequest) returns (EventStatus) {}
     //Update
     rpc UpdateEventFinishDate (UpdateEventRequest) returns (UpdateResponse) {}
@@ -18,6 +20,10 @@ service Store {
 }
 
 message EmptyRequest {}
+
+message GetTimeSeriesResponse {
+    map<string, int32> timeseries = 1;
+}
 
 message GetEventStatusRequest {
     string eventTag = 1;

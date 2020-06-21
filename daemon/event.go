@@ -76,6 +76,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 	// handling booked events might be changed
 	startTime, _ := time.Parse(displayTimeFormat, req.StartTime)
+
+	// checkTime format is '0001-01-01 00:00:00 '
+	if isInvalidDate(startTime) {
+		return fmt.Errorf("invalid starttime format %v", startTime)
+	}
 	// difference  in days
 	// if there is no difference in days it means event  will be
 	// started immediately
@@ -141,7 +146,23 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 	if err != nil {
 		return fmt.Errorf("invalid or no user information from incoming request %v", err)
 	}
-	if !user.SuperUser && d.calculateTotalConsumption() < 80 {
+	sT, err := time.Parse(dbTimeFormat, req.StartTime)
+	if err != nil {
+		return fmt.Errorf("start time parsing error %v", err)
+	}
+	fT, err := time.Parse(dbTimeFormat, req.FinishTime)
+	if err != nil {
+		return fmt.Errorf("finish time parsing error %v", err)
+	}
+	// todo: will be updated
+	isFree, err := d.isFree(sT, fT, req.Capacity)
+	if err != nil {
+		return err
+	}
+
+	// todo: update addEvent and add finishTime : 0001-01-01 00:00:00 for unfinished events
+
+	if !user.SuperUser && isFree {
 		_, err := d.dbClient.AddEvent(ctx, &pbc.AddEventRequest{
 			Name: req.Name,
 			Tag:  req.Tag,
@@ -392,4 +413,12 @@ func isDelayed(customTime string) bool {
 	now := time.Now()
 	givenTime, _ := time.Parse(displayTimeFormat, customTime)
 	return givenTime.Equal(now) || givenTime.Before(now)
+}
+
+func isInvalidDate(t time.Time) bool {
+	if t == time.Date(0001, 01, 01, 00, 00, 00, 0000, time.UTC) {
+		//log.Println("Error in parsing; invalid date 0001-01-01 00:00:00 +0000 UTC  ")
+		return true
+	}
+	return false
 }
