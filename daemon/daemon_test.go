@@ -260,41 +260,6 @@ func TestListEventTeams(t *testing.T) {
 	}
 }
 
-func TestCalculateTotalConsumption(t *testing.T) {
-	mainEventPool := NewEventPool("")
-	tests := []struct {
-		name      string
-		eventSpec eventSpecs
-		eventPool *eventPool
-		want      int
-	}{
-		// since we are adding all events into main event pool, want value should be cumulative
-		{name: "5 T, 10 A, 15 C", eventSpec: eventSpecs{tag: "event1", teams: 5, capacity: 15, available: 10, status: Running}, eventPool: mainEventPool, want: 15},
-		{name: "1 T, 5 A, 7 C", eventSpec: eventSpecs{tag: "event2", teams: 1, capacity: 20, available: 5, status: Running}, eventPool: mainEventPool, want: 21},
-		{name: "4 T, 5 A, 9 C", eventSpec: eventSpecs{tag: "event3", teams: 4, capacity: 9, available: 5, status: Running}, eventPool: mainEventPool, want: 30},
-		{name: "0 T, 3 A, 10 C", eventSpec: eventSpecs{tag: "event4", teams: 0, capacity: 10, available: 3, status: Running}, eventPool: mainEventPool, want: 33},
-		// calculateTotalConsumption will not care Suspended events for the moment, might be changed in future !
-		{name: "1 T, 214 A, 300 C", eventSpec: eventSpecs{tag: "event5", teams: 1, capacity: 300, available: 214, status: Suspended}, eventPool: mainEventPool, want: 33},
-		{name: "5 T, 700 A, 1000 C", eventSpec: eventSpecs{tag: "event6", teams: 5, capacity: 1000, available: 700, status: Suspended}, eventPool: mainEventPool, want: 33},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ev := fakeEvent{conf: store.EventConfig{Tag: tt.eventSpec.tag, Available: tt.eventSpec.available, Capacity: tt.eventSpec.capacity, Status: tt.eventSpec.status}, teams: []*store.Team{}, lab: &fakeLab{environment: &fakeEnvironment{}}}
-			for i := 0; i < tt.eventSpec.teams; i++ {
-				g := store.Team{}
-				ev.teams = append(ev.teams, &g)
-			}
-			tt.eventPool.AddEvent(&ev)
-			d := &daemon{
-				eventPool: tt.eventPool,
-			}
-			if got := d.calculateTotalConsumption(); got != tt.want {
-				t.Errorf("calculateTotalConsumption() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 type counter struct {
 	mu  sync.Mutex
 	val int32
