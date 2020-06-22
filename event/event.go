@@ -64,7 +64,7 @@ type eventHost struct {
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error) {
 
-	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
+	exer := store.NewExerciseProvider(eh.elib, conf.Lab.Exercises)
 
 	labConf := lab.Config{
 		Exercises: exer,
@@ -84,7 +84,12 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	if err != nil {
 		return nil, err
 	}
-	return NewEvent(eh.ctx, es, hub, labConf.Flags())
+
+	flags, err := labConf.Flags()
+	if err != nil {
+		return nil, err
+	}
+	return NewEvent(eh.ctx, es, hub, flags)
 }
 
 //Save the event in the DB and create the event configuration

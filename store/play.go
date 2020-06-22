@@ -2,17 +2,18 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	yaml "gopkg.in/yaml.v2"
 	"os"
+	"strings"
 	"sync"
 )
 
-var (
-	PlayNoStepsErr = errors.New("play must contain at least one step")
-)
+var playTagPrefix = "p-"
 
 var (
-	PlayNotFound = errors.New("play could not be found")
+	PlayNoStepsErr = errors.New("play must contain at least one step")
+	PlayPrefixErr  = fmt.Errorf("play tag must contain prefix %q", playTagPrefix)
 )
 
 type PlayStep struct {
@@ -35,6 +36,10 @@ type PlayStore interface {
 func (p Play) Validate() error {
 	if err := p.Tag.Validate(); err != nil {
 		return err
+	}
+
+	if !strings.HasPrefix(string(p.Tag), playTagPrefix) {
+		return PlayPrefixErr
 	}
 
 	if len(p.Steps) == 0 {

@@ -9,6 +9,7 @@ import (
 
 type Tracker interface {
 	AttachTeam(ctx context.Context, t *store.Team) error
+	CurrentExercises() ([]store.Exercise, error)
 }
 
 type exercisestate struct {
@@ -21,6 +22,7 @@ type exerciselist struct {
 	// Converts between challenge tags and their parent exercise tag
 	chalmap map[store.Tag]*exercisestate
 	env     Environment
+	ep      store.ExerciseProvider
 }
 
 func (el *exerciselist) markSolved(chal store.TeamChallenge) {
@@ -56,15 +58,32 @@ func (el *exerciselist) AttachTeam(ctx context.Context, t *store.Team) error {
 	return nil
 }
 
+func (el *exerciselist) CurrentExercises() ([]store.Exercise, error) {
+	keys := make([]store.Tag, 0, len(el.chalmap))
+	for _, state := range el.chalmap {
+		if len(state.unsolved) > 0 {
+			keys = append(keys, state.tag)
+		}
+	}
+
+	return el.ep.GetExercisesByTags(keys...)
+}
+
 // Creates a new tracker from a provider and a blank Environment to control
-func NewTracker(exer []store.Exercise, env Environment) Tracker {
+func NewTracker(ep store.ExerciseProvider, env Environment) (Tracker, error) {
 	el := &exerciselist{
 		chalmap: map[store.Tag]*exercisestate{},
 		env:     env,
+		ep:      ep,
+	}
+
+	exs, err := el.ep.GetExercises()
+	if err != nil {
+		return nil, err
 	}
 
 	// Loop all flags for all challenges
-	for _, ex := range exer {
+	for _, ex := range exs {
 		state := &exercisestate{
 			unsolved: map[store.Tag]bool{},
 			tag:      ex.Tags[0],
@@ -84,5 +103,5 @@ func NewTracker(exer []store.Exercise, env Environment) Tracker {
 		}
 	}
 
-	return el
+	return el, nil
 }

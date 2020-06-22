@@ -140,34 +140,46 @@ type ExerciseProviderInfo struct {
 // Provides exercises and flags for event and amigo.
 // Enables more dynamic environments such as Play
 type ExerciseProvider interface {
-	GetExercises() []Exercise
+	GetExercises() ([]Exercise, error)
 	Info() ExerciseProviderInfo
+	GetExercisesByTags(...Tag) ([]Exercise, error)
 }
 
 type exerciselist struct {
-	exercises []Exercise
+	exstore   ExerciseStore
+	exercises []Tag
 	info      ExerciseProviderInfo
 }
 
 // Create a bare bones ExerciseProvider from a list of tags
-func NewExerciseProvider(name, description string, exercises []Exercise) ExerciseProvider {
+func NewExerciseProvider(exstore ExerciseStore, exercises []Tag) ExerciseProvider {
 	el := &exerciselist{
+		exstore:   exstore,
 		exercises: exercises,
 		info: ExerciseProviderInfo{
-			Name:        name,
-			Description: description,
+			Name:        "",
+			Description: "",
 		},
 	}
 
 	return el
 }
 
-func (el *exerciselist) GetExercises() []Exercise {
-	return el.exercises
+func (el *exerciselist) GetExercises() ([]Exercise, error) {
+	return el.GetExercisesByTags(el.exercises...)
 }
 
 func (el *exerciselist) Info() ExerciseProviderInfo {
 	return el.info
+}
+
+func (el *exerciselist) GetExercisesByTags(tags ...Tag) ([]Exercise, error) {
+	exs, err := el.exstore.GetExercisesByTags(tags...)
+	if err != nil {
+		return nil, fmt.Errorf("fetching exercises from ExerciseStore: %w", err)
+	}
+
+	return exs, nil
 }
 
 type RecordConfig struct {

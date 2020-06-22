@@ -24,15 +24,20 @@ var (
 
 type Config struct {
 	Frontends []store.InstanceConfig
-	Exercises []store.Exercise
+	Exercises store.ExerciseProvider
 }
 
-func (conf Config) Flags() []store.FlagConfig {
+func (conf Config) Flags() ([]store.FlagConfig, error) {
+	exs, err := conf.Exercises.GetExercises()
+	if err != nil {
+		return nil, err
+	}
+
 	var res []store.FlagConfig
-	for _, exercise := range conf.Exercises {
+	for _, exercise := range exs {
 		res = append(res, exercise.Flags()...)
 	}
-	return res
+	return res, nil
 }
 
 type Creator interface {
@@ -50,9 +55,19 @@ func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
 		return nil, err
 	}
 
-	tracker := exercise.NewTracker(lh.Conf.Exercises, env)
+	tracker, err := exercise.NewTracker(lh.Conf.Exercises, env)
+	if err != nil {
+		return nil, err
+	}
 
-	err := env.Add(ctx, lh.Conf.Exercises...)
+	// TODO Getexercises is slower, is this a problem
+	// when it is called this much.
+	exs, err := lh.Conf.Exercises.GetExercises()
+	if err != nil {
+		return nil, err
+	}
+
+	err = env.Add(ctx, exs...)
 	if err != nil {
 		return nil, err
 	}
