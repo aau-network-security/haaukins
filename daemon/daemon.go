@@ -430,8 +430,8 @@ func (d *daemon) isFree(sT, fT time.Time, capacity int32) (bool, error) {
 	timeInterval := getDates(sT, fT)
 	for _, time := range timeInterval {
 		m.Timeseries[time.Format(dbTimeFormat)] += capacity
-		log.Printf("Checking availibility %d", m.Timeseries[time.Format(dbTimeFormat)])
-		if m.Timeseries[time.Format(dbTimeFormat)] > 80 {
+		//log.Printf("Checking availibility %d", m.Timeseries[time.Format(dbTimeFormat)])
+		if m.Timeseries[time.Format(dbTimeFormat)] > 90 {
 			// todo: return number of possible vms by dates
 			return false, errors.New("Not available resource to book/create the event!, you may choose different date range ")
 		}

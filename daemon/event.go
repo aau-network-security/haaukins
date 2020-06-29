@@ -3,15 +3,14 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	pbc "github.com/aau-network-security/haaukins/store/proto"
-
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
-
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
+	pbc "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/rs/zerolog/log"
 )
 
@@ -37,8 +36,9 @@ func (d *daemon) startEvent(ev guacamole.Event) {
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
-
-	log.Ctx(resp.Context()).
+	loggerInstance := &GrpcLogger{resp: resp}
+	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
+	log.Ctx(ctx).
 		Info().
 		Str("tag", req.Tag).
 		Str("name", req.Name).
@@ -75,20 +75,36 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	finishTime, _ := time.Parse(displayTimeFormat, req.FinishTime)
 
 	// handling booked events might be changed
-	startTime, _ := time.Parse(displayTimeFormat, req.StartTime)
+	// 2020-04-12 00:00:00
+	startTime, err := time.Parse(displayTimeFormat, req.StartTime)
+	if isInvalidDate(startTime) || err != nil {
+		log.Warn().Msgf("Error in time parsing ; startTime error %v", err)
+		// in case of err or having result of 0001-01-01 00:00:00
+		// very risky :\
+		startTime = parseStartTime(req.StartTime)
+	}
 
 	// checkTime format is '0001-01-01 00:00:00 '
 	if isInvalidDate(startTime) {
 		return fmt.Errorf("invalid starttime format %v", startTime)
 	}
+
+	// checking through eventPool is not good enough since booked events are not added to eventpool
+	_, statusErr := d.dbClient.GetEventStatus(ctx, &pbc.GetEventStatusRequest{EventTag: req.Tag})
+	if statusErr == nil {
+		return DuplicateEventErr
+	}
+
 	// difference  in days
 	// if there is no difference in days it means event  will be
 	// started immediately
 	difference := int(startTime.Sub(now).Hours() / 24)
+	fmt.Printf("StartTime difference %d", difference)
 	if difference > 1 {
-		if err := d.bookEvent(context.Background(), req); err != nil {
+		if err := d.bookEvent(ctx, req); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	conf := store.EventConfig{
@@ -110,7 +126,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return err
 	}
 
-	_, err := d.eventPool.GetEvent(evtag)
+	_, err = d.eventPool.GetEvent(evtag)
 
 	if err == nil {
 		return DuplicateEventErr
@@ -129,14 +145,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.FinishExpected = &expectedFinishTime
 	}
 
-	loggerInstance := &GrpcLogger{resp: resp}
-	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
-
-	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
-	if err != nil {
+	if err := d.createEventFromEventDB(ctx, conf); err != nil {
+		log.Warn().Msgf("Error happened in createEventFromDB %v", err)
 		return err
 	}
-	d.startEvent(ev)
 
 	return nil
 }
@@ -162,7 +174,10 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 
 	// todo: update addEvent and add finishTime : 0001-01-01 00:00:00 for unfinished events
 
-	if !user.SuperUser && isFree {
+	if user.SuperUser && isFree {
+		log.Info().Str("Event Name ", req.Name).
+			Str("Event Tag", req.Tag).
+			Msgf("Event is adding to database as booked ")
 		_, err := d.dbClient.AddEvent(ctx, &pbc.AddEventRequest{
 			Name: req.Name,
 			Tag:  req.Tag,
@@ -180,6 +195,7 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 			return err
 		}
 	}
+	log.Info().Msgf("Event %s is booked by %s  between %s and %s ", req.Tag, user.Name, req.StartTime, req.FinishTime)
 	return nil
 }
 
@@ -239,25 +255,33 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
+	// events are listed through database instead of eventPool
 
-	for _, event := range d.eventPool.GetAllEvents() {
-		conf := event.GetConfig()
+	eventsFromDB, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: 10})
+	if err != nil {
+		log.Error().Msgf("Retrieving events from db in ListEvent function %v", err)
+		return &pb.ListEventsResponse{}, err
+	}
+	log.Info().Msgf("Events from db queried length of events %d", len(eventsFromDB.Events))
 
-		var exercises []string
-		for _, ex := range conf.Lab.Exercises {
-			exercises = append(exercises, string(ex))
+	for _, e := range eventsFromDB.Events {
+		teamsFromDB, err := d.dbClient.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: e.Tag})
+		if err != nil {
+			log.Error().Msgf("Retrieving teams from db in ListEvent function %v", err)
+			return &pb.ListEventsResponse{}, err
 		}
+		teamCount := int32(len(teamsFromDB.Teams))
 
 		events = append(events, &pb.ListEventsResponse_Events{
 
-			Tag:          string(conf.Tag),
-			Name:         conf.Name,
-			TeamCount:    int32(len(event.GetTeams())),
-			Exercises:    strings.Join(exercises, ","),
-			Capacity:     int32(conf.Capacity),
-			CreationTime: conf.StartedAt.Format(displayTimeFormat),
-			FinishTime:   conf.FinishExpected.Format(displayTimeFormat), //This is the Expected finish time
-			Status:       conf.Status,
+			Tag:          string(e.Tag),
+			Name:         e.Name,
+			TeamCount:    teamCount,
+			Exercises:    e.Exercises,
+			Capacity:     e.Capacity,
+			CreationTime: e.StartedAt,
+			FinishTime:   e.ExpectedFinishTime, //This is the Expected finish time
+			Status:       e.Status,
 		})
 	}
 
@@ -421,4 +445,28 @@ func isInvalidDate(t time.Time) bool {
 		return true
 	}
 	return false
+}
+
+// This is NOT definitely good approach
+func parseStartTime(sT string) time.Time {
+	//[0] > date,  like 2020-05-20
+	//[1] > time,  like 00:00:00
+
+	// incoming time format 2020-06-02 00:00:00
+	timeInArray := strings.Split(sT, " ")
+	// date array  ["2020","05","12"] as an example
+	dateArray := strings.Split(timeInArray[0], "-")
+	hourArray := strings.Split(timeInArray[1], ":")
+	year := stringToInt(dateArray[0])
+	month := stringToInt(dateArray[1])
+	day := stringToInt(dateArray[2])
+	hour := stringToInt(hourArray[0])
+	minute := stringToInt(hourArray[0])
+	second := stringToInt(hourArray[0])
+	return time.Date(year, time.Month(month), day, hour, minute, second, 0000, time.UTC)
+}
+
+func stringToInt(s string) int {
+	result, _ := strconv.Atoi(s)
+	return result
 }
