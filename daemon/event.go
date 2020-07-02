@@ -71,17 +71,31 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		tags[i] = t
 	}
 	evtag, _ := store.NewTag(req.Tag)
-
-	finishTime, _ := time.Parse(displayTimeFormat, req.FinishTime)
+	var finishTime time.Time
+	// expected time format from CLI : 2020-04-13 00:00:00
+	// YYYY-MM-DD HH:MM:SS
+	if req.FinishTime != "" {
+		finishTime, err := time.Parse(dbTimeFormat, req.FinishTime)
+		if isInvalidDate(finishTime) || err != nil {
+			log.Warn().Msgf("Error in time parsing ; finishTime error %v", err)
+			// in case of err or having result of 0001-01-01 00:00:00
+			// risky :\
+			finishTime = parseTime(req.FinishTime)
+		}
+	} else {
+		finishTime, _ = time.Parse(dbTimeFormat, req.FinishTime)
+	}
 
 	// handling booked events might be changed
-	// 2020-04-12 00:00:00
-	startTime, err := time.Parse(displayTimeFormat, req.StartTime)
+
+	// expected time format from CLI : 2020-04-13 00:00:00
+	// YYYY-MM-DD HH:MM:SS
+	startTime, err := time.Parse(dbTimeFormat, req.StartTime)
 	if isInvalidDate(startTime) || err != nil {
 		log.Warn().Msgf("Error in time parsing ; startTime error %v", err)
 		// in case of err or having result of 0001-01-01 00:00:00
-		// very risky :\
-		startTime = parseStartTime(req.StartTime)
+		// risky :\
+		startTime = parseTime(req.StartTime)
 	}
 
 	// checkTime format is '0001-01-01 00:00:00 '
@@ -140,7 +154,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		conf.Capacity = 10
 	}
 
-	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.Format(displayTimeFormat) == "" {
+	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.Format(displayTimeFormat) == "" || isInvalidDate(*conf.FinishExpected) {
 		expectedFinishTime := now.AddDate(0, 0, 15)
 		conf.FinishExpected = &expectedFinishTime
 	}
@@ -172,11 +186,9 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 		return err
 	}
 
-	// todo: update addEvent and add finishTime : 0001-01-01 00:00:00 for unfinished events
-
 	if user.SuperUser && isFree {
 		log.Info().Str("Event Name ", req.Name).
-			Str("Event Tag", req.Tag).
+			Str("Event  Tag", req.Tag).
 			Msgf("Event is adding to database as booked ")
 		_, err := d.dbClient.AddEvent(ctx, &pbc.AddEventRequest{
 			Name: req.Name,
@@ -229,7 +241,9 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 }
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
-	log.Ctx(resp.Context()).
+	ctx := resp.Context()
+
+	log.Ctx(ctx).
 		Info().
 		Str("tag", req.Tag).
 		Msg("stop event")
@@ -248,6 +262,28 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return err
 	}
 
+	// check event status from database
+	// based on status take necessary action
+	status, err := d.dbClient.GetEventStatus(ctx, &pbc.GetEventStatusRequest{EventTag: string(evtag)})
+	if err != nil {
+		return fmt.Errorf("error happened on getting status of event, err: %v", err)
+	}
+
+	if status.Status == Running {
+		_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
+		if err != nil {
+			return fmt.Errorf("error happened on setting up status of event, err: %v", err)
+		}
+		// unix time will be unique
+		currentTime := strconv.Itoa(int(time.Now().Unix()))
+		newEventTag := fmt.Sprintf("%s-%s", string(evtag), currentTime)
+
+		_, err = d.dbClient.UpdateEventTag(ctx, &pbc.UpdateEventTagRequest{OldTag: string(evtag), NewTag: newEventTag})
+		if err != nil {
+			return fmt.Errorf("error on updating event tag %v", err)
+		}
+	}
+
 	ev.Close()
 	ev.Finish() // Finishing and archiving event....
 	return nil
@@ -262,7 +298,6 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		log.Error().Msgf("Retrieving events from db in ListEvent function %v", err)
 		return &pb.ListEventsResponse{}, err
 	}
-	log.Info().Msgf("Events from db queried length of events %d", len(eventsFromDB.Events))
 
 	for _, e := range eventsFromDB.Events {
 		teamsFromDB, err := d.dbClient.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: e.Tag})
@@ -294,7 +329,7 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventCon
 		return err
 	}
 
-	ev, err := d.ehost.CreateEventFromEventDB(ctx, conf)
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from database event")
 		return err
@@ -448,11 +483,11 @@ func isInvalidDate(t time.Time) bool {
 }
 
 // This is NOT definitely good approach
-func parseStartTime(sT string) time.Time {
+func parseTime(sT string) time.Time {
 	//[0] > date,  like 2020-05-20
 	//[1] > time,  like 00:00:00
 
-	// incoming time format 2020-06-02 00:00:00
+	// incoming titeTstme format 2020-06-02 00:00:00
 	timeInArray := strings.Split(sT, " ")
 	// date array  ["2020","05","12"] as an example
 	dateArray := strings.Split(timeInArray[0], "-")
@@ -461,8 +496,8 @@ func parseStartTime(sT string) time.Time {
 	month := stringToInt(dateArray[1])
 	day := stringToInt(dateArray[2])
 	hour := stringToInt(hourArray[0])
-	minute := stringToInt(hourArray[0])
-	second := stringToInt(hourArray[0])
+	minute := stringToInt(hourArray[1])
+	second := stringToInt(hourArray[2])
 	return time.Date(year, time.Month(month), day, hour, minute, second, 0000, time.UTC)
 }
 
