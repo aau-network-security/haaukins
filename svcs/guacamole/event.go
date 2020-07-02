@@ -32,7 +32,8 @@ const (
 	Running           = State(0)
 	Booked            = State(1) // todo: will be added
 	Suspended         = State(2)
-	Error             = State(3)
+	Closed            = State(3)
+	Error             = State(4)
 )
 
 type State int
