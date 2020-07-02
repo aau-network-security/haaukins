@@ -61,7 +61,7 @@ const (
 	Running            = int32(0)
 	Suspended          = int32(1)
 	Booked             = int32(2)
-
+	Closed             = int32(3)
 	SuspendTeamS       = "Suspend Team Scheduler"
 	BookEventS         = "Check Booked Event Scheduler"
 	CheckOverdueEventS = "Check Overdue Event Scheduler"
