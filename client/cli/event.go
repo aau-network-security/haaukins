@@ -107,9 +107,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximum amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
-	cmd.Flags().StringVarP(&finishTime, "finishtime", "d", "", "expected finish time of the event")
-	// todo: fix timeformatting issue, important !, currently it is unable to format through CLI returns 0001-01-01 00:00:00
-	cmd.Flags().StringVarP(&startTime, "starttime", "s", time.Now().String(), "expected start time of the event")
+	cmd.Flags().StringVarP(&finishTime, "finishtime", "d", time.Now().AddDate(0, 0, 15).Format("2006-01-02 15:04:05"), "expected finish time of the event")
+	cmd.Flags().StringVarP(&startTime, "starttime", "s", time.Now().Format("2006-01-02 15:04:05"), "expected start time of the event")
 	cmd.MarkFlagRequired("name")
 
 	return cmd
