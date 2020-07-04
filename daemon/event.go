@@ -113,7 +113,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	// if there is no difference in days it means event  will be
 	// started immediately
 	difference := int(startTime.Sub(now).Hours() / 24)
-	fmt.Printf("StartTime difference %d", difference)
 	if difference > 1 {
 		if err := d.bookEvent(ctx, req); err != nil {
 			return err
