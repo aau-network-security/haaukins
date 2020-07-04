@@ -289,9 +289,8 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	for _, ef := range runningEvents.Events {
-
-		if ef.FinishedAt == "" { //check if the event is finished
-
+		// check through status of event
+		if ef.Status == Running {
 			eventConfig := d.generateEventConfig(ef, ef.Status)
 
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
