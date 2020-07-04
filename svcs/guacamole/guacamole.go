@@ -10,14 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/aau-network-security/haaukins/svcs"
-	"github.com/aau-network-security/haaukins/svcs/amigo"
-	"github.com/aau-network-security/haaukins/virtual"
-	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -26,6 +18,15 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/svcs"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
+	"github.com/aau-network-security/haaukins/virtual"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -94,6 +95,7 @@ type Guacamole interface {
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
+	GetPort() uint
 	RawLogin(username, password string) ([]byte, error)
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo) svcs.ProxyConnector
 }
@@ -134,6 +136,10 @@ func (guac *guacamole) Close() error {
 		c.Close()
 	}
 	return nil
+}
+
+func (guac *guacamole) GetPort() uint {
+	return guac.webPort
 }
 
 func (guac *guacamole) GetAdminPass() string {
@@ -268,7 +274,7 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *am
 		return interceptors.Intercept(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				if isWebSocket(r) {
-					websocketProxy(host, ef, klp,am).ServeHTTP(w, r)
+					websocketProxy(host, ef, klp, am).ServeHTTP(w, r)
 					return
 				}
 
@@ -276,8 +282,6 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *am
 			}))
 	}
 }
-
-
 
 func (guac *guacamole) configureInstance() error {
 	temp := &guacamole{
@@ -701,7 +705,7 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool,am  *amigo.Amigo) http.Handler {
+func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool, am *amigo.Amigo) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
