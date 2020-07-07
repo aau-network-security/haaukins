@@ -114,7 +114,10 @@ message CreateEventRequest {
   string finishTime = 8;
 }
 
-message ListEventsRequest {}
+message ListEventsRequest {
+  int32 status = 1;
+}
+
 message ListEventsResponse {
   message Events {
     string tag = 1;
