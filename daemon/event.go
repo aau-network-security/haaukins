@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,10 @@ import (
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/rs/zerolog/log"
+)
+
+var (
+	NotAvailableTag = "not available tag, there is already an event which is either running, booked or suspended"
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
@@ -71,49 +76,32 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		tags[i] = t
 	}
 	evtag, _ := store.NewTag(req.Tag)
-	var finishTime time.Time
-	// expected time format from CLI : 2020-04-13 00:00:00
-	// YYYY-MM-DD HH:MM:SS
-	if req.FinishTime != "" {
-		finishTime, err := time.Parse(dbTimeFormat, req.FinishTime)
-		if isInvalidDate(finishTime) || err != nil {
-			log.Warn().Msgf("Error in time parsing ; finishTime error %v", err)
-			// in case of err or having result of 0001-01-01 00:00:00
-			// risky :\
-			finishTime = parseTime(req.FinishTime)
-		}
-	} else {
-		finishTime, _ = time.Parse(dbTimeFormat, req.FinishTime)
-	}
+	finishTime, _ := time.Parse(dbTimeFormat, req.FinishTime)
+	startTime, _ := time.Parse(dbTimeFormat, req.StartTime)
 
-	// handling booked events might be changed
-
-	// expected time format from CLI : 2020-04-13 00:00:00
-	// YYYY-MM-DD HH:MM:SS
-	startTime, err := time.Parse(dbTimeFormat, req.StartTime)
-	if isInvalidDate(startTime) || err != nil {
-		log.Warn().Msgf("Error in time parsing ; startTime error %v", err)
-		// in case of err or having result of 0001-01-01 00:00:00
-		// risky :\
-		startTime = parseTime(req.StartTime)
-	}
-
-	// checkTime format is '0001-01-01 00:00:00 '
 	if isInvalidDate(startTime) {
-		return fmt.Errorf("invalid starttime format %v", startTime)
+		return fmt.Errorf("invalid startTime format %v", startTime)
 	}
 
 	// checking through eventPool is not good enough since booked events are not added to eventpool
-	_, statusErr := d.dbClient.GetEventStatus(ctx, &pbc.GetEventStatusRequest{EventTag: req.Tag})
-	if statusErr == nil {
-		return DuplicateEventErr
+	isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
+		EventTag: req.Tag,
+		// it will take INVERT condition which means that query from
+		//Running, Suspended and Booked events
+		Status: Closed,
+	})
+	if err != nil {
+		return err
+	}
+	if isEventExist.IsExist {
+		return fmt.Errorf(NotAvailableTag)
 	}
 
 	// difference  in days
 	// if there is no difference in days it means event  will be
 	// started immediately
-	difference := int(startTime.Sub(now).Hours() / 24)
-	if difference > 1 {
+	difference := math.Round(startTime.Sub(now).Hours() / 24)
+	if difference >= 1 {
 		if err := d.bookEvent(ctx, req); err != nil {
 			return err
 		}
@@ -241,7 +229,7 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 
 func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
 	ctx := resp.Context()
-
+	var ev guacamole.Event
 	log.Ctx(ctx).
 		Info().
 		Str("tag", req.Tag).
@@ -251,16 +239,10 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	if err != nil {
 		return err
 	}
-	// retrieve tag of event from event pool
-	ev, err := d.eventPool.GetEvent(evtag)
-	if err != nil {
-		return err
-	}
-	// tag of the event is removed from eventPool
-	if err := d.eventPool.RemoveEvent(evtag); err != nil {
-		return err
-	}
 
+	// unix time will be unique
+	currentTime := strconv.Itoa(int(time.Now().Unix()))
+	newEventTag := fmt.Sprintf("%s-%s", string(evtag), currentTime)
 	// check event status from database
 	// based on status take necessary action
 	status, err := d.dbClient.GetEventStatus(ctx, &pbc.GetEventStatusRequest{EventTag: string(evtag)})
@@ -268,23 +250,42 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		return fmt.Errorf("error happened on getting status of event, err: %v", err)
 	}
 
-	if status.Status == Running {
+	if status.Status == Running || status.Status == Suspended {
 		_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
 		if err != nil {
 			return fmt.Errorf("error happened on setting up status of event, err: %v", err)
 		}
-		// unix time will be unique
-		currentTime := strconv.Itoa(int(time.Now().Unix()))
-		newEventTag := fmt.Sprintf("%s-%s", string(evtag), currentTime)
+
+		// retrieve tag of event from event pool
+		ev, err = d.eventPool.GetEvent(evtag)
+		if err != nil {
+			return err
+		}
+		// tag of the event is removed from eventPool
+		if err := d.eventPool.RemoveEvent(evtag); err != nil {
+			return err
+		}
+		ev.Close()
+		ev.Finish() // Finishing and archiving event....
 
 		_, err = d.dbClient.UpdateEventTag(ctx, &pbc.UpdateEventTagRequest{OldTag: string(evtag), NewTag: newEventTag})
 		if err != nil {
 			return fmt.Errorf("error on updating event tag %v", err)
 		}
+		return nil
+	}
+	if status.Status == Booked {
+		// no need to store booked event information
+		// if it is deleted when its status booked
+		r, err := d.dbClient.DropEvent(ctx, &pbc.DropEventReq{Status: Booked, Tag: req.Tag})
+		if err != nil {
+			return err
+		}
+		if r.IsDropped {
+			log.Info().Msgf("Booked event %s is dropped at %s", req.Tag, time.Now().Format(dbTimeFormat))
+		}
 	}
 
-	ev.Close()
-	ev.Finish() // Finishing and archiving event....
 	return nil
 }
 
@@ -292,7 +293,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	var events []*pb.ListEventsResponse_Events
 	// events are listed through database instead of eventPool
 
-	eventsFromDB, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: 10})
+	eventsFromDB, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: req.Status})
 	if err != nil {
 		log.Error().Msgf("Retrieving events from db in ListEvent function %v", err)
 		return &pb.ListEventsResponse{}, err
@@ -479,28 +480,4 @@ func isInvalidDate(t time.Time) bool {
 		return true
 	}
 	return false
-}
-
-// This is NOT definitely good approach
-func parseTime(sT string) time.Time {
-	//[0] > date,  like 2020-05-20
-	//[1] > time,  like 00:00:00
-
-	// incoming titeTstme format 2020-06-02 00:00:00
-	timeInArray := strings.Split(sT, " ")
-	// date array  ["2020","05","12"] as an example
-	dateArray := strings.Split(timeInArray[0], "-")
-	hourArray := strings.Split(timeInArray[1], ":")
-	year := stringToInt(dateArray[0])
-	month := stringToInt(dateArray[1])
-	day := stringToInt(dateArray[2])
-	hour := stringToInt(hourArray[0])
-	minute := stringToInt(hourArray[1])
-	second := stringToInt(hourArray[2])
-	return time.Date(year, time.Month(month), day, hour, minute, second, 0000, time.UTC)
-}
-
-func stringToInt(s string) int {
-	result, _ := strconv.Atoi(s)
-	return result
 }
