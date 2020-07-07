@@ -9,15 +9,16 @@ service Store {
     rpc GetEvents (GetEventRequest) returns (GetEventResponse) {}
     rpc GetEventTeams (GetEventTeamsRequest) returns (GetEventTeamsResponse) {}
     rpc GetEventStatus (GetEventStatusRequest) returns (EventStatus) {}
-
+    rpc IsEventExists(GetEventByTagReq) returns (GetEventByTagResp) {}
     rpc GetTimeSeries(EmptyRequest) returns (GetTimeSeriesResponse) {}
+    rpc DropEvent(DropEventReq) returns (DropEventResp){}
 
     rpc SetEventStatus (SetEventStatusRequest) returns (EventStatus) {}
     //Update
     rpc UpdateEventFinishDate (UpdateEventRequest) returns (UpdateResponse) {}
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
-    rpc UpdateEventTag (UpdateEventTagRequest) returns (EventStatus) {}
+    rpc UpdateEventTag (UpdateEventTagRequest) returns (UpdateResponse) {}
 }
 
 message EmptyRequest {}
@@ -30,11 +31,31 @@ message GetEventStatusRequest {
     string eventTag = 1;
 }
 
+message GetEventByTagReq {
+    string eventTag =1;
+    int32 status =2;
+}
+message GetEventByTagResp {
+    bool isExist=1;
+}
+
+message DropEventReq {
+    string tag =1;
+    int32 status=2;
+}
+
+message DropEventResp {
+    bool isDropped =1;
+}
+
+
+
 message GetEventRequest {
     // this will indicate that whether all events requested or some by status
     // status 0  > Running Events (which set as Running)
     // status 1  > Suspended Events (which set as Suspended)
     // status 2  > Booked Events (which are booked by client)
+    // status 3  > Closed Events (which are finished and closed )
     int32 status = 1;
 }
 
