@@ -374,25 +374,6 @@ func TestCheckTime(t *testing.T) {
 	}
 }
 
-func TestParseTime(t *testing.T) {
-
-	tests := []struct {
-		name string
-		sT   string
-		want time.Time
-	}{
-		{name: "Time Format 1 ", sT: "2020-04-20 15:00:00", want: toTime(2020, 4, 20, 15, 00, 00)},
-		{name: "Time Format 2", sT: "1998-02-14 00:00:00", want: toTime(1998, 2, 14, 00, 00, 00)},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := parseTime(tt.sT); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseTime() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func toTime(year, month, day, hour, minute, second int) time.Time {
 	return time.Date(year, time.Month(month), day, hour, minute, second, 0000, time.UTC)
 }
