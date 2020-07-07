@@ -46,7 +46,7 @@ var (
 	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
 	ReservedDomainErr    = errors.New("Reserved sub domain, change event tag !  ")
 
-	ReservedSubDomains = map[string]bool{"docs": true, "admin": true, "grpc": true}
+	ReservedSubDomains = map[string]bool{"docs": true, "admin": true, "grpc": true, "api": true}
 	version            string
 	schedulers         []jobSpecs
 )
