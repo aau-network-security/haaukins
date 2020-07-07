@@ -290,9 +290,11 @@ func New(conf *Config) (*daemon, error) {
 
 	for _, ef := range runningEvents.Events {
 		// check through status of event
-		if ef.Status == Running {
+		// suspended is also included since at first start
+		// daemon should be aware of the event which is suspended
+		// and configuration should be loaded to daemon
+		if ef.Status == Running || ef.Status == Suspended {
 			eventConfig := d.generateEventConfig(ef, ef.Status)
-
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
