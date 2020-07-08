@@ -123,7 +123,7 @@ func (fe *fakeEvent) Close() error {
 	return nil
 }
 
-func (fe *fakeEvent) Finish() {
+func (fe *fakeEvent) Finish(string) {
 	fe.m.Lock()
 	defer fe.m.Unlock()
 
