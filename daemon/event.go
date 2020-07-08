@@ -266,12 +266,8 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 			return err
 		}
 		ev.Close()
-		ev.Finish() // Finishing and archiving event....
+		ev.Finish(newEventTag) // Finishing and archiving event....
 
-		_, err = d.dbClient.UpdateEventTag(ctx, &pbc.UpdateEventTagRequest{OldTag: string(evtag), NewTag: newEventTag})
-		if err != nil {
-			return fmt.Errorf("error on updating event tag %v", err)
-		}
 		return nil
 	}
 	if status.Status == Booked {
@@ -449,7 +445,8 @@ func (d *daemon) closeEvents() error {
 
 	for _, e := range events.Events {
 		eTag := store.Tag(e.Tag)
-
+		currentTime := strconv.Itoa(int(time.Now().Unix()))
+		newEventTag := fmt.Sprintf("%s-%s", e.Tag, currentTime)
 		if isDelayed(e.ExpectedFinishTime) {
 			event, err := d.eventPool.GetEvent(eTag)
 			if err != nil {
@@ -462,7 +459,7 @@ func (d *daemon) closeEvents() error {
 			if err := event.Close(); err != nil {
 				return err
 			}
-			event.Finish()
+			event.Finish(newEventTag)
 		}
 	}
 	return nil

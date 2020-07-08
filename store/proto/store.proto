@@ -8,17 +8,16 @@ service Store {
     //Select
     rpc GetEvents (GetEventRequest) returns (GetEventResponse) {}
     rpc GetEventTeams (GetEventTeamsRequest) returns (GetEventTeamsResponse) {}
-    rpc GetEventStatus (GetEventStatusRequest) returns (EventStatus) {}
+    rpc GetEventStatus (GetEventStatusRequest) returns (EventStatusStore) {}
     rpc IsEventExists(GetEventByTagReq) returns (GetEventByTagResp) {}
     rpc GetTimeSeries(EmptyRequest) returns (GetTimeSeriesResponse) {}
     rpc DropEvent(DropEventReq) returns (DropEventResp){}
 
-    rpc SetEventStatus (SetEventStatusRequest) returns (EventStatus) {}
+    rpc SetEventStatus (SetEventStatusRequest) returns (EventStatusStore) {}
     //Update
-    rpc UpdateEventFinishDate (UpdateEventRequest) returns (UpdateResponse) {}
+    rpc UpdateCloseEvent (UpdateEventRequest) returns (UpdateResponse) {}
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
-    rpc UpdateEventTag (UpdateEventTagRequest) returns (UpdateResponse) {}
 }
 
 message EmptyRequest {}
@@ -32,20 +31,20 @@ message GetEventStatusRequest {
 }
 
 message GetEventByTagReq {
-    string eventTag =1;
-    int32 status =2;
+    string eventTag = 1;
+    int32 status = 2;
 }
 message GetEventByTagResp {
-    bool isExist=1;
+    bool isExist = 1;
 }
 
 message DropEventReq {
-    string tag =1;
-    int32 status=2;
+    string tag = 1;
+    int32 status =2;
 }
 
 message DropEventResp {
-    bool isDropped =1;
+    bool isDropped = 1;
 }
 
 
@@ -64,14 +63,8 @@ message SetEventStatusRequest {
     int32 status = 2;
 }
 
-message EventStatus {
+message EventStatusStore {
     int32 status = 1;
-}
-
-
-message UpdateEventTagRequest  {
-    string oldTag = 1;
-    string newTag = 2;
 }
 
 message AddEventRequest{
@@ -136,8 +129,9 @@ message GetEventTeamsResponse{
 }
 
 message UpdateEventRequest{
-    string eventId = 1;
-    string finishedAt = 2;
+    string oldTag = 1;
+    string newTag = 2;
+    string finishedAt = 3;
 }
 
 message UpdateTeamSolvedChallengeRequest{
