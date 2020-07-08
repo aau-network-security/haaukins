@@ -21,16 +21,12 @@ const (
 	ID_KEY            = "I"
 	TEAMNAME_KEY      = "TN"
 	token_key         = "testing"
-	displayTimeFormat = "2006-01-02 15:04:05"
+	displayTimeFormat = time.RFC3339
 )
 
 var (
-	//TeamExistsErr       = errors.New("Team already exists")
 	UnknownTeamErr  = errors.New("Unknown team")
 	UnknownTokenErr = errors.New("Unknown token")
-	//NoFrontendErr       = errors.New("lab requires at least one frontend")
-	// = errors.New("Incorrect value for flag")
-	//UnknownChallengeErr = errors.New("Unknown challenge")
 )
 
 type EventConfig struct {
@@ -85,15 +81,16 @@ func (e Event) SetCapacity(n int) error {
 	panic("implement me")
 }
 
-func (e Event) Finish(time time.Time) error {
+func (e Event) Finish(newTag string, time time.Time) error {
 
-	_, err := e.dbc.UpdateEventFinishDate(context.Background(), &pbc.UpdateEventRequest{
-		EventId:    string(e.Tag),
+	_, err := e.dbc.UpdateCloseEvent(context.Background(), &pbc.UpdateEventRequest{
+		OldTag:     string(e.Tag),
+		NewTag:     newTag,
 		FinishedAt: time.Format(displayTimeFormat),
 	})
 	if err != nil {
 
-		return err
+		return fmt.Errorf("error on closing event on the store %v", err)
 	}
 	return nil
 }

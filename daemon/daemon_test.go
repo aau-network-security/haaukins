@@ -6,7 +6,6 @@ package daemon
 
 import (
 	"fmt"
-
 	"net"
 	"net/http"
 	"sync"
@@ -40,6 +39,14 @@ const (
 type noAuth struct {
 	allowed   bool
 	superuser bool
+}
+
+type eventSpecs struct {
+	capacity  int
+	available int
+	tag       store.Tag
+	teams     int
+	status    int32
 }
 
 func (a *noAuth) AuthenticateContext(ctx context.Context) (context.Context, error) {
@@ -116,7 +123,7 @@ func (fe *fakeEvent) Close() error {
 	return nil
 }
 
-func (fe *fakeEvent) Finish() {
+func (fe *fakeEvent) Finish(string) {
 	fe.m.Lock()
 	defer fe.m.Unlock()
 
@@ -251,4 +258,67 @@ func TestListEventTeams(t *testing.T) {
 			}
 		})
 	}
+}
+
+type counter struct {
+	mu  sync.Mutex
+	val int32
+}
+
+func (c *counter) Add(val int32) {
+	c.mu.Lock()
+	c.val += val
+	c.mu.Unlock()
+}
+
+func (c *counter) Value() (val int32) {
+	c.mu.Lock()
+	val = c.val
+	c.mu.Unlock()
+	return
+}
+
+// RunScheduler runs multiple goroutines
+// in different time intervals
+func TestRunScheduler(t *testing.T) {
+	actualC1 := counter{}
+	actualC2 := counter{}
+
+	counter1 := "Counter Function 1"
+	counter2 := "Counter Function 2"
+
+	sleepTime := time.Millisecond * 10
+	jobs := make(map[string]jobSpecs)
+	jobs[counter1] = jobSpecs{
+		function: func() error {
+			actualC1.Add(1)
+			return nil
+		},
+		checkInterval: time.Millisecond * 2,
+	}
+	jobs[counter2] = jobSpecs{
+		function: func() error {
+			actualC2.Add(1)
+			return nil
+		},
+		checkInterval: time.Millisecond * 5,
+	}
+	d := &daemon{}
+
+	for _, job := range jobs {
+		if err := d.RunScheduler(job); err != nil {
+			t.Errorf("RunScheduler() error = %v", err)
+		}
+		time.Sleep(sleepTime)
+	}
+
+	// expectedValue: > sleepTime/checkInterval
+	expectedC1 := int32(sleepTime / jobs[counter1].checkInterval)
+	expectedC2 := int32(sleepTime / jobs[counter2].checkInterval)
+
+	if actualC1.Value() != expectedC1 && actualC2.Value() != expectedC2 {
+		t.Errorf("RunScheduler function err, excpected-actualC1: %d got-actualC1: %d /"+
+			" expected-c2: %d got-c2: %d", expectedC1, actualC1, expectedC2, actualC2)
+	}
+
 }

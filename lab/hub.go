@@ -49,6 +49,7 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int) (*hub, er
 		ctx := context.Background()
 		for range ready {
 			wg.Add(1)
+			// todo: handle this in case of error
 			lab, err := creator.NewLab(ctx)
 			if err != nil {
 				log.Error().Msgf("Error while creating new lab %s", err.Error())

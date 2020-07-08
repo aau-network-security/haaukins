@@ -32,7 +32,8 @@ const (
 	Running           = State(0)
 	Booked            = State(1) // todo: will be added
 	Suspended         = State(2)
-	Error             = State(3)
+	Closed            = State(3)
+	Error             = State(4)
 )
 
 type State int
@@ -139,7 +140,7 @@ type Event interface {
 	Suspend(context.Context) error
 	Resume(context.Context) error
 
-	Finish()
+	Finish(string)
 	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
 
@@ -283,9 +284,9 @@ func (ev *event) Close() error {
 	return nil
 }
 
-func (ev *event) Finish() {
+func (ev *event) Finish(newTag string) {
 	now := time.Now()
-	err := ev.store.Finish(now)
+	err := ev.store.Finish(newTag, now)
 	if err != nil {
 		log.Warn().Msgf("error while archiving event: %s", err)
 	}

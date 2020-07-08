@@ -11,12 +11,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
@@ -44,13 +44,27 @@ var (
 	GrpcOptsErr          = errors.New("failed to retrieve server options")
 	NoLabByTeamIdErr     = errors.New("Lab is nil, no lab found for given team id ! ")
 	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
-	version              string
+	ReservedDomainErr    = errors.New("Reserved sub domain, change event tag !  ")
+
+	ReservedSubDomains = map[string]bool{"docs": true, "admin": true, "grpc": true, "api": true}
+	version            string
+	schedulers         []jobSpecs
 )
 
 const (
-	MngtPort             = ":5454"
-	displayTimeFormat    = "2006-01-02 15:04:05"
-	teamLabCheckInterval = 5
+	MngtPort           = ":5454"
+	displayTimeFormat  = time.RFC3339
+	dbTimeFormat       = "2006-01-02 15:04:05"
+	labCheckInterval   = 5 * time.Hour
+	eventCheckInterval = 8 * time.Hour
+	closeEventCI       = 12 * time.Hour
+	Running            = int32(0)
+	Suspended          = int32(1)
+	Booked             = int32(2)
+	Closed             = int32(3)
+	SuspendTeamS       = "Suspend Team Scheduler"
+	BookEventS         = "Check Booked Event Scheduler"
+	CheckOverdueEventS = "Check Overdue Event Scheduler"
 )
 
 type MissingConfigErr struct {
@@ -70,6 +84,11 @@ type GrpcLogger struct {
 	resp pb.Daemon_CreateEventServer
 }
 
+type jobSpecs struct {
+	function      func() error
+	checkInterval time.Duration
+}
+
 type daemon struct {
 	conf      *Config
 	auth      Authenticator
@@ -80,6 +99,7 @@ type daemon struct {
 	ehost     guacamole.Host
 	logPool   logging.Pool
 	closers   []io.Closer
+	dbClient  pbc.StoreClient
 }
 
 func (m *MissingConfigErr) Error() string {
@@ -237,22 +257,22 @@ func New(conf *Config) (*daemon, error) {
 
 	dbc, err := store.NewGRPClientDBConnection(dbConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Error on creating GRPClient DB Connection %v", err)
+		return nil, fmt.Errorf("error on creating GRPClient DB Connection %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	eventsFromDB, err := dbc.GetEvents(ctx, &pbc.EmptyRequest{})
+	// query running events only
+	runningEvents, err := dbc.GetEvents(ctx, &pbc.GetEventRequest{Status: Running})
 	if err != nil {
-		log.Error().Msgf("Error on getting events from database %v", err)
+		log.Error().Msgf("error on getting events from database %v", err)
 		return nil, store.TranslateRPCErr(err)
-
 	}
 
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
 	if err != nil {
-		return nil, fmt.Errorf("Error on creating new pool for looging :  %v", err)
+		return nil, fmt.Errorf("error on creating new pool for looging :  %v", err)
 	}
 
 	d := &daemon{
@@ -265,36 +285,16 @@ func New(conf *Config) (*daemon, error) {
 		ehost:     guacamole.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
+		dbClient:  dbc,
 	}
 
-	var instanceConfig []store.InstanceConfig
-	var exercises []store.Tag
-
-	for _, ef := range eventsFromDB.Events {
-
-		if ef.FinishedAt == "" { //check if the event is finished or suspended
-			startedAt, _ := time.Parse(displayTimeFormat, ef.StartedAt)
-			expectedFinishTime, _ := time.Parse(displayTimeFormat, ef.ExpectedFinishTime)
-
-			listOfExercises := strings.Split(ef.Exercises, ",")
-			instanceConfig = append(instanceConfig, ff.GetFrontends(ef.Frontends)[0])
-			for _, e := range listOfExercises {
-				exercises = append(exercises, store.Tag(e))
-			}
-			eventConfig := store.EventConfig{
-				Name:      ef.Name,
-				Tag:       store.Tag(ef.Tag),
-				Available: int(ef.Available),
-				Capacity:  int(ef.Capacity),
-				Lab: store.Lab{
-					Frontends: instanceConfig,
-					Exercises: exercises,
-				},
-				StartedAt:      &startedAt,
-				FinishExpected: &expectedFinishTime,
-				Status:         ef.Status,
-			}
-
+	for _, ef := range runningEvents.Events {
+		// check through status of event
+		// suspended is also included since at first start
+		// daemon should be aware of the event which is suspended
+		// and configuration should be loaded to daemon
+		if ef.Status == Running || ef.Status == Suspended {
+			eventConfig := d.generateEventConfig(ef, ef.Status)
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
@@ -351,20 +351,26 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	return []grpc.ServerOption{}, nil
 }
 
-func (d *daemon) Sleep() error {
-	ticker := time.NewTicker(teamLabCheckInterval * time.Hour) // every 5 hour check teams on each event
-	var err error
+func (d *daemon) RunScheduler(job jobSpecs) error {
+	timePeriod := job.checkInterval
+	command := job.function
+	ticker := time.NewTicker(timePeriod)
+
+	var schedulerError error
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				if err := d.suspendTeams(); err != nil {
-					err = err
+				if err := command(); err != nil {
+					schedulerError = err
 				}
 			}
+
 		}
+
 	}()
-	return err
+
+	return schedulerError
 }
 
 func (d *daemon) Run() error {
@@ -403,8 +409,85 @@ func (d *daemon) Run() error {
 
 	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
-	if err := d.Sleep(); err != nil {
-		log.Warn().Msgf("Error in sleep %v", err)
+
+	// initialize schedulers
+	if err := d.initializeScheduler(); err != nil {
+		return err
 	}
+
 	return s.Serve(lis)
+}
+
+// calculateTotalConsumption will add up all running events resources
+func (d *daemon) isFree(sT, fT time.Time, capacity int32) (bool, error) {
+	log.Printf("Running isFree function")
+	ctx := context.Background()
+	m, err := d.dbClient.GetTimeSeries(ctx, &pbc.EmptyRequest{})
+	if err != nil {
+		log.Printf("Error on calculating cost %v", err)
+		return false, err
+	}
+
+	timeInterval := getDates(sT, fT)
+	for _, time := range timeInterval {
+		m.Timeseries[time.Format(dbTimeFormat)] += capacity
+		//log.Printf("Checking availibility %d", m.Timeseries[time.Format(dbTimeFormat)])
+		if m.Timeseries[time.Format(dbTimeFormat)] > 90 {
+			// todo: return number of possible vms by dates
+			return false, errors.New("Not available resource to book/create the event!, you may choose different date range ")
+		}
+	}
+	return true, nil
+}
+
+func daysInDates(sT, fT time.Time) int {
+	days := fT.Sub(sT).Hours() / 24
+	return int(math.Round(days))
+}
+
+func zeroTime(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0000, time.UTC)
+}
+
+func getDates(sT, fT time.Time) []time.Time {
+	var dates []time.Time
+
+	// zeroing hour:minute:second and nanosecond and setting zone to UTC
+	sT = zeroTime(sT)
+	fT = zeroTime(fT)
+	// calculate # of days in between dates
+	days := daysInDates(sT, fT)
+	var count int
+	for count <= days {
+		date := sT
+		sT = date.AddDate(0, 0, 1)
+		dates = append(dates, date)
+		count++
+	}
+	return dates
+}
+
+func (d *daemon) initializeScheduler() error {
+	jobs := make(map[string]jobSpecs)
+	jobs[SuspendTeamS] = jobSpecs{
+		function:      d.suspendTeams,
+		checkInterval: labCheckInterval,
+	}
+	jobs[BookEventS] = jobSpecs{
+		function:      d.visitBookedEvents,
+		checkInterval: eventCheckInterval,
+	}
+	jobs[CheckOverdueEventS] = jobSpecs{
+		function:      d.closeEvents,
+		checkInterval: closeEventCI,
+	}
+
+	for name, job := range jobs {
+		log.Info().Msgf("Running scheduler %s", name)
+		if err := d.RunScheduler(job); err != nil {
+			log.Error().Msgf("Error in scheduler with name %s and error %v ", name, err)
+			return err
+		}
+	}
+	return nil
 }

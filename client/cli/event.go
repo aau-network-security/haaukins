@@ -47,7 +47,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		capacity   int
 		frontends  []string
 		exercises  []string
-		finishTime string
+		startTime  uint64
+		finishTime uint64
 	)
 
 	cmd := &cobra.Command{
@@ -65,7 +66,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Exercises:  exercises,
 				Available:  int32(available),
 				Capacity:   int32(capacity),
-				FinishTime: finishTime,
+				StartTime:  time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
+				FinishTime: time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
 			})
 			if err != nil {
 				PrintError(err)
@@ -105,8 +107,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximum amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
-	cmd.Flags().StringVarP(&finishTime, "finishtime", "d", "", "expected finish time of the event")
-
+	cmd.Flags().Uint64VarP(&finishTime, "finishtime", "d", 15, "expected finish time of the event")
+	cmd.Flags().Uint64VarP(&startTime, "starttime", "s", 0, "expected start time of the event")
 	cmd.MarkFlagRequired("name")
 
 	return cmd
@@ -215,15 +217,19 @@ func (c *Client) CmdEventResume() *cobra.Command {
 }
 
 func (c *Client) CmdEvents() *cobra.Command {
-	return &cobra.Command{
+	//var arg bool
+	var status string
+	var statusID int32
+	cmd := &cobra.Command{
 		Use:     "events",
 		Short:   "List events",
-		Example: `hkn event list`,
+		Example: `hkn event list / hkn events --status closed `,
 		Run: func(cmd *cobra.Command, args []string) {
+
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-
-			r, err := c.rpcClient.ListEvents(ctx, &pb.ListEventsRequest{})
+			statusID = checkStatus(status)
+			r, err := c.rpcClient.ListEvents(ctx, &pb.ListEventsRequest{Status: statusID})
 			if err != nil {
 				PrintError(err)
 				return
@@ -247,6 +253,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+	cmd.Flags().StringVarP(&status, "status", "s", "running", "return events in given condition")
+	return cmd
 }
 
 func (c *Client) CmdEventList() *cobra.Command {
@@ -335,4 +343,23 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 
 		},
 	}
+}
+
+func checkStatus(status string) int32 {
+	var statusID int32
+	switch status {
+	case "running":
+		statusID = 0
+	case "suspended":
+		statusID = 1
+	case "booked":
+		statusID = 2
+	case "closed":
+		statusID = 3
+	case "all":
+		statusID = 99
+	default:
+		statusID = 0
+	}
+	return statusID
 }
