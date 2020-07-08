@@ -445,9 +445,10 @@ func (d *daemon) closeEvents() error {
 
 	for _, e := range events.Events {
 		eTag := store.Tag(e.Tag)
-		currentTime := strconv.Itoa(int(time.Now().Unix()))
-		newEventTag := fmt.Sprintf("%s-%s", e.Tag, currentTime)
+
 		if isDelayed(e.ExpectedFinishTime) {
+			currentTime := strconv.Itoa(int(time.Now().Unix()))
+			newEventTag := fmt.Sprintf("%s-%s", e.Tag, currentTime)
 			event, err := d.eventPool.GetEvent(eTag)
 			if err != nil {
 				log.Warn().Msgf("event pool get event error %v ", err)
