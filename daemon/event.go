@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	NPUserMaxLabs   = 40
 	NotAvailableTag = "not available tag, there is already an event which is either running, booked or suspended"
 )
 
@@ -55,102 +56,120 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Str("finishTime", req.FinishTime).
 		Msg("create event")
 
-	now := time.Now()
-	if ReservedSubDomains[strings.ToLower(req.Tag)] {
-		return ReservedDomainErr
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
-	uniqueExercisesList := removeDuplicates(req.Exercises)
-
-	tags := make([]store.Tag, len(uniqueExercisesList))
-	for i, s := range uniqueExercisesList {
-		t, err := store.NewTag(s)
-		if err != nil {
-			return err
-		}
-		// check exercise before creating event file
-		_, tagErr := d.exercises.GetExercisesByTags(t)
-		if tagErr != nil {
-			return tagErr
-		}
-		tags[i] = t
-	}
-	evtag, _ := store.NewTag(req.Tag)
-	finishTime, _ := time.Parse(dbTimeFormat, req.FinishTime)
-	startTime, _ := time.Parse(dbTimeFormat, req.StartTime)
-
-	if isInvalidDate(startTime) {
-		return fmt.Errorf("invalid startTime format %v", startTime)
+	if user.NPUser && req.Capacity > int32(NPUserMaxLabs) {
+		return fmt.Errorf("out of quota for members, you have limited access")
 	}
 
-	// checking through eventPool is not good enough since booked events are not added to eventpool
-	isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
-		EventTag: req.Tag,
-		// it will take INVERT condition which means that query from
-		//Running, Suspended and Booked events
-		Status: Closed,
-	})
+	isEligible, err := d.checkUserQuota(ctx, user.Username)
 	if err != nil {
 		return err
 	}
-	if isEventExist.IsExist {
-		return fmt.Errorf(NotAvailableTag)
-	}
 
-	// difference  in days
-	// if there is no difference in days it means event  will be
-	// started immediately
-	difference := math.Round(startTime.Sub(now).Hours() / 24)
-	if difference >= 1 {
-		if err := d.bookEvent(ctx, req); err != nil {
+	if (user.NPUser && isEligible) || !user.NPUser {
+
+		now := time.Now()
+		if ReservedSubDomains[strings.ToLower(req.Tag)] {
+			return ReservedDomainErr
+		}
+
+		uniqueExercisesList := removeDuplicates(req.Exercises)
+
+		tags := make([]store.Tag, len(uniqueExercisesList))
+		for i, s := range uniqueExercisesList {
+			t, err := store.NewTag(s)
+			if err != nil {
+				return err
+			}
+			// check exercise before creating event file
+			_, tagErr := d.exercises.GetExercisesByTags(t)
+			if tagErr != nil {
+				return tagErr
+			}
+			tags[i] = t
+		}
+		evtag, _ := store.NewTag(req.Tag)
+		finishTime, _ := time.Parse(dbTimeFormat, req.FinishTime)
+		startTime, _ := time.Parse(dbTimeFormat, req.StartTime)
+
+		if isInvalidDate(startTime) {
+			return fmt.Errorf("invalid startTime format %v", startTime)
+		}
+
+		// checking through eventPool is not good enough since booked events are not added to eventpool
+		isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
+			EventTag: req.Tag,
+			// it will take INVERT condition which means that query from
+			//Running, Suspended and Booked events
+			Status: Closed,
+		})
+		if err != nil {
+			return fmt.Errorf("event does not exist or something is wrong: %v", err)
+		}
+		if isEventExist.IsExist {
+			return fmt.Errorf(NotAvailableTag)
+		}
+
+		// difference  in days
+		// if there is no difference in days it means event  will be
+		// started immediately
+		difference := math.Round(startTime.Sub(now).Hours() / 24)
+		if difference >= 1 {
+			if err := d.bookEvent(ctx, req); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		conf := store.EventConfig{
+			Name:      req.Name,
+			Tag:       evtag,
+			Available: int(req.Available),
+			Capacity:  int(req.Capacity),
+
+			StartedAt:      &startTime,
+			FinishExpected: &finishTime,
+			Lab: store.Lab{
+				Frontends: d.frontends.GetFrontends(req.Frontends...),
+				Exercises: tags,
+			},
+			Status:    Running,
+			CreatedBy: user.Username,
+		}
+
+		if err := conf.Validate(); err != nil {
 			return err
 		}
-		return nil
+
+		_, err = d.eventPool.GetEvent(evtag)
+
+		if err == nil {
+			return DuplicateEventErr
+		}
+
+		if conf.Available == 0 {
+			conf.Available = 5
+		}
+
+		if conf.Capacity == 0 {
+			conf.Capacity = 10
+		}
+
+		if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.Format(displayTimeFormat) == "" || isInvalidDate(*conf.FinishExpected) {
+			expectedFinishTime := now.AddDate(0, 0, 15)
+			conf.FinishExpected = &expectedFinishTime
+		}
+
+		if err := d.createEventFromEventDB(ctx, conf); err != nil {
+			log.Warn().Msgf("Error happened in createEventFromDB %v", err)
+			return err
+		}
 	}
-
-	conf := store.EventConfig{
-		Name:      req.Name,
-		Tag:       evtag,
-		Available: int(req.Available),
-		Capacity:  int(req.Capacity),
-
-		StartedAt:      &startTime,
-		FinishExpected: &finishTime,
-		Lab: store.Lab{
-			Frontends: d.frontends.GetFrontends(req.Frontends...),
-			Exercises: tags,
-		},
-		Status: Running,
-	}
-
-	if err := conf.Validate(); err != nil {
-		return err
-	}
-
-	_, err = d.eventPool.GetEvent(evtag)
-
-	if err == nil {
-		return DuplicateEventErr
-	}
-
-	if conf.Available == 0 {
-		conf.Available = 5
-	}
-
-	if conf.Capacity == 0 {
-		conf.Capacity = 10
-	}
-
-	if conf.FinishExpected.Before(time.Now()) || conf.FinishExpected.Format(displayTimeFormat) == "" || isInvalidDate(*conf.FinishExpected) {
-		expectedFinishTime := now.AddDate(0, 0, 15)
-		conf.FinishExpected = &expectedFinishTime
-	}
-
-	if err := d.createEventFromEventDB(ctx, conf); err != nil {
-		log.Warn().Msgf("Error happened in createEventFromDB %v", err)
-		return err
-	}
-
 	return nil
 }
 
@@ -172,8 +191,11 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 	if err != nil {
 		return err
 	}
-
-	if user.SuperUser && isFree {
+	isQuotaAvailable, err := d.checkUserQuota(ctx, user.Username)
+	if err != nil {
+		return err
+	}
+	if (!user.NPUser && isFree) || (user.NPUser && isQuotaAvailable && isFree) {
 		log.Info().Str("Event Name ", req.Name).
 			Str("Event  Tag", req.Tag).
 			Msgf("Event is adding to database as booked ")
@@ -188,6 +210,7 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 			StartTime:          req.StartTime,
 			ExpectedFinishTime: req.FinishTime,
 			Status:             Booked,
+			CreatedBy:          user.Username,
 		})
 		if err != nil {
 			log.Warn().Msgf("problem for inserting booked event into table, err %v", err)
@@ -235,6 +258,12 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		Str("tag", req.Tag).
 		Msg("stop event")
 
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+
 	evtag, err := store.NewTag(req.Tag)
 	if err != nil {
 		return err
@@ -251,42 +280,61 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	}
 
 	if status.Status == Running || status.Status == Suspended {
-		_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
-		if err != nil {
-			return fmt.Errorf("error happened on setting up status of event, err: %v", err)
-		}
 
 		// retrieve tag of event from event pool
 		ev, err = d.eventPool.GetEvent(evtag)
 		if err != nil {
 			return err
 		}
-		// tag of the event is removed from eventPool
-		if err := d.eventPool.RemoveEvent(evtag); err != nil {
-			return err
-		}
-		ev.Close()
-		ev.Finish(newEventTag) // Finishing and archiving event....
+		createdBy := ev.GetConfig().CreatedBy
 
-		return nil
+		if (user.NPUser && user.Username == createdBy) || !user.NPUser {
+			_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
+			if err != nil {
+				return fmt.Errorf("error happened on setting up status of event, err: %v", err)
+			}
+
+			// tag of the event is removed from eventPool
+			if err := d.eventPool.RemoveEvent(evtag); err != nil {
+				return err
+			}
+			if err := ev.Close(); err != nil {
+				return err
+			}
+			ev.Finish(newEventTag) // Finishing and archiving event....
+			return nil
+		} else {
+			return fmt.Errorf("no priviledge to stop event %s", evtag)
+		}
 	}
 	if status.Status == Booked {
 		// no need to store booked event information
 		// if it is deleted when its status booked
-		r, err := d.dbClient.DropEvent(ctx, &pbc.DropEventReq{Status: Booked, Tag: req.Tag})
-		if err != nil {
-			return err
+		if user.NPUser {
+			eventResp, err := d.dbClient.GetEventByUser(ctx, &pbc.GetEventByUserReq{User: user.Username, Status: Booked})
+			if err != nil {
+				return fmt.Errorf("error on getting booked events for user %s, err : %v", user.Username, err)
+			}
+			for _, e := range eventResp.Events {
+				if e.CreatedBy == user.Username {
+					if err := d.dropEvent(ctx, req.Tag); err != nil {
+						return fmt.Errorf("err : %v username : %s", err, user.Username)
+					}
+				}
+			}
+			return nil
 		}
-		if r.IsDropped {
-			log.Info().Msgf("Booked event %s is dropped at %s", req.Tag, time.Now().Format(dbTimeFormat))
+		if err := d.dropEvent(ctx, req.Tag); err != nil {
+			return fmt.Errorf("err : %v username : %s", err, user.Username)
 		}
 	}
-
 	return nil
 }
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
+	// in list events there is no need to distinguish based on users.
+	// could be changed based on feedback
 	// events are listed through database instead of eventPool
 
 	eventsFromDB, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: req.Status})
@@ -313,6 +361,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			CreationTime: e.StartedAt,
 			FinishTime:   e.ExpectedFinishTime, //This is the Expected finish time
 			Status:       e.Status,
+			CreatedBy:    e.CreatedBy,
 		})
 	}
 
@@ -325,7 +374,7 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventCon
 		return err
 	}
 
-	ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
+	ev, err := d.ehost.CreateEventFromEventDB(ctx, conf)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from database event")
 		return err
@@ -338,7 +387,14 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventCon
 
 // SuspendEvent manages suspension and resuming of given event
 // according to isSuspend value from request, resume or suspend function will be called
-func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_SuspendEventServer) error {
+func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, resp pb.Daemon_SuspendEventServer) error {
+	ctx := resp.Context()
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+
 	eventTag := store.Tag(req.EventTag)
 	isSuspend := req.Suspend
 	event, err := d.eventPool.GetEvent(eventTag)
@@ -346,21 +402,26 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, server pb.Daemon_Susp
 		//return nil, err
 		return err
 	}
-	if isSuspend {
-		if err := event.Suspend(context.Background()); err != nil {
-			//return &pb.EventStatus{Status: "error", Entity: err.Error()}, err
+	createdBy := event.GetConfig().CreatedBy
+
+	if !user.NPUser || (user.NPUser && user.Username == createdBy) {
+		if isSuspend {
+			if err := event.Suspend(ctx); err != nil {
+				//return &pb.EventStatus{Status: "error", Entity: err.Error()}, err
+				return err
+			}
+			event.SetStatus(Suspended)
+			d.eventPool.handlers[eventTag] = suspendEventHandler()
+			return nil
+		}
+		// it is important to get context from resp.Context
+		// otherwise it cannot let it resume or suspend
+		if err := event.Resume(ctx); err != nil {
 			return err
 		}
-		event.SetStatus(Suspended)
-		d.eventPool.handlers[eventTag] = suspendEventHandler()
-		return nil
+		d.eventPool.handlers[eventTag] = event.Handler()
+		event.SetStatus(Running)
 	}
-
-	if err := event.Resume(context.Background()); err != nil {
-		return err
-	}
-	d.eventPool.handlers[eventTag] = event.Handler()
-	event.SetStatus(Running)
 	return nil
 }
 
@@ -428,6 +489,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		FinishExpected: &requestedFinishTime,
 		FinishedAt:     nil,
 		Status:         status,
+		CreatedBy:      event.CreatedBy,
 	}
 
 	return eventConfig
@@ -478,4 +540,32 @@ func isInvalidDate(t time.Time) bool {
 		return true
 	}
 	return false
+}
+
+func (d *daemon) checkUserQuota(ctx context.Context, user string) (bool, error) {
+	var cost int32
+	// will return invert case, if closed supplied to Status,
+	// then it means that all events which are not closed
+	events, err := d.dbClient.GetEventByUser(ctx, &pbc.GetEventByUserReq{User: user, Status: Closed})
+	if err != nil {
+		return false, err
+	}
+	for _, ev := range events.Events {
+		cost += ev.Capacity
+	}
+	if cost > int32(NPUserMaxLabs) {
+		return false, fmt.Errorf("user %s has %d labs already, out of quota error ", user, cost)
+	}
+	return true, nil
+
+}
+func (d *daemon) dropEvent(ctx context.Context, evTag string) error {
+	r, err := d.dbClient.DropEvent(ctx, &pbc.DropEventReq{Status: Booked, Tag: evTag})
+	if err != nil {
+		return err
+	}
+	if r.IsDropped {
+		log.Info().Msgf("Booked event %s is dropped at %s", evTag, time.Now().Format(dbTimeFormat))
+	}
+	return nil
 }
