@@ -65,8 +65,8 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&superUser, "super-user", "s", false, "indicates if the signup key will create a super user")
-	cmd.Flags().BoolVarP(&npUser, "member", "m", false, "indicated if the signup key will create a super user ")
+	cmd.Flags().BoolVarP(&superUser, "super-user", "s", false, "indicates if the sign up key will create a super user")
+	cmd.Flags().BoolVarP(&npUser, "member", "m", false, "indicated if the sign up key will create a non-privileged user ")
 	return cmd
 }
 
