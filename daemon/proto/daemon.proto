@@ -83,6 +83,7 @@ message SignupUserRequest {
 
 message InviteUserRequest {
   bool super_user = 1;
+  bool np_user =2;
 }
 
 message InviteUserResponse {
@@ -128,6 +129,7 @@ message ListEventsResponse {
     string creationTime = 6;
     string finishTime = 7;
     int32 status = 8;
+    string createdBy = 9;
   }
 
   repeated Events events = 1;
