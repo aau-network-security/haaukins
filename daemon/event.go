@@ -2,8 +2,12 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"math/rand"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +19,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	charSet = "abcdefghijklmnopqrstuvwxyz" +
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	numSet = "0123456789"
+)
+
 var (
-	NotAvailableTag = "not available tag, there is already an event which is either running, booked or suspended"
+	NotAvailableTag         = "not available tag, there is already an event which is either running, booked or suspended"
+	NoPrivilegeToStressTest = errors.New("No privilege to have stress test on Haaukins !")
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
@@ -464,6 +475,86 @@ func (d *daemon) closeEvents() error {
 		}
 	}
 	return nil
+}
+
+// StressEvent is making requests to daemon to see how daemon can handle them
+func (d *daemon) StressEvent(ctx context.Context, req *pb.TestEventLoadReq) (*pb.TestEventLoadResp, error) {
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return &pb.TestEventLoadResp{}, err
+	}
+	if !user.SuperUser {
+		return &pb.TestEventLoadResp{}, NoPrivilegeToStressTest
+	}
+
+	ev, err := d.eventPool.GetEvent(store.Tag(req.EventName))
+	if ev == nil {
+		return &pb.TestEventLoadResp{}, fmt.Errorf("no such an event called %s, error: %v !", req.EventName, err)
+	}
+
+	if ev.GetConfig().Capacity < int(req.NumberOfTeams) {
+		return &pb.TestEventLoadResp{}, errors.New("event capacity is less than provided number of teams. skipping testing...")
+	}
+	var port, protocol string
+	if d.conf.Certs.Enabled {
+		port = strconv.FormatUint(uint64(d.conf.Port.Secure), 10)
+		protocol = "https://"
+	} else {
+		port = strconv.FormatUint(uint64(d.conf.Port.InSecure), 10)
+		protocol = "http://"
+	}
+	endPoint := fmt.Sprintf(protocol + req.EventName + "." + d.conf.Host.Http + ":" + port + "/signup")
+	resp := make(chan string)
+	for i := 0; i < int(req.NumberOfTeams); i++ {
+		go func() {
+			resp <- d.postRequest(endPoint, protocol)
+		}()
+	}
+	response := <-resp
+
+	return &pb.TestEventLoadResp{SignUpResult: response}, nil
+}
+
+// constructRandomValues will create random form for signing up
+func constructRandomValues() url.Values {
+	name := stringWithCharset(10, charSet)
+	email := fmt.Sprintf("%s@%s.com", stringWithCharset(10, charSet), stringWithCharset(10, charSet))
+	password := fmt.Sprintf("%s", stringWithCharset(6, numSet))
+	form := url.Values{}
+	form.Add("email", email)
+	form.Add("team-name", name)
+	form.Add("password", password)
+	form.Add("password-repeat", password)
+	return form
+}
+
+func (d *daemon) postRequest(endPoint, protocol string) string {
+	hc := http.Client{}
+	v := constructRandomValues()
+	postReq, err := http.NewRequest("POST", endPoint, strings.NewReader(v.Encode()))
+	if err != nil {
+		return err.Error()
+	}
+	postReq.Form = v
+	postReq.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:43.0) Gecko/20100101 Firefox/43.0")
+	postReq.Header.Add("Referer", protocol+endPoint)
+	postReq.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := hc.Do(postReq)
+	if err != nil {
+		return err.Error()
+	}
+	return resp.Status
+}
+
+// StringWithCharset will return random characters
+func stringWithCharset(length int, charset string) string {
+	var seededRand *rand.Rand = rand.New(
+		rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }
 
 func isDelayed(customTime string) bool {

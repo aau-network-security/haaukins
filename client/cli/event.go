@@ -34,7 +34,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 		c.CmdEventResume(),
 		c.CmdEventList(),
 		c.CmdEventTeams(),
-
+		c.CmdEventLoadTest(),
 		c.CmdEventTeamRestart())
 
 	return cmd
@@ -302,6 +302,31 @@ func (c *Client) CmdEventTeams() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+}
+
+func (c *Client) CmdEventLoadTest() *cobra.Command {
+	var eventTag string
+	var numberOfTeams int32
+	cmd := &cobra.Command{
+		Use:     "load",
+		Short:   "Apply load test on an event",
+		Example: `hkn event load -e test -n 3 -a false `,
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+			r, err := c.rpcClient.StressEvent(ctx, &pb.TestEventLoadReq{EventName: eventTag, NumberOfTeams: numberOfTeams})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+			fmt.Println(r.SignUpResult)
+			return
+		},
+	}
+	cmd.Flags().StringVarP(&eventTag, "tag", "t", "", "event tag")
+	cmd.Flags().Int32VarP(&numberOfTeams, "requests", "r", 1, "number of users")
+	return cmd
 }
 
 func (c *Client) CmdEventTeamRestart() *cobra.Command {

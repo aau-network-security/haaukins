@@ -16,6 +16,8 @@ service Daemon {
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
 
+  rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {}
+
   rpc UpdateExercisesFile(Empty) returns (UpdateExercisesFileResponse){}
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
@@ -112,6 +114,16 @@ message CreateEventRequest {
   int32 capacity = 6;
   string  startTime = 7;
   string finishTime = 8;
+}
+
+
+message TestEventLoadReq {
+  string eventName = 1;
+  int32 numberOfTeams = 2;
+}
+
+message TestEventLoadResp {
+  string signUpResult = 1;
 }
 
 message ListEventsRequest {
