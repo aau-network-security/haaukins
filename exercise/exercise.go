@@ -80,7 +80,7 @@ func (e *exercise) Create(ctx context.Context) error {
 	for i, opt := range e.containerOpts {
 		opt.DockerConf.DNS = []string{e.dnsAddr}
 		opt.DockerConf.Labels = map[string]string{
-			"hkn": "lab_exercise",
+			"api": "lab_exercise",
 		}
 
 		c, err := e.dhost.CreateContainer(ctx, opt.DockerConf)
