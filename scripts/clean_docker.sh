@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Remove all docker containers that have a UUID as name
-docker ps -a --format '{{.Names}}' | grep -E '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | xargs docker rm -f
+
+docker kill $(docker ps -q --filter "label=api")
+# Removing killed containers which have label of "hkn"
+docker rm $(docker ps -q -a --filter "label=api" --filter status=exited)
 # Remove all macvlan networks
-docker network rm $(docker network ls -q -f "label=hkn")
+docker network rm $(docker network ls -q -f "label=api")

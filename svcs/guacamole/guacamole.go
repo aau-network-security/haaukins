@@ -152,7 +152,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		Image:     "guacamole/guacd:1.0.0",
 		UseBridge: true,
 		Labels: map[string]string{
-			"hkn": "guacamole_guacd",
+			"api": "guacamole_guacd",
 		},
 	})
 
@@ -166,7 +166,8 @@ func (guac *guacamole) create(ctx context.Context) error {
 			"MYSQL_PASSWORD":      mysqlPass,
 		},
 		Labels: map[string]string{
-			"hkn": "guacamole_db",
+			// to distinguish between hkn and api containers
+			"api": "guacamole_db",
 		},
 	})
 
@@ -187,7 +188,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		},
 		UseBridge: true,
 		Labels: map[string]string{
-			"hkn": "guacamole_web",
+			"api": "guacamole_web",
 		},
 	})
 
