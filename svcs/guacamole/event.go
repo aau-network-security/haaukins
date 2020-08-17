@@ -30,8 +30,8 @@ import (
 const (
 	displayTimeFormat = "2006-01-02 15:04:05"
 	Running           = State(0)
-	Booked            = State(1) // todo: will be added
-	Suspended         = State(2)
+	Suspended         = State(1)
+	Booked            = State(2)
 	Closed            = State(3)
 	Error             = State(4)
 )
