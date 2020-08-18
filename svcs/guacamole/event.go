@@ -117,6 +117,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		Status:             int32(conf.Status),
 		StartTime:          conf.StartedAt.Format(displayTimeFormat),
 		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
+		CreatedBy:          conf.CreatedBy,
 	})
 
 	if err != nil {

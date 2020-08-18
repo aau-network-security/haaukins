@@ -50,6 +50,9 @@ func (d *daemon) SignupUser(ctx context.Context, req *pb.SignupUserRequest) (*pb
 	if k.WillBeSuperUser {
 		u.SuperUser = true
 	}
+	if k.WillBeNPUser {
+		u.NPUser = true
+	}
 
 	if err := d.users.CreateUser(u); err != nil {
 		return &pb.LoginUserResponse{Error: err.Error()}, nil
@@ -82,6 +85,10 @@ func (d *daemon) InviteUser(ctx context.Context, req *pb.InviteUserRequest) (*pb
 		k.WillBeSuperUser = true
 	}
 
+	if req.NpUser {
+		k.WillBeNPUser = true
+	}
+
 	if err := d.users.CreateSignupKey(k); err != nil {
 		return &pb.InviteUserResponse{
 			Error: err.Error(),
@@ -106,8 +113,6 @@ func (d *daemon) ListUsers(ctx context.Context, req *pb.Empty) (*pb.ListUsersRes
 	if !requester.SuperUser {
 		return &pb.ListUsersResponse{Error: NoPrivilegeToList.Error()}, NoPrivilegeToList
 	}
-
-	//todo: add users' events as well.
 
 	for _, usr := range d.users.ListUsers() {
 		usersResp = append(usersResp, &pb.ListUsersResponse_UserInfo{
@@ -134,19 +139,14 @@ func (d *daemon) DestroyUser(ctx context.Context, request *pb.DestroyUserRequest
 		return &pb.DestroyUserResponse{Message: fmt.Sprintf("No logged in user information found error: %v", err)}, err
 	}
 
-	if !requester.SuperUser {
-		return &pb.DestroyUserResponse{}, NoPrivilegeToDelete
+	if requester.SuperUser {
+		if err := d.users.DeleteUserByUsername(request.Username); err != nil {
+			log.Error().Msgf("User delete error %v", err)
+			return &pb.DestroyUserResponse{Message: fmt.Sprintf("Error on deleting user %s, error: %v", request.Username, err)}, err
+		}
+		return &pb.DestroyUserResponse{Message: "User " + request.Username + " deleted successfully by " + requester.Username + " !"}, nil
 	}
-	if (request.Username == requester.Username) && requester.SuperUser {
-		return &pb.DestroyUserResponse{Message: NoDestroyOnAdmin.Error()}, NoDestroyOnAdmin
-	}
-
-	if err := d.users.DeleteUserByUsername(request.Username); err != nil {
-		log.Error().Msgf("User delete error %v", err)
-		return &pb.DestroyUserResponse{Message: fmt.Sprintf("Error on deleting user %s, error: %v", request.Username, err)}, err
-	}
-
-	return &pb.DestroyUserResponse{Message: "User " + request.Username + " deleted successfully !"}, nil
+	return &pb.DestroyUserResponse{}, NoPrivilegeToDelete
 
 }
 
@@ -162,18 +162,19 @@ func (d *daemon) ChangeUserPasswd(ctx context.Context, request *pb.UpdatePasswdR
 
 	// if user is not authenticated for the request
 	// return error message to user
-	if !requester.SuperUser {
+	if !requester.SuperUser || requester.NPUser {
 		return &pb.UpdatePasswdResponse{Message: NoPrivilegeToChangePass.Error()}, NoPrivilegeToChangePass
 	}
 
-	if (request.Username == requester.Username) && requester.SuperUser {
+	if (request.Username == requester.Username) || requester.SuperUser || !requester.NPUser {
+		updateError := d.users.UpdatePasswd(request.Username, request.Password)
+		if updateError != nil {
+			return &pb.UpdatePasswdResponse{Message: "Error on updating passwd of user: " + updateError.Error()}, updateError
+		}
+	} else {
 		return &pb.UpdatePasswdResponse{Message: NoPrivilegeToChangePass.Error()}, NoPrivilegeToChangePass
 	}
 
-	updateError := d.users.UpdatePasswd(request.Username, request.Password)
-	if updateError != nil {
-		return &pb.UpdatePasswdResponse{Message: "Error on updating passwd of user: " + updateError.Error()}, updateError
-	}
 	return &pb.UpdatePasswdResponse{Message: "Success"}, nil
 }
 
