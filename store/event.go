@@ -134,6 +134,7 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 		}
 		ts.tokens[teamToken] = team.ID()
 		ts.emails[team.Email()] = team.ID()
+		ts.names[team.Name()] = team.ID()
 		ts.teams[team.ID()] = team
 	}
 
