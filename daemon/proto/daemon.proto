@@ -99,6 +99,7 @@ message ListUsersResponse {
     string email = 4;
     string createdAt = 5;
     bool isSuperUser = 6;
+    bool isNPUser = 7;
   }
   repeated UserInfo users = 1;
   string error = 2;
