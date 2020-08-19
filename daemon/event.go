@@ -165,10 +165,13 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			conf.FinishExpected = &expectedFinishTime
 		}
 
-		if err := d.createEventFromEventDB(ctx, conf); err != nil {
-			log.Warn().Msgf("Error happened in createEventFromDB %v", err)
+		ev, err := d.ehost.CreateEventFromConfig(ctx, conf)
+		if err != nil {
+			log.Error().Err(err).Msg("Error creating event from database event")
 			return err
 		}
+
+		d.startEvent(ev)
 	}
 	return nil
 }
