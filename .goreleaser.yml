@@ -122,7 +122,7 @@ checksum:
 
 brews:
   - github:
-      owner: mrturkmencom
+      owner: aau-network-security
       name: homebrew-haaukins
     folder: Formula
     homepage:  https://github.com/aau-network-security/haaukins
