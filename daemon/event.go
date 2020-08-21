@@ -461,6 +461,13 @@ func (d *daemon) visitBookedEvents() error {
 				log.Warn().Msgf("Error on creating booked event, event %s err %v", event.Tag, err)
 				return fmt.Errorf("error on booked event creation %v", err)
 			}
+			// update status of event on database
+			status, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{Status: Running, EventTag: string(eventConfig.Tag)})
+			if err != nil {
+				return fmt.Errorf("status update failed err: %v", err)
+			}
+			// status.Status is state of the set event
+			log.Info().Msgf("Status of event %s is updated with %d ", eventConfig.Tag, status.Status)
 		}
 	}
 	return nil
