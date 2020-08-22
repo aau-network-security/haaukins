@@ -526,6 +526,14 @@ func (d *daemon) closeEvents() error {
 				log.Warn().Msgf("event pool get event error %v ", err)
 				return err
 			}
+			_, err = d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{
+				EventTag: string(eTag),
+				Status:   Closed})
+			if err != nil {
+				log.Warn().Msgf("Error in setting up status of event in database side event: %s", string(eTag))
+				return err
+			}
+			log.Debug().Msgf("Status is set to %d for event:  %s, message: %s", Closed, string(eTag))
 			if err := d.eventPool.RemoveEvent(eTag); err != nil {
 				return err
 			}
