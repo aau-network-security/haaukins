@@ -533,7 +533,7 @@ func (d *daemon) closeEvents() error {
 				log.Warn().Msgf("Error in setting up status of event in database side event: %s", string(eTag))
 				return err
 			}
-			log.Debug().Msgf("Status is set to %d for event:  %s, message: %s", Closed, string(eTag))
+			log.Debug().Msgf("Status is set to %d for event:  %s", Closed, string(eTag))
 			if err := d.eventPool.RemoveEvent(eTag); err != nil {
 				return err
 			}
