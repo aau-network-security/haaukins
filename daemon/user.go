@@ -122,6 +122,7 @@ func (d *daemon) ListUsers(ctx context.Context, req *pb.Empty) (*pb.ListUsersRes
 			Email:       usr.Email,
 			CreatedAt:   usr.CreatedAt.Format(displayTimeFormat),
 			IsSuperUser: usr.SuperUser,
+			IsNPUser:    usr.NPUser,
 		})
 	}
 
