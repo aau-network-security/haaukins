@@ -461,6 +461,13 @@ func (d *daemon) visitBookedEvents() error {
 				log.Warn().Msgf("Error on creating booked event, event %s err %v", event.Tag, err)
 				return fmt.Errorf("error on booked event creation %v", err)
 			}
+			// update status of event on database
+			status, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{Status: Running, EventTag: string(eventConfig.Tag)})
+			if err != nil {
+				return fmt.Errorf("status update failed err: %v", err)
+			}
+			// status.Status is state of the set event
+			log.Info().Msgf("Status of event %s is updated with %d ", eventConfig.Tag, status.Status)
 		}
 	}
 	return nil
@@ -519,6 +526,14 @@ func (d *daemon) closeEvents() error {
 				log.Warn().Msgf("event pool get event error %v ", err)
 				return err
 			}
+			_, err = d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{
+				EventTag: string(eTag),
+				Status:   Closed})
+			if err != nil {
+				log.Warn().Msgf("Error in setting up status of event in database side event: %s", string(eTag))
+				return err
+			}
+			log.Debug().Msgf("Status is set to %d for event:  %s", Closed, string(eTag))
 			if err := d.eventPool.RemoveEvent(eTag); err != nil {
 				return err
 			}
