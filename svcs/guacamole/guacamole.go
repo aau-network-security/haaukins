@@ -154,7 +154,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 
 	mysqlPass := uuid.New().String()
 	containers["db"] = docker.NewContainer(docker.ContainerConfig{
-		Image: "registry.sec-aau.dk/aau/guacamole-mysql",
+		Image: "registry.gitlab.com/haaukins/core-utils/guacamole-mysql",
 		EnvVars: map[string]string{
 			"MYSQL_ROOT_PASSWORD": uuid.New().String(),
 			"MYSQL_DATABASE":      "guacamole_db",
@@ -170,7 +170,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 	guacdAlias := uuid.New().String()
 	dbAlias := uuid.New().String()
 	containers["web"] = docker.NewContainer(docker.ContainerConfig{
-		Image: "registry.sec-aau.dk/aau/guacamole",
+		Image: "registry.gitlab.com/haaukins/core-utils/guacamole",
 		EnvVars: map[string]string{
 			"MYSQL_DATABASE": "guacamole_db",
 			"MYSQL_USER":     "guacamole_user",
