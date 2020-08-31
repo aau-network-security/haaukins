@@ -6,7 +6,7 @@ In this guideline, the way of handling troubles and possible reasons of troubles
 
 - [No space left on device](#no-space-left-on-device)
 - (TODO) [Continuous exiting from environment](#continuous-exiting-from-environment)
--[Failed to create the VirtualBox object!](#vm-import-failed)
+- [Failed to create the VirtualBox object!](#vm-import-failed)
 - (TODO) [Pool overlaps with other one on this address space](#todo)
 *Issues which can be seeing in setting up development environment*
 
