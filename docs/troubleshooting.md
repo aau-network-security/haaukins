@@ -5,14 +5,18 @@ In this guideline, the way of handling troubles and possible reasons of troubles
 *The issues that you may face during active usage of Haaukins*
 
 - [No space left on device](#no-space-left-on-device)
-- (TODO) [Continuous exiting from environment](#continuous-exiting-from-environment)
 - [Failed to create the VirtualBox object!](#vm-import-failed)
+
+- (TODO) [Continuous exiting from environment](#continuous-exiting-from-environment)
 - (TODO) [Pool overlaps with other one on this address space](#todo)
+
 *Issues which can be seeing in setting up development environment*
 
-- (TODO) [Certificate Issue](#certificate-issue)
-- (TODO) [Unable to create database client](#unable-to-create-database-client)
-- (TODO) [Config file not found](#config-file-not-found)
+- [Config file not found](#config-file-not-found)
+- [Unable to create database client](#unable-to-create-database-client)
+- [Certificate Issue](#certificate-issue)
+
+
 
 ## No space left on device
 
@@ -154,3 +158,131 @@ Examples:
 $ chmod +rw /vms/
 ```
 It will add to the permission of `/vms`  write and read permissions. 
+
+
+## Config file not found
+
+Basically it clarifies config file is missing, when you are running daemon of Haaukins or from source code, either you need to clarify config file by adding `--config` flag at the end of file. 
+
+Like; 
+
+`go run main.go --config=/<absolute-path-to-config>/config.yml`]
+
+For demonized version of Haaukins, you can provide config path after binary such as ; 
+
+`<path-to-binary>/hknd --config=/<absolute-path-to-config/config.yml>`  
+
+Keep in mind that Haaukins is looking for config.yml file on the same directory with binary, which means that if config.yml file on the same directory with Haaukins binary, 
+there is no need to provide absolute path of configuration file. 
+
+
+
+
+## Unable to create database client
+
+Having problems regarding to database client might be happened due to certificates error, or not running healthy haaukins-store,
+in these cases there are some things to care of ; 
+
+- Ensure haaukins store is running correctly 
+  
+  It is always good to be sure about docker status of haaukins store, it can be checked through `docker-compose logs -f` which will feed your stdout with logs, 
+  if everything seems ok and no problem, you can close watching logs. If there is an error or something on logs, try to fix it with proper approach. 
+  
+- Check version of store and haaukins daemon 
+  
+  In some cases, it might be the case where daemon and store do not share same version which means that some functionalities and features might not work. In those cases, 
+  client might not be able to create connection with database due to proto file differences. (- contract differences- ) Ensure that versions are matching, like features 
+  and functionalities released in both programs. 
+  
+- Check certificates 
+    
+  Since haaukins and store are using secure gRPC calls, certificates are required to be in place, however certificates which daemon (-for db client-) and store should share 
+  same certificates to have a secure gRPC connection. Make sure that there is no problem regarding to certificates. 
+  
+- Check ports
+
+  Configuration files for both client and daemon is crucial to run the program correctly, hence, it is good habit to check all values in configuration file. Especially, providing port 
+  numbers for store and daemon is quite important for communicating, check out them. If there is no issue regarding to configuration file and if you are still getting error when you run 
+  the program, check logs in depth. 
+  
+  
+## Certificate Issue
+
+Certificates are crucial for any component of haaukins which provides secure communication between clients and server, for this reason, it is quite important to 
+setup auto-renew of certificates for all domains where haaukins component is using. For a domain where there is no certificate issued yet, following script can help 
+to retrieve certificate from Let's Encrypt, before using the script make sure that you are able to add TXT record on domain manager like Cloudflare. 
+
+Keep in mind that, `example.domain.com` should be changed with your domain which you would like to get certificate on. 
+
+```bash 
+
+#!/bin/bash
+
+# /etc/letsencrypt
+# WHAT: This is the default configuration directory. This is where certbot will store all
+# generated keys and issues certificates.
+#
+# /var/lib/letsencrypt
+# WHAT: This is default working directory.
+#
+# certonly
+# WHAT: This certbot subcommand tells certbot to obtain the certificate but not not
+# install it. We don't need to install it because we will be linking directly to the
+# generated certificate files from within our subsequent nginx configuration.
+#
+# -d
+# WHAT: Defines one of the domains to be used in the certificate. We can have up to 100
+# domains in a single certificate. In this case, we're obtaining a wildcard-subdomain
+# certificate (which was just made possible!) in addition to the base domain.
+#
+# --manual
+# WHAT: Tells certbot that we are going to use the "manual" plug-in, which means we will
+# require interactive instructions for passing the authentication challenge. In this case
+# (using DNS), we're going to need to know which DNS TXT entires to create in our domain
+# name servers.
+#
+# --preferred-challenges dns
+# WHAT: Defines which of the authentication challenges we want to implement with our
+# manual configuration steps.
+#
+# --server https://acme-v02.api.letsencrypt.org/directory
+# WHAT: The client end-point / resource that provides the actual certificates. The "v02"
+# end-point is the only one capable of providing wildcard SSL certificates at this time,
+# (ex, *.example.com).
+#
+docker run -it --rm --name letsencrypt \
+	-v "/etc/letsencrypt:/etc/letsencrypt" \
+	-v "/var/lib/letsencrypt:/var/lib/letsencrypt" \
+	quay.io/letsencrypt/letsencrypt:latest \
+		certonly \
+        -d example.domain.com
+		-d *.example.domain.com \
+		--manual \
+		--preferred-challenges dns \
+		--server https://acme-v02.api.letsencrypt.org/directory
+```
+
+Once certificates are retrieved and placed, you have to have auto-renew as cron job or inside a docker environment in order to do not deal 
+with renewing certificates manually all the time. 
+
+You can either download and use `certbot-auto renew` command from directly host or you can perform same thing through docker, 
+for host integration following steps should be enough : 
+
+```bash 
+$ cd /etc/letsencrypt 
+$ wget https://dl.eff.org/certbot-auto && chmod a+x certbot-auto
+$ ./certbot-auto renew 
+```
+
+It will check certificates and renew them if they are about to expire, you can add that task into cron job. 
+
+```bash 
+$ crontab -e 
+0 0 * * 0 cd /etc/letsencrypt/ && ./certbot-auto renew 
+```
+
+It will run every week at 00:00 on Sunday. 
+
+For Docker based approach, similar steps can be achieved as well, there are plenty of examples regarding to it, you may check following approach or create new one; 
+
+- [https://github.com/adferrand/dnsrobocert](https://github.com/adferrand/dnsrobocert)
