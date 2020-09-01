@@ -592,6 +592,7 @@ type CreateRDPConnOpts struct {
 	GuacUser         string
 	Username         *string
 	Password         *string
+	EnableWallPaper  *bool
 	ResolutionWidth  uint
 	ResolutionHeight uint
 	MaxConn          uint
@@ -629,13 +630,14 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 	}
 
 	conf := createRDPConnConf{
-		Hostname:   &opts.Host,
-		Width:      &opts.ResolutionWidth,
-		Height:     &opts.ResolutionHeight,
-		Port:       &opts.Port,
-		ColorDepth: &opts.ColorDepth,
-		Username:   opts.Username,
-		Password:   opts.Password,
+		Hostname:        &opts.Host,
+		Width:           &opts.ResolutionWidth,
+		Height:          &opts.ResolutionHeight,
+		Port:            &opts.Port,
+		ColorDepth:      &opts.ColorDepth,
+		Username:        opts.Username,
+		Password:        opts.Password,
+		EnableWallpaper: opts.EnableWallPaper,
 	}
 
 	data := struct {
