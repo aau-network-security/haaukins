@@ -561,6 +561,10 @@ func isInvalidDate(t time.Time) bool {
 }
 
 func (d *daemon) checkUserQuota(ctx context.Context, user string) (bool, error) {
+	usr, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return false, fmt.Errorf("no user information err: %v", err)
+	}
 	var cost int32
 	// will return invert case, if closed supplied to Status,
 	// then it means that all events which are not closed
@@ -571,7 +575,8 @@ func (d *daemon) checkUserQuota(ctx context.Context, user string) (bool, error) 
 	for _, ev := range events.Events {
 		cost += ev.Capacity
 	}
-	if cost > int32(NPUserMaxLabs) {
+
+	if usr.NPUser && cost > int32(NPUserMaxLabs) {
 		return false, fmt.Errorf("user %s has %d labs already, out of quota error ", user, cost)
 	}
 	return true, nil
