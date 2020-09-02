@@ -294,6 +294,7 @@ func (ev *event) Finish(newTag string) {
 }
 
 func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
+	enableWallPaper := true
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.
@@ -329,12 +330,13 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 
 		log.Debug().Str("team", t.Name()).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(CreateRDPConnOpts{
-			Host:     hostIp,
-			Port:     port,
-			Name:     name,
-			GuacUser: u.Username,
-			Username: &u.Username,
-			Password: &u.Password,
+			Host:            hostIp,
+			Port:            port,
+			Name:            name,
+			GuacUser:        u.Username,
+			Username:        &u.Username,
+			Password:        &u.Password,
+			EnableWallPaper: &enableWallPaper,
 		}); err != nil {
 			return err
 		}
