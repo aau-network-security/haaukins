@@ -103,7 +103,13 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	return info
 }
 
-func (am *Amigo) Handler(hook func(t *store.Team) error, guacHandler http.Handler) http.Handler {
+type Hooks struct {
+	AssignLab     func(t *store.Team) error
+	ResetExercise func(t *store.Team, challengeTag string) error
+	ResetFrontend func(t *store.Team) error
+}
+
+func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	fd := newFrontendData(am.TeamStore, am.challenges...)
 	go fd.runFrontendData()
 
@@ -113,12 +119,15 @@ func (am *Amigo) Handler(hook func(t *store.Team) error, guacHandler http.Handle
 	m.HandleFunc("/challenges", am.handleChallenges())
 	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/scoreboard", am.handleScoreBoard())
-	m.HandleFunc("/signup", am.handleSignup(hook))
+	m.HandleFunc("/signup", am.handleSignup(hooks.AssignLab))
 	m.HandleFunc("/login", am.handleLogin())
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+	// /reset/teamid/challengetag
+	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
+	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.Handle("/guaclogin", guacHandler)
 	m.Handle("/guacamole", guacHandler)
 	m.Handle("/guacamole/", guacHandler)
@@ -397,6 +406,37 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			logger.Debug().Msgf("Problem in assing lab !! %s ", err)
 		}
 	}
+}
+
+func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag string) error) http.HandlerFunc {
+	// get team
+	// get challenges of a team
+	// reset challenge according to team
+
+	// retrieve challenge tag from request. following is just for demonstration
+	challengeTag := "challenge-tag"
+	// getTeamFromRequest() function could be used here to retrieve team id
+	teamid := "team-id"
+	t, err := am.TeamStore.GetTeamByID(teamid)
+	if err != nil {
+		log.Printf("Unable to get team by id %v", err)
+		return func(w http.ResponseWriter, r *http.Request) {
+			replyJsonRequestErr(w, err)
+		}
+	}
+
+	if err := resetHook(t, challengeTag); err != nil {
+		// handle error
+		return func(w http.ResponseWriter, r *http.Request) {
+			replyJsonRequestErr(w, err)
+		}
+	}
+
+}
+
+func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) http.HandlerFunc {
+	// get team
+	// pass team to resetFrontend hook
 }
 
 func (am *Amigo) handleLogin() http.HandlerFunc {

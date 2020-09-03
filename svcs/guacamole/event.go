@@ -376,9 +376,33 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
+	resetHook := func(t *store.Team, challengeTag string) error {
+		teamLab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+		}
+		if err := teamLab.Environment().ResetByTag(context.Background(), challengeTag); err != nil {
+			return fmt.Errorf("Reset challenge hook error %v", err)
+		}
+		return nil
+	}
+
+	resetFrontendHook := func(t *store.Team) error {
+		teamLab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+		}
+		if err := teamLab.ResetFrontends(context.Background()); err != nil {
+			return fmt.Errorf("Reset frontends hook error %v", err)
+		}
+		return nil
+	}
+
+	hooks := amigo.Hooks{AssignLab: reghook, ResetExercise: resetHook, ResetFrontend: resetFrontendHook}
+
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)
 
-	return ev.amigo.Handler(reghook, guacHandler)
+	return ev.amigo.Handler(hooks, guacHandler)
 }
 
 func (ev *event) GetHub() lab.Hub {
