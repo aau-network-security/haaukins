@@ -152,7 +152,7 @@ func (vm *vm) Suspend(ctx context.Context) error {
 	if err != nil {
 		log.Error().
 			Str("ID", vm.id).
-			Msgf("Failed to suspend VM: %s", err)
+			Msgf("Failed to suspend VM: %v", err)
 		return err
 	}
 
