@@ -26,6 +26,9 @@ body {
 .mt-toppage{
     margin-top: 110px;
 }
+.mt-toppage-reset{
+    margin-top: 0px;
+}
 
 .mb-botpage{
     margin-bottom: 180px;
@@ -556,9 +559,6 @@ table tr:last-child td:last-child {
     .mb-botpage{
         margin-bot: 140px;
     }
-    .mt-toppage{
-        margin-top: 120px;
-    }
     .aau-developer img{
         max-width: 170px;
     }
@@ -623,6 +623,9 @@ table tr:last-child td:last-child {
 }
 
 @media (min-width: 768px) {
+    .mt-toppage-reset{
+        margin-top: 120px;
+    }
     .my-container {
         max-width: 720px;
     }

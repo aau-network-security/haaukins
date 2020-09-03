@@ -28,6 +28,7 @@ var (
 	ErrUnauthorized         = errors.New("requires authentication")
 	ErrInvalidTokenFormat   = errors.New("invalid token format")
 	ErrInvalidFlag          = errors.New("invalid flag")
+	ErrRestartFrontend      = errors.New("error restart frontend")
 	ErrIncorrectCredentials = errors.New("Credentials does not match")
 	wd                      = GetWd()
 )
@@ -125,7 +126,6 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
-	// /reset/teamid/challengetag
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.Handle("/guaclogin", guacHandler)
@@ -431,12 +431,35 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 			replyJsonRequestErr(w, err)
 		}
 	}
-
+	return nil
 }
 
 func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) http.HandlerFunc {
-	// get team
-	// pass team to resetFrontend hook
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		err = resetFrontend(team)
+		if err != nil {
+			replyJson(http.StatusOK, w, errReply{ErrRestartFrontend.Error()})
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
 }
 
 func (am *Amigo) handleLogin() http.HandlerFunc {
