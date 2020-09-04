@@ -79,7 +79,7 @@ type fakeEventHost struct {
 	guacamole.Host
 }
 
-func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig) (guacamole.Event, error) {
+func (eh fakeEventHost) CreateEventFromConfig(context.Context, store.EventConfig, string) (guacamole.Event, error) {
 	return eh.event, nil
 }
 
