@@ -50,6 +50,7 @@ type Amigo struct {
 	globalInfo   siteInfo
 	challenges   []store.FlagConfig
 	TeamStore    store.Event
+	recaptcha    Recaptcha
 }
 
 type AmigoOpt func(*Amigo)
@@ -66,7 +67,7 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.Event, chals []store.FlagConfig, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
@@ -76,6 +77,7 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, opts ...AmigoOpt) *Amigo
 		globalInfo: siteInfo{
 			EventName: "Test Event",
 		},
+		recaptcha: NewRecaptcha(reCaptchaKey),
 	}
 
 	for _, opt := range opts {
@@ -368,6 +370,12 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 
 		if len(am.TeamStore.GetTeams()) == am.TeamStore.Capacity {
 			displayErr(w, params, errors.New("capacity reached for this event"))
+			return
+		}
+
+		isValid := am.recaptcha.Verify(r.FormValue("g-recaptcha-response"))
+		if !isValid {
+			displayErr(w, params, errors.New("seems you are a robot"))
 			return
 		}
 

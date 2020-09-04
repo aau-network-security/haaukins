@@ -134,7 +134,7 @@ func TestVerifyFlag(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			am := amigo.NewAmigo(ts, challenges, tc.opts...)
+			am := amigo.NewAmigo(ts, challenges, "", tc.opts...)
 			srv := httptest.NewServer(am.Handler(nil, http.NewServeMux()))
 
 			req, err := http.NewRequest("POST", srv.URL+"/flags/verify", bytes.NewBuffer([]byte(tc.input)))
