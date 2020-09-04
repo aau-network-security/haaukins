@@ -102,7 +102,7 @@ func main() {
 			})
 		}
 	}
-	am := amigo.NewAmigo(ts, res)
+	am := amigo.NewAmigo(ts, res, "")
 
 	log.Fatal(http.ListenAndServe(":8080", am.Handler(nil, http.NewServeMux())))
 }
