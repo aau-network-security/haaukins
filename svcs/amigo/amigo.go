@@ -409,29 +409,41 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 }
 
 func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag string) error) http.HandlerFunc {
-	// get team
-	// get challenges of a team
-	// reset challenge according to team
 
-	// retrieve challenge tag from request. following is just for demonstration
-	challengeTag := "challenge-tag"
-	// getTeamFromRequest() function could be used here to retrieve team id
-	teamid := "team-id"
-	t, err := am.TeamStore.GetTeamByID(teamid)
-	if err != nil {
-		log.Printf("Unable to get team by id %v", err)
-		return func(w http.ResponseWriter, r *http.Request) {
-			replyJsonRequestErr(w, err)
-		}
+	type resetChallenge struct {
+		Tag string `json:"tag"`
 	}
 
-	if err := resetHook(t, challengeTag); err != nil {
-		// handle error
-		return func(w http.ResponseWriter, r *http.Request) {
-			replyJsonRequestErr(w, err)
-		}
+	type replyMsg struct {
+		Status string `json:"status"`
 	}
-	return nil
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		var msg resetChallenge
+		if err := safeReadJson(w, r, &msg, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		err = resetHook(team, msg.Tag)
+		if err != nil {
+			replyJson(http.StatusOK, w, errReply{ErrRestartFrontend.Error()})
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
 }
 
 func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) http.HandlerFunc {

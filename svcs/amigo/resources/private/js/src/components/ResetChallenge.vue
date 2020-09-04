@@ -1,7 +1,7 @@
 <template>
-  <div class="mt-toppage-reset pt-2 mb-2">
+  <div class="pl-3">
     <form @submit.prevent="submit">
-      <input type="submit" class="btn btn-login" :disabled='isDisabled' value="RESET Kali Machine" style="width: auto;">
+      <input type="submit" class="btn btn-haaukins" :disabled='isDisabled' v-bind:class="{ 'btn-danger': isError, 'btn-success': isSuccess }" value="RESET Challenge" style="width: auto;">
     </form>
   </div>
 </template>
@@ -9,10 +9,15 @@
 <script>
 /* eslint-disable */
 export default {
-  name: 'ResetFrontend',
+  name: 'ResetChallenge',
+  props: {
+    challengeTag: String
+  },
   data: () => {
     return {
       isDisabled: false,
+      isError: false,
+      isSuccess: false,
     }
   },
   methods: {
@@ -21,19 +26,20 @@ export default {
       const opts = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: this.challengeTag })
+
       };
-      const res = await fetch('/reset/frontend', opts).
+      const res = await fetch('/reset/challenge', opts).
       then(res => res.json());
 
-      let resp_div = document.getElementById("reset-frontend-resp")
       if (res.error !== undefined) {
-        resp_div.innerHTML = `<span class="text-danger">`+ res.error +`</span>`
+        this.isError = true
         this.isDisabled = false
         return
       }
 
       if (res.status === "ok") {
-        resp_div.innerHTML = `<span class="text-success">Kali Machine successfully restarted</span>`
+        this.isSuccess = true
         this.isDisabled = false
       }
     }
