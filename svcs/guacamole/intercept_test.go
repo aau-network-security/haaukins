@@ -93,7 +93,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 				return "ok-token", nil
 			}
 
-			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, amigo.NewAmigo(ts, nil), loginFunc)
+			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, amigo.NewAmigo(ts, nil, ""), loginFunc)
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
