@@ -50,8 +50,8 @@ var (
 
 type Host interface {
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
-	CreateEventFromEventDB(context.Context, store.EventConfig) (Event, error)
-	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
+	CreateEventFromEventDB(context.Context, store.EventConfig, string) (Event, error)
+	CreateEventFromConfig(context.Context, store.EventConfig, string) (Event, error)
 }
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, eDir string, dbc pbc.StoreClient) Host {
@@ -73,7 +73,7 @@ type eventHost struct {
 }
 
 //Create the event configuration for the event got from the DB
-func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error) {
+func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
 		return nil, err
@@ -98,11 +98,11 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		return nil, err
 	}
 
-	return NewEvent(eh.ctx, es, hub, labConf.Flags())
+	return NewEvent(eh.ctx, es, hub, labConf.Flags(), reCaptchaKey)
 }
 
 //Save the event in the DB and create the event configuration
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	var exercises []string
 	for _, e := range conf.Lab.Exercises {
 		exercises = append(exercises, string(e))
@@ -124,7 +124,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		return nil, err
 	}
 
-	return eh.CreateEventFromEventDB(ctx, conf)
+	return eh.CreateEventFromEventDB(ctx, conf, reCaptchaKey)
 }
 
 func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error {
@@ -169,7 +169,7 @@ type event struct {
 	closers []io.Closer
 }
 
-func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig) (Event, error) {
+func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig, reCaptchaKey string) (Event, error) {
 
 	guac, err := New(ctx, Config{})
 	if err != nil {
@@ -192,7 +192,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	ev := &event{
 		store:         e,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(e, flags, amigoOpt),
+		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, amigoOpt),
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: NewGuacUserStore(),
