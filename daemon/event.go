@@ -360,6 +360,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			Name:         e.Name,
 			TeamCount:    teamCount,
 			Exercises:    e.Exercises,
+			Availability: e.Available,
 			Capacity:     e.Capacity,
 			CreationTime: e.StartedAt,
 			FinishTime:   e.ExpectedFinishTime, //This is the Expected finish time

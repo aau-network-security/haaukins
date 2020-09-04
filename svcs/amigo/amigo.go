@@ -28,6 +28,7 @@ var (
 	ErrUnauthorized         = errors.New("requires authentication")
 	ErrInvalidTokenFormat   = errors.New("invalid token format")
 	ErrInvalidFlag          = errors.New("invalid flag")
+	ErrRestartFrontend      = errors.New("error restart frontend")
 	ErrIncorrectCredentials = errors.New("Credentials does not match")
 	wd                      = GetWd()
 )
@@ -103,7 +104,13 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	return info
 }
 
-func (am *Amigo) Handler(hook func(t *store.Team) error, guacHandler http.Handler) http.Handler {
+type Hooks struct {
+	AssignLab     func(t *store.Team) error
+	ResetExercise func(t *store.Team, challengeTag string) error
+	ResetFrontend func(t *store.Team) error
+}
+
+func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	fd := newFrontendData(am.TeamStore, am.challenges...)
 	go fd.runFrontendData()
 
@@ -113,12 +120,14 @@ func (am *Amigo) Handler(hook func(t *store.Team) error, guacHandler http.Handle
 	m.HandleFunc("/challenges", am.handleChallenges())
 	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/scoreboard", am.handleScoreBoard())
-	m.HandleFunc("/signup", am.handleSignup(hook))
+	m.HandleFunc("/signup", am.handleSignup(hooks.AssignLab))
 	m.HandleFunc("/login", am.handleLogin())
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
+	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.Handle("/guaclogin", guacHandler)
 	m.Handle("/guacamole", guacHandler)
 	m.Handle("/guacamole/", guacHandler)
@@ -397,6 +406,72 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			logger.Debug().Msgf("Problem in assing lab !! %s ", err)
 		}
 	}
+}
+
+func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag string) error) http.HandlerFunc {
+
+	type resetChallenge struct {
+		Tag string `json:"tag"`
+	}
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		var msg resetChallenge
+		if err := safeReadJson(w, r, &msg, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		err = resetHook(team, msg.Tag)
+		if err != nil {
+			replyJson(http.StatusOK, w, errReply{ErrRestartFrontend.Error()})
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) http.HandlerFunc {
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		err = resetFrontend(team)
+		if err != nil {
+			replyJson(http.StatusOK, w, errReply{ErrRestartFrontend.Error()})
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
 }
 
 func (am *Amigo) handleLogin() http.HandlerFunc {
