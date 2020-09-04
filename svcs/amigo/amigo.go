@@ -372,11 +372,15 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			displayErr(w, params, errors.New("capacity reached for this event"))
 			return
 		}
-
-		isValid := am.recaptcha.Verify(r.FormValue("g-recaptcha-response"))
-		if !isValid {
-			displayErr(w, params, errors.New("seems you are a robot"))
-			return
+		// make the key empty for running haaukins on dev/local
+		// making recaptcha place empty on config will disable verify
+		if am.recaptcha.secret != "" {
+			logger.Info().Msgf("Recaptcha is enabled on sign up page ")
+			isValid := am.recaptcha.Verify(r.FormValue("g-recaptcha-response"))
+			if !isValid {
+				displayErr(w, params, errors.New("seems you are a robot"))
+				return
+			}
 		}
 
 		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", nil)
