@@ -65,6 +65,6 @@ jobs:
         env:
           web_hook: ${{ secrets.WEB_HOOK }}
           message: " Daemon and Client are successfully deployed to dev environment. " 
-          commit_id: https://github.com/mrturkmencom/haaukins/commit/${{ steps.vars.outputs.sha_long }}
+          commit_id: https://github.com/aau-network-security/haaukins/commit/${{ steps.vars.outputs.sha_long }}
           commit_message: ${{ steps.cmmtmsg.outputs.commit_message }}
    
