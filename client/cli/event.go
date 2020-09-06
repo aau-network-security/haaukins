@@ -310,7 +310,7 @@ func (c *Client) CmdEventLoadTest() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "load",
 		Short:   "Apply load test on an event",
-		Example: `hkn event load -e test -n 3 -a false `,
+		Example: `hkn event load -t test -r 3 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
