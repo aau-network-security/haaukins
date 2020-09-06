@@ -47,8 +47,8 @@ jobs:
         run: |
           mkdir ./temp &&
           mv ./build/hknd-linux-amd64 ./temp/hknd-${{ steps.commitid.outputs.sha_short }} &&
-          mv ./build/hkn-linux-amd64 ./temp/hkn-client-${{ steps.commitid.outputs.sha_short }}
-        
+          mv ./build/hkn-linux-amd64 ./temp/hkn-client-${{ steps.commitid.outputs.sha_short }} &&
+          cp -r ./svcs ./temp/svcs-${{ steps.commitid.outputs.sha_short }}
       - name: Deploy daemon 
         uses: AEnterprise/rsync-deploy@v1.0
         env:
