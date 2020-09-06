@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 
 	logger "github.com/rs/zerolog/log"
 
@@ -28,7 +29,6 @@ var (
 	ErrUnauthorized         = errors.New("requires authentication")
 	ErrInvalidTokenFormat   = errors.New("invalid token format")
 	ErrInvalidFlag          = errors.New("invalid flag")
-	ErrRestartFrontend      = errors.New("error restart frontend")
 	ErrIncorrectCredentials = errors.New("Credentials does not match")
 	wd                      = GetWd()
 )
@@ -443,9 +443,11 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 			return
 		}
 
-		err = resetHook(team, msg.Tag)
+		chalTag := getParentChallengeTag(msg.Tag)
+		err = resetHook(team, chalTag)
 		if err != nil {
-			replyJson(http.StatusOK, w, errReply{ErrRestartFrontend.Error()})
+			replyJsonRequestErr(w, err)
+			return
 		}
 
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
@@ -473,7 +475,8 @@ func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) ht
 
 		err = resetFrontend(team)
 		if err != nil {
-			replyJson(http.StatusOK, w, errReply{ErrRestartFrontend.Error()})
+			replyJsonRequestErr(w, err)
+			return
 		}
 
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
@@ -721,6 +724,16 @@ func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
+
+func getParentChallengeTag(child string) string {
+	for _, c := range child {
+		if unicode.IsDigit(c) {
+			return child[:len(child)-2]
+		}
+	}
+	return child
+}
+
 func GetWd() string {
 	path, err := os.Getwd()
 	if err != nil {
