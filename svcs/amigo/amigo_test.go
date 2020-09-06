@@ -67,12 +67,12 @@ func TestVerifyFlag(t *testing.T) {
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}
-
+	flagValue := store.NewFlag().String(false)
 	tag, _ := store.NewTag(string(chal.Tag))
-	flag, _ := addTeam.AddChallenge(store.Challenge{
+	_, _ = addTeam.AddChallenge(store.Challenge{
 		Tag:   tag,
 		Name:  chal.Name,
-		Value: store.NewFlag().String(),
+		Value: flagValue,
 	})
 
 	team, err := ts.GetTeamByUsername("somename")
@@ -108,7 +108,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "valid flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flag.String(), chal.Tag),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
 		},
 		{
 			name:   "unknown flag",
@@ -119,7 +119,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "already taken flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flag.String(), chal.Tag),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
 			err:    "Flag is already completed",
 		},
 	}
