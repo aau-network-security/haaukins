@@ -632,6 +632,7 @@ func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*st
 	return t, nil
 }
 
+//Read json from request
 func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes int64) error {
 	r.Body = http.MaxBytesReader(w, r.Body, bytes)
 	defer r.Body.Close()
@@ -648,6 +649,7 @@ func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes i
 	return nil
 }
 
+//Return json format
 func replyJson(sc int, w http.ResponseWriter, i interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(sc)
@@ -659,10 +661,12 @@ type errReply struct {
 	Error string `json:"error"`
 }
 
+//Return json error
 func replyJsonRequestErr(w http.ResponseWriter, err error) error {
 	return replyJson(http.StatusBadRequest, w, errReply{err.Error()})
 }
 
+//Return team information (id and name) from cookie token
 func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
 	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -695,6 +699,7 @@ func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
 
 type Middleware func(http.HandlerFunc) http.HandlerFunc
 
+//Check if the request method is GET
 func GETEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -705,6 +710,7 @@ func GETEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+//Check if the request method is POST
 func POSTEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -715,6 +721,7 @@ func POSTEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+//Check if the content-type of the request is in json
 func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
@@ -725,6 +732,11 @@ func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+//Get the parent tag of the challenge.
+//in the exerise.yml file children challenges have a number
+//for example Parent: sql, Children: sql-1, sql-2 ....
+//In order to reset a challenge the parent tag is needed so, this
+//function check is the challenge tag contains a number, if so, remove the last 2 characters
 func getParentChallengeTag(child string) string {
 	for _, c := range child {
 		if unicode.IsDigit(c) {
@@ -734,6 +746,7 @@ func getParentChallengeTag(child string) string {
 	return child
 }
 
+//Get working directory of the project
 func GetWd() string {
 	path, err := os.Getwd()
 	if err != nil {
