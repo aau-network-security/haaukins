@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -98,9 +99,16 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 			value := flag.Static
 			if value == "" {
 				// flag is not static
-				value = NewFlag().String()
+				value = NewFlag().String(false)
+			} else {
+				// when there is a static flag, apply following
+				f, err := NewFlagFromString(value)
+				if err != nil {
+					log.Printf("Error creating static flag %v", err)
+				}
+				value = f.String(true)
 			}
-			//todo check when then flag is static
+
 			challenges = append(challenges, Challenge{
 				Tag:   flag.Tag,
 				Value: value,

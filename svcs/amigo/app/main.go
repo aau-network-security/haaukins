@@ -98,7 +98,7 @@ func main() {
 			_, _ = t.AddChallenge(store.Challenge{
 				Name:  c.Name,
 				Tag:   c.Tags[0],
-				Value: store.NewFlag().String(),
+				Value: store.NewFlag().String(false),
 			})
 		}
 	}
