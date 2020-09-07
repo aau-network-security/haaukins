@@ -1,13 +1,13 @@
 <template>
     <div class="flag-form">
         <form @submit.prevent="submit">
-            <div class="input-div">
-                <div class="input-div-icon" v-bind:class="{ 'text-success': successMsg, 'text-danger': errorMsg }">
-                    <i class="fa fa-flag"></i>
-                </div>
-                <div class="input-div-input">
-                    <h5>Flag</h5>
-                    <input class="input" type="text" @keydown="clearMessages" @click="clearMessages" v-model="flag">
+          <span style="color: #444;">Flag</span>
+          <div class="input-div" style="margin-top: 0px !important;">
+              <div class="input-div-icon" v-bind:class="{ 'text-success': successMsg, 'text-danger': errorMsg }">
+                  <i class="fa fa-flag"></i>
+              </div>
+              <div class="input-div-input">
+                    <input class="input" type="text" @keydown="clearMessages" @click="clearMessages" v-model="flag" placeholder="HKN{**********}">
                 </div>
             </div>
             <div class="text-center">
