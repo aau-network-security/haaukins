@@ -2,11 +2,11 @@ package amigo
 
 import (
 	"encoding/json"
-	"github.com/aau-network-security/haaukins/store"
 	"sort"
 	"time"
-)
 
+	"github.com/aau-network-security/haaukins/store"
+)
 
 type Message struct {
 	Message string      `json:"msg"`
@@ -15,35 +15,35 @@ type Message struct {
 
 // Challenge name and the points relative that challenge
 type Challenge struct {
-	Name	string		`json:"name"`
-	Tag     string		`json:"tag"`
-	Points	uint		`json:"points"`
+	Name   string `json:"name"`
+	Tag    string `json:"tag"`
+	Points uint   `json:"points"`
 }
 
 // Contains a list of Challenges relative the CategoryName
 type Category struct {
-	CategoryName		string			`json:"category"`
-	Challenges			[]Challenge		`json:"chals"`
+	CategoryName string      `json:"category"`
+	Challenges   []Challenge `json:"chals"`
 }
 
 type TeamRow struct {
-	Id          		string       `json:"id"`
-	Name        		string       `json:"name"`
-	TotalPoints 		uint		 `json:"tpoints"`
-	ChalCompletions 	[]*time.Time `json:"completions"`
-	ChalPoints 			[]uint 		 `json:"points"`
-	IsUser      		bool         `json:"is_user"`
+	Id              string       `json:"id"`
+	Name            string       `json:"name"`
+	TotalPoints     uint         `json:"tpoints"`
+	ChalCompletions []*time.Time `json:"completions"`
+	ChalPoints      []uint       `json:"points"`
+	IsUser          bool         `json:"is_user"`
 }
 
 type Scoreboard struct {
-	Category 	[]Category	`json:"challenges"`
-	TeamRow 	[]TeamRow	`json:"teams"`
+	Category []Category `json:"challenges"`
+	TeamRow  []TeamRow  `json:"teams"`
 }
 
 // Retrieve categories directly from given challenges
 //  mapping is required to prevent duplicate values in
 // returning list
-func (fd *FrontendData) getChallengeCategories()[]string {
+func (fd *FrontendData) getChallengeCategories() []string {
 	keys := make(map[string]bool)
 	challengeCats := []string{}
 	for _, challenge := range fd.challenges {
@@ -54,8 +54,6 @@ func (fd *FrontendData) getChallengeCategories()[]string {
 	}
 	return challengeCats
 }
-
-
 
 func (fd *FrontendData) initTeams(teamId string) []byte {
 
@@ -70,24 +68,24 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 	for _, c := range fd.getChallengeCategories() {
 		challenges = append(challenges, Category{
 			CategoryName: c,
-			Challenges: []Challenge{},
+			Challenges:   []Challenge{},
 		})
 	}
 
 	for _, c := range fd.challenges {
-		for i, rc := range challenges{
-			if rc.CategoryName == c.Category{
+		for i, rc := range challenges {
+			if rc.CategoryName == c.Category {
 
 				challenges[i].Challenges = append(challenges[i].Challenges, Challenge{
 					Name:   c.Name,
-					Tag: 	string(c.Tag),
+					Tag:    string(c.Tag),
 					Points: c.Points,
 				})
 			}
 		}
 	}
 
-	for _, c := range challenges{
+	for _, c := range challenges {
 		if len(c.Challenges) > 0 {
 			sort.SliceStable(c.Challenges, func(i, j int) bool {
 				return c.Challenges[i].Points < c.Challenges[j].Points
@@ -103,12 +101,11 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 		rows[i] = r
 	}
 
-
 	msg := Message{
 		Message: "scoreboard",
-		Values:  Scoreboard{
-			Category:   challenges,
-			TeamRow: rows,
+		Values: Scoreboard{
+			Category: challenges,
+			TeamRow:  rows,
 		},
 	}
 	rawMsg, _ := json.Marshal(msg)
@@ -117,11 +114,11 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 }
 
 func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
-	var completions	[]*time.Time
-	var points 		[]uint
+	var completions []*time.Time
+	var points []uint
 	var totalPoints uint = 0
 	for _, cc := range chalCategories {
-		for _, c := range cc.Challenges{
+		for _, c := range cc.Challenges {
 			solved := t.IsTeamSolvedChallenge(c.Tag)
 			completions = append(completions, solved)
 			points = append(points, c.Points)
@@ -132,11 +129,11 @@ func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
 	}
 
 	return TeamRow{
-		Id:          		t.ID(),
-		Name:        		t.Name(),
-		ChalCompletions: 	completions,
-		ChalPoints:		 	points,
-		TotalPoints: 		totalPoints,
+		Id:              t.ID(),
+		Name:            t.Name(),
+		ChalCompletions: completions,
+		ChalPoints:      points,
+		TotalPoints:     totalPoints,
 	}
 }
 
@@ -144,13 +141,13 @@ func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
 // the current user has solve that challenge
 type ChallengeCP struct {
 	ChalInfo        store.FlagConfig `json:"challenge"`
-	IsUserCompleted bool              `json:"isUserCompleted"`
-	TeamsCompleted  []TeamsCompleted  `json:"teamsCompleted"`
+	IsUserCompleted bool             `json:"isUserCompleted"`
+	TeamsCompleted  []TeamsCompleted `json:"teamsCompleted"`
 }
 
 type TeamsCompleted struct {
-	TeamName	string		`json:"teamName"`
-	CompletedAt	*time.Time	`json:"completedAt"`
+	TeamName    string     `json:"teamName"`
+	CompletedAt *time.Time `json:"completedAt"`
 }
 
 func (fd *FrontendData) initChallenges(teamId string) []byte {
@@ -159,14 +156,14 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 	rows := make([]ChallengeCP, len(fd.challenges))
 
 	for i, c := range fd.challenges {
-		r :=  ChallengeCP{
-			ChalInfo:        c,
+		r := ChallengeCP{
+			ChalInfo: c,
 		}
 
 		//check which teams has solve a specif challenge
 		for _, t := range teams {
 			solved := t.IsTeamSolvedChallenge(string(c.Tag))
-			if solved != nil{
+			if solved != nil {
 				r.TeamsCompleted = append(r.TeamsCompleted, TeamsCompleted{
 					TeamName:    t.Name(),
 					CompletedAt: solved,
@@ -176,7 +173,7 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 
 		//check which challenge the user looged in has solved
 		if err == nil {
-			if team.IsTeamSolvedChallenge(string(c.Tag)) != nil{
+			if team.IsTeamSolvedChallenge(string(c.Tag)) != nil {
 				r.IsUserCompleted = true
 			}
 		}

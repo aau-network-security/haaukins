@@ -8,11 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	pbar "github.com/schollz/progressbar"
 	"github.com/spf13/cobra"
-	"io"
-	"time"
 )
 
 var (
@@ -29,8 +30,11 @@ func (c *Client) CmdEvent() *cobra.Command {
 	cmd.AddCommand(
 		c.CmdEventCreate(),
 		c.CmdEventStop(),
+		c.CmdEventSuspend(),
+		c.CmdEventResume(),
 		c.CmdEventList(),
 		c.CmdEventTeams(),
+
 		c.CmdEventTeamRestart())
 
 	return cmd
@@ -38,12 +42,13 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 func (c *Client) CmdEventCreate() *cobra.Command {
 	var (
-		name      string
-		available int
-		capacity  int
-		frontends []string
-		exercises []string
-		finishTime string
+		name       string
+		available  int
+		capacity   int
+		frontends  []string
+		exercises  []string
+		startTime  uint64
+		finishTime uint64
 	)
 
 	cmd := &cobra.Command{
@@ -55,13 +60,14 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:                 name,
-				Tag:                  tag,
-				Frontends:            frontends,
-				Exercises:            exercises,
-				Available:            int32(available),
-				Capacity:             int32(capacity),
-				FinishTime:           finishTime,
+				Name:       name,
+				Tag:        tag,
+				Frontends:  frontends,
+				Exercises:  exercises,
+				Available:  int32(available),
+				Capacity:   int32(capacity),
+				StartTime:  time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
+				FinishTime: time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
 			})
 			if err != nil {
 				PrintError(err)
@@ -101,8 +107,8 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximum amount of labs")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
-	cmd.Flags().StringVarP(&finishTime, "finishtime", "d", "", "expected finish time of the event")
-
+	cmd.Flags().Uint64VarP(&finishTime, "finishtime", "d", 15, "expected finish time of the event")
+	cmd.Flags().Uint64VarP(&startTime, "starttime", "s", 0, "expected start time of the event")
 	cmd.MarkFlagRequired("name")
 
 	return cmd
@@ -142,24 +148,95 @@ func (c *Client) CmdEventStop() *cobra.Command {
 	}
 }
 
-func (c *Client) CmdEvents() *cobra.Command {
+func (c *Client) CmdEventSuspend() *cobra.Command {
 	return &cobra.Command{
+		Use:     "suspend",
+		Short:   "Suspends event",
+		Example: "hkn event suspend <event-tag>",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			tag := args[0]
+			stream, err := c.rpcClient.SuspendEvent(ctx, &pb.SuspendEventRequest{
+				EventTag: tag,
+				Suspend:  true,
+			})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					PrintError(err)
+					return
+				}
+			}
+		},
+	}
+}
+
+func (c *Client) CmdEventResume() *cobra.Command {
+	return &cobra.Command{
+		Use:     "resume",
+		Short:   "Resumes event",
+		Example: "hkn event resume <event-tag>",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			tag := args[0]
+			stream, err := c.rpcClient.SuspendEvent(ctx, &pb.SuspendEventRequest{
+				EventTag: tag,
+				Suspend:  false,
+			})
+
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					PrintError(err)
+					return
+				}
+			}
+		},
+	}
+}
+
+func (c *Client) CmdEvents() *cobra.Command {
+	var status string
+	var statusID int32
+	cmd := &cobra.Command{
 		Use:     "events",
 		Short:   "List events",
-		Example: `hkn event list`,
+		Example: `hkn event list / hkn events --status closed `,
 		Run: func(cmd *cobra.Command, args []string) {
+
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-
-			r, err := c.rpcClient.ListEvents(ctx, &pb.ListEventsRequest{})
+			statusID = checkStatus(status)
+			r, err := c.rpcClient.ListEvents(ctx, &pb.ListEventsRequest{Status: statusID})
 			if err != nil {
 				PrintError(err)
 				return
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "CREATION TIME", "EXPECTED FINISH TIME"},
-				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "CreationTime", "FinishTime"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "STATUS", "CREATION TIME", "EXPECTED FINISH TIME", "CREATEDBY"},
+				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "Status", "CreationTime", "FinishTime", "CreatedBy"},
 			}
 
 			var elements []formatElement
@@ -175,6 +252,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			fmt.Printf(table)
 		},
 	}
+	cmd.Flags().StringVarP(&status, "status", "s", "running", "return events in given condition")
+	return cmd
 }
 
 func (c *Client) CmdEventList() *cobra.Command {
@@ -263,4 +342,23 @@ func (c *Client) CmdEventTeamRestart() *cobra.Command {
 
 		},
 	}
+}
+
+func checkStatus(status string) int32 {
+	var statusID int32
+	switch status {
+	case "running":
+		statusID = 0
+	case "suspended":
+		statusID = 1
+	case "booked":
+		statusID = 2
+	case "closed":
+		statusID = 3
+	case "all":
+		statusID = 99
+	default:
+		statusID = 0
+	}
+	return statusID
 }

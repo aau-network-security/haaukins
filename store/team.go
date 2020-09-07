@@ -11,7 +11,7 @@ import (
 
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/google/uuid"
-	logger "github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -31,6 +31,7 @@ type TeamStore interface {
 	SaveTeam(*Team) error
 	GetTeamByID(string) (*Team, error)
 	GetTeamByEmail(string) (*Team, error)
+	GetTeamByUsername(string) (*Team, error)
 	GetTeams() []*Team
 	SaveTokenForTeam(string, *Team) error
 }
@@ -91,7 +92,7 @@ func (es *teamstore) SaveTeam(t *Team) error {
 		es.m.Unlock()
 		return ErrTeamAlreadyExist
 	}
-	es.names[username] = t.Name()
+	es.names[username] = t.ID()
 	es.emails[email] = t.ID()
 	es.teams[t.ID()] = t
 
@@ -100,7 +101,7 @@ func (es *teamstore) SaveTeam(t *Team) error {
 		EventTag: strings.TrimSpace(string(es.eConf.Tag)),
 		Email:    strings.TrimSpace(t.Email()),
 		Name:     strings.TrimSpace(t.Name()),
-		Password: strings.TrimSpace(t.GetHashedPassword()),
+		Password: t.GetHashedPassword(),
 	})
 	if err != nil {
 		es.m.Unlock()
@@ -156,6 +157,23 @@ func (es *teamstore) GetTeamByEmail(email string) (*Team, error) {
 	return t, nil
 }
 
+func (es *teamstore) GetTeamByUsername(username string) (*Team, error) {
+	es.m.RLock()
+
+	tid, ok := es.names[username]
+	if !ok {
+		es.m.RUnlock()
+		return nil, fmt.Errorf("GetTeamByUsername function error %v", UnknownTeamErr)
+	}
+	t, ok := es.teams[tid]
+	if !ok {
+		es.m.RUnlock()
+		return nil, fmt.Errorf("GetTeamByUsername function error %v", UnknownTeamErr)
+	}
+	es.m.RUnlock()
+	return t, nil
+}
+
 // Get the teams from the TeamStore
 func (es *teamstore) GetTeams() []*Team {
 	es.m.RLock()
@@ -183,8 +201,11 @@ type Team struct {
 	email          string
 	name           string
 	hashedPassword string
-	challenges     map[Flag]TeamChallenge
-	solvedChalsDB  []TeamChallenge //json got from the DB containing list of solved Challenges
+	// used to suspend resources for that team
+	// this is last access time to environment of a team.
+	lastAccess    time.Time
+	challenges    map[Flag]TeamChallenge
+	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
 }
 
 type TeamChallenge struct {
@@ -207,7 +228,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 
 	solvedChals, err := ParseSolvedChallenges(solvedChalsDB)
 	if err != nil {
-		logger.Debug().Msgf(err.Error())
+		log.Debug().Msgf(err.Error())
 	}
 
 	return &Team{
@@ -281,7 +302,7 @@ func (t *Team) AddChallenge(c Challenge) (Flag, error) {
 
 	f, err := NewFlagFromString(c.Value)
 	if err != nil {
-		logger.Debug().Msgf("Error creating haaukins flag from given string %s", err)
+		log.Debug().Msgf("Error creating haaukins flag from given string %s", err)
 		return Flag{}, err
 	}
 
@@ -332,7 +353,7 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 
 	err := t.UpdateTeamSolvedChallenges(chal)
 	if err != nil {
-		logger.Debug().Msgf("Unable to write the solved challenges in the DB")
+		log.Debug().Msgf("Unable to write the solved challenges in the DB")
 	}
 
 	t.m.Unlock()
@@ -340,13 +361,13 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 }
 
 // Update the Team access time on the DB
-func (t *Team) UpdateTeamAccessed(time time.Time) error {
+func (t *Team) UpdateTeamAccessed(tm time.Time) error {
 	t.m.RLock()
 	_, err := t.dbc.UpdateTeamLastAccess(context.Background(), &pbc.UpdateTeamLastAccessRequest{
 		TeamId:   t.ID(),
-		AccessAt: time.Format(displayTimeFormat),
+		AccessAt: tm.Format(displayTimeFormat),
 	})
-
+	t.lastAccess = tm
 	if err != nil {
 		t.m.RUnlock()
 		return err
@@ -377,6 +398,12 @@ func (t *Team) ID() string {
 	t.m.RUnlock()
 
 	return id
+}
+
+func (t *Team) LastAccessTime() time.Time {
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.lastAccess
 }
 
 func (t *Team) Email() string {

@@ -6,18 +6,20 @@ package guacamole_test
 
 import (
 	"context"
-	"github.com/aau-network-security/haaukins/store"
-	pb "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/aau-network-security/haaukins/svcs/amigo"
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
-	mockserver "github.com/aau-network-security/haaukins/testing"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/aau-network-security/haaukins/store"
+
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	mockserver "github.com/aau-network-security/haaukins/testing"
+	"google.golang.org/grpc"
 )
 
 func TestGuacLoginTokenInterceptor(t *testing.T) {
@@ -54,7 +56,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	},tmp, client)
+	}, tmp, client)
 
 	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
 
@@ -91,13 +93,12 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 				return "ok-token", nil
 			}
 
-			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, amigo.NewAmigo(ts, nil),loginFunc)
+			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, amigo.NewAmigo(ts, nil, ""), loginFunc)
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {
 					t.Fatalf("no interception, despite expected intercept")
 				}
-
 				return
 			}
 

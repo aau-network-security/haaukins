@@ -21,7 +21,7 @@ var (
 	UserStoreNoFileErr = errors.New("Unable to find user store file")
 	UserExistsErr      = errors.New("User already exists")
 	UserNotFoundErr    = errors.New("User not found")
-	PasswdTooShortErr  = errors.New("Password too short, requires atleast six characters")
+	PasswdTooShortErr  = errors.New("Password too short, requires at least six characters")
 
 	SignupKeyExistsErr   = errors.New("Signup key already exists")
 	SignupKeyNotFoundErr = errors.New("Signup key not found")
@@ -34,6 +34,7 @@ type User struct {
 	Email          string    `yaml:"email"`
 	HashedPassword string    `yaml:"hashed-password"`
 	SuperUser      bool      `yaml:"super-user"`
+	NPUser         bool      `yaml:"np-user"`
 	CreatedAt      time.Time `yaml:"created-at"`
 }
 
@@ -73,6 +74,7 @@ type UserStore interface {
 	UpdatePasswd(string, string) error
 	GetUserByUsername(string) (User, error)
 	ListUsers() []User
+	IsSuperUser(string) bool
 }
 
 type userstore struct {
@@ -95,6 +97,12 @@ func NewUserStore(users []User, hooks ...func([]User) error) UserStore {
 	}
 
 	return &s
+}
+
+func (us *userstore) IsSuperUser(username string) bool {
+	us.m.Lock()
+	defer us.m.Unlock()
+	return us.userMap[username].SuperUser
 }
 
 func (us *userstore) DeleteUserByUsername(username string) error {
@@ -182,7 +190,11 @@ func (us *userstore) RunHooks() error {
 	return nil
 }
 
+// admin has all permissions  -- superuser
+// user has all permissions except invitation -- user
+// np-user has limited permissions  -- np-user [non-priviledged user]
 type SignupKey struct {
+	WillBeNPUser    bool   `yaml:"np-user,omitempty"`
 	WillBeSuperUser bool   `yaml:"super-user,omitempty"`
 	Value           string `yaml:"value,omitempty"`
 }

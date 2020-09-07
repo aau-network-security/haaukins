@@ -9,7 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aau-network-security/haaukins/event"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+
 	"github.com/aau-network-security/haaukins/store"
 )
 
@@ -17,7 +18,7 @@ type eventPool struct {
 	m               sync.RWMutex
 	host            string
 	notFoundHandler http.Handler
-	events          map[store.Tag]event.Event
+	events          map[store.Tag]guacamole.Event
 	handlers        map[store.Tag]http.Handler
 }
 
@@ -25,12 +26,12 @@ func NewEventPool(host string) *eventPool {
 	return &eventPool{
 		host:            host,
 		notFoundHandler: notFoundHandler(),
-		events:          map[store.Tag]event.Event{},
+		events:          map[store.Tag]guacamole.Event{},
 		handlers:        map[store.Tag]http.Handler{},
 	}
 }
 
-func (ep *eventPool) AddEvent(ev event.Event) {
+func (ep *eventPool) AddEvent(ev guacamole.Event) {
 	tag := ev.GetConfig().Tag
 
 	ep.m.Lock()
@@ -54,7 +55,7 @@ func (ep *eventPool) RemoveEvent(t store.Tag) error {
 	return nil
 }
 
-func (ep *eventPool) GetEvent(t store.Tag) (event.Event, error) {
+func (ep *eventPool) GetEvent(t store.Tag) (guacamole.Event, error) {
 	ep.m.RLock()
 	ev, ok := ep.events[t]
 	ep.m.RUnlock()
@@ -65,8 +66,8 @@ func (ep *eventPool) GetEvent(t store.Tag) (event.Event, error) {
 	return ev, nil
 }
 
-func (ep *eventPool) GetAllEvents() []event.Event {
-	events := make([]event.Event, len(ep.events))
+func (ep *eventPool) GetAllEvents() []guacamole.Event {
+	events := make([]guacamole.Event, len(ep.events))
 
 	var i int
 	ep.m.RLock()
@@ -126,4 +127,21 @@ func getHost(r *http.Request) string {
 		return host
 	}
 	return r.URL.Host
+
+}
+
+func notFoundHandler() http.Handler {
+	p := []byte(notfoundpage)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(p)
+	})
+}
+
+func suspendEventHandler() http.Handler {
+	p := []byte(suspendPage)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTemporaryRedirect)
+		w.Write(p)
+	})
 }

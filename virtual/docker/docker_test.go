@@ -37,8 +37,9 @@ func testCleanup(t *testing.T, c hkndocker.Container) func() {
 }
 
 func TestContainerBase(t *testing.T) {
-	// testing create
+	// testing create. Do a long sleep to keep it alive
 	c1 := hkndocker.NewContainer(hkndocker.ContainerConfig{
+		Cmd:   []string{"sleep", "1d"},
 		Image: "alpine",
 	})
 	if err := c1.Create(nil); err != nil {
@@ -67,6 +68,25 @@ func TestContainerBase(t *testing.T) {
 
 	if inspecCon.State.Status != "running" {
 		t.Fatalf("expected container to have status running")
+	}
+
+	err = c1.Suspend(nil)
+	if err != nil {
+		t.Fatalf("unable to suspend container: %s", err)
+	}
+
+	inspecCon, err = dockerClient.InspectContainer(containerId)
+	if err != nil {
+		t.Fatalf("unable to inspect suspended container")
+	}
+
+	if inspecCon.State.Status != "paused" {
+		t.Fatalf("expected container to have status paused")
+	}
+
+	err = c1.Start(nil)
+	if err != nil {
+		t.Fatalf("unable to start container after suspend %s", err)
 	}
 
 	err = c1.Stop()

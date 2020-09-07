@@ -1,13 +1,13 @@
 {{ define "content" }}
 	<img class="wave-bg" src="/assets/img/wave-login.png">
-	<div class="container">
-		<div class="row">
-			<div class="col myd-none" style="height: 100vh!important;">
+	<div class="container h-100">
+		<div class="row h-100">
+			<div class="col myd-none" style="min-height: 800px!important;">
 				<div class="svg-login h-100">
 					<img src="/assets/img/login4.svg" class="img-fluid">
 				</div>
 			</div>
-			<div class="col align-self-center" style="height: 100vh!important;">
+			<div class="col" style="min-height: 800px!important; height: 100vh">
 				<div class="login-content h-100">
 					<form class="login-form" method="post" action="/login">
 						<img src="/assets/img/haaukins-login.png">
@@ -17,8 +17,8 @@
 								<i class="fas fa-user"></i>
 							</div>
 							<div class="input-div-input">
-								<h5>Email</h5>
-								<input class="input" name="email" type="email">
+								<h5>Username</h5>
+								<input class="input" name="username" type="text">
 							</div>
 						</div>
 						<div class="input-div mb-2">

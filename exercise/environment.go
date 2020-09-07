@@ -27,6 +27,8 @@ type Environment interface {
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
 	Stop() error
+	Suspend(ctx context.Context) error
+	Resume(ctx context.Context) error
 	io.Closer
 }
 
@@ -38,8 +40,7 @@ type environment struct {
 	dnsServer  *dns.Server
 	dhcpServer *dhcp.Server
 	dnsAddr    string
-
-	lib vbox.Library
+	lib        vbox.Library
 }
 
 func NewEnvironment(lib vbox.Library) Environment {
@@ -139,6 +140,28 @@ func (ee *environment) Stop() error {
 
 	for _, e := range ee.exercises {
 		if err := e.Stop(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ee *environment) Suspend(ctx context.Context) error {
+	for _, e := range ee.exercises {
+		if err := e.Suspend(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Resume will unpause paused containers
+// and start suspended vms (saved state vms)
+func (ee *environment) Resume(ctx context.Context) error {
+	for _, e := range ee.exercises {
+		if err := e.Start(ctx); err != nil {
 			return err
 		}
 	}

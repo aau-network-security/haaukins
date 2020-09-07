@@ -7,10 +7,11 @@ service Daemon {
   rpc ListUsers (Empty) returns (ListUsersResponse) {}
   rpc ChangeUserPasswd (UpdatePasswdRequest) returns (UpdatePasswdResponse) {}
   rpc DestroyUser (DestroyUserRequest) returns (DestroyUserResponse) {}
-
+  rpc SetTeamSuspend (SetTeamSuspendRequest) returns (Empty) {}
 
   rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
+  rpc SuspendEvent(SuspendEventRequest) returns (stream EventStatus) {}
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
@@ -31,6 +32,17 @@ service Daemon {
 
 message Team {
   string Id = 1;
+}
+
+message SuspendEventRequest {
+  string eventTag = 1;
+  bool suspend = 2;
+}
+
+message SetTeamSuspendRequest {
+  string teamId = 1;
+  string eventTag = 2;
+  bool   suspend = 3;
 }
 
 message DestroyUserRequest {
@@ -71,6 +83,7 @@ message SignupUserRequest {
 
 message InviteUserRequest {
   bool super_user = 1;
+  bool np_user =2;
 }
 
 message InviteUserResponse {
@@ -86,6 +99,7 @@ message ListUsersResponse {
     string email = 4;
     string createdAt = 5;
     bool isSuperUser = 6;
+    bool isNPUser = 7;
   }
   repeated UserInfo users = 1;
   string error = 2;
@@ -98,19 +112,26 @@ message CreateEventRequest {
   repeated string exercises = 4;
   int32 available = 5;
   int32 capacity = 6;
-  string finishTime = 7;
+  string  startTime = 7;
+  string finishTime = 8;
 }
 
-message ListEventsRequest {}
+message ListEventsRequest {
+  int32 status = 1;
+}
+
 message ListEventsResponse {
   message Events {
     string tag = 1;
     string name = 2;
     int32 teamCount = 3;
     string exercises = 4;
-    int32 capacity = 5;
-    string creationTime = 6;
-    string finishTime = 7;
+    int32 availability = 5;
+    int32 capacity = 6;
+    string creationTime = 7;
+    string finishTime = 8;
+    int32 status = 9;
+    string createdBy = 10;
   }
 
   repeated Events events = 1;

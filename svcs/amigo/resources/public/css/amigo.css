@@ -26,6 +26,9 @@ body {
 .mt-toppage{
     margin-top: 110px;
 }
+.mt-toppage-reset{
+    margin-top: 0px;
+}
 
 .mb-botpage{
     margin-bottom: 180px;
@@ -67,6 +70,29 @@ body {
 
 .btn-haaukins{
     background: #211A52;
+}
+
+#info-team{
+    position: absolute;
+    top: 17%;
+    right: 0;
+    background-color: #f76c6c;
+    border-top-left-radius: 5px!important;
+    border-bottom-left-radius: 5px!important;
+    z-index: 1;
+}
+
+.nav-tabs a {
+    color: #211A52 !important;
+}
+
+#info-tab .nav-link.active {
+    background-color: #211A52 !important;
+    color: #fff;
+}
+
+#info-tab .nav-link{
+    color: #211A52;
 }
 
 /*To change*/
@@ -452,8 +478,12 @@ table tr:last-child td:last-child {
     color: #444;
 }
 
-.chal-desc p{
+.chal-desc p, .dark-color{
     color: #444;
+}
+
+.text-black{
+    color: #000000;
 }
 
 .flag-form .input-div{
@@ -556,9 +586,6 @@ table tr:last-child td:last-child {
     .mb-botpage{
         margin-bot: 140px;
     }
-    .mt-toppage{
-        margin-top: 120px;
-    }
     .aau-developer img{
         max-width: 170px;
     }
@@ -623,6 +650,9 @@ table tr:last-child td:last-child {
 }
 
 @media (min-width: 768px) {
+    .mt-toppage-reset{
+        margin-top: 120px;
+    }
     .my-container {
         max-width: 720px;
     }

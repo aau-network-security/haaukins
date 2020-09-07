@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/aau-network-security/haaukins/store"
+
 	pb "github.com/aau-network-security/haaukins/store/proto"
 	mockserver "github.com/aau-network-security/haaukins/testing"
 	"github.com/google/uuid"
@@ -51,7 +52,7 @@ func TestTeamSolveTask(t *testing.T) {
 	chal := store.Challenge{
 		Name:  "FTP",
 		Tag:   "ftp",
-		Value: store.NewFlag().String(),
+		Value: store.NewFlag().String(false),
 	}
 
 	flag, _ := team.AddChallenge(chal)

@@ -5,17 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aau-network-security/haaukins/store"
-	pb "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/aau-network-security/haaukins/svcs/amigo"
-	mockserver "github.com/aau-network-security/haaukins/testing"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/aau-network-security/haaukins/store"
+	pb "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/amigo"
+	mockserver "github.com/aau-network-security/haaukins/testing"
+	"google.golang.org/grpc"
 )
 
 func TestVerifyFlag(t *testing.T) {
@@ -50,31 +51,31 @@ func TestVerifyFlag(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
-	},tmp ,client)
+	}, tmp, client)
 
 	var chal = store.FlagConfig{
-			Tag:         "test",
-			Name:        "Test Challenge",
-			EnvVar:      "",
-			Static:      "",
-			Points:      10,
-			Description: "",
-			Category:    "",
+		Tag:         "test",
+		Name:        "Test Challenge",
+		EnvVar:      "",
+		Static:      "",
+		Points:      10,
+		Description: "",
+		Category:    "",
 	}
 
-	addTeam := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
+	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", client)
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}
-
+	flagValue := store.NewFlag().String(false)
 	tag, _ := store.NewTag(string(chal.Tag))
-	flag, _ := addTeam.AddChallenge(store.Challenge{
+	_, _ = addTeam.AddChallenge(store.Challenge{
 		Tag:   tag,
 		Name:  chal.Name,
-		Value: store.NewFlag().String(),
+		Value: flagValue,
 	})
 
-	team, err := ts.GetTeamByEmail("some@email.com")
+	team, err := ts.GetTeamByUsername("somename")
 	if err != nil {
 		t.Fatalf("unable to get the team by email: %v", err)
 	}
@@ -107,7 +108,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "valid flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flag.String(), chal.Tag),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
 		},
 		{
 			name:   "unknown flag",
@@ -118,7 +119,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "already taken flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flag.String(), chal.Tag),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
 			err:    "Flag is already completed",
 		},
 	}
@@ -133,8 +134,8 @@ func TestVerifyFlag(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			am := amigo.NewAmigo(ts, challenges, tc.opts...)
-			srv := httptest.NewServer(am.Handler(nil, http.NewServeMux()))
+			am := amigo.NewAmigo(ts, challenges, "", tc.opts...)
+			srv := httptest.NewServer(am.Handler(amigo.Hooks{}, http.NewServeMux()))
 
 			req, err := http.NewRequest("POST", srv.URL+"/flags/verify", bytes.NewBuffer([]byte(tc.input)))
 			if err != nil {

@@ -9,9 +9,15 @@
 		<link href="https://fonts.googleapis.com/css?family=Audiowide&display=swap" rel="stylesheet">
 
 		<link rel="stylesheet" href="/assets/css/bootstrap.min.css">
+		<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 	</head>
     <body>
 	{{ template "navbar" . }}
+	<div id="info-team">
+		<button type="button" class="btn btn-login" data-toggle="modal" data-target="#infouser">
+			<span class="fa fa-info-circle" aria-hidden="true"></span> INFO
+		</button>
+	</div>
 	<main id="content">
 	    {{ template "content" . }}
 		<img class="wave-bg-footer" src="/assets/img/smallwave-footer.png">
@@ -23,6 +29,68 @@
 			</p>
 		</div>
 	</footer>
+
+	<!-- Info x Users Modal -->
+	<div class="modal fade bd-example-modal-lg" id="infouser" tabindex="-1" role="dialog" aria-labelledby="infouserLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="infouserLabel">User Information</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body mb-3">
+					<p class="dark-color">This panel explain what to do in case you get stock while using <strong>Haaukins</strong>.</p>
+					<ul class="nav nav-pills mb-3" id="info-tab" role="tablist">
+						<li class="nav-item">
+							<a class="nav-link active" id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab">Copy / Paste</a>
+						</li>
+						<li class="nav-item">
+							<a class="nav-link" id="conn-error-tab" data-toggle="tab" href="#conn-error" role="tab">Connection Error</a>
+						</li>
+					</ul>
+					<div class="tab-content" id="nav-tabContent">
+						<div class="tab-pane fade show active" id="copy-clipboard" role="tabpanel" aria-labelledby="copy-clipboard-tab">
+							<p class="p-2 mt-2 dark-color">
+								In order to copy from Host to VM on the browser and the way around, these are the following command:
+								<br><br>
+								- On Windows & Linux: <strong class="text-black">Ctrl+Alt+Shift</strong><br>
+								- On MacOS: <strong class="text-black">Ctrl+Command+Shift</strong>
+								<br><br>
+								You might need to logout and login to VM cause sometimes keyboard combination is getting broken.
+								For example, when you type A it writes E.
+							</p>
+							<video class="img-fluid" controls>
+								<source src="/assets/img/CopyToClipboard.mp4" type="video/mp4">
+								Your browser does not support the video tag.
+							</video>
+						</div>
+						<div class="tab-pane fade" id="conn-error" role="tabpanel" aria-labelledby="conn-error-tab">
+							<div class="text-center">
+								<img class="img-fluid" src="/assets/img/connection-error.png">
+							</div>
+							<p class="p-2 mt-2 dark-color">
+								There are multiple reasons behind this error for example:
+								<br><br>
+								- The VM crashed and you can not connect it<br>
+								- There might be multiple open tabs with same VM instance<br>
+								- After a while without any activity the VM goes into sleep mode
+								<br><br>
+								In order to solve this error try out those steps:
+								<br><br>
+								1. Close all the VM Tabs<br>
+								2. Log out and login on event page<br>
+								3. Click <strong>RESET Kali Machine</strong> button from challenges page<br>
+								4. In case you still get the error create a new team
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<script defer src="/assets/js/fa.js"></script>
 	<script defer src="/assets/js/amigo.js"></script>
 	<script defer src="/assets/js/app.js"></script>

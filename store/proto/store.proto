@@ -6,16 +6,73 @@ service Store {
     rpc AddTeam (AddTeamRequest) returns (InsertResponse) {}
 
     //Select
-    rpc GetEvents (EmptyRequest) returns (GetEventResponse) {}
+    rpc GetEvents (GetEventRequest) returns (GetEventResponse) {}
+    rpc GetEventByUser (GetEventByUserReq) returns (GetEventResponse) {}
     rpc GetEventTeams (GetEventTeamsRequest) returns (GetEventTeamsResponse) {}
+    rpc GetEventStatus (GetEventStatusRequest) returns (EventStatusStore) {}
+    rpc IsEventExists(GetEventByTagReq) returns (GetEventByTagResp) {}
+    rpc GetTimeSeries(EmptyRequest) returns (GetTimeSeriesResponse) {}
+    rpc DropEvent(DropEventReq) returns (DropEventResp){}
 
+    rpc SetEventStatus (SetEventStatusRequest) returns (EventStatusStore) {}
     //Update
-    rpc UpdateEventFinishDate (UpdateEventRequest) returns (UpdateResponse) {}
+    rpc UpdateCloseEvent (UpdateEventRequest) returns (UpdateResponse) {}
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
 }
 
 message EmptyRequest {}
+
+message GetTimeSeriesResponse {
+    map<string, int32> timeseries = 1;
+}
+
+message GetEventStatusRequest {
+    string eventTag = 1;
+}
+
+message GetEventByTagReq {
+    string eventTag = 1;
+    int32 status = 2;
+}
+message GetEventByTagResp {
+    bool isExist = 1;
+}
+
+message DropEventReq {
+    string tag = 1;
+    int32 status =2;
+}
+
+message DropEventResp {
+    bool isDropped = 1;
+}
+
+
+
+message GetEventRequest {
+    // this will indicate that whether all events requested or some by status
+    // status 0  > Running Events (which set as Running)
+    // status 1  > Suspended Events (which set as Suspended)
+    // status 2  > Booked Events (which are booked by client)
+    // status 3  > Closed Events (which are finished and closed )
+    int32 status = 1;
+}
+
+message GetEventByUserReq {
+    int32 status =1;
+    string user = 2;
+}
+
+
+message SetEventStatusRequest {
+    string eventTag = 1;
+    int32 status = 2;
+}
+
+message EventStatusStore {
+    int32 status = 1;
+}
 
 message AddEventRequest{
     string name = 1;
@@ -26,6 +83,9 @@ message AddEventRequest{
     int32 capacity = 6;
     string startTime = 7;
     string expectedFinishTime = 8;
+    string finishedAt = 9;
+    int32 status = 10;
+    string createdBy = 11;
 }
 
 message AddTeamRequest{
@@ -52,6 +112,8 @@ message GetEventResponse{
         string startedAt = 7;
         string expectedFinishTime = 8;
         string finishedAt = 9;
+        int32 status = 10;
+        string createdBy =11;
     }
     repeated Events events = 1;
     string errorMessage = 2;
@@ -76,8 +138,9 @@ message GetEventTeamsResponse{
 }
 
 message UpdateEventRequest{
-    string eventId = 1;
-    string finishedAt = 2;
+    string oldTag = 1;
+    string newTag = 2;
+    string finishedAt = 3;
 }
 
 message UpdateTeamSolvedChallengeRequest{

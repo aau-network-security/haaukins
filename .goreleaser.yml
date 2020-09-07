@@ -25,7 +25,7 @@ builds:
     # Custom ldflags templates.
     # Default is `-s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}} -X main.builtBy=goreleaser`.
     ldflags:
-      - -s -w -X main.version={{ .Tag }}
+      - -s -w -X main.version={{ .Version }}
 
     # Custom environment variables to be set during the builds.
     # Default is empty.
@@ -54,7 +54,7 @@ builds:
     flags:
       - -tags=netgo
     ldflags:
-      - -s -w -X main.version={{ .Tag }}
+      - -s -w -X main.version={{ .Version }}
     goos:
       - linux
     goarch:
@@ -122,7 +122,7 @@ checksum:
 
 brews:
   - github:
-      owner: mrturkmen06
+      owner: aau-network-security
       name: homebrew-haaukins
     folder: Formula
     homepage:  https://github.com/aau-network-security/haaukins

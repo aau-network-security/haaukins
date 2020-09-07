@@ -10,8 +10,15 @@ import FlagChecker from './components/FlagChecker.vue'
 import Scoreboard from './components/Scoreboard.vue'
 import ChallegesPage from "./components/ChallegesPage";
 import TeamsPage from "./components/TeamsPage";
+import ResetFrontend from "@/components/ResetFrontend";
 
 Vue.config.productionTip = false;
+
+if (document.getElementById("reset-frontend")) {
+  new Vue({
+    render: h => h(ResetFrontend),
+  }).$mount('#reset-frontend')
+}
 
 if (document.getElementById("flagchecker")) {
   new Vue({

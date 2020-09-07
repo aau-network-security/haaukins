@@ -8,39 +8,38 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	pbc "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"time"
+
+	pbc "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/rs/zerolog/log"
 )
 
 const (
-	ID_KEY       = "I"
-	TEAMNAME_KEY = "TN"
-	token_key	 = "testing"
-	displayTimeFormat = "2006-01-02 15:04:05"
+	ID_KEY            = "I"
+	TEAMNAME_KEY      = "TN"
+	token_key         = "testing"
+	displayTimeFormat = time.RFC3339
 )
 
 var (
-	//TeamExistsErr       = errors.New("Team already exists")
-	UnknownTeamErr      = errors.New("Unknown team")
-	UnknownTokenErr     = errors.New("Unknown token")
-	//NoFrontendErr       = errors.New("lab requires at least one frontend")
-	// = errors.New("Incorrect value for flag")
-	//UnknownChallengeErr = errors.New("Unknown challenge")
+	UnknownTeamErr  = errors.New("Unknown team")
+	UnknownTokenErr = errors.New("Unknown token")
 )
 
 type EventConfig struct {
-	Name       		string
-	Tag        		Tag
-	Available  		int
-	Capacity   		int
-	Lab        		Lab
-	StartedAt  		*time.Time
-	FinishExpected  *time.Time
-	FinishedAt 		*time.Time
+	Name           string
+	Tag            Tag
+	Available      int
+	Capacity       int
+	Lab            Lab
+	StartedAt      *time.Time
+	FinishExpected *time.Time
+	FinishedAt     *time.Time
+	Status         int32
+	CreatedBy      string
 }
 
 type Lab struct {
@@ -58,6 +57,10 @@ func (e EventConfig) Validate() error {
 		return &EmptyVarErr{Var: "Tag", Type: "Event"}
 	}
 
+	if e.CreatedBy == "" {
+		return &EmptyVarErr{Var: "User", Type: "Event"}
+	}
+
 	if len(e.Lab.Exercises) == 0 {
 		return &EmptyVarErr{Var: "Exercises", Type: "Event"}
 	}
@@ -66,7 +69,6 @@ func (e EventConfig) Validate() error {
 		return &EmptyVarErr{Var: "Frontends", Type: "Event"}
 	}
 
-	log.Info().Msg("Event config validation is done")
 	return nil
 }
 
@@ -83,14 +85,30 @@ func (e Event) SetCapacity(n int) error {
 	panic("implement me")
 }
 
-func (e Event) Finish(time time.Time) error {
+func (e Event) Finish(newTag string, time time.Time) error {
 
-	_, err := e.dbc.UpdateEventFinishDate(context.Background(), &pbc.UpdateEventRequest{
-		EventId:              string(e.Tag),
-		FinishedAt:           time.Format(displayTimeFormat),
+	_, err := e.dbc.UpdateCloseEvent(context.Background(), &pbc.UpdateEventRequest{
+		OldTag:     string(e.Tag),
+		NewTag:     newTag,
+		FinishedAt: time.Format(displayTimeFormat),
 	})
 	if err != nil {
 
+		return fmt.Errorf("error on closing event on the store %v", err)
+	}
+	return nil
+}
+
+// SetStatus will set status of event on db
+func (e Event) SetStatus(eventTag string, status int32) error {
+	_, err := e.dbc.SetEventStatus(context.Background(), &pbc.SetEventStatusRequest{
+		EventTag: eventTag,
+		Status:   status,
+	})
+
+	e.Status = status
+
+	if err != nil {
 		return err
 	}
 	return nil
@@ -100,23 +118,24 @@ func (e Event) Finish(time time.Time) error {
 // The connection with the DB
 // A new TeamStore that contains all the teams retrieved from the DB (if no teams are retrieved the TeamStore will be empty)
 // The EventConfiguration
-func NewEventStore (conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, error){
+func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, error) {
 	ctx := context.Background()
 	ts := NewTeamStore(conf, dbc)
 
 	teamsDB, err := dbc.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: string(conf.Tag)})
-	if err != nil{
+	if err != nil {
 		return Event{}, err
 	}
-	for _, teamDB := range teamsDB.Teams{
+	for _, teamDB := range teamsDB.Teams {
 		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {
 			log.Debug().Msgf("Error in getting token for team %s", team.Name())
 		}
-		ts.tokens[teamToken]=team.ID()
-		ts.emails[team.Email()]=team.ID()
-		ts.teams[team.ID()]=team
+		ts.tokens[teamToken] = team.ID()
+		ts.emails[team.Email()] = team.ID()
+		ts.names[team.Name()] = team.ID()
+		ts.teams[team.ID()] = team
 	}
 
 	if _, err := os.Stat(eDir); os.IsNotExist(err) {
@@ -126,7 +145,7 @@ func NewEventStore (conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, 
 	}
 
 	return Event{
-		Dir:		 eDir,
+		Dir:         eDir,
 		dbc:         dbc,
 		TeamStore:   ts,
 		EventConfig: conf,

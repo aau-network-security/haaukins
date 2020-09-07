@@ -7,9 +7,10 @@ package lab
 import (
 	"context"
 	"errors"
+	"sync"
+
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 var (
@@ -20,6 +21,8 @@ var (
 type Hub interface {
 	Queue() <-chan Lab
 	Close() error
+	Suspend(context.Context) error
+	Resume(context.Context) error
 }
 
 type hub struct {
@@ -46,6 +49,7 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int) (*hub, er
 		ctx := context.Background()
 		for range ready {
 			wg.Add(1)
+			// todo: handle this in case of error
 			lab, err := creator.NewLab(ctx)
 			if err != nil {
 				log.Error().Msgf("Error while creating new lab %s", err.Error())
@@ -157,4 +161,41 @@ func (h *hub) Queue() <-chan Lab {
 func (h *hub) Close() error {
 	close(h.stop)
 	return nil
+}
+
+func (h *hub) Suspend(ctx context.Context) error {
+	var suspendError error
+	var wg sync.WaitGroup
+	for _, l := range h.labs {
+		wg.Add(1)
+		go func() {
+			if err := l.Suspend(ctx); err != nil {
+				err = suspendError
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+	}
+
+	return suspendError
+}
+
+func (h *hub) Resume(ctx context.Context) error {
+
+	var resumeError error
+	var wg sync.WaitGroup
+
+	for _, l := range h.labs {
+		wg.Add(1)
+		go func() {
+			if err := l.Resume(ctx); err != nil {
+				err = resumeError
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+
+	}
+
+	return resumeError
 }

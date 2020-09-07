@@ -9,6 +9,7 @@
                     <div class="nav nav-tabs" id="nav-tab" role="tablist">
                         <a class="nav-item nav-link active" id="nav-challenge-tab" data-toggle="tab" href="#nav-challenge" role="tab" aria-controls="nav-challenge" aria-selected="true">Challenge</a>
                         <a class="nav-item nav-link" id="nav-solves-tab" data-toggle="tab" href="#nav-solves" role="tab" aria-controls="nav-solves" aria-selected="false">{{checkTeams(teamsCompleted)}} Solves</a>
+                        <ResetChallenge :challengeTag="challenge.Tag"></ResetChallenge>
                     </div>
                 </nav>
                 <div class="tab-content" id="nav-tabContent">
@@ -47,9 +48,10 @@
 
 <script>
     import FlagChecker from "./FlagChecker";
+    import ResetChallenge from "@/components/ResetChallenge";
     export default {
         name: "ChallengeModal",
-        components: {FlagChecker},
+        components: {ResetChallenge, FlagChecker},
         props: {
             challenge: Object,
             teamsCompleted: Array,

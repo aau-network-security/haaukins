@@ -3,14 +3,16 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"io"
+	"testing"
+
+	"github.com/aau-network-security/haaukins/store"
+
 	"github.com/aau-network-security/haaukins/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-	"io"
-	"testing"
 )
 
 func TestGetTeamInfo(t *testing.T) {

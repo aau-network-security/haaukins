@@ -6,12 +6,14 @@ package guacamole
 
 import (
 	"bytes"
-	"github.com/aau-network-security/haaukins/logging"
-	"github.com/aau-network-security/haaukins/store"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"io"
 	"time"
+
+	"github.com/aau-network-security/haaukins/store"
+
+	"github.com/aau-network-security/haaukins/logging"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 var (

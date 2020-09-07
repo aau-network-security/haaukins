@@ -55,6 +55,433 @@ func (m *EmptyRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_EmptyRequest proto.InternalMessageInfo
 
+type GetTimeSeriesResponse struct {
+	Timeseries           map[string]int32 `protobuf:"bytes,1,rep,name=timeseries,proto3" json:"timeseries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *GetTimeSeriesResponse) Reset()         { *m = GetTimeSeriesResponse{} }
+func (m *GetTimeSeriesResponse) String() string { return proto.CompactTextString(m) }
+func (*GetTimeSeriesResponse) ProtoMessage()    {}
+func (*GetTimeSeriesResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{1}
+}
+
+func (m *GetTimeSeriesResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetTimeSeriesResponse.Unmarshal(m, b)
+}
+func (m *GetTimeSeriesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetTimeSeriesResponse.Marshal(b, m, deterministic)
+}
+func (m *GetTimeSeriesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetTimeSeriesResponse.Merge(m, src)
+}
+func (m *GetTimeSeriesResponse) XXX_Size() int {
+	return xxx_messageInfo_GetTimeSeriesResponse.Size(m)
+}
+func (m *GetTimeSeriesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetTimeSeriesResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetTimeSeriesResponse proto.InternalMessageInfo
+
+func (m *GetTimeSeriesResponse) GetTimeseries() map[string]int32 {
+	if m != nil {
+		return m.Timeseries
+	}
+	return nil
+}
+
+type GetEventStatusRequest struct {
+	EventTag             string   `protobuf:"bytes,1,opt,name=eventTag,proto3" json:"eventTag,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetEventStatusRequest) Reset()         { *m = GetEventStatusRequest{} }
+func (m *GetEventStatusRequest) String() string { return proto.CompactTextString(m) }
+func (*GetEventStatusRequest) ProtoMessage()    {}
+func (*GetEventStatusRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{2}
+}
+
+func (m *GetEventStatusRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetEventStatusRequest.Unmarshal(m, b)
+}
+func (m *GetEventStatusRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetEventStatusRequest.Marshal(b, m, deterministic)
+}
+func (m *GetEventStatusRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetEventStatusRequest.Merge(m, src)
+}
+func (m *GetEventStatusRequest) XXX_Size() int {
+	return xxx_messageInfo_GetEventStatusRequest.Size(m)
+}
+func (m *GetEventStatusRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetEventStatusRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetEventStatusRequest proto.InternalMessageInfo
+
+func (m *GetEventStatusRequest) GetEventTag() string {
+	if m != nil {
+		return m.EventTag
+	}
+	return ""
+}
+
+type GetEventByTagReq struct {
+	EventTag             string   `protobuf:"bytes,1,opt,name=eventTag,proto3" json:"eventTag,omitempty"`
+	Status               int32    `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetEventByTagReq) Reset()         { *m = GetEventByTagReq{} }
+func (m *GetEventByTagReq) String() string { return proto.CompactTextString(m) }
+func (*GetEventByTagReq) ProtoMessage()    {}
+func (*GetEventByTagReq) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{3}
+}
+
+func (m *GetEventByTagReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetEventByTagReq.Unmarshal(m, b)
+}
+func (m *GetEventByTagReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetEventByTagReq.Marshal(b, m, deterministic)
+}
+func (m *GetEventByTagReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetEventByTagReq.Merge(m, src)
+}
+func (m *GetEventByTagReq) XXX_Size() int {
+	return xxx_messageInfo_GetEventByTagReq.Size(m)
+}
+func (m *GetEventByTagReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetEventByTagReq.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetEventByTagReq proto.InternalMessageInfo
+
+func (m *GetEventByTagReq) GetEventTag() string {
+	if m != nil {
+		return m.EventTag
+	}
+	return ""
+}
+
+func (m *GetEventByTagReq) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+type GetEventByTagResp struct {
+	IsExist              bool     `protobuf:"varint,1,opt,name=isExist,proto3" json:"isExist,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetEventByTagResp) Reset()         { *m = GetEventByTagResp{} }
+func (m *GetEventByTagResp) String() string { return proto.CompactTextString(m) }
+func (*GetEventByTagResp) ProtoMessage()    {}
+func (*GetEventByTagResp) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{4}
+}
+
+func (m *GetEventByTagResp) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetEventByTagResp.Unmarshal(m, b)
+}
+func (m *GetEventByTagResp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetEventByTagResp.Marshal(b, m, deterministic)
+}
+func (m *GetEventByTagResp) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetEventByTagResp.Merge(m, src)
+}
+func (m *GetEventByTagResp) XXX_Size() int {
+	return xxx_messageInfo_GetEventByTagResp.Size(m)
+}
+func (m *GetEventByTagResp) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetEventByTagResp.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetEventByTagResp proto.InternalMessageInfo
+
+func (m *GetEventByTagResp) GetIsExist() bool {
+	if m != nil {
+		return m.IsExist
+	}
+	return false
+}
+
+type DropEventReq struct {
+	Tag                  string   `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
+	Status               int32    `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DropEventReq) Reset()         { *m = DropEventReq{} }
+func (m *DropEventReq) String() string { return proto.CompactTextString(m) }
+func (*DropEventReq) ProtoMessage()    {}
+func (*DropEventReq) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{5}
+}
+
+func (m *DropEventReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DropEventReq.Unmarshal(m, b)
+}
+func (m *DropEventReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DropEventReq.Marshal(b, m, deterministic)
+}
+func (m *DropEventReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DropEventReq.Merge(m, src)
+}
+func (m *DropEventReq) XXX_Size() int {
+	return xxx_messageInfo_DropEventReq.Size(m)
+}
+func (m *DropEventReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_DropEventReq.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DropEventReq proto.InternalMessageInfo
+
+func (m *DropEventReq) GetTag() string {
+	if m != nil {
+		return m.Tag
+	}
+	return ""
+}
+
+func (m *DropEventReq) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+type DropEventResp struct {
+	IsDropped            bool     `protobuf:"varint,1,opt,name=isDropped,proto3" json:"isDropped,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DropEventResp) Reset()         { *m = DropEventResp{} }
+func (m *DropEventResp) String() string { return proto.CompactTextString(m) }
+func (*DropEventResp) ProtoMessage()    {}
+func (*DropEventResp) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{6}
+}
+
+func (m *DropEventResp) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DropEventResp.Unmarshal(m, b)
+}
+func (m *DropEventResp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DropEventResp.Marshal(b, m, deterministic)
+}
+func (m *DropEventResp) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DropEventResp.Merge(m, src)
+}
+func (m *DropEventResp) XXX_Size() int {
+	return xxx_messageInfo_DropEventResp.Size(m)
+}
+func (m *DropEventResp) XXX_DiscardUnknown() {
+	xxx_messageInfo_DropEventResp.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DropEventResp proto.InternalMessageInfo
+
+func (m *DropEventResp) GetIsDropped() bool {
+	if m != nil {
+		return m.IsDropped
+	}
+	return false
+}
+
+type GetEventRequest struct {
+	// this will indicate that whether all events requested or some by status
+	// status 0  > Running Events (which set as Running)
+	// status 1  > Suspended Events (which set as Suspended)
+	// status 2  > Booked Events (which are booked by client)
+	// status 3  > Closed Events (which are finished and closed )
+	Status               int32    `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetEventRequest) Reset()         { *m = GetEventRequest{} }
+func (m *GetEventRequest) String() string { return proto.CompactTextString(m) }
+func (*GetEventRequest) ProtoMessage()    {}
+func (*GetEventRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{7}
+}
+
+func (m *GetEventRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetEventRequest.Unmarshal(m, b)
+}
+func (m *GetEventRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetEventRequest.Marshal(b, m, deterministic)
+}
+func (m *GetEventRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetEventRequest.Merge(m, src)
+}
+func (m *GetEventRequest) XXX_Size() int {
+	return xxx_messageInfo_GetEventRequest.Size(m)
+}
+func (m *GetEventRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetEventRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetEventRequest proto.InternalMessageInfo
+
+func (m *GetEventRequest) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+type GetEventByUserReq struct {
+	Status               int32    `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	User                 string   `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetEventByUserReq) Reset()         { *m = GetEventByUserReq{} }
+func (m *GetEventByUserReq) String() string { return proto.CompactTextString(m) }
+func (*GetEventByUserReq) ProtoMessage()    {}
+func (*GetEventByUserReq) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{8}
+}
+
+func (m *GetEventByUserReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetEventByUserReq.Unmarshal(m, b)
+}
+func (m *GetEventByUserReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetEventByUserReq.Marshal(b, m, deterministic)
+}
+func (m *GetEventByUserReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetEventByUserReq.Merge(m, src)
+}
+func (m *GetEventByUserReq) XXX_Size() int {
+	return xxx_messageInfo_GetEventByUserReq.Size(m)
+}
+func (m *GetEventByUserReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetEventByUserReq.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetEventByUserReq proto.InternalMessageInfo
+
+func (m *GetEventByUserReq) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+func (m *GetEventByUserReq) GetUser() string {
+	if m != nil {
+		return m.User
+	}
+	return ""
+}
+
+type SetEventStatusRequest struct {
+	EventTag             string   `protobuf:"bytes,1,opt,name=eventTag,proto3" json:"eventTag,omitempty"`
+	Status               int32    `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetEventStatusRequest) Reset()         { *m = SetEventStatusRequest{} }
+func (m *SetEventStatusRequest) String() string { return proto.CompactTextString(m) }
+func (*SetEventStatusRequest) ProtoMessage()    {}
+func (*SetEventStatusRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{9}
+}
+
+func (m *SetEventStatusRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetEventStatusRequest.Unmarshal(m, b)
+}
+func (m *SetEventStatusRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetEventStatusRequest.Marshal(b, m, deterministic)
+}
+func (m *SetEventStatusRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetEventStatusRequest.Merge(m, src)
+}
+func (m *SetEventStatusRequest) XXX_Size() int {
+	return xxx_messageInfo_SetEventStatusRequest.Size(m)
+}
+func (m *SetEventStatusRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetEventStatusRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetEventStatusRequest proto.InternalMessageInfo
+
+func (m *SetEventStatusRequest) GetEventTag() string {
+	if m != nil {
+		return m.EventTag
+	}
+	return ""
+}
+
+func (m *SetEventStatusRequest) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+type EventStatusStore struct {
+	Status               int32    `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *EventStatusStore) Reset()         { *m = EventStatusStore{} }
+func (m *EventStatusStore) String() string { return proto.CompactTextString(m) }
+func (*EventStatusStore) ProtoMessage()    {}
+func (*EventStatusStore) Descriptor() ([]byte, []int) {
+	return fileDescriptor_98bbca36ef968dfc, []int{10}
+}
+
+func (m *EventStatusStore) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EventStatusStore.Unmarshal(m, b)
+}
+func (m *EventStatusStore) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EventStatusStore.Marshal(b, m, deterministic)
+}
+func (m *EventStatusStore) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventStatusStore.Merge(m, src)
+}
+func (m *EventStatusStore) XXX_Size() int {
+	return xxx_messageInfo_EventStatusStore.Size(m)
+}
+func (m *EventStatusStore) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventStatusStore.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventStatusStore proto.InternalMessageInfo
+
+func (m *EventStatusStore) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
 type AddEventRequest struct {
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Tag                  string   `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
@@ -64,6 +491,9 @@ type AddEventRequest struct {
 	Capacity             int32    `protobuf:"varint,6,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	StartTime            string   `protobuf:"bytes,7,opt,name=startTime,proto3" json:"startTime,omitempty"`
 	ExpectedFinishTime   string   `protobuf:"bytes,8,opt,name=expectedFinishTime,proto3" json:"expectedFinishTime,omitempty"`
+	FinishedAt           string   `protobuf:"bytes,9,opt,name=finishedAt,proto3" json:"finishedAt,omitempty"`
+	Status               int32    `protobuf:"varint,10,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedBy            string   `protobuf:"bytes,11,opt,name=createdBy,proto3" json:"createdBy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -73,7 +503,7 @@ func (m *AddEventRequest) Reset()         { *m = AddEventRequest{} }
 func (m *AddEventRequest) String() string { return proto.CompactTextString(m) }
 func (*AddEventRequest) ProtoMessage()    {}
 func (*AddEventRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{1}
+	return fileDescriptor_98bbca36ef968dfc, []int{11}
 }
 
 func (m *AddEventRequest) XXX_Unmarshal(b []byte) error {
@@ -150,6 +580,27 @@ func (m *AddEventRequest) GetExpectedFinishTime() string {
 	return ""
 }
 
+func (m *AddEventRequest) GetFinishedAt() string {
+	if m != nil {
+		return m.FinishedAt
+	}
+	return ""
+}
+
+func (m *AddEventRequest) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+func (m *AddEventRequest) GetCreatedBy() string {
+	if m != nil {
+		return m.CreatedBy
+	}
+	return ""
+}
+
 type AddTeamRequest struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	EventTag             string   `protobuf:"bytes,2,opt,name=event_tag,json=eventTag,proto3" json:"event_tag,omitempty"`
@@ -165,7 +616,7 @@ func (m *AddTeamRequest) Reset()         { *m = AddTeamRequest{} }
 func (m *AddTeamRequest) String() string { return proto.CompactTextString(m) }
 func (*AddTeamRequest) ProtoMessage()    {}
 func (*AddTeamRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{2}
+	return fileDescriptor_98bbca36ef968dfc, []int{12}
 }
 
 func (m *AddTeamRequest) XXX_Unmarshal(b []byte) error {
@@ -233,7 +684,7 @@ func (m *InsertResponse) Reset()         { *m = InsertResponse{} }
 func (m *InsertResponse) String() string { return proto.CompactTextString(m) }
 func (*InsertResponse) ProtoMessage()    {}
 func (*InsertResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{3}
+	return fileDescriptor_98bbca36ef968dfc, []int{13}
 }
 
 func (m *InsertResponse) XXX_Unmarshal(b []byte) error {
@@ -280,7 +731,7 @@ func (m *GetEventResponse) Reset()         { *m = GetEventResponse{} }
 func (m *GetEventResponse) String() string { return proto.CompactTextString(m) }
 func (*GetEventResponse) ProtoMessage()    {}
 func (*GetEventResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{4}
+	return fileDescriptor_98bbca36ef968dfc, []int{14}
 }
 
 func (m *GetEventResponse) XXX_Unmarshal(b []byte) error {
@@ -325,6 +776,8 @@ type GetEventResponse_Events struct {
 	StartedAt            string   `protobuf:"bytes,7,opt,name=startedAt,proto3" json:"startedAt,omitempty"`
 	ExpectedFinishTime   string   `protobuf:"bytes,8,opt,name=expectedFinishTime,proto3" json:"expectedFinishTime,omitempty"`
 	FinishedAt           string   `protobuf:"bytes,9,opt,name=finishedAt,proto3" json:"finishedAt,omitempty"`
+	Status               int32    `protobuf:"varint,10,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedBy            string   `protobuf:"bytes,11,opt,name=createdBy,proto3" json:"createdBy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -334,7 +787,7 @@ func (m *GetEventResponse_Events) Reset()         { *m = GetEventResponse_Events
 func (m *GetEventResponse_Events) String() string { return proto.CompactTextString(m) }
 func (*GetEventResponse_Events) ProtoMessage()    {}
 func (*GetEventResponse_Events) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{4, 0}
+	return fileDescriptor_98bbca36ef968dfc, []int{14, 0}
 }
 
 func (m *GetEventResponse_Events) XXX_Unmarshal(b []byte) error {
@@ -418,6 +871,20 @@ func (m *GetEventResponse_Events) GetFinishedAt() string {
 	return ""
 }
 
+func (m *GetEventResponse_Events) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+func (m *GetEventResponse_Events) GetCreatedBy() string {
+	if m != nil {
+		return m.CreatedBy
+	}
+	return ""
+}
+
 type GetEventTeamsRequest struct {
 	EventTag             string   `protobuf:"bytes,1,opt,name=eventTag,proto3" json:"eventTag,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -429,7 +896,7 @@ func (m *GetEventTeamsRequest) Reset()         { *m = GetEventTeamsRequest{} }
 func (m *GetEventTeamsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetEventTeamsRequest) ProtoMessage()    {}
 func (*GetEventTeamsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{5}
+	return fileDescriptor_98bbca36ef968dfc, []int{15}
 }
 
 func (m *GetEventTeamsRequest) XXX_Unmarshal(b []byte) error {
@@ -469,7 +936,7 @@ func (m *GetEventTeamsResponse) Reset()         { *m = GetEventTeamsResponse{} }
 func (m *GetEventTeamsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetEventTeamsResponse) ProtoMessage()    {}
 func (*GetEventTeamsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{6}
+	return fileDescriptor_98bbca36ef968dfc, []int{16}
 }
 
 func (m *GetEventTeamsResponse) XXX_Unmarshal(b []byte) error {
@@ -521,7 +988,7 @@ func (m *GetEventTeamsResponse_Teams) Reset()         { *m = GetEventTeamsRespon
 func (m *GetEventTeamsResponse_Teams) String() string { return proto.CompactTextString(m) }
 func (*GetEventTeamsResponse_Teams) ProtoMessage()    {}
 func (*GetEventTeamsResponse_Teams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{6, 0}
+	return fileDescriptor_98bbca36ef968dfc, []int{16, 0}
 }
 
 func (m *GetEventTeamsResponse_Teams) XXX_Unmarshal(b []byte) error {
@@ -592,8 +1059,9 @@ func (m *GetEventTeamsResponse_Teams) GetSolvedChallenges() string {
 }
 
 type UpdateEventRequest struct {
-	EventId              string   `protobuf:"bytes,1,opt,name=eventId,proto3" json:"eventId,omitempty"`
-	FinishedAt           string   `protobuf:"bytes,2,opt,name=finishedAt,proto3" json:"finishedAt,omitempty"`
+	OldTag               string   `protobuf:"bytes,1,opt,name=oldTag,proto3" json:"oldTag,omitempty"`
+	NewTag               string   `protobuf:"bytes,2,opt,name=newTag,proto3" json:"newTag,omitempty"`
+	FinishedAt           string   `protobuf:"bytes,3,opt,name=finishedAt,proto3" json:"finishedAt,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -603,7 +1071,7 @@ func (m *UpdateEventRequest) Reset()         { *m = UpdateEventRequest{} }
 func (m *UpdateEventRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateEventRequest) ProtoMessage()    {}
 func (*UpdateEventRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{7}
+	return fileDescriptor_98bbca36ef968dfc, []int{17}
 }
 
 func (m *UpdateEventRequest) XXX_Unmarshal(b []byte) error {
@@ -624,9 +1092,16 @@ func (m *UpdateEventRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_UpdateEventRequest proto.InternalMessageInfo
 
-func (m *UpdateEventRequest) GetEventId() string {
+func (m *UpdateEventRequest) GetOldTag() string {
 	if m != nil {
-		return m.EventId
+		return m.OldTag
+	}
+	return ""
+}
+
+func (m *UpdateEventRequest) GetNewTag() string {
+	if m != nil {
+		return m.NewTag
 	}
 	return ""
 }
@@ -651,7 +1126,7 @@ func (m *UpdateTeamSolvedChallengeRequest) Reset()         { *m = UpdateTeamSolv
 func (m *UpdateTeamSolvedChallengeRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateTeamSolvedChallengeRequest) ProtoMessage()    {}
 func (*UpdateTeamSolvedChallengeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{8}
+	return fileDescriptor_98bbca36ef968dfc, []int{18}
 }
 
 func (m *UpdateTeamSolvedChallengeRequest) XXX_Unmarshal(b []byte) error {
@@ -705,7 +1180,7 @@ func (m *UpdateTeamLastAccessRequest) Reset()         { *m = UpdateTeamLastAcces
 func (m *UpdateTeamLastAccessRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateTeamLastAccessRequest) ProtoMessage()    {}
 func (*UpdateTeamLastAccessRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{9}
+	return fileDescriptor_98bbca36ef968dfc, []int{19}
 }
 
 func (m *UpdateTeamLastAccessRequest) XXX_Unmarshal(b []byte) error {
@@ -752,7 +1227,7 @@ func (m *UpdateResponse) Reset()         { *m = UpdateResponse{} }
 func (m *UpdateResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateResponse) ProtoMessage()    {}
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_98bbca36ef968dfc, []int{10}
+	return fileDescriptor_98bbca36ef968dfc, []int{20}
 }
 
 func (m *UpdateResponse) XXX_Unmarshal(b []byte) error {
@@ -789,6 +1264,17 @@ func (m *UpdateResponse) GetErrorMessage() string {
 
 func init() {
 	proto.RegisterType((*EmptyRequest)(nil), "EmptyRequest")
+	proto.RegisterType((*GetTimeSeriesResponse)(nil), "GetTimeSeriesResponse")
+	proto.RegisterMapType((map[string]int32)(nil), "GetTimeSeriesResponse.TimeseriesEntry")
+	proto.RegisterType((*GetEventStatusRequest)(nil), "GetEventStatusRequest")
+	proto.RegisterType((*GetEventByTagReq)(nil), "GetEventByTagReq")
+	proto.RegisterType((*GetEventByTagResp)(nil), "GetEventByTagResp")
+	proto.RegisterType((*DropEventReq)(nil), "DropEventReq")
+	proto.RegisterType((*DropEventResp)(nil), "DropEventResp")
+	proto.RegisterType((*GetEventRequest)(nil), "GetEventRequest")
+	proto.RegisterType((*GetEventByUserReq)(nil), "GetEventByUserReq")
+	proto.RegisterType((*SetEventStatusRequest)(nil), "SetEventStatusRequest")
+	proto.RegisterType((*EventStatusStore)(nil), "EventStatusStore")
 	proto.RegisterType((*AddEventRequest)(nil), "AddEventRequest")
 	proto.RegisterType((*AddTeamRequest)(nil), "AddTeamRequest")
 	proto.RegisterType((*InsertResponse)(nil), "InsertResponse")
@@ -806,52 +1292,72 @@ func init() {
 func init() { proto.RegisterFile("store.proto", fileDescriptor_98bbca36ef968dfc) }
 
 var fileDescriptor_98bbca36ef968dfc = []byte{
-	// 715 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x55, 0xdf, 0x6e, 0xd3, 0x3e,
-	0x14, 0x6e, 0xd3, 0xf5, 0xdf, 0xd9, 0xd6, 0xf6, 0xe7, 0xdf, 0x36, 0x85, 0x6c, 0x42, 0xc5, 0x57,
-	0x13, 0x12, 0x1e, 0x2a, 0x0f, 0x00, 0x15, 0x8c, 0x69, 0x12, 0x4c, 0xac, 0x1b, 0xd7, 0xc8, 0x4b,
-	0xce, 0xda, 0x48, 0x69, 0x12, 0x62, 0x33, 0xb6, 0x6b, 0xde, 0x80, 0x97, 0xe1, 0x9a, 0x27, 0xe0,
-	0x81, 0x10, 0x12, 0xb2, 0x9d, 0xa4, 0x49, 0x1b, 0xd8, 0x90, 0xb8, 0xe1, 0x2e, 0xe7, 0xf3, 0xf1,
-	0x71, 0xce, 0xf7, 0x7d, 0x3e, 0x86, 0x75, 0x21, 0xa3, 0x04, 0x59, 0x9c, 0x44, 0x32, 0xa2, 0x3d,
-	0xd8, 0x38, 0x9c, 0xc7, 0xf2, 0x66, 0x82, 0xef, 0x3f, 0xa0, 0x90, 0xf4, 0x7b, 0x1d, 0xfa, 0x63,
-	0xcf, 0x3b, 0xbc, 0xc2, 0x50, 0xa6, 0x18, 0x21, 0xb0, 0x16, 0xf2, 0x39, 0xda, 0xf5, 0x61, 0x7d,
-	0xbf, 0x3b, 0xd1, 0xdf, 0x64, 0x00, 0x0d, 0xc9, 0xa7, 0xb6, 0xa5, 0x21, 0xf5, 0x49, 0xf6, 0xa0,
-	0x7b, 0x99, 0x44, 0xa1, 0xc4, 0xd0, 0x13, 0x76, 0x43, 0xe3, 0x0b, 0x40, 0xad, 0xe2, 0x35, 0x26,
-	0xae, 0x2f, 0x50, 0xd8, 0x6b, 0x66, 0x35, 0x07, 0xd4, 0x2a, 0xbf, 0xe2, 0x7e, 0xc0, 0x2f, 0x02,
-	0xb4, 0x9b, 0xc3, 0xfa, 0x7e, 0x73, 0xb2, 0x00, 0x88, 0x03, 0x1d, 0x97, 0xc7, 0xdc, 0xf5, 0xe5,
-	0x8d, 0xdd, 0xd2, 0x8b, 0x79, 0xac, 0x76, 0x0a, 0xc9, 0x13, 0x79, 0xee, 0xcf, 0xd1, 0x6e, 0x9b,
-	0xba, 0x39, 0x40, 0x18, 0x10, 0xbc, 0x8e, 0xd1, 0x95, 0xe8, 0xbd, 0xf4, 0x43, 0x5f, 0xcc, 0x74,
-	0x5a, 0x47, 0xa7, 0x55, 0xac, 0xd0, 0x4f, 0x75, 0xe8, 0x8d, 0x3d, 0xef, 0x1c, 0xf9, 0x3c, 0x6b,
-	0xbe, 0x07, 0x96, 0xef, 0xa5, 0xad, 0x5b, 0xbe, 0x47, 0x76, 0xa1, 0x8b, 0x8a, 0x9c, 0x77, 0x8b,
-	0xf6, 0x3b, 0x1a, 0x38, 0xe7, 0x53, 0xb2, 0x05, 0x4d, 0x9c, 0x73, 0x3f, 0x48, 0xfb, 0x37, 0x41,
-	0xce, 0xdf, 0x5a, 0x81, 0x3f, 0x07, 0x3a, 0x31, 0x17, 0xe2, 0x63, 0x94, 0x78, 0xba, 0xe1, 0xee,
-	0x24, 0x8f, 0xe9, 0x09, 0xf4, 0x8e, 0x43, 0x81, 0x89, 0x9c, 0xa0, 0x88, 0xa3, 0x50, 0x20, 0xb1,
-	0xa1, 0xfd, 0x1a, 0x85, 0xe0, 0xd3, 0x4c, 0x84, 0x2c, 0x24, 0x14, 0x36, 0x30, 0x49, 0xa2, 0x24,
-	0x5b, 0x36, 0x7f, 0x54, 0xc2, 0xe8, 0x0f, 0x0b, 0x06, 0x47, 0x28, 0x53, 0x4d, 0xd3, 0x92, 0x8f,
-	0xa1, 0xa5, 0x7f, 0x5b, 0xd8, 0xf5, 0x61, 0x63, 0x7f, 0x7d, 0x64, 0xb3, 0xe5, 0x14, 0xa6, 0x23,
-	0x31, 0x49, 0xf3, 0xee, 0x72, 0x94, 0xf3, 0xd9, 0x82, 0x96, 0xd9, 0xf6, 0x4f, 0xb8, 0x06, 0xbd,
-	0xb1, 0x2c, 0xb9, 0x46, 0x01, 0x7f, 0xea, 0x1a, 0x72, 0x1f, 0xe0, 0x52, 0x47, 0xba, 0x5c, 0x57,
-	0xe7, 0x15, 0x10, 0x3a, 0x82, 0xad, 0x8c, 0x5b, 0xe5, 0x2c, 0x91, 0x59, 0xcb, 0x81, 0xdc, 0x39,
-	0x29, 0x4b, 0x79, 0x4c, 0xbf, 0x5a, 0xb0, 0xbd, 0xb4, 0x29, 0x15, 0x6e, 0x04, 0x4d, 0xa9, 0x80,
-	0x54, 0xb7, 0x3d, 0x56, 0x99, 0xc6, 0x4c, 0x64, 0x52, 0xef, 0x24, 0xdd, 0xb7, 0x3a, 0x34, 0xf5,
-	0xa6, 0x15, 0xcb, 0xe7, 0xae, 0xb6, 0xaa, 0x5c, 0xdd, 0x28, 0xe8, 0x4b, 0x61, 0x63, 0xc6, 0xc5,
-	0xec, 0x4d, 0xe6, 0x6c, 0x23, 0x59, 0x09, 0x53, 0xdc, 0xbb, 0x09, 0x72, 0xc3, 0xbd, 0xb1, 0xfe,
-	0x02, 0x50, 0x5c, 0x06, 0x5c, 0xc8, 0xb1, 0xeb, 0xa2, 0x10, 0x5a, 0xb7, 0xee, 0xa4, 0x80, 0x90,
-	0x87, 0x30, 0x10, 0x51, 0x70, 0x85, 0xde, 0xf3, 0x19, 0x0f, 0x02, 0x0c, 0xa7, 0x28, 0x52, 0x01,
-	0x57, 0x70, 0x7a, 0x02, 0xe4, 0x6d, 0xec, 0x71, 0x89, 0xa5, 0x69, 0x66, 0x43, 0x5b, 0xb3, 0x7c,
-	0x9c, 0xb5, 0x98, 0x85, 0x4b, 0x3a, 0x5a, 0x2b, 0x3a, 0x86, 0x30, 0x34, 0xf5, 0x14, 0x4d, 0x67,
-	0xe5, 0xd3, 0xb2, 0xea, 0x3b, 0xd0, 0x52, 0x94, 0xe7, 0xc5, 0xd3, 0xa8, 0xc2, 0xf9, 0x43, 0x58,
-	0x77, 0xa3, 0x79, 0x1c, 0xa0, 0x61, 0xc2, 0xd0, 0x58, 0x84, 0xe8, 0x29, 0xec, 0x2e, 0xce, 0x7b,
-	0x95, 0x73, 0x70, 0xdb, 0x51, 0x0e, 0x74, 0xb8, 0x4e, 0xcc, 0x9b, 0xc8, 0x63, 0x35, 0x5a, 0x4c,
-	0xc9, 0xbf, 0x33, 0x5a, 0x46, 0x5f, 0x1a, 0xd0, 0x3c, 0x53, 0xcf, 0x09, 0x39, 0x80, 0x4e, 0xf6,
-	0x6e, 0x90, 0x01, 0x5b, 0x7a, 0x42, 0x9c, 0x3e, 0x2b, 0x4f, 0x34, 0x5a, 0x23, 0x8f, 0xa0, 0x9d,
-	0x8e, 0x5a, 0xd2, 0x67, 0xe5, 0xa1, 0x5b, 0x95, 0x7e, 0x00, 0xdd, 0xcc, 0xe8, 0x82, 0x6c, 0xb2,
-	0xe2, 0xa3, 0xe5, 0xfc, 0xb7, 0x32, 0xbb, 0x68, 0x8d, 0x3c, 0x83, 0xcd, 0xd2, 0xcd, 0x20, 0xdb,
-	0xac, 0xea, 0x16, 0x3a, 0x3b, 0xd5, 0x17, 0x88, 0xd6, 0xc8, 0x53, 0xd8, 0x2e, 0xf8, 0xc7, 0x5c,
-	0xf8, 0x17, 0x5c, 0x22, 0xf9, 0x9f, 0xad, 0xfa, 0xca, 0xe9, 0xb3, 0x32, 0xb3, 0xb4, 0x46, 0x4e,
-	0xe1, 0xde, 0x2f, 0x0d, 0x43, 0x1e, 0xb0, 0xdb, 0xcc, 0x54, 0x55, 0xf2, 0x08, 0xb6, 0xaa, 0x3c,
-	0x41, 0xf6, 0xd8, 0x6f, 0xac, 0x52, 0x51, 0xe8, 0xa2, 0xa5, 0xdf, 0xff, 0x27, 0x3f, 0x03, 0x00,
-	0x00, 0xff, 0xff, 0x39, 0x4d, 0xd5, 0x14, 0x0e, 0x08, 0x00, 0x00,
+	// 1034 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x57, 0xcd, 0x6e, 0xdb, 0x46,
+	0x10, 0x96, 0x28, 0x4b, 0x16, 0xc7, 0xb6, 0x24, 0x6f, 0xed, 0x80, 0x65, 0x84, 0x42, 0xdd, 0x43,
+	0xe1, 0x06, 0xcd, 0xb6, 0x50, 0x2e, 0x6e, 0x80, 0xa0, 0x55, 0x52, 0x3b, 0x30, 0xfa, 0x83, 0x86,
+	0x52, 0xce, 0xc5, 0x46, 0x9c, 0xd8, 0x44, 0x29, 0x92, 0xe1, 0xae, 0x1d, 0xeb, 0xdc, 0x17, 0xe8,
+	0x13, 0xf4, 0x25, 0xfa, 0x04, 0xbd, 0xf5, 0x56, 0xf4, 0x8d, 0x0a, 0xee, 0xf2, 0x5f, 0xb4, 0xe3,
+	0x02, 0x3d, 0x34, 0x37, 0xce, 0xb7, 0xf3, 0xb7, 0xf3, 0xb7, 0x43, 0xd8, 0x11, 0x32, 0x8c, 0x91,
+	0x45, 0x71, 0x28, 0x43, 0x3a, 0x80, 0xdd, 0x93, 0x55, 0x24, 0xd7, 0x0e, 0xbe, 0xb9, 0x44, 0x21,
+	0xe9, 0x6f, 0x6d, 0x38, 0x7c, 0x8e, 0x72, 0xe1, 0xad, 0x70, 0x8e, 0xb1, 0x87, 0xc2, 0x41, 0x11,
+	0x85, 0x81, 0x40, 0x72, 0x0a, 0x20, 0xbd, 0x15, 0x0a, 0x85, 0x5a, 0xed, 0x49, 0xe7, 0x68, 0x67,
+	0xfa, 0x09, 0x6b, 0xe4, 0x65, 0x8b, 0x9c, 0xf1, 0x24, 0x90, 0xf1, 0xda, 0x29, 0x49, 0xda, 0x4f,
+	0x60, 0x58, 0x3b, 0x26, 0x23, 0xe8, 0xfc, 0x8c, 0x6b, 0xab, 0x3d, 0x69, 0x1f, 0x99, 0x4e, 0xf2,
+	0x49, 0x0e, 0xa0, 0x7b, 0xc5, 0xfd, 0x4b, 0xb4, 0x8c, 0x49, 0xfb, 0xa8, 0xeb, 0x68, 0xe2, 0xb1,
+	0x71, 0xdc, 0xa6, 0x8f, 0x94, 0x7f, 0x27, 0x57, 0x18, 0xc8, 0xb9, 0xe4, 0xf2, 0x52, 0xa4, 0x9e,
+	0x13, 0x1b, 0xfa, 0x98, 0xa0, 0x0b, 0x7e, 0x9e, 0x6a, 0xca, 0x69, 0x7a, 0x0a, 0xa3, 0x4c, 0xe8,
+	0xe9, 0x7a, 0xc1, 0xcf, 0x1d, 0x7c, 0x73, 0x1b, 0x3f, 0xb9, 0x07, 0x3d, 0xa1, 0x94, 0xa7, 0xf6,
+	0x53, 0x8a, 0x3e, 0x84, 0xfd, 0x9a, 0x1e, 0x11, 0x11, 0x0b, 0xb6, 0x3d, 0x71, 0x72, 0xed, 0x09,
+	0xa9, 0xf4, 0xf4, 0x9d, 0x8c, 0xa4, 0xc7, 0xb0, 0xfb, 0x4d, 0x1c, 0x46, 0x8a, 0x3f, 0x31, 0x39,
+	0x82, 0x8e, 0xcc, 0xad, 0x25, 0x9f, 0xb7, 0x18, 0xda, 0x2b, 0x49, 0x8a, 0x88, 0x8c, 0xc1, 0xf4,
+	0x44, 0x02, 0x45, 0xe8, 0xa6, 0x66, 0x0a, 0x80, 0x7e, 0x0a, 0xc3, 0xcc, 0xaf, 0x2c, 0x1c, 0x85,
+	0xe6, 0x76, 0x45, 0xf3, 0x57, 0xe5, 0x2b, 0xbc, 0x14, 0x18, 0x27, 0x8e, 0xdd, 0xc0, 0x4c, 0x08,
+	0x6c, 0x5d, 0x0a, 0x8c, 0x95, 0x73, 0xa6, 0xa3, 0xbe, 0xe9, 0xb7, 0x70, 0x38, 0xff, 0xb7, 0x09,
+	0xb8, 0xf1, 0x9e, 0x0f, 0x60, 0x54, 0xd2, 0x34, 0x4f, 0x0a, 0xf3, 0x46, 0xcf, 0xff, 0x36, 0x60,
+	0x38, 0x73, 0xdd, 0xca, 0x2d, 0x09, 0x6c, 0x05, 0x7c, 0x85, 0xa9, 0x3d, 0xf5, 0x9d, 0x45, 0xd9,
+	0x28, 0xa2, 0x3c, 0x06, 0xf3, 0x75, 0x1c, 0x06, 0x12, 0x03, 0x57, 0x58, 0x1d, 0x85, 0x17, 0x40,
+	0x72, 0x8a, 0xd7, 0x18, 0x2f, 0x3d, 0x81, 0xc2, 0xda, 0xd2, 0xa7, 0x39, 0x90, 0x9c, 0xf2, 0x2b,
+	0xee, 0xf9, 0xfc, 0x95, 0x8f, 0x56, 0x57, 0x39, 0x54, 0x00, 0xc9, 0x9d, 0x97, 0x3c, 0xe2, 0x4b,
+	0x4f, 0xae, 0xad, 0x9e, 0x3a, 0xcc, 0xe9, 0x44, 0x52, 0x48, 0x1e, 0xab, 0xfe, 0xb0, 0xb6, 0xb5,
+	0xde, 0x1c, 0x20, 0x0c, 0x08, 0x5e, 0x47, 0xb8, 0x94, 0xe8, 0x9e, 0x7a, 0x81, 0x27, 0x2e, 0x14,
+	0x5b, 0x5f, 0xb1, 0x35, 0x9c, 0x90, 0x8f, 0x00, 0x5e, 0x2b, 0x0a, 0xdd, 0x99, 0xb4, 0x4c, 0xc5,
+	0x57, 0x42, 0x4a, 0x51, 0x83, 0x4a, 0x0a, 0xc7, 0x60, 0x2e, 0x63, 0xe4, 0x12, 0xdd, 0xa7, 0x6b,
+	0x6b, 0x47, 0x7b, 0x91, 0x03, 0xf4, 0x97, 0x36, 0x0c, 0x66, 0xae, 0xbb, 0x40, 0xbe, 0xca, 0x42,
+	0x3a, 0x00, 0xc3, 0x73, 0xd3, 0x80, 0x1a, 0x9e, 0x4b, 0xee, 0x83, 0xa9, 0xd2, 0xf8, 0x53, 0x11,
+	0xd4, 0x22, 0xaf, 0x07, 0xd0, 0xc5, 0x15, 0xf7, 0xfc, 0x34, 0xaa, 0x9a, 0xc8, 0xb3, 0xb2, 0x55,
+	0xca, 0x8a, 0x0d, 0xfd, 0x88, 0x0b, 0xf1, 0x36, 0x8c, 0x5d, 0x15, 0x46, 0xd3, 0xc9, 0x69, 0xfa,
+	0x03, 0x0c, 0xce, 0x02, 0x81, 0xb1, 0xcc, 0x87, 0x8d, 0x05, 0xdb, 0xdf, 0xa3, 0x10, 0xfc, 0x3c,
+	0x4b, 0x6d, 0x46, 0x12, 0x0a, 0xbb, 0x18, 0xc7, 0x61, 0x9c, 0x1d, 0x6b, 0x8f, 0x2a, 0x18, 0xfd,
+	0xbd, 0x53, 0xf4, 0x7b, 0xae, 0xf2, 0x0b, 0xe8, 0x29, 0xb7, 0xb3, 0xd9, 0x65, 0xb1, 0x3a, 0x0b,
+	0x53, 0x94, 0x70, 0x52, 0xbe, 0xbb, 0x98, 0xb2, 0xff, 0x34, 0xa0, 0xa7, 0xc5, 0xde, 0x8b, 0x5a,
+	0x54, 0xc5, 0x53, 0xae, 0x45, 0x55, 0x3b, 0xff, 0x8f, 0x5a, 0x9c, 0xc2, 0x41, 0x96, 0x91, 0xa4,
+	0x1e, 0xef, 0x34, 0xd8, 0xff, 0x30, 0x8a, 0xe7, 0x20, 0x15, 0x4a, 0xd3, 0x3d, 0x85, 0xae, 0x4c,
+	0x80, 0x34, 0xdb, 0x63, 0xd6, 0xc8, 0xc6, 0x34, 0xa5, 0x59, 0xef, 0x94, 0xf0, 0xbf, 0xda, 0xd0,
+	0x55, 0x42, 0x1b, 0x8d, 0x92, 0xf7, 0x82, 0xd1, 0xd4, 0x0b, 0x9d, 0x52, 0x55, 0x50, 0xd8, 0xbd,
+	0xe0, 0xe2, 0xe2, 0xc7, 0xac, 0x1f, 0x74, 0xa2, 0x2b, 0x58, 0x29, 0x56, 0x33, 0x99, 0x36, 0x4c,
+	0x01, 0x24, 0x19, 0xf0, 0xb9, 0x90, 0xb3, 0xe5, 0x12, 0x85, 0x50, 0xd9, 0x36, 0x9d, 0x12, 0x42,
+	0x1e, 0xc0, 0x48, 0x84, 0xfe, 0x15, 0xba, 0xcf, 0x2e, 0xb8, 0xef, 0x63, 0x70, 0x8e, 0x22, 0x4d,
+	0xfb, 0x06, 0x4e, 0x5d, 0x20, 0x2f, 0x23, 0x97, 0x4b, 0xac, 0xbf, 0x1f, 0xa1, 0xef, 0x16, 0x31,
+	0x4f, 0xa9, 0x04, 0x0f, 0xf0, 0xed, 0x22, 0x2f, 0xea, 0x94, 0xaa, 0xd5, 0x44, 0xa7, 0x5e, 0x13,
+	0x34, 0x80, 0x89, 0xb6, 0x92, 0x04, 0x6f, 0x5e, 0xf5, 0xa1, 0x64, 0x33, 0x49, 0xc4, 0x59, 0x16,
+	0xd5, 0x94, 0x6a, 0xe8, 0xa2, 0x09, 0xec, 0x2c, 0xc3, 0x55, 0xe4, 0xa3, 0x2c, 0x99, 0x2b, 0x43,
+	0xf4, 0x05, 0xdc, 0x2f, 0xec, 0x7d, 0x97, 0x47, 0xe6, 0x5d, 0xa6, 0x6c, 0xe8, 0x73, 0xc5, 0x38,
+	0x93, 0xd9, 0xb0, 0xcb, 0xe8, 0x64, 0x4c, 0x69, 0x95, 0xff, 0xcd, 0x98, 0x9a, 0xfe, 0xda, 0x83,
+	0xae, 0x7e, 0xf2, 0x3e, 0x87, 0x7e, 0xf6, 0xb2, 0x91, 0x11, 0xab, 0x3d, 0x72, 0xf6, 0x90, 0x55,
+	0xa7, 0x23, 0x6d, 0x91, 0x87, 0xb0, 0x9d, 0x8e, 0x6d, 0x32, 0x64, 0xd5, 0x01, 0xde, 0xc4, 0x3e,
+	0x05, 0x33, 0x2b, 0x7f, 0x41, 0x46, 0xac, 0xb6, 0x2b, 0xd8, 0xfb, 0x1b, 0xa3, 0x90, 0xb6, 0xc8,
+	0x97, 0x30, 0xa8, 0x2e, 0x0a, 0x84, 0xb0, 0x8d, 0xcd, 0xa1, 0x59, 0xf4, 0x6b, 0xd8, 0xab, 0x74,
+	0x1b, 0x39, 0x64, 0x4d, 0x9d, 0x6d, 0xdf, 0x6b, 0x6e, 0x4a, 0xda, 0x22, 0x4f, 0x0a, 0xe3, 0x7a,
+	0x35, 0x20, 0x05, 0x6f, 0x65, 0xeb, 0xb0, 0xf7, 0x59, 0x7d, 0x81, 0xa0, 0x2d, 0x72, 0x0c, 0x7b,
+	0x67, 0x42, 0xe1, 0x6a, 0x11, 0x13, 0x64, 0x9f, 0xd5, 0xf7, 0x3f, 0x9b, 0xb0, 0x8d, 0x55, 0x4e,
+	0x4b, 0x56, 0x56, 0x5a, 0xb2, 0xc7, 0xca, 0xfb, 0xb1, 0x76, 0x79, 0x73, 0xe3, 0xa5, 0x2d, 0xf2,
+	0x19, 0x98, 0xf9, 0xca, 0x46, 0xf6, 0x58, 0x79, 0xf1, 0xb3, 0x07, 0xac, 0xb2, 0xcd, 0xe9, 0x0b,
+	0xce, 0xeb, 0x17, 0x9c, 0xdf, 0xfd, 0x82, 0x8f, 0x61, 0xa4, 0x4b, 0xf1, 0x99, 0x1f, 0x0a, 0xdd,
+	0xb8, 0xe4, 0x03, 0xb6, 0xd9, 0xc6, 0xf6, 0x90, 0x55, 0x4b, 0x96, 0xb6, 0xc8, 0x0b, 0xf8, 0xf0,
+	0xc6, 0x4e, 0x24, 0x1f, 0xb3, 0x77, 0x75, 0x69, 0x93, 0xca, 0xe7, 0x70, 0xd0, 0xd4, 0x6c, 0x64,
+	0xcc, 0x6e, 0xe9, 0xc1, 0x06, 0x45, 0xaf, 0x7a, 0xea, 0xaf, 0xe4, 0xd1, 0x3f, 0x01, 0x00, 0x00,
+	0xff, 0xff, 0xf1, 0xde, 0x53, 0x82, 0xa4, 0x0c, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -870,10 +1376,16 @@ type StoreClient interface {
 	AddEvent(ctx context.Context, in *AddEventRequest, opts ...grpc.CallOption) (*InsertResponse, error)
 	AddTeam(ctx context.Context, in *AddTeamRequest, opts ...grpc.CallOption) (*InsertResponse, error)
 	//Select
-	GetEvents(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetEventResponse, error)
+	GetEvents(ctx context.Context, in *GetEventRequest, opts ...grpc.CallOption) (*GetEventResponse, error)
+	GetEventByUser(ctx context.Context, in *GetEventByUserReq, opts ...grpc.CallOption) (*GetEventResponse, error)
 	GetEventTeams(ctx context.Context, in *GetEventTeamsRequest, opts ...grpc.CallOption) (*GetEventTeamsResponse, error)
+	GetEventStatus(ctx context.Context, in *GetEventStatusRequest, opts ...grpc.CallOption) (*EventStatusStore, error)
+	IsEventExists(ctx context.Context, in *GetEventByTagReq, opts ...grpc.CallOption) (*GetEventByTagResp, error)
+	GetTimeSeries(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetTimeSeriesResponse, error)
+	DropEvent(ctx context.Context, in *DropEventReq, opts ...grpc.CallOption) (*DropEventResp, error)
+	SetEventStatus(ctx context.Context, in *SetEventStatusRequest, opts ...grpc.CallOption) (*EventStatusStore, error)
 	//Update
-	UpdateEventFinishDate(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
+	UpdateCloseEvent(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	UpdateTeamSolvedChallenge(ctx context.Context, in *UpdateTeamSolvedChallengeRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	UpdateTeamLastAccess(ctx context.Context, in *UpdateTeamLastAccessRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 }
@@ -904,9 +1416,18 @@ func (c *storeClient) AddTeam(ctx context.Context, in *AddTeamRequest, opts ...g
 	return out, nil
 }
 
-func (c *storeClient) GetEvents(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetEventResponse, error) {
+func (c *storeClient) GetEvents(ctx context.Context, in *GetEventRequest, opts ...grpc.CallOption) (*GetEventResponse, error) {
 	out := new(GetEventResponse)
 	err := c.cc.Invoke(ctx, "/Store/GetEvents", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) GetEventByUser(ctx context.Context, in *GetEventByUserReq, opts ...grpc.CallOption) (*GetEventResponse, error) {
+	out := new(GetEventResponse)
+	err := c.cc.Invoke(ctx, "/Store/GetEventByUser", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -922,9 +1443,54 @@ func (c *storeClient) GetEventTeams(ctx context.Context, in *GetEventTeamsReques
 	return out, nil
 }
 
-func (c *storeClient) UpdateEventFinishDate(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateResponse, error) {
+func (c *storeClient) GetEventStatus(ctx context.Context, in *GetEventStatusRequest, opts ...grpc.CallOption) (*EventStatusStore, error) {
+	out := new(EventStatusStore)
+	err := c.cc.Invoke(ctx, "/Store/GetEventStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) IsEventExists(ctx context.Context, in *GetEventByTagReq, opts ...grpc.CallOption) (*GetEventByTagResp, error) {
+	out := new(GetEventByTagResp)
+	err := c.cc.Invoke(ctx, "/Store/IsEventExists", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) GetTimeSeries(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetTimeSeriesResponse, error) {
+	out := new(GetTimeSeriesResponse)
+	err := c.cc.Invoke(ctx, "/Store/GetTimeSeries", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) DropEvent(ctx context.Context, in *DropEventReq, opts ...grpc.CallOption) (*DropEventResp, error) {
+	out := new(DropEventResp)
+	err := c.cc.Invoke(ctx, "/Store/DropEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) SetEventStatus(ctx context.Context, in *SetEventStatusRequest, opts ...grpc.CallOption) (*EventStatusStore, error) {
+	out := new(EventStatusStore)
+	err := c.cc.Invoke(ctx, "/Store/SetEventStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) UpdateCloseEvent(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateResponse, error) {
 	out := new(UpdateResponse)
-	err := c.cc.Invoke(ctx, "/Store/UpdateEventFinishDate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/Store/UpdateCloseEvent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -955,10 +1521,16 @@ type StoreServer interface {
 	AddEvent(context.Context, *AddEventRequest) (*InsertResponse, error)
 	AddTeam(context.Context, *AddTeamRequest) (*InsertResponse, error)
 	//Select
-	GetEvents(context.Context, *EmptyRequest) (*GetEventResponse, error)
+	GetEvents(context.Context, *GetEventRequest) (*GetEventResponse, error)
+	GetEventByUser(context.Context, *GetEventByUserReq) (*GetEventResponse, error)
 	GetEventTeams(context.Context, *GetEventTeamsRequest) (*GetEventTeamsResponse, error)
+	GetEventStatus(context.Context, *GetEventStatusRequest) (*EventStatusStore, error)
+	IsEventExists(context.Context, *GetEventByTagReq) (*GetEventByTagResp, error)
+	GetTimeSeries(context.Context, *EmptyRequest) (*GetTimeSeriesResponse, error)
+	DropEvent(context.Context, *DropEventReq) (*DropEventResp, error)
+	SetEventStatus(context.Context, *SetEventStatusRequest) (*EventStatusStore, error)
 	//Update
-	UpdateEventFinishDate(context.Context, *UpdateEventRequest) (*UpdateResponse, error)
+	UpdateCloseEvent(context.Context, *UpdateEventRequest) (*UpdateResponse, error)
 	UpdateTeamSolvedChallenge(context.Context, *UpdateTeamSolvedChallengeRequest) (*UpdateResponse, error)
 	UpdateTeamLastAccess(context.Context, *UpdateTeamLastAccessRequest) (*UpdateResponse, error)
 }
@@ -973,14 +1545,32 @@ func (*UnimplementedStoreServer) AddEvent(ctx context.Context, req *AddEventRequ
 func (*UnimplementedStoreServer) AddTeam(ctx context.Context, req *AddTeamRequest) (*InsertResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddTeam not implemented")
 }
-func (*UnimplementedStoreServer) GetEvents(ctx context.Context, req *EmptyRequest) (*GetEventResponse, error) {
+func (*UnimplementedStoreServer) GetEvents(ctx context.Context, req *GetEventRequest) (*GetEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEvents not implemented")
+}
+func (*UnimplementedStoreServer) GetEventByUser(ctx context.Context, req *GetEventByUserReq) (*GetEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEventByUser not implemented")
 }
 func (*UnimplementedStoreServer) GetEventTeams(ctx context.Context, req *GetEventTeamsRequest) (*GetEventTeamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEventTeams not implemented")
 }
-func (*UnimplementedStoreServer) UpdateEventFinishDate(ctx context.Context, req *UpdateEventRequest) (*UpdateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateEventFinishDate not implemented")
+func (*UnimplementedStoreServer) GetEventStatus(ctx context.Context, req *GetEventStatusRequest) (*EventStatusStore, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEventStatus not implemented")
+}
+func (*UnimplementedStoreServer) IsEventExists(ctx context.Context, req *GetEventByTagReq) (*GetEventByTagResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsEventExists not implemented")
+}
+func (*UnimplementedStoreServer) GetTimeSeries(ctx context.Context, req *EmptyRequest) (*GetTimeSeriesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTimeSeries not implemented")
+}
+func (*UnimplementedStoreServer) DropEvent(ctx context.Context, req *DropEventReq) (*DropEventResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DropEvent not implemented")
+}
+func (*UnimplementedStoreServer) SetEventStatus(ctx context.Context, req *SetEventStatusRequest) (*EventStatusStore, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetEventStatus not implemented")
+}
+func (*UnimplementedStoreServer) UpdateCloseEvent(ctx context.Context, req *UpdateEventRequest) (*UpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateCloseEvent not implemented")
 }
 func (*UnimplementedStoreServer) UpdateTeamSolvedChallenge(ctx context.Context, req *UpdateTeamSolvedChallengeRequest) (*UpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateTeamSolvedChallenge not implemented")
@@ -1030,7 +1620,7 @@ func _Store_AddTeam_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _Store_GetEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyRequest)
+	in := new(GetEventRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1042,7 +1632,25 @@ func _Store_GetEvents_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: "/Store/GetEvents",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StoreServer).GetEvents(ctx, req.(*EmptyRequest))
+		return srv.(StoreServer).GetEvents(ctx, req.(*GetEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Store_GetEventByUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEventByUserReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).GetEventByUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Store/GetEventByUser",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).GetEventByUser(ctx, req.(*GetEventByUserReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1065,20 +1673,110 @@ func _Store_GetEventTeams_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Store_UpdateEventFinishDate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Store_GetEventStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEventStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).GetEventStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Store/GetEventStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).GetEventStatus(ctx, req.(*GetEventStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Store_IsEventExists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEventByTagReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).IsEventExists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Store/IsEventExists",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).IsEventExists(ctx, req.(*GetEventByTagReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Store_GetTimeSeries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).GetTimeSeries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Store/GetTimeSeries",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).GetTimeSeries(ctx, req.(*EmptyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Store_DropEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DropEventReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).DropEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Store/DropEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).DropEvent(ctx, req.(*DropEventReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Store_SetEventStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetEventStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).SetEventStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Store/SetEventStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).SetEventStatus(ctx, req.(*SetEventStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Store_UpdateCloseEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateEventRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StoreServer).UpdateEventFinishDate(ctx, in)
+		return srv.(StoreServer).UpdateCloseEvent(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Store/UpdateEventFinishDate",
+		FullMethod: "/Store/UpdateCloseEvent",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StoreServer).UpdateEventFinishDate(ctx, req.(*UpdateEventRequest))
+		return srv.(StoreServer).UpdateCloseEvent(ctx, req.(*UpdateEventRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1136,12 +1834,36 @@ var _Store_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Store_GetEvents_Handler,
 		},
 		{
+			MethodName: "GetEventByUser",
+			Handler:    _Store_GetEventByUser_Handler,
+		},
+		{
 			MethodName: "GetEventTeams",
 			Handler:    _Store_GetEventTeams_Handler,
 		},
 		{
-			MethodName: "UpdateEventFinishDate",
-			Handler:    _Store_UpdateEventFinishDate_Handler,
+			MethodName: "GetEventStatus",
+			Handler:    _Store_GetEventStatus_Handler,
+		},
+		{
+			MethodName: "IsEventExists",
+			Handler:    _Store_IsEventExists_Handler,
+		},
+		{
+			MethodName: "GetTimeSeries",
+			Handler:    _Store_GetTimeSeries_Handler,
+		},
+		{
+			MethodName: "DropEvent",
+			Handler:    _Store_DropEvent_Handler,
+		},
+		{
+			MethodName: "SetEventStatus",
+			Handler:    _Store_SetEventStatus_Handler,
+		},
+		{
+			MethodName: "UpdateCloseEvent",
+			Handler:    _Store_UpdateCloseEvent_Handler,
 		},
 		{
 			MethodName: "UpdateTeamSolvedChallenge",
