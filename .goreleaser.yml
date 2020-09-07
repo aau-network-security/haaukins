@@ -49,7 +49,7 @@ builds:
   - id: "hknd"
     env:
       - CGO_ENABLED=0
-    main: ./daemon/main.go
+    main: ./main.go
     binary: hknd
     flags:
       - -tags=netgo
@@ -121,7 +121,7 @@ checksum:
   algorithm: sha256
 
 brews:
-  - github:
+  - tap:
       owner: aau-network-security
       name: homebrew-haaukins
     folder: Formula
