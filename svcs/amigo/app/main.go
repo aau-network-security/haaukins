@@ -98,11 +98,11 @@ func main() {
 			_, _ = t.AddChallenge(store.Challenge{
 				Name:  c.Name,
 				Tag:   c.Tags[0],
-				Value: store.NewFlag().String(),
+				Value: store.NewFlag().String(false),
 			})
 		}
 	}
-	am := amigo.NewAmigo(ts, res)
+	am := amigo.NewAmigo(ts, res, "")
 
-	log.Fatal(http.ListenAndServe(":8080", am.Handler(nil, http.NewServeMux())))
+	log.Fatal(http.ListenAndServe(":8080", am.Handler(amigo.Hooks{}, http.NewServeMux())))
 }

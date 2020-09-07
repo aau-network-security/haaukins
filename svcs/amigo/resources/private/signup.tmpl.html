@@ -1,8 +1,8 @@
 {{ define "content" }}
 	<img class="wave-bg-signup" src="/assets/img/wave-signup.png">
-	<div class="container">
-		<div class="row">
-			<div class="col align-self-center" style="height: 100vh!important;">
+	<div class="container h-100">
+		<div class="row h-100">
+			<div class="col" style="min-height: 800px!important; height: 100vh">
 				<div class="login-content h-100">
 					<form class="login-form" method="post" action="/signup">
 						<h4>Create a Team</h4>
@@ -42,6 +42,7 @@
 								<input class="input" name="password-repeat" type="password">
 							</div>
 						</div>
+						<div class="g-recaptcha ml-0 ml-sm-4" data-sitekey="6LduW74ZAAAAAI9eDk0Btd_fbjegoXOfCSR-kLSo"></div>
 						<input type="submit" class="btn btn-login mt-3" value="Login">
 							{{ with .Content }}
 								{{ if .SignupError }}
@@ -53,7 +54,7 @@
 					</form>
 				</div>
 			</div>
-			<div class="col myd-none" style="height: 100vh!important;">
+			<div class="col myd-none" style="min-height: 800px!important;">
 				<div class="svg-login h-100">
 					<img src="/assets/img/login2.svg" class="img-fluid">
 				</div>

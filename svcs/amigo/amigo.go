@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 
 	logger "github.com/rs/zerolog/log"
 
@@ -50,6 +51,7 @@ type Amigo struct {
 	globalInfo   siteInfo
 	challenges   []store.FlagConfig
 	TeamStore    store.Event
+	recaptcha    Recaptcha
 }
 
 type AmigoOpt func(*Amigo)
@@ -66,7 +68,7 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.Event, chals []store.FlagConfig, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
@@ -76,6 +78,7 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, opts ...AmigoOpt) *Amigo
 		globalInfo: siteInfo{
 			EventName: "Test Event",
 		},
+		recaptcha: NewRecaptcha(reCaptchaKey),
 	}
 
 	for _, opt := range opts {
@@ -103,7 +106,13 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	return info
 }
 
-func (am *Amigo) Handler(hook func(t *store.Team) error, guacHandler http.Handler) http.Handler {
+type Hooks struct {
+	AssignLab     func(t *store.Team) error
+	ResetExercise func(t *store.Team, challengeTag string) error
+	ResetFrontend func(t *store.Team) error
+}
+
+func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	fd := newFrontendData(am.TeamStore, am.challenges...)
 	go fd.runFrontendData()
 
@@ -113,12 +122,14 @@ func (am *Amigo) Handler(hook func(t *store.Team) error, guacHandler http.Handle
 	m.HandleFunc("/challenges", am.handleChallenges())
 	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/scoreboard", am.handleScoreBoard())
-	m.HandleFunc("/signup", am.handleSignup(hook))
+	m.HandleFunc("/signup", am.handleSignup(hooks.AssignLab))
 	m.HandleFunc("/login", am.handleLogin())
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
+	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.Handle("/guaclogin", guacHandler)
 	m.Handle("/guacamole", guacHandler)
 	m.Handle("/guacamole/", guacHandler)
@@ -370,6 +381,16 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			displayErr(w, params, errors.New("capacity reached for this event"))
 			return
 		}
+		// make the key empty for running haaukins on dev/local
+		// making recaptcha place empty on config will disable verify
+		if am.recaptcha.secret != "" {
+			logger.Info().Msgf("Recaptcha is enabled on sign up page ")
+			isValid := am.recaptcha.Verify(r.FormValue("g-recaptcha-response"))
+			if !isValid {
+				displayErr(w, params, errors.New("seems you are a robot"))
+				return
+			}
+		}
 
 		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", nil)
 
@@ -397,6 +418,75 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			logger.Debug().Msgf("Problem in assing lab !! %s ", err)
 		}
 	}
+}
+
+func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag string) error) http.HandlerFunc {
+
+	type resetChallenge struct {
+		Tag string `json:"tag"`
+	}
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		var msg resetChallenge
+		if err := safeReadJson(w, r, &msg, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		chalTag := getParentChallengeTag(msg.Tag)
+		err = resetHook(team, chalTag)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) http.HandlerFunc {
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		err = resetFrontend(team)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
 }
 
 func (am *Amigo) handleLogin() http.HandlerFunc {
@@ -542,6 +632,7 @@ func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*st
 	return t, nil
 }
 
+//Read json from request
 func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes int64) error {
 	r.Body = http.MaxBytesReader(w, r.Body, bytes)
 	defer r.Body.Close()
@@ -558,6 +649,7 @@ func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes i
 	return nil
 }
 
+//Return json format
 func replyJson(sc int, w http.ResponseWriter, i interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(sc)
@@ -569,10 +661,12 @@ type errReply struct {
 	Error string `json:"error"`
 }
 
+//Return json error
 func replyJsonRequestErr(w http.ResponseWriter, err error) error {
 	return replyJson(http.StatusBadRequest, w, errReply{err.Error()})
 }
 
+//Return team information (id and name) from cookie token
 func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
 	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -605,6 +699,7 @@ func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
 
 type Middleware func(http.HandlerFunc) http.HandlerFunc
 
+//Check if the request method is GET
 func GETEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -615,6 +710,7 @@ func GETEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+//Check if the request method is POST
 func POSTEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -625,6 +721,7 @@ func POSTEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+//Check if the content-type of the request is in json
 func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
@@ -634,6 +731,22 @@ func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
+
+//Get the parent tag of the challenge.
+//in the exerise.yml file children challenges have a number
+//for example Parent: sql, Children: sql-1, sql-2 ....
+//In order to reset a challenge the parent tag is needed so, this
+//function check is the challenge tag contains a number, if so, remove the last 2 characters
+func getParentChallengeTag(child string) string {
+	for _, c := range child {
+		if unicode.IsDigit(c) {
+			return child[:len(child)-2]
+		}
+	}
+	return child
+}
+
+//Get working directory of the project
 func GetWd() string {
 	path, err := os.Getwd()
 	if err != nil {

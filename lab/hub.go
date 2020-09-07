@@ -165,13 +165,17 @@ func (h *hub) Close() error {
 
 func (h *hub) Suspend(ctx context.Context) error {
 	var suspendError error
-	go func() {
-		for _, l := range h.labs {
+	var wg sync.WaitGroup
+	for _, l := range h.labs {
+		wg.Add(1)
+		go func() {
 			if err := l.Suspend(ctx); err != nil {
 				err = suspendError
 			}
-		}
-	}()
+			wg.Done()
+		}()
+		wg.Wait()
+	}
 
 	return suspendError
 }
@@ -179,15 +183,19 @@ func (h *hub) Suspend(ctx context.Context) error {
 func (h *hub) Resume(ctx context.Context) error {
 
 	var resumeError error
+	var wg sync.WaitGroup
 
-	go func() {
-
-		for _, l := range h.labs {
+	for _, l := range h.labs {
+		wg.Add(1)
+		go func() {
 			if err := l.Resume(ctx); err != nil {
 				err = resumeError
 			}
-		}
-	}()
+			wg.Done()
+		}()
+		wg.Wait()
+
+	}
 
 	return resumeError
 }

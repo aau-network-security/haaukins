@@ -30,8 +30,8 @@ import (
 const (
 	displayTimeFormat = "2006-01-02 15:04:05"
 	Running           = State(0)
-	Booked            = State(1) // todo: will be added
-	Suspended         = State(2)
+	Suspended         = State(1)
+	Booked            = State(2)
 	Closed            = State(3)
 	Error             = State(4)
 )
@@ -50,8 +50,8 @@ var (
 
 type Host interface {
 	UpdateEventHostExercisesFile(store.ExerciseStore) error
-	CreateEventFromEventDB(context.Context, store.EventConfig) (Event, error)
-	CreateEventFromConfig(context.Context, store.EventConfig) (Event, error)
+	CreateEventFromEventDB(context.Context, store.EventConfig, string) (Event, error)
+	CreateEventFromConfig(context.Context, store.EventConfig, string) (Event, error)
 }
 
 func NewHost(vlib vbox.Library, elib store.ExerciseStore, eDir string, dbc pbc.StoreClient) Host {
@@ -73,7 +73,7 @@ type eventHost struct {
 }
 
 //Create the event configuration for the event got from the DB
-func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig) (Event, error) {
+func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
 	if err != nil {
 		return nil, err
@@ -98,11 +98,11 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		return nil, err
 	}
 
-	return NewEvent(eh.ctx, es, hub, labConf.Flags())
+	return NewEvent(eh.ctx, es, hub, labConf.Flags(), reCaptchaKey)
 }
 
 //Save the event in the DB and create the event configuration
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig) (Event, error) {
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	var exercises []string
 	for _, e := range conf.Lab.Exercises {
 		exercises = append(exercises, string(e))
@@ -117,13 +117,14 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		Status:             int32(conf.Status),
 		StartTime:          conf.StartedAt.Format(displayTimeFormat),
 		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
+		CreatedBy:          conf.CreatedBy,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	return eh.CreateEventFromEventDB(ctx, conf)
+	return eh.CreateEventFromEventDB(ctx, conf, reCaptchaKey)
 }
 
 func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error {
@@ -168,7 +169,7 @@ type event struct {
 	closers []io.Closer
 }
 
-func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig) (Event, error) {
+func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig, reCaptchaKey string) (Event, error) {
 
 	guac, err := New(ctx, Config{})
 	if err != nil {
@@ -191,7 +192,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	ev := &event{
 		store:         e,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(e, flags, amigoOpt),
+		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, amigoOpt),
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: NewGuacUserStore(),
@@ -293,6 +294,7 @@ func (ev *event) Finish(newTag string) {
 }
 
 func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
+	enableWallPaper := true
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.
@@ -328,12 +330,13 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 
 		log.Debug().Str("team", t.Name()).Uint("port", port).Msg("Creating RDP Connection for group")
 		if err := ev.guac.CreateRDPConn(CreateRDPConnOpts{
-			Host:     hostIp,
-			Port:     port,
-			Name:     name,
-			GuacUser: u.Username,
-			Username: &u.Username,
-			Password: &u.Password,
+			Host:            hostIp,
+			Port:            port,
+			Name:            name,
+			GuacUser:        u.Username,
+			Username:        &u.Username,
+			Password:        &u.Password,
+			EnableWallPaper: &enableWallPaper,
 		}); err != nil {
 			return err
 		}
@@ -344,13 +347,13 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 
 	for _, chal := range chals {
 		tag, _ := store.NewTag(string(chal.Tag))
-		f, _ := t.AddChallenge(store.Challenge{
+		_, _ = t.AddChallenge(store.Challenge{
 			Tag:   tag,
 			Name:  chal.Name,
 			Value: chal.Value,
 		})
 		log.Info().Str("chal-tag", string(tag)).
-			Str("chal-val", f.String()).
+			Str("chal-val", chal.Value).
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}
 	return nil
@@ -377,9 +380,33 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
+	resetHook := func(t *store.Team, challengeTag string) error {
+		teamLab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+		}
+		if err := teamLab.Environment().ResetByTag(context.Background(), challengeTag); err != nil {
+			return fmt.Errorf("Reset challenge hook error %v", err)
+		}
+		return nil
+	}
+
+	resetFrontendHook := func(t *store.Team) error {
+		teamLab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+		}
+		if err := teamLab.ResetFrontends(context.Background()); err != nil {
+			return fmt.Errorf("Reset frontends hook error %v", err)
+		}
+		return nil
+	}
+
+	hooks := amigo.Hooks{AssignLab: reghook, ResetExercise: resetHook, ResetFrontend: resetFrontendHook}
+
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)
 
-	return ev.amigo.Handler(reghook, guacHandler)
+	return ev.amigo.Handler(hooks, guacHandler)
 }
 
 func (ev *event) GetHub() lab.Hub {

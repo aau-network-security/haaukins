@@ -1,0 +1,70 @@
+# This is a workflow where whenever new commits has been done to develop branch.
+# Binary file will be created and pushed to dev environment.
+# Despite to master branch which has auto run on remote server. 
+# This deploy does not include auto run intentially.
+
+name: Deploy CI 
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ develop ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+    
+      - name: Setup Go environment
+        uses: actions/setup-go@v2.1.2
+        with:
+          go-version: '1.14'
+          
+      - name: Get Short Commit ID
+        id: commitid
+        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+      - name: Get Commit SHA
+        id: vars
+        run: echo "::set-output name=sha_long::$(git rev-parse HEAD)"
+      
+      - name: Get Commit Message
+        id: cmmtmsg
+        run: echo "::set-output name=commit_message::$(git --no-pager log  --oneline --decorate ${{ steps.vars.outputs.sha_long }})"
+      
+      - name: Build Binaries 
+        run: go run scripts/deploy/build_binaries.go
+        
+      - name: Change name of binary
+        run: |
+          mkdir ./temp &&
+          mv ./build/hknd-linux-amd64 ./temp/hknd-${{ steps.commitid.outputs.sha_short }} &&
+          mv ./build/hkn-linux-amd64 ./temp/hkn-client-${{ steps.commitid.outputs.sha_short }} &&
+          cp -r ./svcs ./temp/svcs-${{ steps.commitid.outputs.sha_short }}
+      - name: Deploy daemon 
+        uses: AEnterprise/rsync-deploy@v1.0
+        env:
+          DEPLOY_KEY: ${{ secrets.SSH_KEY }}
+          ARGS: "-e -c -r"
+          SERVER_PORT: ${{ secrets.SSH_PORT }}
+          FOLDER: "./temp/"
+          SERVER_IP: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.SSH_USERNAME }}
+          SERVER_DESTINATION: ${{ secrets.DEPLOY_PATH }}
+          
+      - name: send-slack-message
+        uses: mrturkmencom/notifyme@v1.3
+        env:
+          web_hook: ${{ secrets.WEB_HOOK }}
+          message: " Daemon and Client are successfully deployed to dev environment. " 
+          commit_id: https://github.com/aau-network-security/haaukins/commit/${{ steps.vars.outputs.sha_long }}
+          commit_message: ${{ steps.cmmtmsg.outputs.commit_message }}
+   

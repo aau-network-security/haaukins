@@ -19,11 +19,12 @@ var (
 )
 
 const (
-	letterBytes     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345679"
-	letterIdxBits   = 6                    // 6 bits to represent a letter index
-	letterIdxMask   = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax    = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-	flagUniqueChars = 10
+	letterBytes        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345679"
+	letterIdxBits      = 6                    // 6 bits to represent a letter index
+	letterIdxMask      = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax       = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+	flagUniqueChars    = 10
+	flagNumCharsFormat = 15
 )
 
 var (
@@ -96,30 +97,46 @@ func randCharBytes(n int) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-type Flag [flagUniqueChars]byte
+type Flag [flagNumCharsFormat]byte
 
+//fmt.SpHKN{}
 func NewFlag() Flag {
 	var arr [flagUniqueChars]byte
 	s := []byte(randCharBytes(10))
 	copy(arr[:], s)
-	return Flag(arr)
+	formattedFlag := formatFlag(arr)
+	return Flag(formattedFlag)
 }
 
 func NewFlagFromString(s string) (Flag, error) {
 	b := bytes.Replace([]byte(s), []byte("-"), []byte(""), 2)
-	if len(b) != flagUniqueChars {
+	if len(b) != flagNumCharsFormat {
 		return Flag{}, ErrInvalidFlagFormat
 	}
 	var arr [flagUniqueChars]byte
 	copy(arr[:], b)
-
-	return Flag(arr), nil
+	formattedFlag := formatFlag(arr)
+	return Flag(formattedFlag), nil
 }
 
-func (f Flag) String() string {
-	str := string(f[:])
+func (f Flag) String(isStatic bool) string {
+	var str string
+	if isStatic {
+		str = string(f[:])
+	} else {
+		str = string(f[4 : flagNumCharsFormat-1])
+	}
 	i := (2 + rand.Intn(2))
 	j := (i + 2 + rand.Intn(2))
 
-	return str[:i] + "-" + str[i:j] + "-" + str[j:]
+	return fmt.Sprintf("HKN{%s}", str[:i]+"-"+str[i:j]+"-"+str[j:])
+}
+
+func formatFlag(arr [flagUniqueChars]byte) [flagNumCharsFormat]byte {
+	flag := fmt.Sprintf("HKN{%s}", arr)
+	var formattedFlag [flagNumCharsFormat]byte
+	for k, v := range []byte(flag) {
+		formattedFlag[k] = byte(v)
+	}
+	return formattedFlag
 }

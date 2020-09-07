@@ -504,6 +504,7 @@ func (m *SignupUserRequest) GetPassword() string {
 
 type InviteUserRequest struct {
 	SuperUser            bool     `protobuf:"varint,1,opt,name=super_user,json=superUser,proto3" json:"super_user,omitempty"`
+	NpUser               bool     `protobuf:"varint,2,opt,name=np_user,json=npUser,proto3" json:"np_user,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -537,6 +538,13 @@ var xxx_messageInfo_InviteUserRequest proto.InternalMessageInfo
 func (m *InviteUserRequest) GetSuperUser() bool {
 	if m != nil {
 		return m.SuperUser
+	}
+	return false
+}
+
+func (m *InviteUserRequest) GetNpUser() bool {
+	if m != nil {
+		return m.NpUser
 	}
 	return false
 }
@@ -642,6 +650,7 @@ type ListUsersResponse_UserInfo struct {
 	Email                string   `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
 	CreatedAt            string   `protobuf:"bytes,5,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
 	IsSuperUser          bool     `protobuf:"varint,6,opt,name=isSuperUser,proto3" json:"isSuperUser,omitempty"`
+	IsNPUser             bool     `protobuf:"varint,7,opt,name=isNPUser,proto3" json:"isNPUser,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -710,6 +719,13 @@ func (m *ListUsersResponse_UserInfo) GetCreatedAt() string {
 func (m *ListUsersResponse_UserInfo) GetIsSuperUser() bool {
 	if m != nil {
 		return m.IsSuperUser
+	}
+	return false
+}
+
+func (m *ListUsersResponse_UserInfo) GetIsNPUser() bool {
+	if m != nil {
+		return m.IsNPUser
 	}
 	return false
 }
@@ -978,10 +994,12 @@ type ListEventsResponse_Events struct {
 	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	TeamCount            int32    `protobuf:"varint,3,opt,name=teamCount,proto3" json:"teamCount,omitempty"`
 	Exercises            string   `protobuf:"bytes,4,opt,name=exercises,proto3" json:"exercises,omitempty"`
-	Capacity             int32    `protobuf:"varint,5,opt,name=capacity,proto3" json:"capacity,omitempty"`
-	CreationTime         string   `protobuf:"bytes,6,opt,name=creationTime,proto3" json:"creationTime,omitempty"`
-	FinishTime           string   `protobuf:"bytes,7,opt,name=finishTime,proto3" json:"finishTime,omitempty"`
-	Status               int32    `protobuf:"varint,8,opt,name=status,proto3" json:"status,omitempty"`
+	Availability         int32    `protobuf:"varint,5,opt,name=availability,proto3" json:"availability,omitempty"`
+	Capacity             int32    `protobuf:"varint,6,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	CreationTime         string   `protobuf:"bytes,7,opt,name=creationTime,proto3" json:"creationTime,omitempty"`
+	FinishTime           string   `protobuf:"bytes,8,opt,name=finishTime,proto3" json:"finishTime,omitempty"`
+	Status               int32    `protobuf:"varint,9,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedBy            string   `protobuf:"bytes,10,opt,name=createdBy,proto3" json:"createdBy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1040,6 +1058,13 @@ func (m *ListEventsResponse_Events) GetExercises() string {
 	return ""
 }
 
+func (m *ListEventsResponse_Events) GetAvailability() int32 {
+	if m != nil {
+		return m.Availability
+	}
+	return 0
+}
+
 func (m *ListEventsResponse_Events) GetCapacity() int32 {
 	if m != nil {
 		return m.Capacity
@@ -1066,6 +1091,13 @@ func (m *ListEventsResponse_Events) GetStatus() int32 {
 		return m.Status
 	}
 	return 0
+}
+
+func (m *ListEventsResponse_Events) GetCreatedBy() string {
+	if m != nil {
+		return m.CreatedBy
+	}
+	return ""
 }
 
 type ListEventTeamsRequest struct {
@@ -2290,6 +2322,7 @@ func init() {
 func init() { proto.RegisterFile("daemon.proto", fileDescriptor_3ec90cbc4aa12fc6) }
 
 var fileDescriptor_3ec90cbc4aa12fc6 = []byte{
+
 	// 1741 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x18, 0x4d, 0x73, 0x1b, 0x4b,
 	0x51, 0x2b, 0x59, 0xb2, 0xd4, 0xb2, 0x1d, 0x69, 0x24, 0x0b, 0xb1, 0xc9, 0x03, 0xd7, 0x54, 0xa0,

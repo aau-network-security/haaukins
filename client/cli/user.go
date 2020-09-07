@@ -41,15 +41,16 @@ func (c *Client) CmdUser() *cobra.Command {
 
 func (c *Client) CmdInviteUser() *cobra.Command {
 	var superUser bool
+	var npUser bool
 	cmd := &cobra.Command{
 		Use:     "invite",
 		Short:   "Create key for inviting other users (only admins)",
-		Example: `hkn user invite --superuser`,
+		Example: `hkn user invite --superuser \ hkn user invite --member`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
-			r, err := c.rpcClient.InviteUser(ctx, &pb.InviteUserRequest{SuperUser: superUser})
+			r, err := c.rpcClient.InviteUser(ctx, &pb.InviteUserRequest{SuperUser: superUser, NpUser: npUser})
 			if err != nil {
 				PrintError(err)
 				return
@@ -64,7 +65,8 @@ func (c *Client) CmdInviteUser() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&superUser, "super-user", "s", false, "indicates if the signup key will create a super user")
+	cmd.Flags().BoolVarP(&superUser, "super-user", "s", false, "indicates if the sign up key will create a super user")
+	cmd.Flags().BoolVarP(&npUser, "member", "m", false, "indicated if the sign up key will create a non-privileged user ")
 	return cmd
 }
 

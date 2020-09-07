@@ -39,6 +39,7 @@ type EventConfig struct {
 	FinishExpected *time.Time
 	FinishedAt     *time.Time
 	Status         int32
+	CreatedBy      string
 }
 
 type Lab struct {
@@ -56,6 +57,10 @@ func (e EventConfig) Validate() error {
 		return &EmptyVarErr{Var: "Tag", Type: "Event"}
 	}
 
+	if e.CreatedBy == "" {
+		return &EmptyVarErr{Var: "User", Type: "Event"}
+	}
+
 	if len(e.Lab.Exercises) == 0 {
 		return &EmptyVarErr{Var: "Exercises", Type: "Event"}
 	}
@@ -64,7 +69,6 @@ func (e EventConfig) Validate() error {
 		return &EmptyVarErr{Var: "Frontends", Type: "Event"}
 	}
 
-	log.Info().Msg("Event config validation is done")
 	return nil
 }
 
@@ -130,6 +134,7 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 		}
 		ts.tokens[teamToken] = team.ID()
 		ts.emails[team.Email()] = team.ID()
+		ts.names[team.Name()] = team.ID()
 		ts.teams[team.ID()] = team
 	}
 

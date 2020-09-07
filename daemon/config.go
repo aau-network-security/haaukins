@@ -21,6 +21,7 @@ type Config struct {
 	Database           DatabaseConfig                   `yaml:"db-config,omitempty"`
 	ConfFiles          Files                            `yaml:"files,omitempty"`
 	SigningKey         string                           `yaml:"sign-key,omitempty"`
+	Rechaptcha         string                           `yaml:"recaptcha-key,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
 }
 

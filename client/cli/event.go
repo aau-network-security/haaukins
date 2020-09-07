@@ -217,7 +217,6 @@ func (c *Client) CmdEventResume() *cobra.Command {
 }
 
 func (c *Client) CmdEvents() *cobra.Command {
-	//var arg bool
 	var status string
 	var statusID int32
 	cmd := &cobra.Command{
@@ -236,8 +235,8 @@ func (c *Client) CmdEvents() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "STATUS", "CREATION TIME", "EXPECTED FINISH TIME"},
-				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "Status", "CreationTime", "FinishTime"},
+				header: []string{"EVENT TAG", "NAME", "# TEAM", "EXERCISES", "CAPACITY", "STATUS", "CREATION TIME", "EXPECTED FINISH TIME", "CREATEDBY"},
+				fields: []string{"Tag", "Name", "TeamCount", "Exercises", "Capacity", "Status", "CreationTime", "FinishTime", "CreatedBy"},
 			}
 
 			var elements []formatElement
