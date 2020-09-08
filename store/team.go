@@ -206,6 +206,7 @@ type Team struct {
 	lastAccess    time.Time
 	challenges    map[Flag]TeamChallenge
 	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
+	isLabAssigned bool
 }
 
 type TeamChallenge struct {
@@ -239,6 +240,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 		hashedPassword: string(hPass),
 		challenges:     map[Flag]TeamChallenge{},
 		solvedChalsDB:  solvedChals,
+		isLabAssigned:  false,
 	}
 }
 
@@ -426,6 +428,19 @@ func (t *Team) Name() string {
 	name := t.name
 
 	return name
+}
+
+func (t *Team) IsLabAssigned() bool {
+	t.m.RLock()
+	defer t.m.RUnlock()
+
+	return t.isLabAssigned
+}
+
+func (t *Team) CorrectedAssignedLab() {
+	t.m.Lock()
+	defer t.m.Unlock()
+	t.isLabAssigned = true
 }
 
 //Not used anywhere
