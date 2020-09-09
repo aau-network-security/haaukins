@@ -39,7 +39,7 @@ jobs:
       - name: Test
         env:
           GITHUB_CI: "GITHUB_CI"
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          # CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
           go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
-          bash <(curl -s https://codecov.io/bash)
+          # bash <(curl -s https://codecov.io/bash)
