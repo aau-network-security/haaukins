@@ -27,8 +27,8 @@ const (
 
 var (
 	NoPrivilegeToStressTest = errors.New("No privilege to have stress test on Haaukins !")
-	NPUserMaxLabs   = 40
-	NotAvailableTag = "not available tag, there is already an event which is either running, booked or suspended"
+	NPUserMaxLabs           = 40
+	NotAvailableTag         = "not available tag, there is already an event which is either running, booked or suspended"
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL

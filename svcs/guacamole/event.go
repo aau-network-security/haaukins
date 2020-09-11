@@ -356,6 +356,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			Str("chal-val", chal.Value).
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}
+	t.CorrectedAssignedLab()
 	return nil
 }
 
