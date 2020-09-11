@@ -60,7 +60,7 @@ func init() {
 		log.Fatal().Err(err).Msg("")
 	}
 
-	DefaultLinkBridge, err = newDefaultBridge("hkn-bridge")
+	DefaultLinkBridge, err = newDefaultBridge("api-bridge")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error creating default bridge")
 	}
@@ -700,7 +700,7 @@ func newDefaultBridge(name string) (*defaultBridge, error) {
 			Driver:   "bridge",
 			Internal: true,
 			Labels: map[string]string{
-				"hkn": "default_bridge",
+				"api": "default_bridge",
 			},
 		}
 

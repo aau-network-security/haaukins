@@ -152,13 +152,13 @@ func (guac *guacamole) create(ctx context.Context) error {
 		Image:     "guacamole/guacd:1.0.0",
 		UseBridge: true,
 		Labels: map[string]string{
-			"hkn": "guacamole_guacd",
+			"api": "guacamole_guacd",
 		},
 	})
 
 	mysqlPass := uuid.New().String()
 	containers["db"] = docker.NewContainer(docker.ContainerConfig{
-		Image: "registry.sec-aau.dk/aau/guacamole-mysql",
+		Image: "registry.gitlab.com/haaukins/core-utils/guacamole-mysql",
 		EnvVars: map[string]string{
 			"MYSQL_ROOT_PASSWORD": uuid.New().String(),
 			"MYSQL_DATABASE":      "guacamole_db",
@@ -166,7 +166,8 @@ func (guac *guacamole) create(ctx context.Context) error {
 			"MYSQL_PASSWORD":      mysqlPass,
 		},
 		Labels: map[string]string{
-			"hkn": "guacamole_db",
+			// to distinguish between hkn and api containers
+			"api": "guacamole_db",
 		},
 	})
 
@@ -174,7 +175,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 	guacdAlias := uuid.New().String()
 	dbAlias := uuid.New().String()
 	containers["web"] = docker.NewContainer(docker.ContainerConfig{
-		Image: "registry.sec-aau.dk/aau/guacamole",
+		Image: "registry.gitlab.com/haaukins/core-utils/guacamole",
 		EnvVars: map[string]string{
 			"MYSQL_DATABASE": "guacamole_db",
 			"MYSQL_USER":     "guacamole_user",
@@ -187,7 +188,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 		},
 		UseBridge: true,
 		Labels: map[string]string{
-			"hkn": "guacamole_web",
+			"api": "guacamole_web",
 		},
 	})
 
