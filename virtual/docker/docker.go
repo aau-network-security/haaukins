@@ -900,9 +900,43 @@ func getRemoteDigestForImage(auth docker.AuthConfiguration, img Image) (string, 
 		req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
 		return req, nil
 	}
+	// digesFromGitlab function is specific to Gitlab Container Registry
+	// it means that if registry will be changed the source code also requires minor
+	// changes
+	digestFromGitlab := func(img Image) (string, error) {
+		REGISTRY_URL := "https://registry.gitlab.com/v2"
+		AUTH_URL := fmt.Sprintf("https://gitlab.com/jwt/auth?client_id=docker&offline_token=true&service=container_registry&scope=repository:%s:pull,list", img.Repo)
 
-	path := fmt.Sprintf("/v2/%s/manifests/%s", img.Repo, img.Tag)
+		req, err := http.NewRequest("GET", AUTH_URL, nil)
+		if err != nil {
+			log.Warn().Msgf("Failed to perform GET request from gitlab ")
+		}
+		req.SetBasicAuth(auth.Username, auth.Password)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Error().Msgf("Error %v", err)
+		}
+
+		defer resp.Body.Close()
+
+		var msg struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&msg); err != nil {
+			return "", err
+		}
+		req, err = digestRequestFromURL(fmt.Sprintf("%s/%s/manifests/%s", REGISTRY_URL, img.Repo, img.Tag))
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Authorization", "Bearer "+msg.Token)
+
+		return lookupDigest(req)
+	}
+
 	if img.Registry == "" {
+		path := fmt.Sprintf("/v2/%s/manifests/%s", img.Repo, img.Tag)
 		resp, err := http.Get(fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", img.Repo))
 		if err != nil {
 			return "", err
@@ -925,13 +959,7 @@ func getRemoteDigestForImage(auth docker.AuthConfiguration, img Image) (string, 
 		return lookupDigest(req)
 	}
 
-	req, err := digestRequestFromURL(fmt.Sprintf("https://%s%s", auth.ServerAddress, path))
-	if err != nil {
-		return "", err
-	}
-	req.SetBasicAuth(auth.Username, auth.Password)
-
-	return lookupDigest(req)
+	return digestFromGitlab(img)
 }
 
 func retrieveImage(auth docker.AuthConfiguration, img Image) error {
