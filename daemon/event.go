@@ -47,7 +47,7 @@ func (d *daemon) startEvent(ev guacamole.Event) {
 		Strs("Frontends", frontendNames).
 		Msg("Creating event")
 
-	ev.Start(context.TODO())
+	go ev.Start(context.TODO())
 
 	d.eventPool.AddEvent(ev)
 }
