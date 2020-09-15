@@ -130,7 +130,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
-	m.Handle("/guaclogin", guacHandler)
+	m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
 	m.Handle("/guacamole", guacHandler)
 	m.Handle("/guacamole/", guacHandler)
 
@@ -159,6 +159,27 @@ func (am *Amigo) handleIndex() http.HandlerFunc {
 		if err := tmpl.Execute(w, data); err != nil {
 			log.Println("template err index: ", err)
 		}
+	}
+}
+
+func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.Handler) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		if !team.IsLabAssigned() {
+			if err := hook(team); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Write([]byte(waitingHTMLTemplate))
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
 	}
 }
 

@@ -356,6 +356,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			Str("chal-val", chal.Value).
 			Msgf("Flag is created for team %s [assignlab function] ", t.Name())
 	}
+	t.CorrectedAssignedLab()
 	return nil
 }
 
@@ -367,11 +368,13 @@ func (ev *event) Handler() http.Handler {
 			if !ok {
 				return ErrMaxLabs
 			}
-
 			if err := ev.AssignLab(t, lab); err != nil {
 				return err
 			}
 		default:
+			// todo : update here,
+			// if number of users who signup higher than queue, it returns Problem in assing lab !! no labs available in the queue``
+			// update it with more robust way to handle users...
 			return ErrNoAvailableLabs
 		}
 

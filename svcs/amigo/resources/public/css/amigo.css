@@ -88,11 +88,17 @@ body {
 
 #info-tab .nav-link.active {
     background-color: #211A52 !important;
-    color: #fff;
+    color: #fff!important;
 }
 
 #info-tab .nav-link{
     color: #211A52;
+}
+
+#nav-tabContent{
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 3px;
 }
 
 /*To change*/

@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 f=dist/hknd_linux_amd64/hknd
-user=haaukins
-hostname=sec01.lab.es.aau.dk
+amigo=./svcs/amigo
+user=ntpd
+hostname=sec02.lab.es.aau.dk
 keyfile=./travis_deploy_key
-deploy_path=/home/haaukins/daemon/hknd
+deploy_path=/home/ntpd/daemon/hknd
+amigo_path=/home/ntpd/daemon/svcs/amigo
 
 if [ -f $f ]; then
     echo "Deploying '$f' to '$hostname'"
     chmod 600 $keyfile
     ssh -i $keyfile -o StrictHostKeyChecking=no $user@$hostname sudo /bin/systemctl stop hknd.service
     scp -i $keyfile -o StrictHostKeyChecking=no $f $user@$hostname:$deploy_path
+    scp -i $keyfile -r -o StrictHostKeyChecking=no $amigo $user@$hostname:$amigo_path
     ssh -i $keyfile -o StrictHostKeyChecking=no $user@$hostname sudo /bin/systemctl start hknd.service
 else
     echo "Error: $f does not exist"

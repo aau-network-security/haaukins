@@ -12,7 +12,7 @@
                         <ResetChallenge :challengeTag="challenge.Tag"></ResetChallenge>
                     </div>
                 </nav>
-                <div class="tab-content" id="nav-tabContent">
+                <div class="tab-content">
                     <div class="tab-pane fade show active" id="nav-challenge" role="tabpanel" aria-labelledby="nav-challenge-tab">
                         <h2 class="chal-name text-center pt-5 pb-1">{{challenge.Name}}</h2>
                         <h4 class="chal-value text-center mb-5">{{challenge.Points}}</h4>
@@ -47,9 +47,10 @@
 </template>
 
 <script>
-    import FlagChecker from "./FlagChecker";
-    import ResetChallenge from "@/components/ResetChallenge";
-    export default {
+import FlagChecker from "./FlagChecker";
+import ResetChallenge from "@/components/ResetChallenge";
+
+export default {
         name: "ChallengeModal",
         components: {ResetChallenge, FlagChecker},
         props: {
