@@ -262,13 +262,24 @@ func New(conf *Config) (*daemon, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	var events []*pbc.GetEventResponse
 
 	// query running events only
 	runningEvents, err := dbc.GetEvents(ctx, &pbc.GetEventRequest{Status: Running})
 	if err != nil {
-		log.Error().Msgf("error on getting events from database %v", err)
+		log.Error().Msgf("error on getting running events from database %v", err)
 		return nil, store.TranslateRPCErr(err)
 	}
+
+	//query suspended events only
+
+	events = append(events, runningEvents)
+	suspendedEvents, err := dbc.GetEvents(ctx, &pbc.GetEventRequest{Status: Suspended})
+	if err != nil {
+		log.Error().Msgf("error on getting suspended events from database %v", err)
+		return nil, store.TranslateRPCErr(err)
+	}
+	events = append(events, suspendedEvents)
 
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
 	if err != nil {
@@ -287,13 +298,23 @@ func New(conf *Config) (*daemon, error) {
 		closers:   []io.Closer{logPool, eventPool},
 		dbClient:  dbc,
 	}
+	// suspended and running events should initialized and up when;
+	// daemon is crashed or restarted
+	for _, e := range events {
+		for _, ef := range e.Events {
+			// check through status of event
+			// suspended is also included since at first start
+			// daemon should be aware of the event which is suspended
+			// and configuration should be loaded to daemon
+			if ef.Status == Suspended {
+				log.Debug().Msgf("Event %s status set to running(%d) from suspended(%d)", string(ef.Tag), Running, Suspended)
+				_, err := d.dbClient.SetEventStatus(context.Background(), &pbc.SetEventStatusRequest{EventTag: string(ef.Tag), Status: Running})
+				if err != nil {
+					return nil, fmt.Errorf("Setting event status error on suspended event %s, err %v", string(ef.Tag), err)
+				}
 
-	for _, ef := range runningEvents.Events {
-		// check through status of event
-		// suspended is also included since at first start
-		// daemon should be aware of the event which is suspended
-		// and configuration should be loaded to daemon
-		if ef.Status == Running || ef.Status == Suspended {
+			}
+
 			eventConfig := d.generateEventConfig(ef, ef.Status)
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
@@ -301,9 +322,7 @@ func New(conf *Config) (*daemon, error) {
 
 			}
 		}
-
 	}
-
 	return d, nil
 }
 
