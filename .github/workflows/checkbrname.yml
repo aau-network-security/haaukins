@@ -5,6 +5,8 @@ on:
     paths-ignore:
       - 'README.md'
       - 'LICENCE'
+    tags-ignore:
+      - '*.*.*'
 jobs:
   formalities:
     runs-on: ubuntu-latest
