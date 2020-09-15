@@ -4,8 +4,8 @@ amigo=./svcs/amigo
 user=ntpd
 hostname=sec02.lab.es.aau.dk
 keyfile=./travis_deploy_key
-deploy_path=/home/ntpd/daemon/hknd
-amigo_path=/home/ntpd/daemon/svcs/amigo
+deploy_path=/data/home/ntpd/daemon/hknd
+amigo_path=/data/home/ntpd/daemon/svcs/amigo
 
 if [ -f $f ]; then
     echo "Deploying '$f' to '$hostname'"
