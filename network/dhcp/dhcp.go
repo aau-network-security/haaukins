@@ -17,6 +17,8 @@ import (
 type Server struct {
 	cont     docker.Container
 	confFile string
+	dns      string
+	subnet   string
 }
 
 func New(format func(n int) string) (*Server, error) {
@@ -67,6 +69,8 @@ func New(format func(n int) string) (*Server, error) {
 	return &Server{
 		cont:     cont,
 		confFile: confFile,
+		dns:      dns,
+		subnet:   subnet,
 	}, nil
 }
 
@@ -88,6 +92,13 @@ func (dhcp *Server) Close() error {
 	}
 
 	return nil
+}
+func (dhcp *Server) LabSubnet() string {
+	return dhcp.subnet
+}
+
+func (dhcp *Server) LabDNS() string {
+	return dhcp.dns
 }
 
 func (dhcp *Server) Stop() error {

@@ -23,6 +23,8 @@ type Environment interface {
 	Add(context.Context, ...store.Exercise) error
 	ResetByTag(context.Context, string) error
 	NetworkInterface() string
+	LabSubnet() string
+	LabDNS() string
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
@@ -90,6 +92,13 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 
 func (ee *environment) NetworkInterface() string {
 	return ee.network.Interface()
+}
+func (ee *environment) LabSubnet() string {
+	return ee.dhcpServer.LabSubnet()
+}
+
+func (ee *environment) LabDNS() string {
+	return ee.dhcpServer.LabDNS()
 }
 
 func (ee *environment) Start(ctx context.Context) error {
