@@ -19,10 +19,22 @@ type Config struct {
 	}
 	Certs              CertificateConfig                `yaml:"tls,omitempty"`
 	Database           DatabaseConfig                   `yaml:"db-config,omitempty"`
+	VPNConn            VPNConnConf                      `yaml:"vpn-service,omitempty"`
 	ConfFiles          Files                            `yaml:"files,omitempty"`
 	SigningKey         string                           `yaml:"sign-key,omitempty"`
 	Rechaptcha         string                           `yaml:"recaptcha-key,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
+}
+
+// VPNConnConf includes configuration
+// information for gRPC client on VPN service
+type VPNConnConf struct {
+	Endpoint string            `yaml:"endpoint"`
+	Port     uint64            `yaml:"port"`
+	AuthKey  string            `yaml:"auth-key"`
+	SignKey  string            `yaml:"sign-key"`
+	Dir      string            `yaml:"client-conf-dir"`
+	CertConf CertificateConfig `yaml:"tls"`
 }
 
 type CertificateConfig struct {

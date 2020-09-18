@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"time"
 
+	wg "github.com/aau-network-security/haaukins/network/vpn"
+
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
@@ -255,6 +257,18 @@ func New(conf *Config) (*daemon, error) {
 		CAFile:   conf.Database.CertConfig.CAFile,
 	}
 
+	vpnConfig := wg.WireGuardConfig{
+		Endpoint: conf.VPNConn.Endpoint,
+		Port:     conf.VPNConn.Port,
+		AuthKey:  conf.VPNConn.AuthKey,
+		SignKey:  conf.VPNConn.SignKey,
+		Enabled:  conf.VPNConn.CertConf.Enabled,
+		CertFile: conf.VPNConn.CertConf.CertFile,
+		CertKey:  conf.VPNConn.CertConf.CertKey,
+		CAFile:   conf.VPNConn.CertConf.CAFile,
+		Dir:      conf.VPNConn.Dir,
+	}
+
 	dbc, err := store.NewGRPClientDBConnection(dbConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error on creating GRPClient DB Connection %v", err)
@@ -274,6 +288,10 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error on creating new pool for looging :  %v", err)
 	}
+	vpnIP, err := getVPNIP()
+	if err != nil {
+		log.Error().Msgf("Getting VPN address error on New() in daemon %v", err)
+	}
 
 	d := &daemon{
 		conf:      conf,
@@ -282,7 +300,7 @@ func New(conf *Config) (*daemon, error) {
 		exercises: ef,
 		eventPool: eventPool,
 		frontends: ff,
-		ehost:     guacamole.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc),
+		ehost:     guacamole.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc, vpnConfig),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 		dbClient:  dbc,
@@ -294,7 +312,7 @@ func New(conf *Config) (*daemon, error) {
 		// daemon should be aware of the event which is suspended
 		// and configuration should be loaded to daemon
 		if ef.Status == Running || ef.Status == Suspended {
-			eventConfig := d.generateEventConfig(ef, ef.Status)
+			eventConfig := d.generateEventConfig(ef, ef.Status, vpnIP)
 			err := d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
@@ -431,7 +449,6 @@ func (d *daemon) isFree(sT, fT time.Time, capacity int32) (bool, error) {
 	timeInterval := getDates(sT, fT)
 	for _, time := range timeInterval {
 		m.Timeseries[time.Format(dbTimeFormat)] += capacity
-		//log.Printf("Checking availibility %d", m.Timeseries[time.Format(dbTimeFormat)])
 		if m.Timeseries[time.Format(dbTimeFormat)] > 90 {
 			// todo: return number of possible vms by dates
 			return false, errors.New("Not available resource to book/create the event!, you may choose different date range ")
