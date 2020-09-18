@@ -194,6 +194,17 @@ type Challenge struct {
 	Value string //challenge flag value
 }
 
+type VpnConn struct {
+	// client information [Interface]
+	IName   string // interface
+	PrivKey string // client private key (not server)
+	LabDNS  string // lab dns information
+	// server information [Peer]
+	PubKey     string
+	Endpoint   string
+	AllowedIps string //lab subnet
+}
+
 type Team struct {
 	m              sync.RWMutex
 	dbc            pbc.StoreClient
@@ -206,6 +217,7 @@ type Team struct {
 	lastAccess    time.Time
 	challenges    map[Flag]TeamChallenge
 	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
+	vpnConf       string
 	isLabAssigned bool
 }
 
@@ -284,6 +296,19 @@ func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
 		}
 	}
 	return nil
+}
+
+// will be taken from amigo side
+func (t *Team) SetVPNConn(clientConfig string) {
+	t.m.Lock()
+	t.vpnConf = clientConfig
+	t.m.Unlock()
+}
+
+func (t *Team) GetVPNConn() string {
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.vpnConf
 }
 
 func (t *Team) IsPasswordEqual(pass string) bool {

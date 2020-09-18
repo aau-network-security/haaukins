@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	wg "github.com/aau-network-security/haaukins/network/vpn"
+
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 
 	"github.com/aau-network-security/haaukins/store"
@@ -20,6 +22,7 @@ type eventPool struct {
 	notFoundHandler http.Handler
 	events          map[store.Tag]guacamole.Event
 	handlers        map[store.Tag]http.Handler
+	wg              wg.WireguardClient
 }
 
 func NewEventPool(host string) *eventPool {
