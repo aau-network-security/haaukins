@@ -492,7 +492,7 @@ func NewNetwork() (Network, error) {
 	subnet := fmt.Sprintf("%s.0/24", sub)
 	conf := docker.CreateNetworkOptions{
 		Name:   uuid.New().String(),
-		Driver: "macvlan",
+		Driver: "bridge",
 		IPAM: &docker.IPAMOptions{
 			Config: []docker.IPAMConfig{{
 				Subnet: subnet,
@@ -536,7 +536,7 @@ func (n *network) FormatIP(num int) string {
 }
 
 func (n *network) Interface() string {
-	return fmt.Sprintf("dm-%s", n.net.ID[0:12])
+	return fmt.Sprintf("br-%s", n.net.ID[0:12])
 }
 
 func (n *network) getRandomIP() int {
