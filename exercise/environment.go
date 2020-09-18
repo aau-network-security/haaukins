@@ -262,7 +262,7 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 	var rrSet []dns.RR
 	for _, e := range ee.exercises {
 		for _, record := range e.dnsRecords {
-			rrSet = append(rrSet, dns.RR{record.Name, record.Type, record.RData})
+			rrSet = append(rrSet, dns.RR{Name: record.Name, Type: record.Type, RData: record.RData})
 		}
 	}
 
