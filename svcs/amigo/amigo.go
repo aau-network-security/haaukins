@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -130,21 +131,21 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
-	m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
-	m.Handle("/guacamole", guacHandler)
-	m.Handle("/guacamole/", guacHandler)
+	m.HandleFunc("/vpn/status", am.handleVPNStatus())
+	m.HandleFunc("/vpn/download", am.handleVPNFiles())
+	if !am.TeamStore.OnlyVPN {
+		m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
+		m.Handle("/guacamole", guacHandler)
+		m.Handle("/guacamole/", guacHandler)
+	}
 
 	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir(wd+"/svcs/amigo/resources/public"))))
-
 	return m
 }
 
 func (am *Amigo) handleIndex() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/index.tmpl.html",
-	)
+	indexTemplate := wd + "/svcs/amigo/resources/private/challenges.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, indexTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -184,11 +185,8 @@ func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.
 }
 
 func (am *Amigo) handleChallenges() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/challenges.tmpl.html",
-	)
+	chalsTemplate := wd + "/svcs/amigo/resources/private/challenges.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, chalsTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -211,12 +209,113 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 	}
 }
 
+func (am *Amigo) handleVPNStatus() http.HandlerFunc {
+	// data to be sent
+	type vpnStatus struct {
+		VPNConfID string `json:"vpnConnID"`
+		Status    string `json:"status"` // this could be returned to stream
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+		vpnConfig := team.GetVPNConn()
+
+		if len(vpnConfig) == 0 {
+			replyJsonRequestErr(w, fmt.Errorf("Error, no vpn information found on on team err %v", err))
+		}
+		//eventTag := string(am.TeamStore.Tag)
+		var listOfStatus []vpnStatus
+		// status of vpn should be retrieved from wg client. for PoC it is ok to write ok.
+
+		//for i, _ := range vpnConfig {
+		// todo[VPN]: in case of multiple VPN connection enable this
+		id := fmt.Sprintf("vpnconn")
+		listOfStatus = append(listOfStatus, vpnStatus{VPNConfID: id, Status: "ok"})
+		//}
+
+		replyJson(http.StatusOK, w, listOfStatus)
+	}
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+// handleVPNFiles will give chance to download their configuration files
+func (am *Amigo) handleVPNFiles() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		type vpnStatus struct {
+			VPNConfID string `json:"vpnConnID"`
+			Status    string `json:"status"` // this could be returned to stream
+		}
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+		vpnConfig := team.GetVPNConn()
+		if len(vpnConfig) == 0 {
+			replyJsonRequestErr(w, fmt.Errorf("Error, no vpn information found on on team err %v", err))
+		}
+
+		var vpnConn vpnStatus
+		if err := safeReadJson(w, r, &vpnConn, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+		//log.Printf("ID %S is clicked ", vpnConfId.VPNConfID)
+		//log.Printf("VPNCONFID from amigo perspective %s", vpnConfId.VPNConfID)
+		//
+		//todo[VPN]: in case of multiple VPN connection enable below
+		//confID, err := strconv.Atoi(strings.Split(vpnConn.VPNConfID, "_")[1])
+		//if err != nil {
+		//	replyJsonRequestErr(w, err)
+		//}
+		//log.Printf("Trunced conf id %d", confID)
+		// todo[VPN]: in case of multiple VPN connection enable below
+		//writeConfig := func(id int) {
+		//	log.Printf("Calling writeConfig function %d", id)
+		//	w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+		//	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", "vpnconn.conf"))
+		//	b := strings.NewReader(vpnConfig[id])
+		//	//stream the body to the client without fully loading it into memory
+		//	io.Copy(w, b)
+		//}
+		//w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+		//w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=example.com"))
+		//b := strings.NewReader("something")
+		////stream the body to the client without fully loading it into memory
+		//io.Copy(w, b)
+		// todo[VPN]: in case of multiple VPN connection enable below
+		//switch confID {
+		//case 0:
+		//	writeConfig(0)
+		//case 1:
+		//	writeConfig(1)
+		//case 2:
+		//	writeConfig(2)
+		//case 3:
+		//	writeConfig(3)
+		//}
+
+		w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", "vpnconn.conf"))
+		b := strings.NewReader(vpnConfig[0])
+		//stream the body to the client without fully loading it into memory
+		io.Copy(w, b)
+	}
+}
+
 func (am *Amigo) handleTeams() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/teams.tmpl.html",
-	)
+	teamsTemplate := wd + "/svcs/amigo/resources/private/teams.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, teamsTemplate)
+
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -235,11 +334,9 @@ func (am *Amigo) handleTeams() http.HandlerFunc {
 }
 
 func (am *Amigo) handleScoreBoard() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/scoreboard.tmpl.html",
-	)
+	scoreBoardTemplate := wd + "/svcs/amigo/resources/private/scoreboard.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, scoreBoardTemplate)
+
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -322,11 +419,8 @@ func (am *Amigo) handleSignup(hook func(t *store.Team) error) http.HandlerFunc {
 }
 
 func (am *Amigo) handleSignupGET() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/signup.tmpl.html",
-	)
+	signupTemplate := wd + "/svcs/amigo/resources/private/signup.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, signupTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -339,11 +433,8 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 }
 
 func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/signup.tmpl.html",
-	)
+	signupTemplate := wd + "/svcs/amigo/resources/private/signup.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, signupTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -530,11 +621,8 @@ func (am *Amigo) handleLogin() http.HandlerFunc {
 }
 
 func (am *Amigo) handleLoginGET() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/login.tmpl.html",
-	)
+	loginTemplate := wd + "/svcs/amigo/resources/private/login.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, loginTemplate)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
 	}
@@ -547,11 +635,8 @@ func (am *Amigo) handleLoginGET() http.HandlerFunc {
 }
 
 func (am *Amigo) handleLoginPOST() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/login.tmpl.html",
-	)
+	loginTemplate := wd + "/svcs/amigo/resources/private/login.tmpl.html"
+	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, loginTemplate)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
 	}
@@ -774,4 +859,23 @@ func GetWd() string {
 		log.Println(err)
 	}
 	return path
+}
+
+func parseTemplates(isVPN bool, givenTemplate string) (*template.Template, error) {
+	var tmpl *template.Template
+	var err error
+	if isVPN {
+		tmpl, err = template.ParseFiles(
+			wd+"/svcs/amigo/resources/private/base.tmpl.html",
+			wd+"/svcs/amigo/resources/private/navbar.vpn.tmpl.html",
+			givenTemplate,
+		)
+	} else {
+		tmpl, err = template.ParseFiles(
+			wd+"/svcs/amigo/resources/private/base.tmpl.html",
+			wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+			givenTemplate,
+		)
+	}
+	return tmpl, err
 }
