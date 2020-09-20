@@ -437,20 +437,21 @@ func (ev *event) Close() error {
 		}(closer)
 	}
 	waitGroup.Wait()
+	if ev.store.OnlyVPN {
+		evTag := string(ev.GetConfig().Tag)
+		log.Debug().Msgf("Closing VPN connection for event %s", evTag)
+		resp, err := ev.wg.ManageNIC(context.Background(), &wg.ManageNICReq{Cmd: "down", Nic: evTag})
+		if err != nil {
+			log.Error().Msgf("Error when disabling VPN connection for event %s", evTag)
 
-	evTag := string(ev.GetConfig().Tag)
-	log.Debug().Msgf("Closing VPN connection for event %s", evTag)
-	resp, err := ev.wg.ManageNIC(context.Background(), &wg.ManageNICReq{Cmd: "down", Nic: evTag})
-	if err != nil {
-		log.Error().Msgf("Error when disabling VPN connection for event %s", evTag)
-
-	}
-	if resp != nil {
-		log.Info().Str("Message", resp.Message).Msgf("VPN connection is closed for event %s ", evTag)
-	}
-	//removeVPNConfigs removes all generated config files when Haaukins is stopped
-	if err := removeVPNConfigs(ev.store.WireGuardConfig.Dir + evTag + "*"); err != nil {
-		log.Error().Msgf("Error happened on deleting VPN configuration files for event %s on host  %v", evTag, err)
+		}
+		if resp != nil {
+			log.Info().Str("Message", resp.Message).Msgf("VPN connection is closed for event %s ", evTag)
+		}
+		//removeVPNConfigs removes all generated config files when Haaukins is stopped
+		if err := removeVPNConfigs(ev.store.WireGuardConfig.Dir + evTag + "*"); err != nil {
+			log.Error().Msgf("Error happened on deleting VPN configuration files for event %s on host  %v", evTag, err)
+		}
 	}
 
 	return nil
