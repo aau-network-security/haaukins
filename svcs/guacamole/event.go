@@ -88,12 +88,24 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	if err != nil {
 		return nil, err
 	}
-
-	labConf := lab.Config{
-		Exercises: exer,
-		Frontends: conf.Lab.Frontends,
+	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
+	if err != nil {
+		return nil, err
 	}
 
+	var labConf lab.Config
+	if conf.OnlyVPN {
+		labConf = lab.Config{
+			Exercises: exer,
+		}
+		es.OnlyVPN = conf.OnlyVPN
+		es.WireGuardConfig = eh.vpnConfig
+	} else {
+		labConf = lab.Config{
+			Exercises: exer,
+			Frontends: conf.Lab.Frontends,
+		}
+	}
 	lh := lab.LabHost{
 		Vlib: eh.vlib,
 		Conf: labConf,
@@ -102,12 +114,6 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	if err != nil {
 		return nil, err
 	}
-
-	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
-	if err != nil {
-		return nil, err
-	}
-	es.WireGuardConfig = eh.vpnConfig
 
 	return NewEvent(eh.ctx, es, hub, labConf.Flags(), reCaptchaKey)
 }
@@ -130,6 +136,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		StartTime:          conf.StartedAt.Format(displayTimeFormat),
 		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
 		CreatedBy:          conf.CreatedBy,
+		OnlyVPN:            conf.OnlyVPN,
 	})
 
 	if err != nil {
@@ -159,7 +166,6 @@ type Event interface {
 
 	SetStatus(int32)
 	GetStatus() int32
-
 	GetConfig() store.EventConfig
 	GetTeams() []*store.Team
 	GetHub() lab.Hub
@@ -192,11 +198,11 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 
 	// todo[VPN]: check either event is VPN Only or Kali Only
 	// for PoC it is both now.
-	guac, err := New(ctx, Config{})
+
+	guac, err := New(ctx, Config{}, e.OnlyVPN)
 	if err != nil {
 		return nil, err
 	}
-
 	// New wireguard gRPC client connection
 	wgClient, err := wg.NewGRPCVPNClient(e.WireGuardConfig)
 	if err != nil {
@@ -242,40 +248,42 @@ func (ev *event) GetStatus() int32 {
 }
 
 func (ev *event) Start(ctx context.Context) error {
+	if ev.store.OnlyVPN {
+		//randomly taken port for each VPN endpoint
+		port := rand.Intn(max-min) + min
+		for checkPort(port) {
+			port = rand.Intn(max-min) + min
+		}
+		ev.store.EndPointPort = port
+		log.Info().Msgf("Connection established with VPN service on port %d", port)
+		log.Info().Msgf("Initializing VPN endpoint for event ")
+		_, err := ev.wg.InitializeI(context.Background(), &wg.IReq{
+			Address:    ev.store.VPNAddress, // this should be randomized and should not collide with lab subnet like 124.5.6.0/24
+			ListenPort: uint32(port),        // this should be randomized and should not collide with any used ports by host
+			SaveConfig: true,
+			Eth:        "eth0",
+			IName:      string(ev.store.Tag),
+		})
 
-	if err := ev.guac.Start(ctx); err != nil {
-		log.
-			Error().
-			Err(err).
-			Msg("error starting guac")
+		if err != nil {
+			// handle error
+			log.Debug().Msgf("Information initializing interface for wireguard failed, VPN connection might not be available ! err %v\n", err)
+			return err
+		}
+		log.Info().Str("Address:", ev.store.VPNAddress).
+			Int("ListenPort", port).
+			Str("Ethernet", "eth").
+			Str("Interface Name: ", string(ev.store.Tag)).Msgf("Wireguard interface initialized for event %s", string(ev.store.Tag))
+	} else {
+		if err := ev.guac.Start(ctx); err != nil {
+			log.
+				Error().
+				Err(err).
+				Msg("error starting guac")
 
-		return StartingGuacErr
+			return StartingGuacErr
+		}
 	}
-	// randomly taken port for each VPN endpoint
-	port := rand.Intn(max-min) + min
-	for checkPort(port) {
-		port = rand.Intn(max-min) + min
-	}
-	ev.store.EndPointPort = port
-	log.Info().Msgf("Connection established with VPN service on port %d", port)
-	log.Info().Msgf("Initializing VPN endpoint for event ")
-	_, err := ev.wg.InitializeI(context.Background(), &wg.IReq{
-		Address:    ev.store.VPNAddress, // this should be randomized and should not collide with lab subnet like 124.5.6.0/24
-		ListenPort: uint32(port),        // this should be randomized and should not collide with any used ports by host
-		SaveConfig: true,
-		Eth:        "eth0",
-		IName:      string(ev.store.Tag),
-	})
-
-	if err != nil {
-		// handle error
-		log.Debug().Msgf("Information initializing interface for wireguard failed, VPN connection might not be available ! err %v\n", err)
-		return err
-	}
-	log.Info().Str("Address:", ev.store.VPNAddress).
-		Int("ListenPort", port).
-		Str("Ethernet", "eth").
-		Str("Interface Name: ", string(ev.store.Tag)).Msgf("Wireguard interface initialized for event %s", string(ev.store.Tag))
 
 	for _, team := range ev.store.GetTeams() {
 		lab, ok := <-ev.labhub.Queue()
@@ -294,41 +302,52 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 //CreateVPNConn will generate VPN Connection configuration per team.
-func (ev *event) CreateVPNConn(team string, labInfo *labNetInfo) (string, error) {
-
+func (ev *event) CreateVPNConn(team string, labInfo *labNetInfo) ([]string, error) {
+	var teamConfigFiles []string
 	ctx := context.Background()
 	evTag := string(ev.GetConfig().Tag)
+
+	// generate an ip for peer for wireguard interface
+	subnet := ev.store.VPNAddress
+
+	// retrieve domain from configuration file
+	endpoint := fmt.Sprintf("%s.ntp-event.dk:%d", evTag, ev.store.EndPointPort)
+
+	// get public key of server
+	log.Info().Msg("Getting server public key...")
+	serverPubKey, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag, PrivKeyName: evTag})
+	if err != nil {
+		return []string{}, err
+	}
+
+	// create 4 different config file for 1 user
+	//for i := 2; i < len(ev.store.GetTeams())+5; i++ {
 	// generate client privatekey
 	log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+team)
-	_, err := ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team})
+	_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team})
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 
 	// generate client public key
 	log.Info().Msgf("Generating public key for team %s", evTag+"_"+team)
 	_, err = ev.wg.GenPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team, PrivKeyName: evTag + "_" + team})
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 	// get client public key
 	log.Info().Msgf("Retrieving public key for teaam %s", evTag+"_"+team)
 	resp, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team})
 	if err != nil {
 		log.Error().Msgf("Error on GetPublicKey %v", err)
-		return "", err
+		return []string{}, err
 	}
 
-	// generate an ip for peer for wireguard interface
-	subnet := ev.store.VPNAddress
-
-	// +2 because .1/32 will be the VPN server address
-	pNumber := len(ev.store.GetTeams()) + 2
-	pIP := fmt.Sprintf("%d/32", pNumber)
+	pIP := fmt.Sprintf("%d/32", len(ev.GetTeams())+2)
 	peerIP := strings.Replace(subnet, "1/24", pIP, 1)
 	log.Info().Str("NIC", evTag).
 		Str("AllowedIPs", peerIP).
-		Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s", team, peerIP)
+		Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", team, peerIP)
 	addPeerResp, err := ev.wg.AddPeer(ctx, &wg.AddPReq{
 		Nic:        evTag,
 		AllowedIPs: peerIP,
@@ -336,28 +355,17 @@ func (ev *event) CreateVPNConn(team string, labInfo *labNetInfo) (string, error)
 	})
 	if err != nil {
 		log.Error().Msgf("Error on adding peer to interface %v", err)
-		return "", err
+		return []string{}, err
 	}
 	log.Info().Str("Event: ", evTag).
 		Str("Peer: ", team).Msgf("Message : %s", addPeerResp.Message)
-
-	// get public key of server
-	log.Info().Msg("Getting server public key...")
-	serverPubKey, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag, PrivKeyName: evTag})
-	if err != nil {
-		return "", err
-	}
-
 	//get client privatekey
 	log.Info().Msgf("Retrieving private key for team %s", team)
 	teamPrivKey, err := ev.wg.GetPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team})
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 	log.Info().Msgf("Privatee key for team %s is %s ", team, teamPrivKey.Message)
-
-	// retrieve domain from configuration file
-	endpoint := fmt.Sprintf("%s.ntp-event.dk:%d", evTag, ev.store.EndPointPort)
 	log.Info().Msgf("Client configuration is created for server %s", endpoint)
 	// creating client configuration file
 	clientConfig := fmt.Sprintf(
@@ -370,8 +378,10 @@ PublicKey = %s
 AllowedIps = %s
 Endpoint =  %s`, peerIP, teamPrivKey.Message, labInfo.dns, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint)
 	log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
+	teamConfigFiles = append(teamConfigFiles, clientConfig)
+	//}
 
-	return clientConfig, nil
+	return teamConfigFiles, nil
 }
 
 //Suspend function suspends event by using from event hub.
@@ -416,20 +426,7 @@ func (ev *event) Resume(ctx context.Context) error {
 
 func (ev *event) Close() error {
 	var waitGroup sync.WaitGroup
-	evTag := string(ev.GetConfig().Tag)
-	log.Debug().Msgf("Closing VPN connection for event %s", evTag)
-	resp, err := ev.wg.ManageNIC(context.Background(), &wg.ManageNICReq{Cmd: "down", Nic: evTag})
-	if err != nil {
-		log.Error().Msgf("Error when disabling VPN connection for event %s", evTag)
 
-	}
-	if resp != nil {
-		log.Info().Str("Message", resp.Message).Msgf("VPN connection is closed for event %s ", evTag)
-	}
-	// removeVPNConfigs removes all generated config files when Haaukins is stopped
-	if err := removeVPNConfigs(ev.store.WireGuardConfig.Dir + evTag + "*"); err != nil {
-		log.Error().Msgf("Error happened on deleting VPN configuration files for event %s on host  %v", evTag, err)
-	}
 	for _, closer := range ev.closers {
 		waitGroup.Add(1)
 		go func(c io.Closer) {
@@ -440,6 +437,21 @@ func (ev *event) Close() error {
 		}(closer)
 	}
 	waitGroup.Wait()
+
+	evTag := string(ev.GetConfig().Tag)
+	log.Debug().Msgf("Closing VPN connection for event %s", evTag)
+	resp, err := ev.wg.ManageNIC(context.Background(), &wg.ManageNICReq{Cmd: "down", Nic: evTag})
+	if err != nil {
+		log.Error().Msgf("Error when disabling VPN connection for event %s", evTag)
+
+	}
+	if resp != nil {
+		log.Info().Str("Message", resp.Message).Msgf("VPN connection is closed for event %s ", evTag)
+	}
+	//removeVPNConfigs removes all generated config files when Haaukins is stopped
+	if err := removeVPNConfigs(ev.store.WireGuardConfig.Dir + evTag + "*"); err != nil {
+		log.Error().Msgf("Error happened on deleting VPN configuration files for event %s on host  %v", evTag, err)
+	}
 
 	return nil
 }
@@ -466,30 +478,7 @@ func removeVPNConfigs(confFile string) error {
 	return err
 }
 
-func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
-	// create client configuration file for team
-	labInfo := &labNetInfo{
-		dns:    lab.Environment().LabDNS(),
-		subnet: lab.Environment().LabSubnet(),
-	}
-
-	log.Info().Str("Team DNS", labInfo.dns).
-		Str("Team Subnet", labInfo.subnet).
-		Msgf("Creating VPN connection for team %s", t.ID())
-
-	clientConf, err := ev.CreateVPNConn(t.ID(), labInfo)
-	if err != nil {
-		return err
-	}
-	// todo[VPN]: update writeToFile function to take directory of conf files
-	// writing configuration into file !
-	log.Info().Msgf("Client configuration\n %s ", clientConf)
-	// client configuration is written to given dir with following pattern : <event-name>_<team-id>.conf
-	if err := writeToFile(ev.store.WireGuardConfig.Dir+string(ev.store.Tag)+"_"+t.ID()+".conf", clientConf); err != nil {
-		log.Error().Msgf("Configuration file create error %v", err)
-	}
-	t.SetVPNConn(clientConf)
-	log.Info().Msg("Client configuration file written to wg dir")
+func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	enableWallPaper := true
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
@@ -536,6 +525,45 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 		}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
+
+	log.Info().Msg("Client configuration file written to wg dir")
+	if !ev.store.OnlyVPN {
+		if err := ev.createGuacConn(t, lab); err != nil {
+			log.Error().Msgf("Error on creatig guacamole connection !, err : %v", err)
+			return err
+		}
+		//}
+	} else {
+		// create client configuration file for team
+		labInfo := &labNetInfo{
+			dns:    lab.Environment().LabDNS(),
+			subnet: lab.Environment().LabSubnet(),
+		}
+
+		log.Info().Str("Team DNS", labInfo.dns).
+			Str("Team Subnet", labInfo.subnet).
+			Msgf("Creating VPN connection for team %s", t.ID())
+
+		clientConf, err := ev.CreateVPNConn(t.ID(), labInfo)
+		if err != nil {
+			return err
+		}
+		//todo[VPN]: update writeToFile function to take directory of conf files
+		// writing configuration into file !
+		log.Info().Msgf("Client configuration\n %s ", clientConf)
+		//client configuration is written to given dir with following pattern : <event-name>_<team-id>.conf
+		for _, c := range clientConf {
+			if err := writeToFile(ev.store.WireGuardConfig.Dir+string(ev.store.Tag)+"_"+t.ID()+".conf", c); err != nil {
+				log.Error().Msgf("Configuration file create error %v", err)
+			}
+		}
+
+		t.SetVPNConn(clientConf)
 	}
 
 	ev.labs[t.ID()] = lab

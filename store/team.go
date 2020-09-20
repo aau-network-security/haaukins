@@ -156,6 +156,15 @@ func (es *teamstore) GetTeamByEmail(email string) (*Team, error) {
 	es.m.RUnlock()
 	return t, nil
 }
+func (es *teamstore) GetVPNConn(teamid string) []string {
+	es.m.RLock()
+	t, ok := es.teams[teamid]
+	if !ok {
+		es.m.RUnlock()
+		return []string{}
+	}
+	return t.vpnConf
+}
 
 func (es *teamstore) GetTeamByUsername(username string) (*Team, error) {
 	es.m.RLock()
@@ -217,7 +226,7 @@ type Team struct {
 	lastAccess    time.Time
 	challenges    map[Flag]TeamChallenge
 	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
-	vpnConf       string
+	vpnConf       []string
 	isLabAssigned bool
 }
 
@@ -299,13 +308,13 @@ func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
 }
 
 // will be taken from amigo side
-func (t *Team) SetVPNConn(clientConfig string) {
+func (t *Team) SetVPNConn(clientConfig []string) {
 	t.m.Lock()
 	t.vpnConf = clientConfig
 	t.m.Unlock()
 }
 
-func (t *Team) GetVPNConn() string {
+func (t *Team) GetVPNConn() []string {
 	t.m.RLock()
 	defer t.m.RUnlock()
 	return t.vpnConf

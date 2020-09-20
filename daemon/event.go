@@ -35,11 +35,13 @@ var (
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 func (d *daemon) startEvent(ev guacamole.Event) {
 	conf := ev.GetConfig()
-
 	var frontendNames []string
-	for _, f := range conf.Lab.Frontends {
-		frontendNames = append(frontendNames, f.Image)
+	if !ev.GetConfig().OnlyVPN {
+		for _, f := range conf.Lab.Frontends {
+			frontendNames = append(frontendNames, f.Image)
+		}
 	}
+
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
@@ -235,6 +237,7 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 			ExpectedFinishTime: req.FinishTime,
 			Status:             Booked,
 			CreatedBy:          user.Username,
+			OnlyVPN:            req.OnlyVPN,
 		})
 		if err != nil {
 			log.Warn().Msgf("problem for inserting booked event into table, err %v", err)
@@ -511,7 +514,11 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 	for _, e := range listOfExercises {
 		exercises = append(exercises, store.Tag(e))
 	}
-
+	log.Debug().Str("Event name", event.Name).
+		Str("Event tag", event.Tag).
+		Int32("Available", event.Available).
+		Int32("Capacity", event.Capacity).
+		Bool("IsVPN", event.OnlyVPN).Msgf("Generating event config from database !")
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
 		Tag:       store.Tag(event.Tag),
@@ -527,6 +534,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Status:         status,
 		CreatedBy:      event.CreatedBy,
 		VPNAddress:     vpnAddress,
+		OnlyVPN:        event.OnlyVPN,
 	}
 
 	return eventConfig

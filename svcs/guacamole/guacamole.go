@@ -100,7 +100,7 @@ type Guacamole interface {
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo, event Event) svcs.ProxyConnector
 }
 
-func New(ctx context.Context, conf Config) (Guacamole, error) {
+func New(ctx context.Context, conf Config, onlyVPN bool) (Guacamole, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -123,11 +123,11 @@ func New(ctx context.Context, conf Config) (Guacamole, error) {
 		client: client,
 		conf:   conf,
 	}
-
-	if err := guac.create(ctx); err != nil {
-		return nil, err
+	if !onlyVPN {
+		if err := guac.create(ctx); err != nil {
+			return nil, err
+		}
 	}
-
 	return guac, nil
 }
 
