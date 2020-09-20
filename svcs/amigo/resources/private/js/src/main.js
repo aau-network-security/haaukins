@@ -2,7 +2,6 @@ import Vue from 'vue'
 import BootstrapVue from 'bootstrap-vue'
 import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
-Vue.use(BootstrapVue)
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue/dist/bootstrap-vue.css'
 
@@ -11,8 +10,17 @@ import Scoreboard from './components/Scoreboard.vue'
 import ChallegesPage from "./components/ChallegesPage";
 import TeamsPage from "./components/TeamsPage";
 import ResetFrontend from "@/components/ResetFrontend";
+import VPNDropdown from "./components/VPNDropdown";
+
+Vue.use(BootstrapVue)
 
 Vue.config.productionTip = false;
+
+if (document.getElementById("vpn-dropdown")) {
+  new Vue({
+    render: h => h(VPNDropdown),
+  }).$mount('#vpn-dropdown')
+}
 
 if (document.getElementById("reset-frontend")) {
   new Vue({
