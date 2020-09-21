@@ -37,6 +37,7 @@ var (
 type siteInfo struct {
 	EventName string
 	Team      *team
+	IsVPN     bool
 	Content   interface{}
 }
 
@@ -102,7 +103,7 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
 		return info
 	}
-
+	info.IsVPN = am.TeamStore.OnlyVPN
 	info.Team = team
 	return info
 }
@@ -144,8 +145,8 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 }
 
 func (am *Amigo) handleIndex() http.HandlerFunc {
-	indexTemplate := wd + "/svcs/amigo/resources/private/challenges.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, indexTemplate)
+	indexTemplate := wd + "/svcs/amigo/resources/private/index.tmpl.html"
+	tmpl, err := parseTemplates(indexTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -186,7 +187,7 @@ func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.
 
 func (am *Amigo) handleChallenges() http.HandlerFunc {
 	chalsTemplate := wd + "/svcs/amigo/resources/private/challenges.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, chalsTemplate)
+	tmpl, err := parseTemplates(chalsTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -314,7 +315,7 @@ func (am *Amigo) handleVPNFiles() http.HandlerFunc {
 
 func (am *Amigo) handleTeams() http.HandlerFunc {
 	teamsTemplate := wd + "/svcs/amigo/resources/private/teams.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, teamsTemplate)
+	tmpl, err := parseTemplates(teamsTemplate)
 
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -335,7 +336,7 @@ func (am *Amigo) handleTeams() http.HandlerFunc {
 
 func (am *Amigo) handleScoreBoard() http.HandlerFunc {
 	scoreBoardTemplate := wd + "/svcs/amigo/resources/private/scoreboard.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, scoreBoardTemplate)
+	tmpl, err := parseTemplates(scoreBoardTemplate)
 
 	if err != nil {
 		log.Println("error index tmpl: ", err)
@@ -420,7 +421,7 @@ func (am *Amigo) handleSignup(hook func(t *store.Team) error) http.HandlerFunc {
 
 func (am *Amigo) handleSignupGET() http.HandlerFunc {
 	signupTemplate := wd + "/svcs/amigo/resources/private/signup.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, signupTemplate)
+	tmpl, err := parseTemplates(signupTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -434,7 +435,7 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 
 func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFunc {
 	signupTemplate := wd + "/svcs/amigo/resources/private/signup.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, signupTemplate)
+	tmpl, err := parseTemplates(signupTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -622,7 +623,7 @@ func (am *Amigo) handleLogin() http.HandlerFunc {
 
 func (am *Amigo) handleLoginGET() http.HandlerFunc {
 	loginTemplate := wd + "/svcs/amigo/resources/private/login.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, loginTemplate)
+	tmpl, err := parseTemplates(loginTemplate)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
 	}
@@ -636,7 +637,7 @@ func (am *Amigo) handleLoginGET() http.HandlerFunc {
 
 func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 	loginTemplate := wd + "/svcs/amigo/resources/private/login.tmpl.html"
-	tmpl, err := parseTemplates(am.TeamStore.OnlyVPN, loginTemplate)
+	tmpl, err := parseTemplates(loginTemplate)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
 	}
@@ -861,21 +862,13 @@ func GetWd() string {
 	return path
 }
 
-func parseTemplates(isVPN bool, givenTemplate string) (*template.Template, error) {
+func parseTemplates(givenTemplate string) (*template.Template, error) {
 	var tmpl *template.Template
 	var err error
-	if isVPN {
-		tmpl, err = template.ParseFiles(
-			wd+"/svcs/amigo/resources/private/base.tmpl.html",
-			wd+"/svcs/amigo/resources/private/navbar.vpn.tmpl.html",
-			givenTemplate,
-		)
-	} else {
-		tmpl, err = template.ParseFiles(
-			wd+"/svcs/amigo/resources/private/base.tmpl.html",
-			wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-			givenTemplate,
-		)
-	}
+	tmpl, err = template.ParseFiles(
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		givenTemplate,
+	)
 	return tmpl, err
 }
