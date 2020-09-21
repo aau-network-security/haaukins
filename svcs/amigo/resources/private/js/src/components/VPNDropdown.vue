@@ -3,8 +3,8 @@
     <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown"  v-on:click="createDropDown()" >
       VPN Conn
     </button>
-    <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-      <a v-for="item in dropDownList" v-bind:key="item.vpnConnID" class="dropdown-item" v-on:click="downloadConf(item.vpnConnID,item.status)">
+    <div class="dropdown-menu custom-css"  aria-labelledby="dropdownMenuButton">
+      <a v-for="item in dropDownList" v-bind:key="item.vpnConnID" class="dropdown-item vpn-dd-line" v-on:click="downloadConf(item.vpnConnID,item.status)">
         {{item.vpnConnID}}
         <span class="float-right">{{item.status}}</span>
       </a>
@@ -59,7 +59,11 @@ export default {
 </script>
 
 <style scoped>
-/*.vpn-dd-line{*/
-/*  border-bottom: 1px solid #000;*/
-/*}*/
+.vpn-dd-line{
+  border-bottom: 1px solid #000;
+}
+.custom-css {
+  width: 180px;
+  cursor:pointer;
+}
 </style>
