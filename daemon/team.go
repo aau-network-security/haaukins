@@ -109,6 +109,10 @@ func (d *daemon) suspendTeams() error {
 	now := time.Now()
 
 	for _, e := range events {
+		if e.GetConfig().OnlyVPN {
+			// do not run suspend  scheduler on vpn for now
+			return nil
+		}
 		for _, t := range e.GetTeams() {
 			if !t.LastAccessTime().IsZero() {
 				difference := math.Round(now.Sub(t.LastAccessTime()).Hours()) // get in rounded format in hours
