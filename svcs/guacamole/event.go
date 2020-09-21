@@ -378,7 +378,7 @@ DNS = %s
 PublicKey = %s
 AllowedIps = %s
 Endpoint =  %s`, peerIP, teamPrivKey.Message, labInfo.dns, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint)
-		log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
+		//log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
 	}
 
@@ -439,23 +439,27 @@ func (ev *event) Close() error {
 	}
 	waitGroup.Wait()
 	if ev.store.OnlyVPN {
-		evTag := string(ev.GetConfig().Tag)
-		log.Debug().Msgf("Closing VPN connection for event %s", evTag)
-		resp, err := ev.wg.ManageNIC(context.Background(), &wg.ManageNICReq{Cmd: "down", Nic: evTag})
-		if err != nil {
-			log.Error().Msgf("Error when disabling VPN connection for event %s", evTag)
-
-		}
-		if resp != nil {
-			log.Info().Str("Message", resp.Message).Msgf("VPN connection is closed for event %s ", evTag)
-		}
-		//removeVPNConfigs removes all generated config files when Haaukins is stopped
-		if err := removeVPNConfigs(ev.store.WireGuardConfig.Dir + evTag + "*"); err != nil {
-			log.Error().Msgf("Error happened on deleting VPN configuration files for event %s on host  %v", evTag, err)
-		}
+		ev.removeVPNConfs()
 	}
 
 	return nil
+}
+
+func (ev *event) removeVPNConfs() {
+	evTag := string(ev.GetConfig().Tag)
+	log.Debug().Msgf("Closing VPN connection for event %s", evTag)
+	resp, err := ev.wg.ManageNIC(context.Background(), &wg.ManageNICReq{Cmd: "down", Nic: evTag})
+	if err != nil {
+		log.Error().Msgf("Error when disabling VPN connection for event %s", evTag)
+
+	}
+	if resp != nil {
+		log.Info().Str("Message", resp.Message).Msgf("VPN connection is closed for event %s ", evTag)
+	}
+	//removeVPNConfigs removes all generated config files when Haaukins is stopped
+	if err := removeVPNConfigs(ev.store.WireGuardConfig.Dir + evTag + "*"); err != nil {
+		log.Error().Msgf("Error happened on deleting VPN configuration files for event %s on host  %v", evTag, err)
+	}
 }
 
 func (ev *event) Finish(newTag string) {
@@ -557,7 +561,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 		}
 		//todo[VPN]: update writeToFile function to take directory of conf files
 		// writing configuration into file !
-		log.Info().Msgf("Client configuration\n %s ", clientConf)
+		//log.Info().Msgf("Client configuration\n %s ", clientConf)
 		//client configuration is written to given dir with following pattern : <event-name>_<team-id>.conf
 		for _, c := range clientConf {
 			if err := writeToFile(ev.store.WireGuardConfig.Dir+string(ev.store.Tag)+"_"+t.ID()+".conf", c); err != nil {
