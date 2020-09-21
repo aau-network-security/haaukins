@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -232,11 +233,10 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 		var listOfStatus []vpnStatus
 		// status of vpn should be retrieved from wg client. for PoC it is ok to write ok.
 
-		//for i, _ := range vpnConfig {
-		// todo[VPN]: in case of multiple VPN connection enable this
-		id := fmt.Sprintf("vpnconn")
-		listOfStatus = append(listOfStatus, vpnStatus{VPNConfID: id, Status: "ok"})
-		//}
+		for i, _ := range vpnConfig {
+			id := fmt.Sprintf("vpnconn")
+			listOfStatus = append(listOfStatus, vpnStatus{VPNConfID: id + "_" + strconv.Itoa(i), Status: "ok"})
+		}
 
 		replyJson(http.StatusOK, w, listOfStatus)
 	}
@@ -264,52 +264,43 @@ func (am *Amigo) handleVPNFiles() http.HandlerFunc {
 		if len(vpnConfig) == 0 {
 			replyJsonRequestErr(w, fmt.Errorf("Error, no vpn information found on on team err %v", err))
 		}
-
 		var vpnConn vpnStatus
 		if err := safeReadJson(w, r, &vpnConn, am.maxReadBytes); err != nil {
 			replyJsonRequestErr(w, err)
 			return
 		}
-		//log.Printf("ID %S is clicked ", vpnConfId.VPNConfID)
-		//log.Printf("VPNCONFID from amigo perspective %s", vpnConfId.VPNConfID)
-		//
-		//todo[VPN]: in case of multiple VPN connection enable below
-		//confID, err := strconv.Atoi(strings.Split(vpnConn.VPNConfID, "_")[1])
-		//if err != nil {
-		//	replyJsonRequestErr(w, err)
-		//}
+
+		confID, err := strconv.Atoi(strings.Split(vpnConn.VPNConfID, "_")[1])
+		if err != nil {
+			replyJsonRequestErr(w, err)
+		}
+
 		//log.Printf("Trunced conf id %d", confID)
-		// todo[VPN]: in case of multiple VPN connection enable below
-		//writeConfig := func(id int) {
-		//	log.Printf("Calling writeConfig function %d", id)
-		//	w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-		//	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", "vpnconn.conf"))
-		//	b := strings.NewReader(vpnConfig[id])
-		//	//stream the body to the client without fully loading it into memory
-		//	io.Copy(w, b)
-		//}
+		writeConfig := func(id int) {
+			log.Printf("Calling writeConfig function %d", id)
+			w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fmt.Sprintf("vpnconn_%d.conf", id)))
+			b := strings.NewReader(vpnConfig[id])
+			//stream the body to the client without fully loading it into memory
+			io.Copy(w, b)
+		}
+
+		switch confID {
+		case 0:
+			writeConfig(0)
+		case 1:
+			writeConfig(1)
+		case 2:
+			writeConfig(2)
+		case 3:
+			writeConfig(3)
+		}
+
 		//w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-		//w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=example.com"))
-		//b := strings.NewReader("something")
+		//w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", "vpnconn.conf"))
+		//b := strings.NewReader(vpnConfig[0])
 		////stream the body to the client without fully loading it into memory
 		//io.Copy(w, b)
-		// todo[VPN]: in case of multiple VPN connection enable below
-		//switch confID {
-		//case 0:
-		//	writeConfig(0)
-		//case 1:
-		//	writeConfig(1)
-		//case 2:
-		//	writeConfig(2)
-		//case 3:
-		//	writeConfig(3)
-		//}
-
-		w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", "vpnconn.conf"))
-		b := strings.NewReader(vpnConfig[0])
-		//stream the body to the client without fully loading it into memory
-		io.Copy(w, b)
 	}
 }
 

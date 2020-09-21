@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	wg "github.com/aau-network-security/haaukins/network/vpn"
@@ -321,55 +322,55 @@ func (ev *event) CreateVPNConn(team string, labInfo *labNetInfo) ([]string, erro
 	}
 
 	// create 4 different config file for 1 user
-	//for i := 2; i < len(ev.store.GetTeams())+5; i++ {
-	// generate client privatekey
-	log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+team)
-	_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team})
-	if err != nil {
-		return []string{}, err
-	}
+	for i := 2; i < len(ev.store.GetTeams())+5; i++ {
+		// generate client privatekey
+		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+team)
+		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		if err != nil {
+			return []string{}, err
+		}
 
-	// generate client public key
-	log.Info().Msgf("Generating public key for team %s", evTag+"_"+team)
-	_, err = ev.wg.GenPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team, PrivKeyName: evTag + "_" + team})
-	if err != nil {
-		return []string{}, err
-	}
-	// get client public key
-	log.Info().Msgf("Retrieving public key for teaam %s", evTag+"_"+team)
-	resp, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team})
-	if err != nil {
-		log.Error().Msgf("Error on GetPublicKey %v", err)
-		return []string{}, err
-	}
+		// generate client public key
+		log.Info().Msgf("Generating public key for team %s", evTag+"_"+team+"_"+strconv.Itoa(i))
+		_, err = ev.wg.GenPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(i), PrivKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		if err != nil {
+			return []string{}, err
+		}
+		// get client public key
+		log.Info().Msgf("Retrieving public key for teaam %s", evTag+"_"+team+"_"+strconv.Itoa(i))
+		resp, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		if err != nil {
+			log.Error().Msgf("Error on GetPublicKey %v", err)
+			return []string{}, err
+		}
 
-	pIP := fmt.Sprintf("%d/32", len(ev.GetTeams())+2)
-	peerIP := strings.Replace(subnet, "1/24", pIP, 1)
-	log.Info().Str("NIC", evTag).
-		Str("AllowedIPs", peerIP).
-		Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", team, peerIP)
-	addPeerResp, err := ev.wg.AddPeer(ctx, &wg.AddPReq{
-		Nic:        evTag,
-		AllowedIPs: peerIP,
-		PublicKey:  resp.Message,
-	})
-	if err != nil {
-		log.Error().Msgf("Error on adding peer to interface %v", err)
-		return []string{}, err
-	}
-	log.Info().Str("Event: ", evTag).
-		Str("Peer: ", team).Msgf("Message : %s", addPeerResp.Message)
-	//get client privatekey
-	log.Info().Msgf("Retrieving private key for team %s", team)
-	teamPrivKey, err := ev.wg.GetPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team})
-	if err != nil {
-		return []string{}, err
-	}
-	log.Info().Msgf("Privatee key for team %s is %s ", team, teamPrivKey.Message)
-	log.Info().Msgf("Client configuration is created for server %s", endpoint)
-	// creating client configuration file
-	clientConfig := fmt.Sprintf(
-		`[Interface]
+		//pIP := fmt.Sprintf("%d/32", len(ev.GetTeams())+2)
+		peerIP := strings.Replace(subnet, "1/24", fmt.Sprintf("%d/32", i), 1)
+		log.Info().Str("NIC", evTag).
+			Str("AllowedIPs", peerIP).
+			Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", team, peerIP)
+		addPeerResp, err := ev.wg.AddPeer(ctx, &wg.AddPReq{
+			Nic:        evTag,
+			AllowedIPs: peerIP,
+			PublicKey:  resp.Message,
+		})
+		if err != nil {
+			log.Error().Msgf("Error on adding peer to interface %v", err)
+			return []string{}, err
+		}
+		log.Info().Str("Event: ", evTag).
+			Str("Peer: ", team).Msgf("Message : %s", addPeerResp.Message)
+		//get client privatekey
+		log.Info().Msgf("Retrieving private key for team %s", team)
+		teamPrivKey, err := ev.wg.GetPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		if err != nil {
+			return []string{}, err
+		}
+		log.Info().Msgf("Privatee key for team %s is %s ", team, teamPrivKey.Message)
+		log.Info().Msgf("Client configuration is created for server %s", endpoint)
+		// creating client configuration file
+		clientConfig := fmt.Sprintf(
+			`[Interface]
 Address = %s
 PrivateKey = %s
 DNS = %s
@@ -377,9 +378,9 @@ DNS = %s
 PublicKey = %s
 AllowedIps = %s
 Endpoint =  %s`, peerIP, teamPrivKey.Message, labInfo.dns, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint)
-	log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
-	teamConfigFiles = append(teamConfigFiles, clientConfig)
-	//}
+		log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
+		teamConfigFiles = append(teamConfigFiles, clientConfig)
+	}
 
 	return teamConfigFiles, nil
 }
