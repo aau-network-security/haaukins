@@ -226,7 +226,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	ev := &event{
 		store:         e,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, amigoOpt),
+		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, wgClient, amigoOpt),
 		guac:          guac,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: NewGuacUserStore(),
@@ -303,11 +303,11 @@ func (ev *event) Start(ctx context.Context) error {
 }
 
 //CreateVPNConn will generate VPN Connection configuration per team.
-func (ev *event) CreateVPNConn(team string, labInfo *labNetInfo) ([]string, error) {
+func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, error) {
 	var teamConfigFiles []string
 	ctx := context.Background()
 	evTag := string(ev.GetConfig().Tag)
-
+	team := t.ID()
 	// generate an ip for peer for wireguard interface
 	subnet := ev.store.VPNAddress
 
@@ -322,7 +322,7 @@ func (ev *event) CreateVPNConn(team string, labInfo *labNetInfo) ([]string, erro
 	}
 
 	// create 4 different config file for 1 user
-	for i := 2; i < len(ev.store.GetTeams())+5; i++ {
+	for i := 4; i < 8; i++ {
 		// generate client privatekey
 		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+team)
 		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
@@ -373,11 +373,14 @@ func (ev *event) CreateVPNConn(team string, labInfo *labNetInfo) ([]string, erro
 			`[Interface]
 Address = %s
 PrivateKey = %s
-DNS = %s
+DNS = 1.1.1.1
+MTU = 1500
 [Peer]
 PublicKey = %s
 AllowedIps = %s
-Endpoint =  %s`, peerIP, teamPrivKey.Message, labInfo.dns, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint)
+Endpoint =  %s
+PersistentKeepalive = 25`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint)
+		t.SetVPNKeys(i-4, resp.Message)
 		//log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
 	}
@@ -555,7 +558,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			Str("Team Subnet", labInfo.subnet).
 			Msgf("Creating VPN connection for team %s", t.ID())
 
-		clientConf, err := ev.CreateVPNConn(t.ID(), labInfo)
+		clientConf, err := ev.CreateVPNConn(t, labInfo)
 		if err != nil {
 			return err
 		}
@@ -568,7 +571,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 				log.Error().Msgf("Configuration file create error %v", err)
 			}
 		}
-
+		t.SetLabInfo(labInfo.subnet)
 		t.SetVPNConn(clientConf)
 	}
 
