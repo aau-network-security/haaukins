@@ -226,7 +226,9 @@ type Team struct {
 	lastAccess    time.Time
 	challenges    map[Flag]TeamChallenge
 	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
+	vpnKeys       map[int]string
 	vpnConf       []string
+	labSubnet     string
 	isLabAssigned bool
 }
 
@@ -261,6 +263,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 		hashedPassword: string(hPass),
 		challenges:     map[Flag]TeamChallenge{},
 		solvedChalsDB:  solvedChals,
+		vpnKeys:        map[int]string{},
 		isLabAssigned:  false,
 	}
 }
@@ -314,10 +317,35 @@ func (t *Team) SetVPNConn(clientConfig []string) {
 	t.m.Unlock()
 }
 
+func (t *Team) SetVPNKeys(id int, key string) {
+	t.m.Lock()
+	defer t.m.Unlock()
+
+	t.vpnKeys[id] = key
+}
+
+func (t *Team) GetVPNKeys() map[int]string {
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.vpnKeys
+}
+
 func (t *Team) GetVPNConn() []string {
 	t.m.RLock()
 	defer t.m.RUnlock()
 	return t.vpnConf
+}
+
+func (t *Team) SetLabInfo(labSubnet string) {
+	t.m.Lock()
+	t.labSubnet = labSubnet
+	t.m.Unlock()
+}
+
+func (t *Team) GetLabInfo() string {
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.labSubnet
 }
 
 func (t *Team) IsPasswordEqual(pass string) bool {

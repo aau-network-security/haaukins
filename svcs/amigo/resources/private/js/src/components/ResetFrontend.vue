@@ -1,8 +1,13 @@
 <template>
   <div class="mt-toppage-reset pt-2 mb-2">
-    <form @submit.prevent="submit">
+    <form v-if="!isVpn" @submit.prevent="submit">
       <input type="submit" class="btn btn-login" :disabled='isDisabled' value="RESET Kali Machine" style="width: auto;">
     </form>
+    <div v-else >
+      <div class="labsubnet">
+        Lab Subnet: [ <b>{{labSubnet}} </b>]
+      </div>
+    </div>
   </div>
 </template>
 
@@ -13,7 +18,12 @@ export default {
   data: () => {
     return {
       isDisabled: false,
+      isVpn: false,
+      labSubnet: '',
     }
+  },
+  created() {
+    this.getLabSubnet()
   },
   methods: {
     submit: async function() {
@@ -36,7 +46,28 @@ export default {
         resp_div.innerHTML = `<span class="text-success">Kali Machine successfully restarted</span>`
         this.isDisabled = false
       }
+    },
+    getLabSubnet: async function(){
+      const opts = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      };
+      const res = await fetch('/get/labsubnet', opts).
+      then(res => res.json());
+      this.isVpn = res.isVPN
+      this.labSubnet = res.labSubnet
     }
-  }
+  },
 }
 </script>
+
+<style scoped>
+.labsubnet{
+  border: 1px solid #f76c6c;
+  padding: 3px;
+  border-radius: 5px;
+  background-color: #f76c6c;
+  width: 85%;
+  color: white;
+}
+</style>

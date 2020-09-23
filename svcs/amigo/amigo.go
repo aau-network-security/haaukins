@@ -1,6 +1,7 @@
 package amigo
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 	"text/template"
 	"time"
 	"unicode"
+
+	wg "github.com/aau-network-security/haaukins/network/vpn"
 
 	logger "github.com/rs/zerolog/log"
 
@@ -55,6 +58,7 @@ type Amigo struct {
 	challenges   []store.FlagConfig
 	TeamStore    store.Event
 	recaptcha    Recaptcha
+	wgClient     wg.WireguardClient
 }
 
 type AmigoOpt func(*Amigo)
@@ -71,7 +75,7 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgClient wg.WireguardClient, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
@@ -82,6 +86,7 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, opt
 			EventName: "Test Event",
 		},
 		recaptcha: NewRecaptcha(reCaptchaKey),
+		wgClient:  wgClient,
 	}
 
 	for _, opt := range opts {
@@ -135,6 +140,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.HandleFunc("/vpn/status", am.handleVPNStatus())
 	m.HandleFunc("/vpn/download", am.handleVPNFiles())
+	m.HandleFunc("/get/labsubnet", am.handleLabInfo())
 	if !am.TeamStore.OnlyVPN {
 		m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
 		m.Handle("/guacamole", guacHandler)
@@ -217,6 +223,7 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 		VPNConfID string `json:"vpnConnID"`
 		Status    string `json:"status"` // this could be returned to stream
 	}
+	ctx := context.Background()
 
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
 		team, err := am.getTeamFromRequest(w, r)
@@ -225,6 +232,7 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 			return
 		}
 		vpnConfig := team.GetVPNConn()
+		teamVPNKeys := team.GetVPNKeys()
 
 		if len(vpnConfig) == 0 {
 			replyJsonRequestErr(w, fmt.Errorf("Error, no vpn information found on on team err %v", err))
@@ -234,8 +242,22 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 		// status of vpn should be retrieved from wg client. for PoC it is ok to write ok.
 
 		for i, _ := range vpnConfig {
-			id := fmt.Sprintf("vpnconn")
-			listOfStatus = append(listOfStatus, vpnStatus{VPNConfID: id + "_" + strconv.Itoa(i), Status: "ok"})
+			id := fmt.Sprintf("conn")
+			resp, err := am.wgClient.GetPeerStatus(ctx, &wg.PeerStatusReq{
+				NicName:   string(am.TeamStore.Tag),
+				PublicKey: teamVPNKeys[i],
+			})
+			status := vpnStatus{VPNConfID: id + "_" + strconv.Itoa(i), Status: "N/U"}
+			if err != nil {
+				log.Printf("Error on retrieving back information from wg %s", err.Error())
+				replyJsonRequestErr(w, err)
+				return
+			}
+			if resp.Status {
+				status.Status = "USED"
+			}
+			listOfStatus = append(listOfStatus, status)
+
 		}
 
 		replyJson(http.StatusOK, w, listOfStatus)
@@ -279,7 +301,7 @@ func (am *Amigo) handleVPNFiles() http.HandlerFunc {
 		writeConfig := func(id int) {
 			log.Printf("Calling writeConfig function %d", id)
 			w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fmt.Sprintf("vpnconn_%d.conf", id)))
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fmt.Sprintf("conn_%d.conf", id)))
 			b := strings.NewReader(vpnConfig[id])
 			//stream the body to the client without fully loading it into memory
 			io.Copy(w, b)
@@ -296,11 +318,6 @@ func (am *Amigo) handleVPNFiles() http.HandlerFunc {
 			writeConfig(3)
 		}
 
-		//w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-		//w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", "vpnconn.conf"))
-		//b := strings.NewReader(vpnConfig[0])
-		////stream the body to the client without fully loading it into memory
-		//io.Copy(w, b)
 	}
 }
 
@@ -610,6 +627,35 @@ func (am *Amigo) handleLogin() http.HandlerFunc {
 
 		http.NotFound(w, r)
 	}
+}
+
+func (am *Amigo) handleLabInfo() http.HandlerFunc {
+	type labInfo struct {
+		IsVPN     bool   `json:"isVPN"`
+		LabSubnet string `json:"labSubnet"`
+	}
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+
+		if !am.TeamStore.OnlyVPN {
+			replyJson(http.StatusOK, w, labInfo{IsVPN: false, LabSubnet: "VPN is not enabled !"})
+		} else {
+			team, err := am.getTeamFromRequest(w, r)
+			if err != nil {
+				replyJsonRequestErr(w, err)
+				return
+			}
+			teamLabSubnet := team.GetLabInfo()
+			tLabInfo := labInfo{
+				LabSubnet: teamLabSubnet,
+				IsVPN:     true,
+			}
+			replyJson(http.StatusOK, w, tLabInfo)
+		}
+	}
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+	return endpoint
 }
 
 func (am *Amigo) handleLoginGET() http.HandlerFunc {
