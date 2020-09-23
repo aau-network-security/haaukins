@@ -1,5 +1,6 @@
 syntax="proto3";
 
+// todo: GenInterface
 
 service Wireguard {
 
@@ -9,13 +10,23 @@ service Wireguard {
     rpc DelPeer(DelPReq) returns (DelPResp) {}
     rpc ListPeers(ListPeersReq) returns (ListPeersResp) {}
     rpc ManageNIC(ManageNICReq) returns (ManageNICResp) {}
-
+    rpc GetPeerStatus(PeerStatusReq) returns (PeerStatusResp) {}
     rpc GetNICInfo(NICInfoReq) returns (NICInfoResp) {}
     rpc GenPublicKey(PubKeyReq) returns (PubKeyResp) {}
     rpc GenPrivateKey(PrivKeyReq) returns (PrivKeyResp) {}
     rpc GetPrivateKey(PrivKeyReq) returns (PrivKeyResp) {}
     rpc GetPublicKey(PubKeyReq) returns (PubKeyResp) {}
 
+}
+
+message PeerStatusReq {
+    string nicName = 1;
+    string publicKey = 2;
+
+}
+message PeerStatusResp {
+    // connected or not connected
+    bool status = 1;
 }
 
 message AddPReq {
@@ -38,22 +49,6 @@ message ListPeersResp {
     string response =1;
 }
 
-//message ListPeersResp {
-//    repeated interface i  =1;
-//    repeated peer p = 2;
-//
-//    message interface {
-//        string nicname = 1;
-//        string publicKey  = 2;
-//        uint32 listeningPort = 3;
-//    }
-//    message peer {
-//        string endpoint = 1;
-//        string allowedIPs =2;
-//        string latestHandshake=3;
-//        string transfer = 4;
-//    }
-//}
 
 message IReq {
     string address = 1;

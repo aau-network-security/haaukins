@@ -1,6 +1,6 @@
 <template>
   <div class="dropdown">
-    <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown"  v-on:click="createDropDown()" >
+    <button class="btn btn-haaukins dropdown-toggle dropdown-css" type="button" id="dropdownMenuButton" data-toggle="dropdown"  v-on:click="createDropDown()" >
       VPN Conn
     </button>
     <div class="dropdown-menu custom-css"  aria-labelledby="dropdownMenuButton">
@@ -61,9 +61,12 @@ export default {
 <style scoped>
 .vpn-dd-line{
   border-bottom: 1px solid #000;
+  border-color: #211a52;
+  border-radius: inherit;
 }
 .custom-css {
   width: 180px;
   cursor:pointer;
+  color: #211a52;
 }
 </style>
