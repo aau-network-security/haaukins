@@ -182,6 +182,7 @@ type event struct {
 	store         store.Event
 	keyLoggerPool KeyLoggerPool
 
+	ipAddrs       []int
 	wg            wg.WireguardClient
 	guacUserStore *GuacUserStore
 	dockerHost    docker.Host
@@ -228,6 +229,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 		labhub:        hub,
 		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, wgClient, amigoOpt),
 		guac:          guac,
+		ipAddrs:       makeRange(2, 254),
 		labs:          map[string]lab.Lab{},
 		guacUserStore: NewGuacUserStore(),
 		wg:            wgClient,
@@ -322,30 +324,31 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	}
 
 	// create 4 different config file for 1 user
-	for i := 4; i < 8; i++ {
+	for i := 0; i < 4; i++ {
 		// generate client privatekey
+		ipAddr := pop(&ev.ipAddrs)
 		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+team)
-		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			return []string{}, err
 		}
 
 		// generate client public key
-		log.Info().Msgf("Generating public key for team %s", evTag+"_"+team+"_"+strconv.Itoa(i))
-		_, err = ev.wg.GenPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(i), PrivKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		log.Info().Msgf("Generating public key for team %s", evTag+"_"+team+"_"+strconv.Itoa(ipAddr))
+		_, err = ev.wg.GenPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr), PrivKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			return []string{}, err
 		}
 		// get client public key
-		log.Info().Msgf("Retrieving public key for teaam %s", evTag+"_"+team+"_"+strconv.Itoa(i))
-		resp, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		log.Info().Msgf("Retrieving public key for teaam %s", evTag+"_"+team+"_"+strconv.Itoa(ipAddr))
+		resp, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			log.Error().Msgf("Error on GetPublicKey %v", err)
 			return []string{}, err
 		}
 
 		//pIP := fmt.Sprintf("%d/32", len(ev.GetTeams())+2)
-		peerIP := strings.Replace(subnet, "1/24", fmt.Sprintf("%d/32", i), 1)
+		peerIP := strings.Replace(subnet, "1/24", fmt.Sprintf("%d/32", ipAddr), 1)
 		log.Info().Str("NIC", evTag).
 			Str("AllowedIPs", peerIP).
 			Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", team, peerIP)
@@ -362,7 +365,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 			Str("Peer: ", team).Msgf("Message : %s", addPeerResp.Message)
 		//get client privatekey
 		log.Info().Msgf("Retrieving private key for team %s", team)
-		teamPrivKey, err := ev.wg.GetPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(i)})
+		teamPrivKey, err := ev.wg.GetPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			return []string{}, err
 		}
@@ -380,7 +383,7 @@ PublicKey = %s
 AllowedIps = %s
 Endpoint =  %s
 PersistentKeepalive = 25`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint)
-		t.SetVPNKeys(i-4, resp.Message)
+		t.SetVPNKeys(i, resp.Message)
 		//log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
 	}
@@ -670,4 +673,21 @@ func writeToFile(filename string, data string) error {
 		return err
 	}
 	return file.Sync()
+}
+
+// creates range of ip addresses per event
+func makeRange(min, max int) []int {
+	a := make([]int, max-min+1)
+	for i := range a {
+		a[i] = min + i
+	}
+	return a
+}
+
+//pop function is somehow same with python pop function
+func pop(alist *[]int) int {
+	f := len(*alist)
+	rv := (*alist)[f-1]
+	*alist = append((*alist)[:f-1])
+	return rv
 }
