@@ -190,13 +190,18 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 	steps := []Step{
 		{
 			Number:     0,
-			IsSolved:   false,
-			Challenges: rows[:3],
+			IsSolved:   true,
+			Challenges: rows[:2],
 		},
 		{
 			Number:     1,
 			IsSolved:   false,
-			Challenges: rows[4:],
+			Challenges: rows[3:4],
+		},
+		{
+			Number:     2,
+			IsSolved:   false,
+			Challenges: rows[5:],
 		},
 	}
 

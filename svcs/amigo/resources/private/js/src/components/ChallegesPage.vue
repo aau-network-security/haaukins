@@ -1,16 +1,16 @@
 <template>
     <div id="challenges-board">
-
-      <b-button class="btn-haaukins" v-on:click="next()"></b-button>
-      <b-carousel
-          ref="stepsCarousel"
-          :interval=0
-          class="h-50"
-      >
-        <b-carousel-slide v-for="step in challengesFromAmigo" v-bind:key="step.number">
-          <template slot="img">
-            <div class="h-100 step-content" v-bind:class="{ 'step-': !step.is_solved}"> <!-- todo finish this (make the block screen in the step is not solved)-->
-              <div class="row mt-5" v-for="category in sortChallenges(step.challenges)" v-bind:key="category[0].challenge.Category">
+      <div id="stepProgressBar" class="text-center mt-4 mb-5">
+        <div class="step" v-for="(step, index) in challengesFromAmigo" v-bind:key="step.number" >
+          <div class="bullet" v-on:click="$refs.stepsCarousel.setSlide(index)" v-bind:class="{ 'completed': step.is_solved}">{{index + 1}}</div>
+        </div>
+      </div>
+      <b-carousel ref="stepsCarousel" :interval=0>
+        <b-carousel-slide v-for="(step, i) in challengesFromAmigo" v-bind:key="step.number" class="h-100">
+          <template slot="img" class="h-100">
+            <div class="step-content">
+              <div v-bind:class="{ 'step-overlay': !step.is_solved ^ i === currentStep}"></div>
+              <div class="row" v-for="category in sortChallenges(step.challenges)" v-bind:key="category[0].challenge.Category">
                 <div class="category-header col-md-12 mb-3">
                   <h3>{{category[0].challenge.Category}}</h3>
                 </div>
@@ -40,17 +40,13 @@
                 chalInfo: {}, //passed to the modal
                 teamsCompleted: [], //passed to the modal
                 challengesFromAmigo: [], //they keys are the categories, each category has a list of challenges
-                currentStep: 0,
+                currentStep: 1,
             }
         },
         created: function() {
-
             this.connectToWS();
         },
         methods: {
-            next: function (){
-              this.$refs.stepsCarousel.next()
-            },
             sortChallenges: function(step_challenges){
 
               if (step_challenges === undefined) {
@@ -97,10 +93,8 @@
                     let json = JSON.parse(msg);
                     if (json.msg === "steps"){
                         this.challengesFromAmigo = json.values;
-                        window.console.log(json.values)
                     }
                 }
-                this.sortChallenges();
             },
             challengeCompleteReload: function () {
                 this.connectToWS()
@@ -110,9 +104,72 @@
 </script>
 
 <style>
-    .carousel-inner, .carousel-item {
-      height: 100%
+    #stepProgressBar  {
+        display:  flex;
+        align-items: center;
+        justify-content: center;
+        overflow: auto;
     }
+
+    .step  {
+        text-align:  center;
+        margin-left: 60px;
+    }
+
+    .step:nth-child(1)   {
+        margin-left: 0px !important;
+    }
+
+    .bullet {
+        border: 3px solid #211A52;
+        height: 40px;
+        width: 40px;
+        border-radius: 100%;
+        color: #211A52;
+        display: inline-block;
+        position: relative;
+        transition: background-color 500ms;
+        line-height:35px;
+        font-family: 'Audiowide', cursive;
+        font-size: 20px;
+        cursor: pointer;
+    }
+
+    .bullet.completed  {
+        color:  white;
+        background-color:  #211A52;
+    }
+
+    .bullet::after {
+        content: '';
+        position: absolute;
+        right: -64px;
+        bottom: 16px;
+        height: 5px;
+        width: 64px;
+        background-color: #211A52;
+    }
+    .step:last-child .bullet::after {
+      width: 0px;
+    }
+
+    .h-100{
+      height: 100%;
+      min-height: 750px;
+    }
+
+    .step-overlay{
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 100%;
+      z-index: 1;
+      background-color: rgba(255, 255, 255, 0.5);
+      border: solid 1px rgba(255, 255, 255, 0.5);
+      border-radius: 10px;
+    }
+
     .btn-haaukins{
         color: #fff;
         background-color: #211A52;
