@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aau-network-security/haaukins/virtual"
+
 	wg "github.com/aau-network-security/haaukins/network/vpn"
 
 	"net/http"
@@ -111,7 +113,7 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
-	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity)
+	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity, conf.OnlyVPN)
 	if err != nil {
 		return nil, err
 	}
@@ -197,9 +199,6 @@ type labNetInfo struct {
 }
 
 func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig, reCaptchaKey string) (Event, error) {
-
-	// todo[VPN]: check either event is VPN Only or Kali Only
-	// for PoC it is both now.
 
 	guac, err := New(ctx, Config{}, e.OnlyVPN)
 	if err != nil {
@@ -625,6 +624,25 @@ func (ev *event) Handler() http.Handler {
 		}
 		return nil
 	}
+	// resume labs in login of amigo
+	resumeTeamLab := func(t *store.Team) error {
+
+		lab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			return errors.New("Lab could not found for given team, error on loginhook")
+		}
+		go func() {
+			for _, instance := range lab.InstanceInfo() {
+				if instance.State == virtual.Suspended {
+					if err := lab.Resume(context.Background()); err != nil {
+						log.Error().Msgf("Error on lab resume %v", err)
+						return
+					}
+				}
+			}
+		}()
+		return nil
+	}
 
 	resetFrontendHook := func(t *store.Team) error {
 		teamLab, ok := ev.GetLabByTeam(t.ID())
@@ -637,7 +655,7 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
-	hooks := amigo.Hooks{AssignLab: reghook, ResetExercise: resetHook, ResetFrontend: resetFrontendHook}
+	hooks := amigo.Hooks{AssignLab: reghook, ResetExercise: resetHook, ResetFrontend: resetFrontendHook, ResumeTeamLab: resumeTeamLab}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)
 

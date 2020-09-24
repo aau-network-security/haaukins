@@ -472,6 +472,7 @@ func (c *container) BridgeAlias(alias string) (string, error) {
 type network struct {
 	net       *docker.Network
 	subnet    string
+	isVPN     bool
 	ipPool    map[uint8]struct{}
 	connected []Identifier
 }
@@ -479,20 +480,28 @@ type network struct {
 type Network interface {
 	FormatIP(num int) string
 	Interface() string
+	SetIsVPN(bool)
 	Connect(c Container, ip ...int) (int, error)
 	io.Closer
 }
 
-func NewNetwork() (Network, error) {
+func NewNetwork(isVPN bool) (Network, error) {
 	sub, err := ipPool.Get()
 	if err != nil {
 		return nil, err
+	}
+	var dOption string
+
+	if isVPN {
+		dOption = "bridge"
+	} else {
+		dOption = "macvlan"
 	}
 
 	subnet := fmt.Sprintf("%s.0/24", sub)
 	conf := docker.CreateNetworkOptions{
 		Name:   uuid.New().String(),
-		Driver: "bridge",
+		Driver: dOption,
 		IPAM: &docker.IPAMOptions{
 			Config: []docker.IPAMConfig{{
 				Subnet: subnet,
@@ -519,6 +528,9 @@ func NewNetwork() (Network, error) {
 	return &network{net: netw, subnet: subnet, ipPool: ipPool}, nil
 }
 
+func (n *network) SetIsVPN(isVPN bool) {
+	n.isVPN = isVPN
+}
 func (n *network) Close() error {
 	for _, cont := range n.connected {
 		if err := DefaultClient.DisconnectNetwork(n.net.ID, docker.NetworkConnectionOptions{
@@ -536,7 +548,15 @@ func (n *network) FormatIP(num int) string {
 }
 
 func (n *network) Interface() string {
-	return fmt.Sprintf("br-%s", n.net.ID[0:12])
+	var pDriver string
+	if n.isVPN {
+		pDriver = "br"
+		log.Info().Msg("Getting bridge interface from network.Interface function")
+	} else {
+		pDriver = "dm"
+		log.Info().Msg("Getting macvlan interface from network.Interface function")
+	}
+	return fmt.Sprintf("%s-%s", pDriver, n.net.ID[0:12])
 }
 
 func (n *network) getRandomIP() int {

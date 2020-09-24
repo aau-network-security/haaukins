@@ -19,7 +19,7 @@ import (
 )
 
 type Environment interface {
-	Create(context.Context) error
+	Create(context.Context, bool) error
 	Add(context.Context, ...store.Exercise) error
 	ResetByTag(context.Context, string) error
 	NetworkInterface() string
@@ -43,6 +43,7 @@ type environment struct {
 	dhcpServer *dhcp.Server
 	dnsAddr    string
 	lib        vbox.Library
+	isVPN      bool
 }
 
 func NewEnvironment(lib vbox.Library) Environment {
@@ -52,12 +53,13 @@ func NewEnvironment(lib vbox.Library) Environment {
 	}
 }
 
-func (ee *environment) Create(ctx context.Context) error {
-	network, err := docker.NewNetwork()
+func (ee *environment) Create(ctx context.Context, isVPN bool) error {
+	network, err := docker.NewNetwork(isVPN)
 	if err != nil {
 		return err
 	}
 	ee.network = network
+	ee.network.SetIsVPN(ee.isVPN)
 	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
 
 	return nil
