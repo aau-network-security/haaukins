@@ -288,10 +288,6 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error on creating new pool for looging :  %v", err)
 	}
-	vpnIP, err := getVPNIP()
-	if err != nil {
-		log.Error().Msgf("Getting VPN address error on New() in daemon %v", err)
-	}
 
 	d := &daemon{
 		conf:      conf,
@@ -312,8 +308,12 @@ func New(conf *Config) (*daemon, error) {
 		// daemon should be aware of the event which is suspended
 		// and configuration should be loaded to daemon
 		if ef.Status == Running || ef.Status == Suspended {
+			vpnIP, err := getVPNIP()
+			if err != nil {
+				log.Error().Msgf("Getting VPN address error on New() in daemon %v", err)
+			}
 			eventConfig := d.generateEventConfig(ef, ef.Status, vpnIP)
-			err := d.createEventFromEventDB(context.Background(), eventConfig)
+			err = d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
 
