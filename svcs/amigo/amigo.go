@@ -118,6 +118,7 @@ type Hooks struct {
 	AssignLab     func(t *store.Team) error
 	ResetExercise func(t *store.Team, challengeTag string) error
 	ResetFrontend func(t *store.Team) error
+	ResumeTeamLab func(t *store.Team) error
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
@@ -131,7 +132,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/scoreboard", am.handleScoreBoard())
 	m.HandleFunc("/signup", am.handleSignup(hooks.AssignLab))
-	m.HandleFunc("/login", am.handleLogin())
+	m.HandleFunc("/login", am.handleLogin(hooks.ResumeTeamLab))
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
@@ -299,7 +300,6 @@ func (am *Amigo) handleVPNFiles() http.HandlerFunc {
 
 		//log.Printf("Trunced conf id %d", confID)
 		writeConfig := func(id int) {
-			log.Printf("Calling writeConfig function %d", id)
 			w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fmt.Sprintf("conn_%d.conf", id)))
 			b := strings.NewReader(vpnConfig[id])
@@ -610,9 +610,9 @@ func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) ht
 	return endpoint
 }
 
-func (am *Amigo) handleLogin() http.HandlerFunc {
+func (am *Amigo) handleLogin(resumeLabHook func(t *store.Team) error) http.HandlerFunc {
 	get := am.handleLoginGET()
-	post := am.handleLoginPOST()
+	post := am.handleLoginPOST(resumeLabHook)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -672,7 +672,7 @@ func (am *Amigo) handleLoginGET() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleLoginPOST() http.HandlerFunc {
+func (am *Amigo) handleLoginPOST(resumeLabHook func(t *store.Team) error) http.HandlerFunc {
 	loginTemplate := wd + "/svcs/amigo/resources/private/login.tmpl.html"
 	tmpl, err := parseTemplates(loginTemplate)
 	if err != nil {
@@ -734,6 +734,12 @@ func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 			displayErr(w, params, err)
 			return
 		}
+		if err := resumeLabHook(t); err != nil {
+			logger.Error().Str("Team id: ", t.ID()).
+				Str("Team name: ", t.Name()).
+				Str("Team email:", t.Email()).
+				Msgf("Error on resuming team resource %v", err)
+		}
 	}
 }
 
@@ -752,6 +758,16 @@ func (am *Amigo) loginTeam(w http.ResponseWriter, r *http.Request, t *store.Team
 
 	http.SetCookie(w, &http.Cookie{Name: "session", Value: token, MaxAge: am.cookieTTL})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	//Set teams last access time
+	err = t.UpdateTeamAccessed(time.Now())
+	if err != nil {
+		logger.Warn().
+			Err(err).
+			Str("team-id", t.ID()).
+			Msg("Failed to update team accessed time")
+	}
+
 	return nil
 }
 
