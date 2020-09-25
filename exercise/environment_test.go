@@ -60,7 +60,7 @@ func TestBasicEnvironment(t *testing.T) {
 
 	ctx := context.Background()
 	env := exercise.NewEnvironment(nil)
-	if err := env.Create(ctx); err != nil {
+	if err := env.Create(ctx, false); err != nil {
 		t.Fatalf("unable to create new environment: %s", err)
 	}
 

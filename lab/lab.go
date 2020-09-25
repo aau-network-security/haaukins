@@ -37,7 +37,7 @@ func (conf Config) Flags() []store.FlagConfig {
 }
 
 type Creator interface {
-	NewLab(context.Context) (Lab, error)
+	NewLab(context.Context, bool) (Lab, error)
 }
 
 type LabHost struct {
@@ -45,9 +45,9 @@ type LabHost struct {
 	Conf Config
 }
 
-func (lh *LabHost) NewLab(ctx context.Context) (Lab, error) {
+func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
 	env := newEnvironment(lh.Vlib)
-	if err := env.Create(ctx); err != nil {
+	if err := env.Create(ctx, isVPN); err != nil {
 		return nil, err
 	}
 
@@ -282,7 +282,6 @@ func (l *lab) Resume(ctx context.Context) error {
 	if err := l.environment.Resume(ctx); err != nil {
 		return err
 	}
-
 	for _, fconf := range l.frontends {
 		if err := fconf.vm.Start(ctx); err != nil {
 			return err

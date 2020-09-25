@@ -1,0 +1,110 @@
+syntax="proto3";
+
+// todo: GenInterface
+
+service Wireguard {
+
+    rpc InitializeI(IReq) returns (IResp) {}
+
+    rpc AddPeer(AddPReq) returns (AddPResp) {}
+    rpc DelPeer(DelPReq) returns (DelPResp) {}
+    rpc ListPeers(ListPeersReq) returns (ListPeersResp) {}
+    rpc ManageNIC(ManageNICReq) returns (ManageNICResp) {}
+    rpc GetPeerStatus(PeerStatusReq) returns (PeerStatusResp) {}
+    rpc GetNICInfo(NICInfoReq) returns (NICInfoResp) {}
+    rpc GenPublicKey(PubKeyReq) returns (PubKeyResp) {}
+    rpc GenPrivateKey(PrivKeyReq) returns (PrivKeyResp) {}
+    rpc GetPrivateKey(PrivKeyReq) returns (PrivKeyResp) {}
+    rpc GetPublicKey(PubKeyReq) returns (PubKeyResp) {}
+
+}
+
+message PeerStatusReq {
+    string nicName = 1;
+    string publicKey = 2;
+
+}
+message PeerStatusResp {
+    // connected or not connected
+    bool status = 1;
+}
+
+message AddPReq {
+    string nic = 1;
+    string allowedIPs = 2;
+    string publicKey = 3;
+}
+
+
+message AddPResp {
+    string message = 1;
+}
+
+message ListPeersReq {
+    string nicname = 1;
+    string error  = 2;
+}
+
+message ListPeersResp {
+    string response =1;
+}
+
+
+message IReq {
+    string address = 1;
+    uint32 listenPort = 2;
+    bool saveConfig = 3;
+    string privateKey = 4;
+    string eth = 5;
+    string iName = 6;
+}
+message IResp {
+    // message could be error or ordinary result depend on function result.
+    string message = 1 ;
+}
+
+
+message DelPReq {
+    string peerPublicKey = 1;
+    string ipAddress  = 2;
+}
+
+message DelPResp {
+    string message = 1;
+}
+
+message ManageNICReq {
+    //    manage NIC is responsible to up and down given interface
+    string nic = 1;
+    string cmd = 2; // up or down
+}
+
+message ManageNICResp {
+    string message = 1;
+}
+
+message NICInfoReq {
+    string interface = 1;
+}
+
+message NICInfoResp {
+    string message = 1;
+}
+
+message PubKeyReq {
+    string pubKeyName = 1;  // name of wireguard interface
+    string privKeyName =2;
+}
+
+message PubKeyResp {
+    string message = 1;
+}
+
+message PrivKeyReq {
+    string privateKeyName = 1;
+}
+
+message PrivKeyResp {
+    string message  = 1;
+}
+

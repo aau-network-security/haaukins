@@ -32,7 +32,7 @@ type hub struct {
 	stop    chan struct{}
 }
 
-func NewHub(ctx context.Context, creator Creator, buffer int, cap int) (*hub, error) {
+func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
 	workerAmount := 2
 	if buffer < workerAmount {
 		buffer = workerAmount
@@ -50,7 +50,7 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int) (*hub, er
 		for range ready {
 			wg.Add(1)
 			// todo: handle this in case of error
-			lab, err := creator.NewLab(ctx)
+			lab, err := creator.NewLab(ctx, isVPN)
 			if err != nil {
 				log.Error().Msgf("Error while creating new lab %s", err.Error())
 			}

@@ -45,6 +45,7 @@
 					<div class="nav nav-tabs nav-fill" id="info-tab" role="tablist">
 						<a class="nav-item nav-link active" id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab">Copy / Paste</a>
 						<a class="nav-item nav-link" id="conn-error-tab" data-toggle="tab" href="#conn-error" role="tab">Connection Error</a>
+						<a class="nav-item nav-link" id="vpn-conn-tab" data-toggle="tab" href="#vpn-conn" role="tab">VPN Connection</a>
 					</div>
 					<div class="tab-content p-3" id="nav-tabContent">
 						<div class="tab-pane fade show active" id="copy-clipboard" role="tabpanel" aria-labelledby="copy-clipboard-tab">
@@ -81,6 +82,56 @@
 								3. Click <strong>RESET Kali Machine</strong> button from challenges page<br>
 								4. In case you still get the error create a new team
 							</p>
+						</div>
+
+						<div class="tab-pane fade" id="vpn-conn" role="tabpanel" aria-labelledby="vpn-conn-tab">
+
+							In order to have VPN connection into virtualized lab environment on Haaukins,
+							you need to install Wireguard client for your computer. <br><br>
+							<b>Installation guideline for variety of clients are available on official website of Wireguard.</b>
+
+							<p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">Lab Information</p>
+							
+						 		- Lab subnet: <b>AllowedIps</b> in the configuration file<br>
+								- To begin, start with scanning lab subnet<br>
+								- Ignore first IP address from <b>AllowedIPs</b> (etc 10.33.212.<b>1</b>)<br>
+								- A team has four different configuration files<br>
+								- Four people can solve challenges simultaneously<br>
+								- Make sure each member of team using <b>different</b> configuration file<br>
+
+							<p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">Install Wireguard Client</p>
+
+								- Installation instructions for all clients: <a href="https://www.wireguard.com/install/">https://www.wireguard.com/install/</a>
+
+							<p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">For Linux users: (after installation of client)</p>
+							
+								- Download configuration file from event page<br>
+								- Place the configuration file under <b><code>/etc/wireguard/</code></b><br>
+						 	    - Connect VPN by typing <b><code>wg-quick up filename</code></b><br>
+								- Make sure about filename when you are connecting to VPN<br>
+								- Check connection with <b><code>wg</code></b> command<br>
+							
+							<p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">For MacOS users: (after installation of client)</p>
+
+								- Install GUI or CLI client from <a href="https://www.wireguard.com/install/">installation page</a><br>
+								- If you are using GUI, just import configuration file and activate it<br>
+								- If you are using CLI, place conf file under  <b><code>/etc/wireguard/</code></b><br>
+								- Connect VPN by typing <b><code>wg-quick up filename</code></b><br>
+								- Make sure about filename when you are connecting to VPN<br>
+								- Check connection with <b><code>wg</code></b> command<br>
+
+							<p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; ">GUI Example (For MacOS users)</p>
+
+							<video class="img-fluid" controls>
+								<source src="/assets/img/wireguard_conn_mac.mp4" type="video/mp4">
+								Your browser does not support the video tag.
+							</video>
+
+							<p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">For Windows users: (after installation of client)</p>
+
+								- Download application from <a href="https://www.wireguard.com/install/">installation page</a><br>
+								- Import configuration file as shown for MacOS<br>
+								- Make sure handshake is successfully done.<br><br>
 						</div>
 					</div>
 				</div>
