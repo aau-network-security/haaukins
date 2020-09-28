@@ -108,15 +108,20 @@ message ListUsersResponse {
 }
 
 message CreateEventRequest {
+  message Step {
+    repeated string exercises = 1;
+  }
   string name = 1;
   string tag = 2;
   repeated string frontends = 3;
   repeated string exercises = 4;
-  int32 available = 5;
-  int32 capacity = 6;
-  string  startTime = 7;
-  string finishTime = 8;
-  bool onlyVPN = 9;
+  repeated Step steps = 5;
+  int32 available = 6;
+  int32 capacity = 7;
+  string startTime = 8;
+  string finishTime = 9;
+  bool onlyVPN = 10;
+
 }
 
 

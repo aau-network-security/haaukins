@@ -731,18 +731,20 @@ func (m *ListUsersResponse_UserInfo) GetIsNPUser() bool {
 }
 
 type CreateEventRequest struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Tag                  string   `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
-	Frontends            []string `protobuf:"bytes,3,rep,name=frontends,proto3" json:"frontends,omitempty"`
-	Exercises            []string `protobuf:"bytes,4,rep,name=exercises,proto3" json:"exercises,omitempty"`
-	Available            int32    `protobuf:"varint,5,opt,name=available,proto3" json:"available,omitempty"`
-	Capacity             int32    `protobuf:"varint,6,opt,name=capacity,proto3" json:"capacity,omitempty"`
-	StartTime            string   `protobuf:"bytes,7,opt,name=startTime,proto3" json:"startTime,omitempty"`
-	FinishTime           string   `protobuf:"bytes,8,opt,name=finishTime,proto3" json:"finishTime,omitempty"`
-	OnlyVPN              bool     `protobuf:"varint,9,opt,name=onlyVPN,proto3" json:"onlyVPN,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Name                 string                     `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Tag                  string                     `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	Frontends            []string                   `protobuf:"bytes,3,rep,name=frontends,proto3" json:"frontends,omitempty"`
+	Exercises            []string                   `protobuf:"bytes,4,rep,name=exercises,proto3" json:"exercises,omitempty"`
+	Steps                []*CreateEventRequest_Step `protobuf:"bytes,5,rep,name=steps,proto3" json:"steps,omitempty"`
+	Available            int32                      `protobuf:"varint,6,opt,name=available,proto3" json:"available,omitempty"`
+	Capacity             int32                      `protobuf:"varint,7,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	StartTime            string                     `protobuf:"bytes,8,opt,name=startTime,proto3" json:"startTime,omitempty"`
+	FinishTime           string                     `protobuf:"bytes,9,opt,name=finishTime,proto3" json:"finishTime,omitempty"`
+  OnlyVPN              bool                       `protobuf:"varint,10,opt,name=onlyVPN,proto3" json:"onlyVPN,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
+
 }
 
 func (m *CreateEventRequest) Reset()         { *m = CreateEventRequest{} }
@@ -798,6 +800,13 @@ func (m *CreateEventRequest) GetExercises() []string {
 	return nil
 }
 
+func (m *CreateEventRequest) GetSteps() []*CreateEventRequest_Step {
+	if m != nil {
+		return m.Steps
+	}
+	return nil
+}
+
 func (m *CreateEventRequest) GetAvailable() int32 {
 	if m != nil {
 		return m.Available
@@ -826,6 +835,45 @@ func (m *CreateEventRequest) GetFinishTime() string {
 	return ""
 }
 
+type CreateEventRequest_Step struct {
+	Exercises            []string `protobuf:"bytes,1,rep,name=exercises,proto3" json:"exercises,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CreateEventRequest_Step) Reset()         { *m = CreateEventRequest_Step{} }
+func (m *CreateEventRequest_Step) String() string { return proto.CompactTextString(m) }
+func (*CreateEventRequest_Step) ProtoMessage()    {}
+func (*CreateEventRequest_Step) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3ec90cbc4aa12fc6, []int{13, 0}
+}
+
+func (m *CreateEventRequest_Step) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CreateEventRequest_Step.Unmarshal(m, b)
+}
+func (m *CreateEventRequest_Step) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CreateEventRequest_Step.Marshal(b, m, deterministic)
+}
+func (m *CreateEventRequest_Step) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateEventRequest_Step.Merge(m, src)
+}
+func (m *CreateEventRequest_Step) XXX_Size() int {
+	return xxx_messageInfo_CreateEventRequest_Step.Size(m)
+}
+func (m *CreateEventRequest_Step) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateEventRequest_Step.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreateEventRequest_Step proto.InternalMessageInfo
+
+func (m *CreateEventRequest_Step) GetExercises() []string {
+	if m != nil {
+		return m.Exercises
+	}
+	return nil
+  
+  
 func (m *CreateEventRequest) GetOnlyVPN() bool {
 	if m != nil {
 		return m.OnlyVPN
@@ -2296,6 +2344,7 @@ func init() {
 	proto.RegisterType((*ListUsersResponse)(nil), "ListUsersResponse")
 	proto.RegisterType((*ListUsersResponse_UserInfo)(nil), "ListUsersResponse.UserInfo")
 	proto.RegisterType((*CreateEventRequest)(nil), "CreateEventRequest")
+	proto.RegisterType((*CreateEventRequest_Step)(nil), "CreateEventRequest.Step")
 	proto.RegisterType((*TestEventLoadReq)(nil), "TestEventLoadReq")
 	proto.RegisterType((*TestEventLoadResp)(nil), "TestEventLoadResp")
 	proto.RegisterType((*ListEventsRequest)(nil), "ListEventsRequest")
@@ -2330,6 +2379,7 @@ func init() {
 func init() { proto.RegisterFile("daemon.proto", fileDescriptor_3ec90cbc4aa12fc6) }
 
 var fileDescriptor_3ec90cbc4aa12fc6 = []byte{
+
 	// 1802 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x58, 0x4f, 0x73, 0xe3, 0x48,
 	0x15, 0xb7, 0xe5, 0xd8, 0xb1, 0x9f, 0x9d, 0x8c, 0xdd, 0x76, 0xbc, 0x46, 0x33, 0x0b, 0xa9, 0xae,

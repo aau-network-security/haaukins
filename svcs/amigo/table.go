@@ -137,6 +137,12 @@ func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
 	}
 }
 
+type Step struct {
+	Number     int           `json:"number"`
+	IsSolved   bool          `json:"is_solved"`
+	Challenges []ChallengeCP `json:"challenges"`
+}
+
 // Challenge for Challenges Page. It contains the challenge information, which team has solved that challenge and if
 // the current user has solve that challenge
 type ChallengeCP struct {
@@ -181,9 +187,27 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 		rows[i] = r
 	}
 
+	steps := []Step{
+		{
+			Number:     0,
+			IsSolved:   true,
+			Challenges: rows[:2],
+		},
+		{
+			Number:     1,
+			IsSolved:   false,
+			Challenges: rows[3:4],
+		},
+		{
+			Number:     2,
+			IsSolved:   false,
+			Challenges: rows[5:],
+		},
+	}
+
 	msg := Message{
-		Message: "challenges",
-		Values:  rows,
+		Message: "steps",
+		Values:  steps,
 	}
 	chalMsg, _ := json.Marshal(msg)
 	return chalMsg
