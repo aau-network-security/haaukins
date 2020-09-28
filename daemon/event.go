@@ -29,16 +29,19 @@ var (
 	NoPrivilegeToStressTest = errors.New("No privilege to have stress test on Haaukins !")
 	NPUserMaxLabs           = 40
 	NotAvailableTag         = "not available tag, there is already an event which is either running, booked or suspended"
+	vpnIPPools              = newIPPoolFromHost()
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
 func (d *daemon) startEvent(ev guacamole.Event) {
 	conf := ev.GetConfig()
-
 	var frontendNames []string
-	for _, f := range conf.Lab.Frontends {
-		frontendNames = append(frontendNames, f.Image)
+	if !ev.GetConfig().OnlyVPN {
+		for _, f := range conf.Lab.Frontends {
+			frontendNames = append(frontendNames, f.Image)
+		}
 	}
+
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
@@ -53,6 +56,7 @@ func (d *daemon) startEvent(ev guacamole.Event) {
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+
 	loggerInstance := &GrpcLogger{resp: resp}
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	log.Ctx(ctx).
@@ -65,8 +69,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Strs("exercises", req.Exercises).
 		Str("startTime", req.StartTime).
 		Str("finishTime", req.FinishTime).
+		Bool("VPN", req.OnlyVPN).
 		Msg("create event")
-
+		// get random subnet for vpn connection
+	// check from database if subnet is already assigned to an event or not
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
@@ -136,7 +142,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			}
 			return nil
 		}
-
+		vpnIp, err := getVPNIP()
+		if err != nil {
+			log.Error().Msgf("Get VPN IP error %v, from CreateEvent function", err)
+		}
+		log.Info().Msgf("Create event with VPN IP Address %s   ", vpnIp)
 		conf := store.EventConfig{
 			Name:      req.Name,
 			Tag:       evtag,
@@ -149,8 +159,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 				Frontends: d.frontends.GetFrontends(req.Frontends...),
 				Exercises: tags,
 			},
-			Status:    Running,
-			CreatedBy: user.Username,
+			Status:     Running,
+			CreatedBy:  user.Username,
+			OnlyVPN:    req.OnlyVPN,
+			VPNAddress: vpnIp,
 		}
 
 		if err := conf.Validate(); err != nil {
@@ -225,6 +237,7 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 			ExpectedFinishTime: req.FinishTime,
 			Status:             Booked,
 			CreatedBy:          user.Username,
+			OnlyVPN:            req.OnlyVPN,
 		})
 		if err != nil {
 			log.Warn().Msgf("problem for inserting booked event into table, err %v", err)
@@ -468,7 +481,11 @@ func (d *daemon) visitBookedEvents() error {
 		requestedStartTime, _ := time.Parse(displayTimeFormat, event.StartedAt)
 		if requestedStartTime.Before(now) || requestedStartTime.Equal(now) {
 			// set status to running if booked event startTime passed.
-			eventConfig := d.generateEventConfig(event, Running)
+			vpnIP, err := getVPNIP()
+			if err != nil {
+				log.Error().Msgf("Error on getting IP for VPN connection error: %v", err)
+			}
+			eventConfig := d.generateEventConfig(event, Running, vpnIP)
 			if err := d.createEventFromEventDB(ctx, eventConfig); err != nil {
 				log.Warn().Msgf("Error on creating booked event, event %s err %v", event.Tag, err)
 				return fmt.Errorf("error on booked event creation %v", err)
@@ -485,7 +502,7 @@ func (d *daemon) visitBookedEvents() error {
 	return nil
 }
 
-func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status int32) store.EventConfig {
+func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status int32, vpnAddress string) store.EventConfig {
 
 	var instanceConfig []store.InstanceConfig
 	var exercises []store.Tag
@@ -497,7 +514,11 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 	for _, e := range listOfExercises {
 		exercises = append(exercises, store.Tag(e))
 	}
-
+	log.Debug().Str("Event name", event.Name).
+		Str("Event tag", event.Tag).
+		Int32("Available", event.Available).
+		Int32("Capacity", event.Capacity).
+		Bool("IsVPN", event.OnlyVPN).Msgf("Generating event config from database !")
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
 		Tag:       store.Tag(event.Tag),
@@ -512,6 +533,8 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		FinishedAt:     nil,
 		Status:         status,
 		CreatedBy:      event.CreatedBy,
+		VPNAddress:     vpnAddress,
+		OnlyVPN:        event.OnlyVPN,
 	}
 
 	return eventConfig
@@ -683,4 +706,13 @@ func (d *daemon) dropEvent(ctx context.Context, evTag string) error {
 		log.Info().Msgf("Booked event %s is dropped at %s", evTag, time.Now().Format(dbTimeFormat))
 	}
 	return nil
+}
+
+func getVPNIP() (string, error) {
+	// by default CreateEvent function will create event VPN  + Kali Connection
+	ip, err := vpnIPPools.Get()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s.1/24", ip), nil
 }

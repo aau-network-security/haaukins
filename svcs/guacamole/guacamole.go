@@ -100,7 +100,7 @@ type Guacamole interface {
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo, event Event) svcs.ProxyConnector
 }
 
-func New(ctx context.Context, conf Config) (Guacamole, error) {
+func New(ctx context.Context, conf Config, onlyVPN bool) (Guacamole, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -123,11 +123,11 @@ func New(ctx context.Context, conf Config) (Guacamole, error) {
 		client: client,
 		conf:   conf,
 	}
-
-	if err := guac.create(ctx); err != nil {
-		return nil, err
+	if !onlyVPN {
+		if err := guac.create(ctx); err != nil {
+			return nil, err
+		}
 	}
-
 	return guac, nil
 }
 
@@ -268,27 +268,11 @@ func (guac *guacamole) ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *am
 				req.URL.Host = origin.Host
 
 			}}
-		resumehook := func(t *store.Team) error {
 
-			lab, ok := ev.GetLabByTeam(t.ID())
-			if !ok {
-				return errors.New("Lab could not found for given team, error on loginhook")
-			}
-			go func() {
-				for _, instance := range lab.InstanceInfo() {
-					if instance.State == virtual.Suspended {
-						if err := lab.Resume(context.Background()); err != nil {
-							return
-						}
-					}
-				}
-			}()
-			return nil
-		}
 		return interceptors.Intercept(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				if isWebSocket(r) {
-					websocketProxy(host, ef, klp, am, resumehook).ServeHTTP(w, r)
+					websocketProxy(host, ef, klp, am).ServeHTTP(w, r)
 					return
 				}
 				proxy.ServeHTTP(w, r)
@@ -720,7 +704,7 @@ func (guac *guacamole) addConnectionToUser(id string, guacuser string) error {
 	return nil
 }
 
-func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool, am *amigo.Amigo, hook func(t *store.Team) error) http.Handler {
+func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool, am *amigo.Amigo) http.Handler {
 	origin := fmt.Sprintf("http://%s", target)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -798,13 +782,6 @@ func websocketProxy(target string, ef store.Event, keyLoggerPool KeyLoggerPool, 
 					}
 				}
 			}
-		}
-
-		if err := hook(t); err != nil {
-			log.Error().Str("Team id: ", t.ID()).
-				Str("Team name: ", t.Name()).
-				Str("Team email:", t.Email()).
-				Msgf("Error on resuming team resource %v", err)
 		}
 
 		go cp(logger)(c, backend, errClient)

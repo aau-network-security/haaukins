@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"time"
 
+	wg "github.com/aau-network-security/haaukins/network/vpn"
+
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rs/zerolog/log"
@@ -40,6 +42,9 @@ type EventConfig struct {
 	FinishedAt     *time.Time
 	Status         int32
 	CreatedBy      string
+	OnlyVPN        bool
+	VPNAddress     string
+	EndPointPort   int
 }
 
 type Lab struct {
@@ -77,6 +82,7 @@ type Event struct {
 	dbc pbc.StoreClient
 	TeamStore
 	EventConfig
+	wg.WireGuardConfig
 }
 
 // Change the Capacity of the event and update the DB

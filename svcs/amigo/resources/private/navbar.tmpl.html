@@ -22,9 +22,13 @@
 					{{ if .Team}}
 						<span class="navbar-text my-auto mr-4">{{ .Team.Name }}</span>
 						<li class="nav-item my-auto">
-							<div>
-								<a class="btn btn-login" href="/guaclogin" target="_blank">Connect</a>
-							</div>
+							{{ if .IsVPN}}
+								<div id="vpn-dropdown"></div>
+							{{ else }}
+								<div>
+									<a class="btn btn-login" href="/guaclogin" target="_blank">Connect</a>
+								</div>
+							{{ end }}
 						</li>
 						<li class="nav-item">
 							<a class="nav-link" href="/logout">Logout</a>

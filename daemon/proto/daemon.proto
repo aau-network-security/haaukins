@@ -120,6 +120,8 @@ message CreateEventRequest {
   int32 capacity = 7;
   string startTime = 8;
   string finishTime = 9;
+  bool onlyVPN = 10;
+
 }
 
 

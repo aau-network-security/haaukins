@@ -49,6 +49,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		exercises  []string
 		startTime  uint64
 		finishTime uint64
+		onlyVPN    bool
 	)
 
 	cmd := &cobra.Command{
@@ -66,6 +67,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				Exercises:  exercises,
 				Available:  int32(available),
 				Capacity:   int32(capacity),
+				OnlyVPN:    true,
 				StartTime:  time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
 				FinishTime: time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
 			})
@@ -105,6 +107,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().StringVarP(&name, "name", "n", "", "the event name")
 	cmd.Flags().IntVarP(&available, "available", "a", 5, "amount of labs to make available initially for the event")
 	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "maximum amount of labs")
+	cmd.Flags().BoolVarP(&onlyVPN, "vpnconn", "v", false, "enable only vpn connection")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
 	cmd.Flags().Uint64VarP(&finishTime, "finishtime", "d", 15, "expected finish time of the event")

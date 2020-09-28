@@ -19,10 +19,12 @@ import (
 )
 
 type Environment interface {
-	Create(context.Context) error
+	Create(context.Context, bool) error
 	Add(context.Context, ...store.Exercise) error
 	ResetByTag(context.Context, string) error
 	NetworkInterface() string
+	LabSubnet() string
+	LabDNS() string
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
@@ -41,6 +43,7 @@ type environment struct {
 	dhcpServer *dhcp.Server
 	dnsAddr    string
 	lib        vbox.Library
+	isVPN      bool
 }
 
 func NewEnvironment(lib vbox.Library) Environment {
@@ -50,12 +53,13 @@ func NewEnvironment(lib vbox.Library) Environment {
 	}
 }
 
-func (ee *environment) Create(ctx context.Context) error {
-	network, err := docker.NewNetwork()
+func (ee *environment) Create(ctx context.Context, isVPN bool) error {
+	network, err := docker.NewNetwork(isVPN)
 	if err != nil {
 		return err
 	}
 	ee.network = network
+	ee.network.SetIsVPN(ee.isVPN)
 	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
 
 	return nil
@@ -90,6 +94,13 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 
 func (ee *environment) NetworkInterface() string {
 	return ee.network.Interface()
+}
+func (ee *environment) LabSubnet() string {
+	return ee.dhcpServer.LabSubnet()
+}
+
+func (ee *environment) LabDNS() string {
+	return ee.dhcpServer.LabDNS()
 }
 
 func (ee *environment) Start(ctx context.Context) error {
@@ -253,7 +264,7 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 	var rrSet []dns.RR
 	for _, e := range ee.exercises {
 		for _, record := range e.dnsRecords {
-			rrSet = append(rrSet, dns.RR{record.Name, record.Type, record.RData})
+			rrSet = append(rrSet, dns.RR{Name: record.Name, Type: record.Type, RData: record.RData})
 		}
 	}
 
