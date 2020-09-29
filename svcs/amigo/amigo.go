@@ -55,7 +55,8 @@ type Amigo struct {
 	signingKey   []byte
 	cookieTTL    int
 	globalInfo   siteInfo
-	challenges   []store.FlagConfig
+	challenges   [][]store.FlagConfig
+	isStepByStep bool
 	TeamStore    store.Event
 	recaptcha    Recaptcha
 	wgClient     wg.WireguardClient
@@ -75,11 +76,12 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgClient wg.WireguardClient, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.Event, chals [][]store.FlagConfig, reCaptchaKey string, wgClient wg.WireguardClient, isStepByStep bool, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
 		challenges:   chals,
+		isStepByStep: isStepByStep,
 		cookieTTL:    int((7 * 24 * time.Hour).Seconds()), // A week
 		TeamStore:    ts,
 		globalInfo: siteInfo{
@@ -122,7 +124,7 @@ type Hooks struct {
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
-	fd := newFrontendData(am.TeamStore, am.challenges...)
+	fd := newFrontendData(am.TeamStore, am.challenges)
 	go fd.runFrontendData()
 
 	m := http.NewServeMux()
@@ -513,7 +515,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			}
 		}
 
-		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", nil)
+		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", 0, nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)

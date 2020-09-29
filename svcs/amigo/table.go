@@ -46,10 +46,12 @@ type Scoreboard struct {
 func (fd *FrontendData) getChallengeCategories() []string {
 	keys := make(map[string]bool)
 	challengeCats := []string{}
-	for _, challenge := range fd.challenges {
-		if _, value := keys[challenge.Category]; !value {
-			keys[challenge.Category] = true
-			challengeCats = append(challengeCats, challenge.Category)
+	for _, step := range fd.challengesStep {
+		for _, challenge := range step {
+			if _, value := keys[challenge.Category]; !value {
+				keys[challenge.Category] = true
+				challengeCats = append(challengeCats, challenge.Category)
+			}
 		}
 	}
 	return challengeCats
@@ -72,15 +74,17 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 		})
 	}
 
-	for _, c := range fd.challenges {
-		for i, rc := range challenges {
-			if rc.CategoryName == c.Category {
+	for _, step := range fd.challengesStep {
+		for _, c := range step {
+			for i, rc := range challenges {
+				if rc.CategoryName == c.Category {
 
-				challenges[i].Challenges = append(challenges[i].Challenges, Challenge{
-					Name:   c.Name,
-					Tag:    string(c.Tag),
-					Points: c.Points,
-				})
+					challenges[i].Challenges = append(challenges[i].Challenges, Challenge{
+						Name:   c.Name,
+						Tag:    string(c.Tag),
+						Points: c.Points,
+					})
+				}
 			}
 		}
 	}
@@ -158,56 +162,52 @@ type TeamsCompleted struct {
 
 func (fd *FrontendData) initChallenges(teamId string) []byte {
 	team, err := fd.ts.GetTeamByID(teamId)
-	teams := fd.ts.GetTeams()
-	rows := make([]ChallengeCP, len(fd.challenges))
-
-	for i, c := range fd.challenges {
-		r := ChallengeCP{
-			ChalInfo: c,
-		}
-
-		//check which teams has solve a specif challenge
-		for _, t := range teams {
-			solved := t.IsTeamSolvedChallenge(string(c.Tag))
-			if solved != nil {
-				r.TeamsCompleted = append(r.TeamsCompleted, TeamsCompleted{
-					TeamName:    t.Name(),
-					CompletedAt: solved,
-				})
-			}
-		}
-
-		//check which challenge the user looged in has solved
-		if err == nil {
-			if team.IsTeamSolvedChallenge(string(c.Tag)) != nil {
-				r.IsUserCompleted = true
-			}
-		}
-
-		rows[i] = r
+	if err != nil {
+		return newline
 	}
+	teams := fd.ts.GetTeams()
+	rowsStep := make([]Step, len(fd.challengesStep))
 
-	steps := []Step{
-		{
-			Number:     0,
-			IsSolved:   true,
-			Challenges: rows[:2],
-		},
-		{
-			Number:     1,
-			IsSolved:   false,
-			Challenges: rows[3:4],
-		},
-		{
-			Number:     2,
-			IsSolved:   false,
-			Challenges: rows[5:],
-		},
+	for j, step := range fd.challengesStep {
+		rows := make([]ChallengeCP, len(step))
+		for i, c := range step {
+			r := ChallengeCP{
+				ChalInfo: c,
+			}
+
+			//check which teams has solve a specif challenge
+			for _, t := range teams {
+				solved := t.IsTeamSolvedChallenge(string(c.Tag))
+				if solved != nil {
+					r.TeamsCompleted = append(r.TeamsCompleted, TeamsCompleted{
+						TeamName:    t.Name(),
+						CompletedAt: solved,
+					})
+				}
+			}
+
+			//check which challenge the user looged in has solved
+			if err == nil {
+				if team.IsTeamSolvedChallenge(string(c.Tag)) != nil {
+					r.IsUserCompleted = true
+				}
+			}
+			rows[i] = r
+		}
+		IsSolved := false
+		if int(team.Step()) >= j {
+			IsSolved = true
+		}
+		rowsStep[j] = Step{
+			Number:     j,
+			IsSolved:   IsSolved,
+			Challenges: rows,
+		}
 	}
 
 	msg := Message{
 		Message: "steps",
-		Values:  steps,
+		Values:  rowsStep,
 	}
 	chalMsg, _ := json.Marshal(msg)
 	return chalMsg
