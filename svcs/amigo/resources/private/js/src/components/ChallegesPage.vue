@@ -6,10 +6,10 @@
         </div>
       </div>
       <b-carousel ref="stepsCarousel" :interval=0>
-        <b-carousel-slide v-for="(step, i) in challengesFromAmigo" v-bind:key="step.number" class="h-100">
+        <b-carousel-slide v-for="step in challengesFromAmigo" v-bind:key="step.number" class="h-100">
           <template slot="img" class="h-100">
             <div class="step-content">
-              <div v-bind:class="{ 'step-overlay': !step.is_solved ^ i === currentStep}"></div>
+              <div v-bind:class="{ 'step-overlay': !step.is_solved}"></div>
               <div class="row" v-for="category in sortChallenges(step.challenges)" v-bind:key="category[0].challenge.Category">
                 <div class="category-header col-md-12 mb-3">
                   <h3>{{category[0].challenge.Category}}</h3>
