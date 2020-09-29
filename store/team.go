@@ -230,6 +230,7 @@ type Team struct {
 	vpnConf       []string
 	labSubnet     string
 	isLabAssigned bool
+	stepTracker   uint
 }
 
 type TeamChallenge struct {
@@ -237,7 +238,7 @@ type TeamChallenge struct {
 	CompletedAt *time.Time
 }
 
-func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pbc.StoreClient) *Team {
+func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, stepTracker uint, dbc pbc.StoreClient) *Team {
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -265,6 +266,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 		solvedChalsDB:  solvedChals,
 		vpnKeys:        map[int]string{},
 		isLabAssigned:  false,
+		stepTracker:    stepTracker,
 	}
 }
 
@@ -503,6 +505,12 @@ func (t *Team) CorrectedAssignedLab() {
 	t.m.Lock()
 	defer t.m.Unlock()
 	t.isLabAssigned = true
+}
+
+func (t *Team) Step() uint {
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.stepTracker
 }
 
 //Not used anywhere

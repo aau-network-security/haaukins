@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -95,21 +96,30 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			return ReservedDomainErr
 		}
 
-		uniqueExercisesList := removeDuplicates(req.Exercises)
-
-		tags := make([]store.Tag, len(uniqueExercisesList))
-		for i, s := range uniqueExercisesList {
-			t, err := store.NewTag(s)
+		var steps [][]store.Exercise
+		isStepByStep := false
+		if len(req.Steps) > 0 {
+			isStepByStep = true
+			for _, s := range req.Steps {
+				exer, err := d.getExercises(s.Exercises)
+				if err != nil {
+					return err
+				}
+				steps = append(steps, exer)
+			}
+		}
+		if len(req.Exercises) > 0 {
+			exer, err := d.getExercises(req.Exercises)
 			if err != nil {
 				return err
 			}
-			// check exercise before creating event file
-			_, tagErr := d.exercises.GetExercisesByTags(t)
-			if tagErr != nil {
-				return tagErr
-			}
-			tags[i] = t
+			steps = append(steps, exer)
 		}
+
+		if len(steps) == 0 {
+			return fmt.Errorf("No exercises in the steps ")
+		}
+
 		evtag, _ := store.NewTag(req.Tag)
 		finishTime, _ := time.Parse(dbTimeFormat, req.FinishTime)
 		startTime, _ := time.Parse(dbTimeFormat, req.StartTime)
@@ -148,16 +158,17 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 		log.Info().Msgf("Create event with VPN IP Address %s   ", vpnIp)
 		conf := store.EventConfig{
-			Name:      req.Name,
-			Tag:       evtag,
-			Available: int(req.Available),
-			Capacity:  int(req.Capacity),
-
+			Name:           req.Name,
+			Tag:            evtag,
+			Available:      int(req.Available),
+			Capacity:       int(req.Capacity),
+			Steps:          steps,
+			IsStepByStep:   isStepByStep,
 			StartedAt:      &startTime,
 			FinishExpected: &finishTime,
 			Lab: store.Lab{
 				Frontends: d.frontends.GetFrontends(req.Frontends...),
-				Exercises: tags,
+				Exercises: steps[0],
 			},
 			Status:     Running,
 			CreatedBy:  user.Username,
@@ -505,28 +516,50 @@ func (d *daemon) visitBookedEvents() error {
 func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status int32, vpnAddress string) store.EventConfig {
 
 	var instanceConfig []store.InstanceConfig
-	var exercises []store.Tag
 
 	requestedStartTime, _ := time.Parse(displayTimeFormat, event.StartedAt)
 	requestedFinishTime, _ := time.Parse(displayTimeFormat, event.ExpectedFinishTime)
-	listOfExercises := strings.Split(event.Exercises, ",")
 	instanceConfig = append(instanceConfig, d.frontends.GetFrontends(event.Frontends)[0])
-	for _, e := range listOfExercises {
-		exercises = append(exercises, store.Tag(e))
+
+	var stepsString [][]string
+	if err := json.Unmarshal([]byte(event.Exercises), &stepsString); err != nil {
+		return store.EventConfig{}
 	}
+
+	var steps [][]store.Exercise
+	isStepByStep := false
+	if len(stepsString) >= 1 {
+		isStepByStep = true
+	}
+
+	for _, s := range stepsString {
+		exer, err := d.getExercises(s)
+		if err != nil {
+			return store.EventConfig{}
+		}
+		steps = append(steps, exer)
+	}
+
+	if len(steps) == 0 {
+		return store.EventConfig{}
+	}
+
 	log.Debug().Str("Event name", event.Name).
 		Str("Event tag", event.Tag).
 		Int32("Available", event.Available).
 		Int32("Capacity", event.Capacity).
 		Bool("IsVPN", event.OnlyVPN).Msgf("Generating event config from database !")
+
 	eventConfig := store.EventConfig{
-		Name:      event.Name,
-		Tag:       store.Tag(event.Tag),
-		Available: int(event.Available),
-		Capacity:  int(event.Capacity),
+		Name:         event.Name,
+		Tag:          store.Tag(event.Tag),
+		Available:    int(event.Available),
+		Capacity:     int(event.Capacity),
+		Steps:        steps,
+		IsStepByStep: isStepByStep,
 		Lab: store.Lab{
 			Frontends: instanceConfig,
-			Exercises: exercises,
+			Exercises: steps[0],
 		},
 		StartedAt:      &requestedStartTime,
 		FinishExpected: &requestedFinishTime,
@@ -715,4 +748,26 @@ func getVPNIP() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s.1/24", ip), nil
+}
+
+func (d *daemon) getExercises(exercises []string) ([]store.Exercise, error) {
+	uniqueExercisesList := removeDuplicates(exercises)
+	tags := make([]store.Tag, len(uniqueExercisesList))
+	for i, s := range uniqueExercisesList {
+		t, err := store.NewTag(s)
+		if err != nil {
+			return nil, err
+		}
+		// check exercise before creating event file
+		_, tagErr := d.exercises.GetExercisesByTags(t)
+		if tagErr != nil {
+			return nil, err
+		}
+		tags[i] = t
+	}
+	exer, err := d.exercises.GetExercisesByTags(tags...)
+	if err != nil {
+		return nil, err
+	}
+	return exer, nil
 }

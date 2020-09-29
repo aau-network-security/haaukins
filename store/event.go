@@ -37,6 +37,8 @@ type EventConfig struct {
 	Available      int
 	Capacity       int
 	Lab            Lab
+	IsStepByStep   bool
+	Steps          [][]Exercise
 	StartedAt      *time.Time
 	FinishExpected *time.Time
 	FinishedAt     *time.Time
@@ -49,7 +51,7 @@ type EventConfig struct {
 
 type Lab struct {
 	Frontends []InstanceConfig
-	Exercises []Tag
+	Exercises []Exercise
 }
 
 func (e EventConfig) Validate() error {
@@ -133,7 +135,7 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 		return Event{}, err
 	}
 	for _, teamDB := range teamsDB.Teams {
-		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, dbc)
+		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, uint(teamDB.Step), dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {
 			log.Debug().Msgf("Error in getting token for team %s", team.Name())
