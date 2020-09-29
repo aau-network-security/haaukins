@@ -28,16 +28,21 @@ type Config struct {
 	Exercises []store.Exercise
 }
 
-func (conf Config) Flags() []store.FlagConfig {
-	var res []store.FlagConfig
-	for _, exercise := range conf.Exercises {
-		res = append(res, exercise.Flags()...)
+func ExerciseInfo(step [][]store.Exercise) [][]store.FlagConfig {
+	var res [][]store.FlagConfig
+	for _, s := range step {
+		var fc []store.FlagConfig
+		for _, ex := range s {
+			fc = append(fc, ex.Flags()...)
+		}
+		res = append(res, fc)
 	}
 	return res
 }
 
 type Creator interface {
 	NewLab(context.Context, bool) (Lab, error)
+	GetVboxL() vbox.Library
 }
 
 type LabHost struct {
@@ -72,6 +77,10 @@ func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
 	}
 
 	return l, nil
+}
+
+func (lh *LabHost) GetVboxL() vbox.Library {
+	return lh.Vlib
 }
 
 type Lab interface {

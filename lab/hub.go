@@ -23,6 +23,7 @@ type Hub interface {
 	Close() error
 	Suspend(context.Context) error
 	Resume(context.Context) error
+	GetCreator() Creator
 }
 
 type hub struct {
@@ -161,6 +162,10 @@ func (h *hub) Queue() <-chan Lab {
 func (h *hub) Close() error {
 	close(h.stop)
 	return nil
+}
+
+func (h *hub) GetCreator() Creator {
+	return h.creator
 }
 
 func (h *hub) Suspend(ctx context.Context) error {

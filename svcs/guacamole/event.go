@@ -6,6 +6,7 @@ package guacamole
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -87,10 +88,7 @@ type eventHost struct {
 
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
-	if err != nil {
-		return nil, err
-	}
+
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
 		return nil, err
@@ -99,13 +97,13 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	var labConf lab.Config
 	if conf.OnlyVPN {
 		labConf = lab.Config{
-			Exercises: exer,
+			Exercises: conf.Lab.Exercises,
 		}
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
 	} else {
 		labConf = lab.Config{
-			Exercises: exer,
+			Exercises: conf.Lab.Exercises,
 			Frontends: conf.Lab.Frontends,
 		}
 	}
@@ -117,22 +115,28 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	if err != nil {
 		return nil, err
 	}
-
-	return NewEvent(eh.ctx, es, hub, labConf.Flags(), reCaptchaKey)
+	return NewEvent(eh.ctx, es, hub, lab.ExerciseInfo(conf.Steps), conf.IsStepByStep, reCaptchaKey)
 }
 
 //Save the event in the DB and create the event configuration
 func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-	var exercises []string
+	var exercises [][]string
 	log.Info().Msgf("VPN Address from CreateEventFromConfig function %s ", conf.VPNAddress)
-	for _, e := range conf.Lab.Exercises {
-		exercises = append(exercises, string(e))
+	for _, s := range conf.Steps {
+		ss := make([]string, len(s))
+		for j, e := range s {
+			ss[j] = string(e.Tags[0])
+		}
+		exercises = append(exercises, ss)
 	}
+
+	steps, _ := json.Marshal(exercises)
+
 	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
 		Name:               conf.Name,
 		Tag:                string(conf.Tag),
 		Frontends:          conf.Lab.Frontends[0].Image,
-		Exercises:          strings.Join(exercises, ","),
+		Exercises:          string(steps),
 		Available:          int32(conf.Available),
 		Capacity:           int32(conf.Capacity),
 		Status:             int32(conf.Status),
@@ -198,7 +202,7 @@ type labNetInfo struct {
 	wgInterfacePort int
 }
 
-func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig, reCaptchaKey string) (Event, error) {
+func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags [][]store.FlagConfig, isStepByStep bool, reCaptchaKey string) (Event, error) {
 
 	guac, err := New(ctx, Config{}, e.OnlyVPN)
 	if err != nil {
@@ -226,7 +230,7 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	ev := &event{
 		store:         e,
 		labhub:        hub,
-		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, wgClient, amigoOpt),
+		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, wgClient, isStepByStep, amigoOpt),
 		guac:          guac,
 		ipAddrs:       makeRange(2, 254),
 		labs:          map[string]lab.Lab{},
@@ -287,17 +291,39 @@ func (ev *event) Start(ctx context.Context) error {
 		}
 	}
 
+	vboxL := ev.labhub.GetCreator().GetVboxL()
 	for _, team := range ev.store.GetTeams() {
-		lab, ok := <-ev.labhub.Queue()
-		if !ok {
-			return ErrMaxLabs
+		if ev.store.IsStepByStep {
+			labConf := lab.Config{
+				Exercises: ev.store.Steps[team.Step()],
+				Frontends: ev.store.Lab.Frontends,
+			}
+			lh := lab.LabHost{
+				Vlib: vboxL,
+				Conf: labConf,
+			}
+			labC, err := lh.NewLab(ctx, ev.store.OnlyVPN)
+			if err != nil {
+				return err
+			}
+			if err := ev.AssignLab(team, labC); err != nil {
+				fmt.Println("Issue assigning lab: ", err)
+				return err
+			}
+			if err := labC.Start(ctx); err != nil {
+				log.Error().Msgf("Error while starting lab %s", err.Error())
+				return err
+			}
+		} else {
+			labC, ok := <-ev.labhub.Queue()
+			if !ok {
+				return ErrMaxLabs
+			}
+			if err := ev.AssignLab(team, labC); err != nil {
+				fmt.Println("Issue assigning lab: ", err)
+				return err
+			}
 		}
-
-		if err := ev.AssignLab(team, lab); err != nil {
-			fmt.Println("Issue assigning lab: ", err)
-			return err
-		}
-
 	}
 
 	return nil
