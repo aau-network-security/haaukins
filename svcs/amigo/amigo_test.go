@@ -67,7 +67,7 @@ func TestVerifyFlag(t *testing.T) {
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}
-	flagValue := store.NewFlag().String(false)
+	flagValue := store.NewFlag().String()
 	tag, _ := store.NewTag(string(chal.Tag))
 	_, _ = addTeam.AddChallenge(store.Challenge{
 		Tag:   tag,
