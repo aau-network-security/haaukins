@@ -119,13 +119,10 @@ func NewFlagFromString(s string) (Flag, error) {
 	return Flag(formattedFlag), nil
 }
 
-func (f Flag) String(isStatic bool) string {
+func (f Flag) String() string {
+	// Used only in dynamic flags
 	var str string
-	if isStatic {
-		str = string(f[:])
-	} else {
-		str = string(f[4 : flagNumCharsFormat-1])
-	}
+	str = string(f[4 : flagNumCharsFormat-1])
 	i := (2 + rand.Intn(2))
 	j := (i + 2 + rand.Intn(2))
 

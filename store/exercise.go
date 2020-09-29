@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -97,16 +96,11 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 
 		for _, flag := range conf.Flags {
 			value := flag.Static
+			// static flag format in exercises file
+			//  should obey flag format HKN{*********}
 			if value == "" {
 				// flag is not static
-				value = NewFlag().String(false)
-			} else {
-				// when there is a static flag, apply following
-				f, err := NewFlagFromString(value)
-				if err != nil {
-					log.Printf("Error creating static flag %v", err)
-				}
-				value = f.String(true)
+				value = NewFlag().String()
 			}
 
 			challenges = append(challenges, Challenge{
