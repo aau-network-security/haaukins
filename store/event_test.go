@@ -52,7 +52,7 @@ func TestTeamSolveTask(t *testing.T) {
 	chal := store.Challenge{
 		Name:  "FTP",
 		Tag:   "ftp",
-		Value: store.NewFlag().String(false),
+		Value: store.NewFlag().String(),
 	}
 
 	flag, _ := team.AddChallenge(chal)
