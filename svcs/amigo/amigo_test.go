@@ -53,25 +53,29 @@ func TestVerifyFlag(t *testing.T) {
 		FinishedAt:     nil,
 	}, tmp, client)
 
-	var chal = store.FlagConfig{
-		Tag:         "test",
-		Name:        "Test Challenge",
-		EnvVar:      "",
-		Static:      "",
-		Points:      10,
-		Description: "",
-		Category:    "",
+	challenges := [][]store.FlagConfig{
+		{
+			store.FlagConfig{
+				Tag:         "test",
+				Name:        "Test Challenge",
+				EnvVar:      "",
+				Static:      "",
+				Points:      10,
+				Description: "",
+				Category:    "",
+			},
+		},
 	}
 
-	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", client)
+	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", 0, client)
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}
 	flagValue := store.NewFlag().String(false)
-	tag, _ := store.NewTag(string(chal.Tag))
+	tag, _ := store.NewTag(string(challenges[0][0].Tag))
 	_, _ = addTeam.AddChallenge(store.Challenge{
 		Tag:   tag,
-		Name:  chal.Name,
+		Name:  challenges[0][0].Name,
 		Value: flagValue,
 	})
 
@@ -108,7 +112,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "valid flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, challenges[0][0].Tag),
 		},
 		{
 			name:   "unknown flag",
@@ -119,7 +123,7 @@ func TestVerifyFlag(t *testing.T) {
 		{
 			name:   "already taken flag",
 			cookie: validCookie,
-			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
+			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, challenges[0][0].Tag),
 			err:    "Flag is already completed",
 		},
 	}
@@ -129,12 +133,9 @@ func TestVerifyFlag(t *testing.T) {
 		Status string `json:"status"`
 	}
 
-	var challenges []store.FlagConfig
-	challenges = append(challenges, chal)
-
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			am := amigo.NewAmigo(ts, challenges, "", nil, tc.opts...)
+			am := amigo.NewAmigo(ts, challenges, "", nil, false, tc.opts...)
 			srv := httptest.NewServer(am.Handler(amigo.Hooks{}, http.NewServeMux()))
 
 			req, err := http.NewRequest("POST", srv.URL+"/flags/verify", bytes.NewBuffer([]byte(tc.input)))

@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aau-network-security/haaukins/virtual/vbox"
+
 	"github.com/aau-network-security/haaukins/exercise"
 	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/google/uuid"
@@ -75,6 +77,10 @@ type testCreator struct {
 	m       sync.Mutex
 	lab     Lab
 	started int
+}
+
+func (c *testCreator) GetVboxL() vbox.Library {
+	return nil
 }
 
 func (c *testCreator) NewLab(context.Context, bool) (Lab, error) {
