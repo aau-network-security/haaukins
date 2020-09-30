@@ -542,7 +542,6 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 
 func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 
-	log.Info().Msg("Client configuration file written to wg dir")
 	if !ev.store.OnlyVPN {
 		if err := ev.createGuacConn(t, lab); err != nil {
 			log.Error().Msgf("Error on creatig guacamole connection !, err : %v", err)
@@ -572,6 +571,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			if err := writeToFile(ev.store.WireGuardConfig.Dir+string(ev.store.Tag)+"_"+t.ID()+".conf", c); err != nil {
 				log.Error().Msgf("Configuration file create error %v", err)
 			}
+			log.Info().Msg("Client configuration file written to wg dir")
 		}
 		t.SetLabInfo(labInfo.subnet)
 		t.SetVPNConn(clientConf)
