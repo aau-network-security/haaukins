@@ -9,7 +9,7 @@
                     <div class="nav nav-tabs" id="nav-tab" role="tablist">
                         <a class="nav-item nav-link active" id="nav-challenge-tab" data-toggle="tab" href="#nav-challenge" role="tab" aria-controls="nav-challenge" aria-selected="true">Challenge</a>
                         <a class="nav-item nav-link" id="nav-solves-tab" data-toggle="tab" href="#nav-solves" role="tab" aria-controls="nav-solves" aria-selected="false">{{checkTeams(teamsCompleted)}} Solves</a>
-                        <ResetChallenge :challengeTag="challenge.Tag"></ResetChallenge>
+                        <ResetChallenge v-if="!isChalCompleted" :challengeTag="challenge.Tag"></ResetChallenge>
                     </div>
                 </nav>
                 <div class="tab-content">
@@ -19,7 +19,10 @@
                         <span class="chal-desc mb-5">
                             <p>{{challenge.Description}}</p>
                         </span>
-                        <FlagChecker :challengeTag="challenge.Tag" v-on:challengeComplete="$emit('challengeCompleteReload')" class="mt-5"></FlagChecker>
+                        <div v-if="isChalCompleted" class="text-center text-success">
+                            <h3 class="py-3">Challenge Completed!</h3>
+                        </div>
+                        <FlagChecker v-else :challengeTag="challenge.Tag" :isSkipped="isChalSkipped" v-on:challengeComplete="$emit('challengeCompleteReload')" class="mt-5"></FlagChecker>
                     </div>
                     <div class="tab-pane fade" id="nav-solves" role="tabpanel" aria-labelledby="nav-solves-tab">
                         <table class="table table-striped text-center mt-4">
@@ -56,6 +59,8 @@ export default {
         props: {
             challenge: Object,
             teamsCompleted: Array,
+            isChalCompleted: Boolean,
+            isChalSkipped: Boolean,
         },
         data: function (){
             return{

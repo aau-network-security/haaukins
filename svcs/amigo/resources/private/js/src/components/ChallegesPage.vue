@@ -25,7 +25,7 @@
           </template>
         </b-carousel-slide>
       </b-carousel>
-        <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
+        <challenge-modal :isChalSkipped="this.isChalSkipped" :isChalCompleted="this.isChalCompleted" :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
     </div>
 </template>
 
@@ -41,6 +41,8 @@
                 teamsCompleted: [], //passed to the modal
                 challengesFromAmigo: [], //they keys are the categories, each category has a list of challenges
                 currentStep: 1,
+                isChalCompleted: false,
+                isChalSkipped: false,
             }
         },
         created: function() {
@@ -72,6 +74,8 @@
             },
             openModal: function (obj) {
                 this.chalInfo = obj.challenge;
+                this.isChalCompleted = obj.isUserCompleted;
+                this.isChalSkipped = obj.isUserSkipped;
                 this.teamsCompleted = obj.teamsCompleted;
                 this.$bvModal.show('challengeModal')
             },

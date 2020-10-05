@@ -1,20 +1,30 @@
 <template>
     <div class="flag-form">
-        <form @submit.prevent="submit">
-          <span style="color: #444;">Flag</span>
-          <div class="input-div" style="margin-top: 0px !important;">
-              <div class="input-div-icon" v-bind:class="{ 'text-success': successMsg, 'text-danger': errorMsg }">
-                  <i class="fa fa-flag"></i>
-              </div>
-              <div class="input-div-input">
-                    <input class="input" type="text" @keydown="clearMessages" @click="clearMessages" v-model="flag" placeholder="HKN{**********}">
+        <form>
+            <span style="color: #444;">Flag</span>
+            <div class="input-div" style="margin-top: 0px !important;">
+                <div class="input-div-icon" v-bind:class="{ 'text-success': successMsg, 'text-danger': errorMsg }">
+                    <i class="fa fa-flag"></i>
                 </div>
+                <div class="input-div-input">
+                      <input class="input" type="text" @keydown="clearMessages" @click="clearMessages" v-model="flag" placeholder="HKN{**********}">
+                  </div>
             </div>
             <div class="text-center">
                 <p v-if="errorMsg" class="text-danger">{{ errorMsg }}</p>
                 <p v-if="successMsg" class="text-success">{{ successMsg }}</p>
             </div>
-            <input type="submit" class="btn btn-login" value="Submit">
+            <div class="row">
+                <div class="col-md-6 col-12">
+                    <input v-on:click="submitFlag" class="btn btn-haaukins" value="Verify" style="width: 100%">
+                </div>
+                <div v-if="!isSkipped" class="col-md-6 mt-md-0 col-12 mt-2">
+                    <input v-on:click="SkipResumeChallenge" class="btn btn-login" value="Skip Challenge" style="width: 100%">
+                </div>
+                <div v-else class="col-md-6 mt-md-0 col-12 mt-2">
+                  <input v-on:click="SkipResumeChallenge" class="btn btn-success" value="Resume Challenge" style="width: 100%">
+                </div>
+            </div>
         </form>
     </div>
 
@@ -25,7 +35,8 @@
     export default {
         name: 'FlagChecker',
         props: {
-            challengeTag: String
+            challengeTag: String,
+            isSkipped: Boolean
         },
         data: () => {
             return {
@@ -59,7 +70,7 @@
                 this.errorMsg = '';
                 this.successMsg = '';
             },
-            submit: async function() {
+            submitFlag: async function() {
                 const opts = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -80,6 +91,30 @@
                     setTimeout(function () {
                         that.$bvModal.hide('challengeModal')
                         that.$emit('challengeComplete')
+                    }, 800);
+                }
+            },
+            SkipResumeChallenge: async function() {
+                const opts = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tag: this.challengeTag, manage: this.isSkipped})
+                };
+                const res = await fetch('/challenge/manage', opts).
+                then(res => res.json());
+
+                if (res.error !== undefined) {
+                    this.errorMsg = res.error;
+                    return
+                }
+
+                if (res.status === "ok") {
+                    let that = this;
+                    this.successMsg = "Challenges Skipped";
+                    this.flag = '';
+                    setTimeout(function () {
+                      that.$bvModal.hide('challengeModal')
+                      that.$emit('challengeComplete')
                     }, 800);
                 }
             }
