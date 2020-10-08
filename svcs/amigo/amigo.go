@@ -579,8 +579,7 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 			return
 		}
 
-		chalTag := getParentChallengeTag(msg.Tag)
-		err = resetHook(team, chalTag)
+		err = resetHook(team, msg.Tag)
 		if err != nil {
 			replyJsonRequestErr(w, err)
 			return

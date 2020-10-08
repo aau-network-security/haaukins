@@ -25,7 +25,7 @@ var (
 
 type Config struct {
 	Frontends []store.InstanceConfig
-	Exercises []store.Exercise
+	Exercises [][]store.Exercise
 }
 
 func ExerciseInfo(step [][]store.Exercise) [][]store.FlagConfig {
@@ -42,7 +42,6 @@ func ExerciseInfo(step [][]store.Exercise) [][]store.FlagConfig {
 
 type Creator interface {
 	NewLab(context.Context, bool) (Lab, error)
-	GetVboxL() vbox.Library
 }
 
 type LabHost struct {
@@ -79,16 +78,12 @@ func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
 	return l, nil
 }
 
-func (lh *LabHost) GetVboxL() vbox.Library {
-	return lh.Vlib
-}
-
 type Lab interface {
 	Start(context.Context) error
 	Stop() error
-	Restart(context.Context) error
-	Suspend(context.Context) error
-	Resume(context.Context) error
+	Restart(context.Context) error //todo change it according the challenges running
+	Suspend(context.Context) error //this
+	Resume(context.Context) error  //this
 	Environment() exercise.Environment
 	ResetFrontends(ctx context.Context) error
 	RdpConnPorts() []uint

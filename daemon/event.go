@@ -168,7 +168,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			FinishExpected: &finishTime,
 			Lab: store.Lab{
 				Frontends: d.frontends.GetFrontends(req.Frontends...),
-				Exercises: steps[0],
+				Exercises: steps,
 			},
 			Status:     Running,
 			CreatedBy:  user.Username,
@@ -559,7 +559,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		IsStepByStep: isStepByStep,
 		Lab: store.Lab{
 			Frontends: instanceConfig,
-			Exercises: steps[0],
+			Exercises: steps,
 		},
 		StartedAt:      &requestedStartTime,
 		FinishExpected: &requestedFinishTime,

@@ -226,6 +226,7 @@ type Team struct {
 	lastAccess    time.Time
 	challenges    map[Flag]TeamChallenge
 	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
+	skippedChals  []string        //json got from the DB containing list of solved Challenges
 	vpnKeys       map[int]string
 	vpnConf       []string
 	labSubnet     string
@@ -238,7 +239,7 @@ type TeamChallenge struct {
 	CompletedAt *time.Time
 }
 
-func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, stepTracker uint, dbc pbc.StoreClient) *Team {
+func NewTeam(email, name, password, id, hashedPass, solvedChalsDB, skippedChalsDB string, stepTracker uint, dbc pbc.StoreClient) *Team {
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -256,6 +257,11 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, stepTr
 		log.Debug().Msgf(err.Error())
 	}
 
+	var skippedChals []string
+	if err := json.Unmarshal([]byte(skippedChalsDB), &skippedChals); err != nil {
+		log.Debug().Msgf("Error parsing skipped challenges: %s", err.Error())
+	}
+
 	return &Team{
 		dbc:            dbc,
 		id:             id,
@@ -267,6 +273,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, stepTr
 		vpnKeys:        map[int]string{},
 		isLabAssigned:  false,
 		stepTracker:    stepTracker,
+		skippedChals:   skippedChals,
 	}
 }
 
@@ -300,16 +307,61 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 	return solvedChallenges, nil
 }
 
-func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
+func (t *Team) IsTeamSolvedChallenge(tag Tag) *time.Time {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	chals := t.challenges
 	for _, chal := range chals {
-		if chal.Tag == Tag(tag) {
+		if chal.Tag == tag {
 			if chal.CompletedAt != nil {
 				return chal.CompletedAt
 			}
 		}
 	}
 	return nil
+}
+
+func (t *Team) IsTeamSkippedChallenge(tag string) bool {
+	t.m.RLock()
+	defer t.m.RUnlock()
+	for _, chal := range t.skippedChals {
+		if chal == tag {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Team) SkipChallenge(tag string, isSkip bool) error {
+	t.m.Lock()
+	defer t.m.Unlock()
+	ii := 0
+	for i, chal := range t.skippedChals {
+		if chal == tag {
+			ii = i
+			break
+		}
+	}
+	//mean that the challenge is not in the list
+	//so i ll add the challenge to
+	if !isSkip {
+		t.skippedChals = append(t.skippedChals, tag)
+	} else {
+		// Remove the element at index ii from skippedChals.
+		t.skippedChals[ii] = t.skippedChals[len(t.skippedChals)-1] // Copy last element to index ii.
+		t.skippedChals[len(t.skippedChals)-1] = ""                 // Erase last element (write zero value).
+		t.skippedChals = t.skippedChals[:len(t.skippedChals)-1]    // Truncate slice.
+	}
+	skippedChals, err := json.Marshal(t.skippedChals)
+	if err != nil {
+		return err
+	}
+
+	_, err = t.dbc.UpdateTeamSkippedChallenge(context.Background(), &pbc.UpdateTeamSkippedChallengeRequest{
+		TeamId:       t.id,
+		SkippedChals: string(skippedChals),
+	})
+	return err
 }
 
 // will be taken from amigo side
@@ -507,10 +559,24 @@ func (t *Team) CorrectedAssignedLab() {
 	t.isLabAssigned = true
 }
 
-func (t *Team) Step() uint {
+func (t *Team) CurrentStep() uint {
 	t.m.RLock()
 	defer t.m.RUnlock()
 	return t.stepTracker
+}
+
+func (t *Team) AddStep() error {
+	t.m.Lock()
+	defer t.m.Unlock()
+	t.stepTracker++
+	_, err := t.dbc.UpdateTeamStepTracker(context.Background(), &pbc.UpdateTeamStepTrackerRequest{
+		TeamId: t.id,
+		Step:   int32(t.stepTracker),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //Not used anywhere

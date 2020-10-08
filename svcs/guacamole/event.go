@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/aau-network-security/haaukins/virtual"
 
@@ -291,39 +292,21 @@ func (ev *event) Start(ctx context.Context) error {
 		}
 	}
 
-	vboxL := ev.labhub.GetCreator().GetVboxL()
 	for _, team := range ev.store.GetTeams() {
-		if ev.store.IsStepByStep {
-			labConf := lab.Config{
-				Exercises: ev.store.Steps[team.Step()],
-				Frontends: ev.store.Lab.Frontends,
-			}
-			lh := lab.LabHost{
-				Vlib: vboxL,
-				Conf: labConf,
-			}
-			labC, err := lh.NewLab(ctx, ev.store.OnlyVPN)
-			if err != nil {
-				return err
-			}
-			if err := ev.AssignLab(team, labC); err != nil {
-				fmt.Println("Issue assigning lab: ", err)
-				return err
-			}
-			if err := labC.Start(ctx); err != nil {
-				log.Error().Msgf("Error while starting lab %s", err.Error())
-				return err
-			}
-		} else {
-			labC, ok := <-ev.labhub.Queue()
-			if !ok {
-				return ErrMaxLabs
-			}
-			if err := ev.AssignLab(team, labC); err != nil {
-				fmt.Println("Issue assigning lab: ", err)
-				return err
-			}
+
+		labC, ok := <-ev.labhub.Queue()
+		if !ok {
+			return ErrMaxLabs
 		}
+		if err := ev.AssignLab(team, labC); err != nil {
+			fmt.Println("Issue assigning lab: ", err)
+			return err
+		}
+		if err := labC.Environment().StartExercises(context.Background(), ev.store.Steps[team.CurrentStep()]); err != nil {
+			fmt.Println("Issue starting exercises: ", err)
+			return err
+		}
+
 	}
 
 	return nil
@@ -623,6 +606,15 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 
 func (ev *event) Handler() http.Handler {
 
+	getParentChallengeTag := func(chal string) string {
+		for _, c := range chal {
+			if unicode.IsDigit(c) {
+				return chal[:len(chal)-2]
+			}
+		}
+		return chal
+	}
+
 	reghook := func(t *store.Team) error {
 		select {
 		case l, ok := <-ev.labhub.Queue():
@@ -630,6 +622,9 @@ func (ev *event) Handler() http.Handler {
 				return ErrMaxLabs
 			}
 			if err := ev.AssignLab(t, l); err != nil {
+				return err
+			}
+			if err := l.Environment().StartExercises(context.Background(), ev.store.Steps[0]); err != nil {
 				return err
 			}
 		default:
@@ -645,7 +640,13 @@ func (ev *event) Handler() http.Handler {
 		if !ok {
 			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
 		}
-		if err := teamLab.Environment().ResetByTag(context.Background(), challengeTag); err != nil {
+		//todo make a check to dont reset the challenge when its skipped
+		if t.IsTeamSkippedChallenge(challengeTag) {
+			return nil
+		}
+		fmt.Println(challengeTag, getParentChallengeTag(challengeTag))
+		if err := teamLab.Environment().ResetByTag(context.Background(), getParentChallengeTag(challengeTag)); err != nil {
+			fmt.Println(err)
 			return fmt.Errorf("Reset challenge hook error %v", err)
 		}
 		return nil
@@ -653,14 +654,14 @@ func (ev *event) Handler() http.Handler {
 	// resume labs in login of amigo
 	resumeTeamLab := func(t *store.Team) error {
 
-		lab, ok := ev.GetLabByTeam(t.ID())
+		labb, ok := ev.GetLabByTeam(t.ID())
 		if !ok {
 			return errors.New("Lab could not found for given team, error on loginhook")
 		}
 		go func() {
-			for _, instance := range lab.InstanceInfo() {
+			for _, instance := range labb.InstanceInfo() {
 				if instance.State == virtual.Suspended {
-					if err := lab.Resume(context.Background()); err != nil {
+					if err := labb.Resume(context.Background()); err != nil {
 						log.Error().Msgf("Error on lab resume %v", err)
 						return
 					}
@@ -681,7 +682,105 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
-	hooks := amigo.Hooks{AssignLab: reghook, ResetExercise: resetHook, ResetFrontend: resetFrontendHook, ResumeTeamLab: resumeTeamLab}
+	//Check if the team should move to the next stage
+	isEligibleForNextStep := func(t *store.Team) bool {
+
+		var stepChallenges []store.Tag
+		for _, s := range ev.store.Steps[t.CurrentStep()] {
+			for _, c := range s.Flags() {
+				stepChallenges = append(stepChallenges, c.Tag)
+			}
+		}
+
+		count := 0
+		for _, sc := range stepChallenges {
+			if t.IsTeamSkippedChallenge(string(sc)) {
+				count++
+			}
+			if t.IsTeamSolvedChallenge(sc) != nil {
+				count++
+			}
+		}
+		return count == len(stepChallenges)
+	}
+
+	changeStep := func(t *store.Team) error {
+		//Check if the team reached the last step
+		if int(t.CurrentStep()+1) == len(ev.store.Steps) {
+			return nil
+		}
+		//Check if the team is able to move to next step
+		if !isEligibleForNextStep(t) {
+			return nil
+		}
+
+		ctx := context.Background()
+		teamLab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+		}
+
+		err := teamLab.Environment().StopExercises(ev.store.Steps[t.CurrentStep()])
+		if err != nil {
+			return fmt.Errorf("Error removing challenges from environment: %s", t.ID())
+		}
+
+		err = teamLab.Environment().StartExercises(ctx, ev.store.Steps[t.CurrentStep()+1])
+		if err != nil {
+			return fmt.Errorf("Error starting challenges from environment: %s", t.ID())
+		}
+
+		if err := t.AddStep(); err != nil {
+			return err
+		}
+		return fmt.Errorf("wait")
+	}
+
+	skipChal := func(t *store.Team, challengeTag string, isSkipped bool) error {
+
+		if err := t.SkipChallenge(challengeTag, isSkipped); err != nil {
+			return err
+		}
+		//Resume the challenge
+		if isSkipped {
+			ctx := context.Background()
+			teamLab, ok := ev.GetLabByTeam(t.ID())
+			if !ok {
+				return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+			}
+
+			//get the parent challenge
+			parentChalTag := getParentChallengeTag(challengeTag)
+
+			status := teamLab.Environment().StatusExercise(store.Tag(parentChalTag))
+			if status != nil {
+				//check if the challenge is running
+				if int(status[0].State) == 0 {
+					return nil
+				}
+			}
+
+			chalTag := store.Tag(parentChalTag)
+			err := teamLab.Environment().StartExercises(ctx, []store.Exercise{
+				{Tags: []store.Tag{chalTag}},
+			})
+			if err != nil {
+				return fmt.Errorf("Error starting challenges from environment: %s", t.ID())
+			}
+			return nil
+		}
+
+		return changeStep(t)
+	}
+
+	hooks := amigo.Hooks{
+		AssignLab:      reghook,
+		ResetExercise:  resetHook,
+		ResetFrontend:  resetFrontendHook,
+		ResumeTeamLab:  resumeTeamLab,
+		ChangeStep:     changeStep,
+		SkipResumeChal: skipChal,
+	}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)
 
