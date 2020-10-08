@@ -43,10 +43,10 @@ func (dockerHost) CreateContainer(ctx context.Context, conf docker.ContainerConf
 type exercise struct {
 	containerOpts []store.ContainerOptions
 	vboxOpts      []store.ExerciseInstanceConfig
-
-	dhost DockerHost
-	vlib  vbox.Library
-	net   docker.Network
+	tag           store.Tag
+	dhost         DockerHost
+	vlib          vbox.Library
+	net           docker.Network
 
 	dnsAddr    string
 	dnsRecords []store.RecordConfig
@@ -66,11 +66,11 @@ func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net d
 	return &exercise{
 		containerOpts: containerOpts,
 		vboxOpts:      vboxOpts,
-
-		dhost:   dhost,
-		vlib:    vlib,
-		net:     net,
-		dnsAddr: dnsAddr,
+		tag:           conf.Tags[0],
+		dhost:         dhost,
+		vlib:          vlib,
+		net:           net,
+		dnsAddr:       dnsAddr,
 	}
 }
 

@@ -20,7 +20,7 @@ import (
 
 type Environment interface {
 	Create(context.Context, bool) error
-	Add(context.Context, ...store.Exercise) error
+	Add(context.Context, ...[]store.Exercise) error
 	ResetByTag(context.Context, string) error
 	NetworkInterface() string
 	LabSubnet() string
@@ -28,6 +28,9 @@ type Environment interface {
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
+	StartExercises(context.Context, []store.Exercise) error
+	StopExercises([]store.Exercise) error
+	StatusExercise(store.Tag) []virtual.InstanceInfo
 	Stop() error
 	Suspend(ctx context.Context) error
 	Resume(ctx context.Context) error
@@ -65,30 +68,44 @@ func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 	return nil
 }
 
-func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
-	for _, conf := range confs {
-		if len(conf.Tags) == 0 {
-			return MissingTagsErr
-		}
+func (ee *environment) Add(ctx context.Context, confs ...[]store.Exercise) error {
+	for _, step := range confs {
+		for _, conf := range step {
+			if len(conf.Tags) == 0 {
+				return MissingTagsErr
+			}
 
-		for _, t := range conf.Tags {
-			if _, ok := ee.tags[t]; ok {
-				return DuplicateTagErr
+			for _, t := range conf.Tags {
+				if _, ok := ee.tags[t]; ok {
+					return DuplicateTagErr
+				}
+			}
+
+			e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
+			if err := e.Create(ctx); err != nil {
+				return err
+			}
+
+			for _, t := range conf.Tags {
+				ee.tags[t] = e
+			}
+
+			ee.exercises = append(ee.exercises, e)
+		}
+	}
+	return nil
+}
+
+func (ee *environment) StopExercises(exercises []store.Exercise) error {
+	for _, ex := range ee.exercises {
+		for _, t := range exercises {
+			if t.Tags[0] == ex.tag {
+				if err := ex.Stop(); err != nil {
+					return err
+				}
 			}
 		}
-
-		e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
-		if err := e.Create(ctx); err != nil {
-			return err
-		}
-
-		for _, t := range conf.Tags {
-			ee.tags[t] = e
-		}
-
-		ee.exercises = append(ee.exercises, e)
 	}
-
 	return nil
 }
 
@@ -124,19 +141,26 @@ func (ee *environment) Start(ctx context.Context) error {
 		return err
 	}
 
+	return nil
+}
+
+func (ee *environment) StartExercises(ctx context.Context, exercises []store.Exercise) error {
 	var res error
 	var wg sync.WaitGroup
 	for _, ex := range ee.exercises {
-		wg.Add(1)
-		go func(e *exercise) {
-			if err := e.Start(ctx); err != nil && res == nil {
-				res = err
+		for _, t := range exercises {
+			if t.Tags[0] == ex.tag {
+				wg.Add(1)
+				go func(e *exercise) {
+					if err := e.Start(ctx); err != nil && res == nil {
+						res = err
+					}
+					wg.Done()
+				}(ex)
 			}
-			wg.Done()
-		}(ex)
+		}
 	}
 	wg.Wait()
-
 	return res
 }
 
@@ -248,6 +272,15 @@ func (ee *environment) InstanceInfo() []virtual.InstanceInfo {
 		instances = append(instances, e.InstanceInfo()...)
 	}
 	return instances
+}
+
+func (ee *environment) StatusExercise(exercise store.Tag) []virtual.InstanceInfo {
+	for _, e := range ee.exercises {
+		if e.tag == exercise {
+			return e.InstanceInfo()
+		}
+	}
+	return nil
 }
 
 func (ee *environment) refreshDNS(ctx context.Context) error {
