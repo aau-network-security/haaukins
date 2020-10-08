@@ -20,6 +20,7 @@ service Store {
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
     rpc UpdateTeamStepTracker (UpdateTeamStepTrackerRequest) returns (UpdateResponse) {}
+    rpc UpdateTeamSkippedChallenge (UpdateTeamSkippedChallengeRequest) returns (UpdateResponse) {}
 }
 
 message EmptyRequest {}
@@ -135,7 +136,8 @@ message GetEventTeamsResponse{
         string createdAt = 5;
         string lastAccess = 6;
         string solvedChallenges = 7;
-        int32 step = 8;
+        string skippedChallenges = 8;
+        int32 step = 9;
     }
     repeated Teams teams = 1;
     string errorMessage = 2;
@@ -164,5 +166,11 @@ message UpdateResponse{
 }
 
 message UpdateTeamStepTrackerRequest{
-    int32 step = 1;
+    string teamId = 1;
+    int32 step = 2;
+}
+
+message UpdateTeamSkippedChallengeRequest{
+    string teamId = 1;
+    string skippedChals = 2;
 }
