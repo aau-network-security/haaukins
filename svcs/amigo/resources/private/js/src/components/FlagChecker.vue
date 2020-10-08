@@ -7,22 +7,26 @@
                     <i class="fa fa-flag"></i>
                 </div>
                 <div class="input-div-input">
-                      <input class="input" type="text" @keydown="clearMessages" @click="clearMessages" v-model="flag" placeholder="HKN{**********}">
-                  </div>
+                    <input class="input" type="text" :disabled="loading" @keydown="clearMessages" @click="clearMessages" v-model="flag" placeholder="HKN{**********}">
+                </div>
             </div>
             <div class="text-center">
                 <p v-if="errorMsg" class="text-danger">{{ errorMsg }}</p>
                 <p v-if="successMsg" class="text-success">{{ successMsg }}</p>
+                <p v-if="loading">
+                  <span class="spinner-border" role="status" aria-hidden="true"></span>
+                  <span class="pl-2">Loading next Step ...</span>
+                </p>
             </div>
             <div class="row">
                 <div class="col-md-6 col-12">
-                    <input v-on:click="submitFlag" class="btn btn-haaukins" value="Verify" style="width: 100%">
+                  <button v-on:click="submitFlag" class="btn btn-haaukins" type="button" style="width: 100%" :disabled="loading">Verify Flag</button>
                 </div>
                 <div v-if="!isSkipped" class="col-md-6 mt-md-0 col-12 mt-2">
-                    <input v-on:click="SkipResumeChallenge" class="btn btn-login" value="Skip Challenge" style="width: 100%">
+                  <button v-on:click="SkipResumeChallenge" class="btn btn-login" type="button" style="width: 100%" :disabled="loading">Skip Challenge</button>
                 </div>
                 <div v-else class="col-md-6 mt-md-0 col-12 mt-2">
-                  <input v-on:click="SkipResumeChallenge" class="btn btn-success" value="Resume Challenge" style="width: 100%">
+                  <button v-on:click="SkipResumeChallenge" class="btn btn-success" type="button" style="width: 100%" :disabled="loading">Resume Challenge</button>
                 </div>
             </div>
         </form>
@@ -45,6 +49,7 @@
                 flag: '',
                 errorMsg: '',
                 successMsg: '',
+                loading: false,
             }
         },
         mounted() {
@@ -71,6 +76,7 @@
                 this.successMsg = '';
             },
             submitFlag: async function() {
+                this.loading = true
                 const opts = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -79,23 +85,12 @@
                 const res = await fetch('/flags/verify', opts).
                 then(res => res.json());
 
-                if (res.error !== undefined) {
-                    this.errorMsg = res.error;
-                    return
-                }
+                this.manageResponse(res, "You found a flag!")
 
-                if (res.status === "ok") {
-                    let that = this;
-                    this.successMsg = "You found a flag!";
-                    this.flag = '';
-                    setTimeout(function () {
-                        that.$bvModal.hide('challengeModal')
-                        that.$emit('challengeComplete')
-                    }, 800);
-                }
             },
             SkipResumeChallenge: async function() {
-                const opts = {
+              this.loading = true
+              const opts = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tag: this.challengeTag, manage: this.isSkipped})
@@ -103,21 +98,31 @@
                 const res = await fetch('/challenge/manage', opts).
                 then(res => res.json());
 
-                if (res.error !== undefined) {
-                    this.errorMsg = res.error;
-                    return
-                }
+                this.manageResponse(res, "Challenges Status Changed")
+            },
+          manageResponse: function (res, output){
 
-                if (res.status === "ok") {
-                    let that = this;
-                    this.successMsg = "Challenges Skipped";
-                    this.flag = '';
-                    setTimeout(function () {
-                      that.$bvModal.hide('challengeModal')
-                      that.$emit('challengeComplete')
-                    }, 800);
-                }
+            this.loading = false;
+            this.flag = '';
+            let that = this;
+
+            if (res.error !== undefined) {
+              this.errorMsg = res.error;
+              return
             }
+
+            this.successMsg = output;
+            setTimeout(function () {
+              that.$bvModal.hide('challengeModal')
+              that.$emit('challengeComplete')
+            }, 800);
+
+            if (res.status === "wait") {
+              this.successMsg = output;
+              that.$emit('stepCompleted')
+            }
+
+          }
         }
     }
 </script>

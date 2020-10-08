@@ -22,7 +22,14 @@
                         <div v-if="isChalCompleted" class="text-center text-success">
                             <h3 class="py-3">Challenge Completed!</h3>
                         </div>
-                        <FlagChecker v-else :challengeTag="challenge.Tag" :isSkipped="isChalSkipped" v-on:challengeComplete="$emit('challengeCompleteReload')" class="mt-5"></FlagChecker>
+                        <FlagChecker
+                            v-else
+                            :challengeTag="challenge.Tag"
+                            :isSkipped="isChalSkipped"
+                            v-on:challengeComplete="$emit('challengeCompleteReload')"
+                            v-on:stepCompleted="$emit('stepCompletedNext')"
+                            class="mt-5"
+                        ></FlagChecker>
                     </div>
                     <div class="tab-pane fade" id="nav-solves" role="tabpanel" aria-labelledby="nav-solves-tab">
                         <table class="table table-striped text-center mt-4">

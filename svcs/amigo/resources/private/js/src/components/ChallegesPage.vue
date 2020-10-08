@@ -15,7 +15,7 @@
                   <h3>{{category[0].challenge.Category}}</h3>
                 </div>
                 <div class="col-lg-3 col-md-4" v-for="el in category" v-bind:key="el.challenge.Tag">
-                  <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted}">
+                  <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted, 'btn-login': el.isUserSkipped}">
                     <p class="chal-name-font">{{el.challenge.Name}}</p>
                     <span>{{el.challenge.Points}}</span>
                   </button>
@@ -25,7 +25,14 @@
           </template>
         </b-carousel-slide>
       </b-carousel>
-        <challenge-modal :isChalSkipped="this.isChalSkipped" :isChalCompleted="this.isChalCompleted" :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
+      <challenge-modal
+          :isChalSkipped="this.isChalSkipped"
+          :isChalCompleted="this.isChalCompleted"
+          :challenge="this.chalInfo"
+          :teamsCompleted="this.teamsCompleted"
+          v-on:challengeCompleteReload="challengeCompleteReload"
+          v-on:stepCompletedNext="$refs.stepsCarousel.next()"
+      ></challenge-modal>
     </div>
 </template>
 
