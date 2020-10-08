@@ -117,10 +117,12 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 }
 
 type Hooks struct {
-	AssignLab     func(t *store.Team) error
-	ResetExercise func(t *store.Team, challengeTag string) error
-	ResetFrontend func(t *store.Team) error
-	ResumeTeamLab func(t *store.Team) error
+	AssignLab      func(t *store.Team) error
+	ResetExercise  func(t *store.Team, challengeTag string) error
+	ResetFrontend  func(t *store.Team) error
+	ResumeTeamLab  func(t *store.Team) error
+	ChangeStep     func(t *store.Team) error
+	SkipResumeChal func(t *store.Team, challengeTag string, isSkip bool) error
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
@@ -138,7 +140,8 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
-	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+	m.HandleFunc("/flags/verify", am.handleFlagVerify(hooks.ChangeStep))
+	m.HandleFunc("/challenge/manage", am.handleManageSkippedChallenge(hooks.SkipResumeChal))
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.HandleFunc("/vpn/status", am.handleVPNStatus())
@@ -365,7 +368,7 @@ func (am *Amigo) handleScoreBoard() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleFlagVerify() http.HandlerFunc {
+func (am *Amigo) handleFlagVerify(changeStep func(t *store.Team) error) http.HandlerFunc {
 	type verifyFlagMsg struct {
 		Tag  string `json:"tag"`
 		Flag string `json:"flag"`
@@ -396,6 +399,16 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 
 		tag := store.Tag(msg.Tag)
 		if err := team.VerifyFlag(store.Challenge{Tag: tag}, flag); err != nil {
+			replyJson(http.StatusOK, w, errReply{err.Error()})
+			return
+		}
+
+		err = changeStep(team)
+		if err != nil {
+			if err.Error() == "wait" {
+				replyJson(http.StatusOK, w, replyMsg{"wait"})
+				return
+			}
 			replyJson(http.StatusOK, w, errReply{err.Error()})
 			return
 		}
@@ -515,7 +528,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			}
 		}
 
-		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", 0, nil)
+		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", "", 0, nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -569,6 +582,49 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 		chalTag := getParentChallengeTag(msg.Tag)
 		err = resetHook(team, chalTag)
 		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+func (am *Amigo) handleManageSkippedChallenge(skipResumeHook func(t *store.Team, challengeTag string, isSkip bool) error) http.HandlerFunc {
+
+	type skipChallenge struct {
+		Tag    string `json:"tag"`
+		IsSkip bool   `json:"manage"`
+	}
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		var msg skipChallenge
+		if err := safeReadJson(w, r, &msg, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		if err := skipResumeHook(team, msg.Tag, msg.IsSkip); err != nil {
+			if err.Error() == "wait" {
+				replyJson(http.StatusOK, w, replyMsg{"wait"})
+				return
+			}
 			replyJsonRequestErr(w, err)
 			return
 		}

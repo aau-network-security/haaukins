@@ -123,7 +123,7 @@ func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
 	var totalPoints uint = 0
 	for _, cc := range chalCategories {
 		for _, c := range cc.Challenges {
-			solved := t.IsTeamSolvedChallenge(c.Tag)
+			solved := t.IsTeamSolvedChallenge(store.Tag(c.Tag))
 			completions = append(completions, solved)
 			points = append(points, c.Points)
 			if solved != nil {
@@ -152,6 +152,7 @@ type Step struct {
 type ChallengeCP struct {
 	ChalInfo        store.FlagConfig `json:"challenge"`
 	IsUserCompleted bool             `json:"isUserCompleted"`
+	IsUserSkipped   bool             `json:"isUserSkipped"`
 	TeamsCompleted  []TeamsCompleted `json:"teamsCompleted"`
 }
 
@@ -177,7 +178,7 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 
 			//check which teams has solve a specif challenge
 			for _, t := range teams {
-				solved := t.IsTeamSolvedChallenge(string(c.Tag))
+				solved := t.IsTeamSolvedChallenge(c.Tag)
 				if solved != nil {
 					r.TeamsCompleted = append(r.TeamsCompleted, TeamsCompleted{
 						TeamName:    t.Name(),
@@ -186,16 +187,16 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 				}
 			}
 
-			//check which challenge the user looged in has solved
-			if err == nil {
-				if team.IsTeamSolvedChallenge(string(c.Tag)) != nil {
-					r.IsUserCompleted = true
-				}
+			if team.IsTeamSolvedChallenge(c.Tag) != nil {
+				r.IsUserCompleted = true
+			}
+			if team.IsTeamSkippedChallenge(string(c.Tag)) {
+				r.IsUserSkipped = true
 			}
 			rows[i] = r
 		}
 		IsSolved := false
-		if int(team.Step()) >= j {
+		if int(team.CurrentStep()) >= j {
 			IsSolved = true
 		}
 		rowsStep[j] = Step{
