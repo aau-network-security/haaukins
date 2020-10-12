@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/aau-network-security/haaukins/virtual"
@@ -104,33 +105,42 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 // then suspend their resources if lastAccessTime is higher than INACTIVITY_DURATION
 func (d *daemon) suspendTeams() error {
 	var suspendError error
+	var wg sync.WaitGroup
 	log.Info().Msg("Suspend teams called ! ")
 	events := d.eventPool.GetAllEvents()
-	now := time.Now()
+	now := time.Now().UTC()
 
 	for _, e := range events {
-		for _, t := range e.GetTeams() {
-			if !t.LastAccessTime().IsZero() {
-				difference := math.Round(now.Sub(t.LastAccessTime()).Hours()) // get in rounded format in hours
-				if difference > INACTIVITY_DURATION {
-					lab, ok := e.GetLabByTeam(t.ID())
-					if !ok {
-						return UnknownTeamErr
-					}
-					// check if it is already suspended or not.
-					for _, instanceInfo := range lab.InstanceInfo() {
-						if instanceInfo.State != virtual.Suspended {
-							go func() {
+		wg.Add(len(e.GetTeams()))
+		go func() {
+			for _, t := range e.GetTeams() {
+				log.Info().Msgf("Team from e.GetTeams %s", t.Name())
+				if !t.LastAccessTime().UTC().IsZero() {
+					difference := math.Round(now.Sub(t.LastAccessTime().UTC()).Minutes()) // get in rounded format in hours
+					if difference > INACTIVITY_DURATION {
+						lab, ok := e.GetLabByTeam(t.ID())
+						if !ok {
+							suspendError = UnknownTeamErr
+						}
+						log.Info().Msgf("Suspending resources for team %s", t.Name())
+						// check if it is already suspended or not.
+						for _, instanceInfo := range lab.InstanceInfo() {
+							if instanceInfo.State != virtual.Suspended {
 								if err := lab.Suspend(context.Background()); err != nil {
 									suspendError = err
 								}
-							}()
+							}
 						}
-						return suspendError
 					}
 				}
 			}
+			wg.Wait()
+		}()
+
+		if suspendError != nil {
+			return suspendError
 		}
+
 	}
 	return nil
 }
