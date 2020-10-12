@@ -237,7 +237,7 @@ type TeamChallenge struct {
 	CompletedAt *time.Time
 }
 
-func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pbc.StoreClient) *Team {
+func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, lastAccessedT time.Time, dbc pbc.StoreClient) *Team {
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -263,6 +263,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, dbc pb
 		hashedPassword: string(hPass),
 		challenges:     map[Flag]TeamChallenge{},
 		solvedChalsDB:  solvedChals,
+		lastAccess:     lastAccessedT,
 		vpnKeys:        map[int]string{},
 		isLabAssigned:  false,
 	}
