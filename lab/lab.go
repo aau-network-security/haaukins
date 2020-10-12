@@ -270,8 +270,10 @@ func (l *lab) Suspend(ctx context.Context) error {
 	}
 
 	for _, fconf := range l.frontends {
-		if err := fconf.vm.Suspend(ctx); err != nil {
-			return err
+		if fconf.vm.Info().State == virtual.Running {
+			if err := fconf.vm.Suspend(ctx); err != nil {
+				return err
+			}
 		}
 	}
 
