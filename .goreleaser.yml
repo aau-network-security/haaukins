@@ -168,11 +168,14 @@ checksum:
   algorithm: sha256
 
 brews:
-  - tap:
+  - 
+    ids: 
+      - hkn
+    tap:
       owner: aau-network-security
       name: homebrew-haaukins
     folder: Formula
-    homepage: https://github.com/aau-network-security/haaukins/tree/master/client
+    homepage: https://github.com/aau-network-security/haaukins/
     description: Haaukins CLI
     install: |
       bin.install "hkn"
