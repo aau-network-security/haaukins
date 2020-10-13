@@ -102,7 +102,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	return nil
 }
 
-func suspendTeam(ch chan guacamole.Event, wg *sync.WaitGroup) error {
+func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) error {
 	now := time.Now().UTC()
 	var suspendError error
 	defer wg.Done()
@@ -146,7 +146,7 @@ func (d *daemon) suspendTeams() error {
 	for _, ev := range events {
 		go processEvent(ev, ch)
 		wg.Add(1)
-		go suspendTeam(ch, &wg)
+		go checkTeamLab(ch, &wg)
 	}
 	wg.Wait()
 	return nil
