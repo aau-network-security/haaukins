@@ -1,16 +1,21 @@
 package amigo
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
 	"unicode"
+
+	wg "github.com/aau-network-security/haaukins/network/vpn"
 
 	logger "github.com/rs/zerolog/log"
 
@@ -36,6 +41,7 @@ var (
 type siteInfo struct {
 	EventName string
 	Team      *team
+	IsVPN     bool
 	Content   interface{}
 }
 
@@ -52,6 +58,7 @@ type Amigo struct {
 	challenges   []store.FlagConfig
 	TeamStore    store.Event
 	recaptcha    Recaptcha
+	wgClient     wg.WireguardClient
 }
 
 type AmigoOpt func(*Amigo)
@@ -68,7 +75,7 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgClient wg.WireguardClient, opts ...AmigoOpt) *Amigo {
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
@@ -79,6 +86,7 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, opt
 			EventName: "Test Event",
 		},
 		recaptcha: NewRecaptcha(reCaptchaKey),
+		wgClient:  wgClient,
 	}
 
 	for _, opt := range opts {
@@ -101,7 +109,7 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
 		return info
 	}
-
+	info.IsVPN = am.TeamStore.OnlyVPN
 	info.Team = team
 	return info
 }
@@ -110,6 +118,7 @@ type Hooks struct {
 	AssignLab     func(t *store.Team) error
 	ResetExercise func(t *store.Team, challengeTag string) error
 	ResetFrontend func(t *store.Team) error
+	ResumeTeamLab func(t *store.Team) error
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
@@ -123,28 +132,29 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/scoreboard", am.handleScoreBoard())
 	m.HandleFunc("/signup", am.handleSignup(hooks.AssignLab))
-	m.HandleFunc("/login", am.handleLogin())
+	m.HandleFunc("/login", am.handleLogin(hooks.ResumeTeamLab))
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
-	m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
-	m.Handle("/guacamole", guacHandler)
-	m.Handle("/guacamole/", guacHandler)
+	m.HandleFunc("/vpn/status", am.handleVPNStatus())
+	m.HandleFunc("/vpn/download", am.handleVPNFiles())
+	m.HandleFunc("/get/labsubnet", am.handleLabInfo())
+	if !am.TeamStore.OnlyVPN {
+		m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
+		m.Handle("/guacamole", guacHandler)
+		m.Handle("/guacamole/", guacHandler)
+	}
 
 	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir(wd+"/svcs/amigo/resources/public"))))
-
 	return m
 }
 
 func (am *Amigo) handleIndex() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/index.tmpl.html",
-	)
+	indexTemplate := wd + "/svcs/amigo/resources/private/index.tmpl.html"
+	tmpl, err := parseTemplates(indexTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -184,11 +194,8 @@ func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.
 }
 
 func (am *Amigo) handleChallenges() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/challenges.tmpl.html",
-	)
+	chalsTemplate := wd + "/svcs/amigo/resources/private/challenges.tmpl.html"
+	tmpl, err := parseTemplates(chalsTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -211,12 +218,113 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 	}
 }
 
+func (am *Amigo) handleVPNStatus() http.HandlerFunc {
+	// data to be sent
+	type vpnStatus struct {
+		VPNConfID string `json:"vpnConnID"`
+		Status    string `json:"status"` // this could be returned to stream
+	}
+	ctx := context.Background()
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+		vpnConfig := team.GetVPNConn()
+		teamVPNKeys := team.GetVPNKeys()
+
+		if len(vpnConfig) == 0 {
+			replyJsonRequestErr(w, fmt.Errorf("Error, no vpn information found on on team err %v", err))
+		}
+		//eventTag := string(am.TeamStore.Tag)
+		var listOfStatus []vpnStatus
+		// status of vpn should be retrieved from wg client. for PoC it is ok to write ok.
+
+		for i, _ := range vpnConfig {
+			id := fmt.Sprintf("conn")
+			resp, err := am.wgClient.GetPeerStatus(ctx, &wg.PeerStatusReq{
+				NicName:   string(am.TeamStore.Tag),
+				PublicKey: teamVPNKeys[i],
+			})
+			status := vpnStatus{VPNConfID: id + "_" + strconv.Itoa(i), Status: "N/U"}
+			if err != nil {
+				log.Printf("Error on retrieving back information from wg %s", err.Error())
+				replyJsonRequestErr(w, err)
+				return
+			}
+			if resp.Status {
+				status.Status = "USED"
+			}
+			listOfStatus = append(listOfStatus, status)
+
+		}
+
+		replyJson(http.StatusOK, w, listOfStatus)
+	}
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+// handleVPNFiles will give chance to download their configuration files
+func (am *Amigo) handleVPNFiles() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		type vpnStatus struct {
+			VPNConfID string `json:"vpnConnID"`
+			Status    string `json:"status"` // this could be returned to stream
+		}
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+		vpnConfig := team.GetVPNConn()
+		if len(vpnConfig) == 0 {
+			replyJsonRequestErr(w, fmt.Errorf("Error, no vpn information found on on team err %v", err))
+		}
+		var vpnConn vpnStatus
+		if err := safeReadJson(w, r, &vpnConn, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		confID, err := strconv.Atoi(strings.Split(vpnConn.VPNConfID, "_")[1])
+		if err != nil {
+			replyJsonRequestErr(w, err)
+		}
+
+		//log.Printf("Trunced conf id %d", confID)
+		writeConfig := func(id int) {
+			w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fmt.Sprintf("conn_%d.conf", id)))
+			b := strings.NewReader(vpnConfig[id])
+			//stream the body to the client without fully loading it into memory
+			io.Copy(w, b)
+		}
+
+		switch confID {
+		case 0:
+			writeConfig(0)
+		case 1:
+			writeConfig(1)
+		case 2:
+			writeConfig(2)
+		case 3:
+			writeConfig(3)
+		}
+
+	}
+}
+
 func (am *Amigo) handleTeams() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/teams.tmpl.html",
-	)
+	teamsTemplate := wd + "/svcs/amigo/resources/private/teams.tmpl.html"
+	tmpl, err := parseTemplates(teamsTemplate)
+
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -235,11 +343,9 @@ func (am *Amigo) handleTeams() http.HandlerFunc {
 }
 
 func (am *Amigo) handleScoreBoard() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/scoreboard.tmpl.html",
-	)
+	scoreBoardTemplate := wd + "/svcs/amigo/resources/private/scoreboard.tmpl.html"
+	tmpl, err := parseTemplates(scoreBoardTemplate)
+
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -322,11 +428,8 @@ func (am *Amigo) handleSignup(hook func(t *store.Team) error) http.HandlerFunc {
 }
 
 func (am *Amigo) handleSignupGET() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/signup.tmpl.html",
-	)
+	signupTemplate := wd + "/svcs/amigo/resources/private/signup.tmpl.html"
+	tmpl, err := parseTemplates(signupTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -339,11 +442,8 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 }
 
 func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/signup.tmpl.html",
-	)
+	signupTemplate := wd + "/svcs/amigo/resources/private/signup.tmpl.html"
+	tmpl, err := parseTemplates(signupTemplate)
 	if err != nil {
 		log.Println("error index tmpl: ", err)
 	}
@@ -413,7 +513,7 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			}
 		}
 
-		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", nil)
+		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", time.Now().UTC(), nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -510,9 +610,9 @@ func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) ht
 	return endpoint
 }
 
-func (am *Amigo) handleLogin() http.HandlerFunc {
+func (am *Amigo) handleLogin(resumeLabHook func(t *store.Team) error) http.HandlerFunc {
 	get := am.handleLoginGET()
-	post := am.handleLoginPOST()
+	post := am.handleLoginPOST(resumeLabHook)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -529,12 +629,38 @@ func (am *Amigo) handleLogin() http.HandlerFunc {
 	}
 }
 
+func (am *Amigo) handleLabInfo() http.HandlerFunc {
+	type labInfo struct {
+		IsVPN     bool   `json:"isVPN"`
+		LabSubnet string `json:"labSubnet"`
+	}
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+
+		if !am.TeamStore.OnlyVPN {
+			replyJson(http.StatusOK, w, labInfo{IsVPN: false, LabSubnet: "VPN is not enabled !"})
+		} else {
+			team, err := am.getTeamFromRequest(w, r)
+			if err != nil {
+				replyJsonRequestErr(w, err)
+				return
+			}
+			teamLabSubnet := team.GetLabInfo()
+			tLabInfo := labInfo{
+				LabSubnet: teamLabSubnet,
+				IsVPN:     true,
+			}
+			replyJson(http.StatusOK, w, tLabInfo)
+		}
+	}
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+	return endpoint
+}
+
 func (am *Amigo) handleLoginGET() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/login.tmpl.html",
-	)
+	loginTemplate := wd + "/svcs/amigo/resources/private/login.tmpl.html"
+	tmpl, err := parseTemplates(loginTemplate)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
 	}
@@ -546,12 +672,9 @@ func (am *Amigo) handleLoginGET() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleLoginPOST() http.HandlerFunc {
-	tmpl, err := template.ParseFiles(
-		wd+"/svcs/amigo/resources/private/base.tmpl.html",
-		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/login.tmpl.html",
-	)
+func (am *Amigo) handleLoginPOST(resumeLabHook func(t *store.Team) error) http.HandlerFunc {
+	loginTemplate := wd + "/svcs/amigo/resources/private/login.tmpl.html"
+	tmpl, err := parseTemplates(loginTemplate)
 	if err != nil {
 		log.Println("error login tmpl: ", err)
 	}
@@ -611,6 +734,12 @@ func (am *Amigo) handleLoginPOST() http.HandlerFunc {
 			displayErr(w, params, err)
 			return
 		}
+		if err := resumeLabHook(t); err != nil {
+			logger.Error().Str("Team id: ", t.ID()).
+				Str("Team name: ", t.Name()).
+				Str("Team email:", t.Email()).
+				Msgf("Error on resuming team resource %v", err)
+		}
 	}
 }
 
@@ -629,6 +758,16 @@ func (am *Amigo) loginTeam(w http.ResponseWriter, r *http.Request, t *store.Team
 
 	http.SetCookie(w, &http.Cookie{Name: "session", Value: token, MaxAge: am.cookieTTL})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	//Set teams last access time
+	err = t.UpdateTeamAccessed(time.Now())
+	if err != nil {
+		logger.Warn().
+			Err(err).
+			Str("team-id", t.ID()).
+			Msg("Failed to update team accessed time")
+	}
+
 	return nil
 }
 
@@ -774,4 +913,15 @@ func GetWd() string {
 		log.Println(err)
 	}
 	return path
+}
+
+func parseTemplates(givenTemplate string) (*template.Template, error) {
+	var tmpl *template.Template
+	var err error
+	tmpl, err = template.ParseFiles(
+		wd+"/svcs/amigo/resources/private/base.tmpl.html",
+		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		givenTemplate,
+	)
+	return tmpl, err
 }

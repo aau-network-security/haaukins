@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aau-network-security/haaukins/store"
 
@@ -58,7 +59,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 		FinishedAt:     nil,
 	}, tmp, client)
 
-	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", client)
+	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", time.Now().UTC(), client)
 
 	if err := ts.SaveTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")
@@ -93,7 +94,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 				return "ok-token", nil
 			}
 
-			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, amigo.NewAmigo(ts, nil, ""), loginFunc)
+			interceptor := guacamole.NewGuacTokenLoginEndpoint(us, ts, amigo.NewAmigo(ts, nil, "", nil), loginFunc)
 			ok := interceptor.ValidRequest(req)
 			if !ok {
 				if tc.intercept {

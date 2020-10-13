@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aau-network-security/haaukins/store"
 	pb "github.com/aau-network-security/haaukins/store/proto"
@@ -63,11 +64,11 @@ func TestVerifyFlag(t *testing.T) {
 		Category:    "",
 	}
 
-	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", client)
+	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", time.Now().UTC(), client)
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}
-	flagValue := store.NewFlag().String(false)
+	flagValue := store.NewFlag().String()
 	tag, _ := store.NewTag(string(chal.Tag))
 	_, _ = addTeam.AddChallenge(store.Challenge{
 		Tag:   tag,
@@ -134,7 +135,7 @@ func TestVerifyFlag(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			am := amigo.NewAmigo(ts, challenges, "", tc.opts...)
+			am := amigo.NewAmigo(ts, challenges, "", nil, tc.opts...)
 			srv := httptest.NewServer(am.Handler(amigo.Hooks{}, http.NewServeMux()))
 
 			req, err := http.NewRequest("POST", srv.URL+"/flags/verify", bytes.NewBuffer([]byte(tc.input)))

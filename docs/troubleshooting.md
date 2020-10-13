@@ -7,8 +7,7 @@ In this guideline, the way of handling troubles and possible reasons of troubles
 - [No space left on device](#no-space-left-on-device)
 - [Failed to create the VirtualBox object!](#vm-import-failed)
 
-- (TODO) [Continuous exiting from environment](#continuous-exiting-from-environment)
-- (TODO) [Pool overlaps with other one on this address space](#todo)
+- [Pool overlaps with other one on this address space](#pool-overlaps-with-other-one-on-this-address-space)
 
 *Issues which can be seeing in setting up development environment*
 
@@ -175,6 +174,19 @@ For demonized version of Haaukins, you can provide config path after binary such
 Keep in mind that Haaukins is looking for config.yml file on the same directory with binary, which means that if config.yml file on the same directory with Haaukins binary, 
 there is no need to provide absolute path of configuration file. 
 
+
+## Pool overlaps with other one on this address space
+
+This error is directly related with docker containers and network, in order to overcome this error, docker related clean up 
+is required to run. 
+
+### Prune System 
+
+```docker system prune -f ```
+
+### Prune volumes
+
+```docker volume prune -f```
 
 
 
