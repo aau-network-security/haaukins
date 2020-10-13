@@ -113,22 +113,20 @@ func (d *daemon) suspendTeams() error {
 	for _, e := range events {
 		wg.Add(len(e.GetTeams()))
 		go func() {
+			defer wg.Done()
 			for _, t := range e.GetTeams() {
-				log.Info().Msgf("Team from e.GetTeams %s", t.Name())
-				if !t.LastAccessTime().UTC().IsZero() {
-					difference := math.Round(now.Sub(t.LastAccessTime().UTC()).Minutes()) // get in rounded format in hours
-					if difference > INACTIVITY_DURATION {
-						lab, ok := e.GetLabByTeam(t.ID())
-						if !ok {
-							suspendError = UnknownTeamErr
-						}
-						log.Info().Msgf("Suspending resources for team %s", t.Name())
-						// check if it is already suspended or not.
-						for _, instanceInfo := range lab.InstanceInfo() {
-							if instanceInfo.State != virtual.Suspended {
-								if err := lab.Suspend(context.Background()); err != nil {
-									suspendError = err
-								}
+				difference := math.Round(now.Sub(t.LastAccessTime().UTC()).Hours()) // get in rounded format in hours
+				if difference > INACTIVITY_DURATION {
+					lab, ok := e.GetLabByTeam(t.ID())
+					if !ok {
+						suspendError = UnknownTeamErr
+					}
+					log.Info().Msgf("Suspending resources for team %s", t.Name())
+					// check if it is already suspended or not.
+					for _, instanceInfo := range lab.InstanceInfo() {
+						if instanceInfo.State != virtual.Suspended {
+							if err := lab.Suspend(context.Background()); err != nil {
+								suspendError = err
 							}
 						}
 					}
