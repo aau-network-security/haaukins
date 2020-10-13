@@ -68,8 +68,53 @@ archives:
 
     # Builds reference which build instances should be archived in this archive.
     builds:
-      - hkn
       - hknd
+
+    # Archive name template.
+    # Defaults:
+    # - if format is `tar.gz`, `gz` or `zip`:
+    #   - `{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}`
+    # - if format is `binary`:
+    #   - `{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}`
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+    # Replacements for GOOS and GOARCH in the archive name.
+    # Keys should be valid GOOSs or GOARCHs.
+    # Values are the respective replacements.
+    # Default is empty.
+    replacements:
+      amd64: 64-bit
+     
+
+    # Set to true, if you want all files in the archive to be in a single directory.
+    # If set to true and you extract the archive 'goreleaser_Linux_arm64.tar.gz',
+    # you get a folder 'goreleaser_Linux_arm64'.
+    # If set to false, all files are extracted separately.
+    # You can also set it to a custom folder name (templating is supported).
+    # Default is false.
+    wrap_in_directory: true
+
+    # Archive format. Valid options are `tar.gz`, `gz`, `zip` and `binary`.
+    # If format is `binary`, no archives are created and the binaries are instead
+    # uploaded directly.
+    # Default is `tar.gz`.
+    format: zip
+
+    # Additional files/globs you want to add to the archive.
+    # Defaults are any files matching `LICENCE*`, `LICENSE*`,
+    # `README*` and `CHANGELOG*` (case-insensitive).
+    files:
+      - LICENSE
+      - readme.md
+      - dist/CHANGELOG.md
+  
+  
+  - # ID of this archive.
+    id: haaukins_client
+
+    # Builds reference which build instances should be archived in this archive.
+    builds:
+      - hkn
 
     # Archive name template.
     # Defaults:
@@ -125,7 +170,7 @@ brews:
       owner: aau-network-security
       name: homebrew-haaukins
     folder: Formula
-    homepage:  https://github.com/aau-network-security/haaukins
+    homepage: https://github.com/aau-network-security/haaukins/tree/master/client
     description: Haaukins CLI
     install: |
       bin.install "hkn"
