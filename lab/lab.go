@@ -285,8 +285,11 @@ func (l *lab) Resume(ctx context.Context) error {
 		return err
 	}
 	for _, fconf := range l.frontends {
-		if err := fconf.vm.Start(ctx); err != nil {
-			return err
+		state := fconf.vm.Info().State
+		if state == virtual.Suspended {
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 		}
 	}
 

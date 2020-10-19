@@ -172,11 +172,14 @@ func (ee *environment) Suspend(ctx context.Context) error {
 // and start suspended vms (saved state vms)
 func (ee *environment) Resume(ctx context.Context) error {
 	for _, e := range ee.exercises {
-		if err := e.Start(ctx); err != nil {
-			return err
+		for _, ins := range e.InstanceInfo() {
+			if ins.State == virtual.Suspended {
+				if err := e.Start(ctx); err != nil {
+					return err
+				}
+			}
 		}
 	}
-
 	return nil
 }
 
