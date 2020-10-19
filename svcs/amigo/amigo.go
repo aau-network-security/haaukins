@@ -80,7 +80,7 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgC
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
 		challenges:   chals,
-		cookieTTL:    int((7 * 24 * time.Hour).Seconds()), // A week
+		cookieTTL:    int((7 * time.Hour).Seconds()), // Less than inactivity duration on daemon
 		TeamStore:    ts,
 		globalInfo: siteInfo{
 			EventName: "Test Event",

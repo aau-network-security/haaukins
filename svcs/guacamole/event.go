@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aau-network-security/haaukins/virtual"
-
 	wg "github.com/aau-network-security/haaukins/network/vpn"
 
 	"net/http"
@@ -626,21 +624,19 @@ func (ev *event) Handler() http.Handler {
 	}
 	// resume labs in login of amigo
 	resumeTeamLab := func(t *store.Team) error {
-
+		var waitGroup sync.WaitGroup
 		lab, ok := ev.GetLabByTeam(t.ID())
 		if !ok {
 			return errors.New("Lab could not found for given team, error on loginhook")
 		}
+		waitGroup.Add(1)
 		go func() {
-			for _, instance := range lab.InstanceInfo() {
-				if instance.State == virtual.Suspended {
-					if err := lab.Resume(context.Background()); err != nil {
-						log.Error().Msgf("Error on lab resume %v", err)
-						return
-					}
-				}
+			defer waitGroup.Done()
+			if err := lab.Resume(context.Background()); err != nil {
+				log.Error().Msgf("Error on lab resume %v", err)
 			}
 		}()
+		waitGroup.Wait()
 		return nil
 	}
 

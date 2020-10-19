@@ -2,11 +2,12 @@ name: Test
 
 on: 
   push:
-    paths-ignore:
-      - 'docs/**'
+    tags-ignore:
+      - '*.*.*'
   pull_request:
-    paths-ignore:
-      - 'docs/**'
+    tags-ignore:
+      - '**'
+  
 jobs:
 
   test:

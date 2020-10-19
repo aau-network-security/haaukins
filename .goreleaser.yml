@@ -172,7 +172,7 @@ checksum:
 brews:
   - 
     ids: 
-      - hkn
+      - haaukins_client
     tap:
       owner: aau-network-security
       name: homebrew-haaukins
