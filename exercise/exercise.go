@@ -148,10 +148,11 @@ func (e *exercise) Start(ctx context.Context) error {
 	for _, m := range e.machines {
 		wg.Add(1)
 		go func(m virtual.Instance) {
-			if err := m.Start(ctx); err != nil && res == nil {
-				res = err
+			if m.Info().State != virtual.Running {
+				if err := m.Start(ctx); err != nil && res == nil {
+					res = err
+				}
 			}
-
 			wg.Done()
 		}(m)
 	}
