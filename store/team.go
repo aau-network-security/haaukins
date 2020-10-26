@@ -239,7 +239,7 @@ type TeamChallenge struct {
 	CompletedAt *time.Time
 }
 
-func NewTeam(email, name, password, id, hashedPass, solvedChalsDB, skippedChalsDB string, stepTracker uint, dbc pbc.StoreClient) *Team {
+func NewTeam(email, name, password, id, hashedPass, solvedChalsDB, skippedChalsDB string, stepTracker uint, lastAccessedTime time.Time, dbc pbc.StoreClient) *Team {
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -274,6 +274,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB, skippedChalsD
 		isLabAssigned:  false,
 		stepTracker:    stepTracker,
 		skippedChals:   skippedChals,
+		lastAccess:     lastAccessedTime,
 	}
 }
 
