@@ -29,7 +29,7 @@ func TestBasicEnvironment(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 	tst.SkipOnGh(t)
-	conf := store.Exercise{
+	conf := []store.Exercise{store.Exercise{
 		Name: "Test Exercise",
 		Tags: []store.Tag{"test"},
 		DockerConfs: []store.DockerConfig{
@@ -39,7 +39,7 @@ func TestBasicEnvironment(t *testing.T) {
 				},
 			},
 		},
-	}
+	}}
 
 	dclient, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
