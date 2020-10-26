@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aau-network-security/haaukins/store"
 
@@ -58,7 +59,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 		FinishedAt:     nil,
 	}, tmp, client)
 
-	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", 0, client)
+	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", "", 0, time.Now().UTC(), client)
 
 	if err := ts.SaveTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aau-network-security/haaukins/store"
 	pb "github.com/aau-network-security/haaukins/store/proto"
@@ -67,7 +68,7 @@ func TestVerifyFlag(t *testing.T) {
 		},
 	}
 
-	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", 0, client)
+	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", "", 0, time.Now().UTC(), client)
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}

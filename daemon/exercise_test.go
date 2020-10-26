@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/aau-network-security/haaukins/client/cli"
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
@@ -68,7 +69,7 @@ func TestResetExercise(t *testing.T) {
 
 			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 1; i <= 2; i++ {
-				g := store.NewTeam(fmt.Sprintf("team-%d@team.dk", i), "whatever", "", fmt.Sprintf("team-%d", i), "", "", 0, nil)
+				g := store.NewTeam(fmt.Sprintf("team-%d@team.dk", i), "whatever", "", fmt.Sprintf("team-%d", i), "", "", "", 0, time.Now().UTC(), nil)
 				ev.teams = append(ev.teams, g)
 			}
 			eventPool.AddEvent(ev)
