@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/aau-network-security/haaukins/logging"
 	"github.com/rs/zerolog/log"
@@ -49,10 +50,24 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 		ctx := context.Background()
 		for range ready {
 			wg.Add(1)
-			// todo: handle this in case of error
-			lab, err := creator.NewLab(ctx, isVPN)
+			var err error
+			var lab Lab
+			lab, err = creator.NewLab(ctx, isVPN)
 			if err != nil {
-				log.Error().Msgf("Error while creating new lab %s", err.Error())
+				log.Error().Msgf("Error while creating new lab %s retry activated", err.Error())
+				for i := 0; ; i++ {
+					attempts := 10
+					lab, err = creator.NewLab(ctx, isVPN)
+					if err == nil {
+						return
+					}
+					if i >= (attempts - 1) {
+						log.Error().Msgf("Lab could not be initialized after %d attempts", attempts)
+						break
+					}
+					time.Sleep(time.Second)
+					log.Error().Msgf("retrying after error: %v", err)
+				}
 			}
 
 			if err := lab.Start(ctx); err != nil {
