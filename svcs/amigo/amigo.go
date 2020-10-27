@@ -20,7 +20,7 @@ import (
 	logger "github.com/rs/zerolog/log"
 
 	"github.com/aau-network-security/haaukins/store"
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 const (
@@ -462,16 +462,20 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			Password: r.PostFormValue("password"),
 		}
 
-		if data.Email == "" {
-			return data, fmt.Errorf("Email cannot be empty")
+		if err := checkTeamName(data.TeamName); err != nil {
+			return data, err
 		}
 
-		if data.TeamName == "" {
-			return data, fmt.Errorf("Team Name cannot be empty")
+		if err := checkEmail(data.Email); err != nil {
+			return data, err
 		}
 
 		if len(data.Password) <= 5 {
 			return data, fmt.Errorf("Password needs to be at least six characters")
+		}
+
+		if len(data.Password) >= 20 {
+			return data, fmt.Errorf("The maximum password length is 30 characters")
 		}
 
 		if data.Password != r.PostFormValue("password-repeat") {
@@ -924,4 +928,35 @@ func parseTemplates(givenTemplate string) (*template.Template, error) {
 		givenTemplate,
 	)
 	return tmpl, err
+}
+
+func checkTeamName(input string) error {
+	if input == "" {
+		return fmt.Errorf("TeamName cannot be empty")
+	}
+
+	if err := checkVarLength(input, 15); err != nil {
+		return fmt.Errorf("TeamName: %s is not within the defined character limit %d", input, 15)
+	}
+
+	return nil
+}
+
+func checkEmail(input string) error {
+	if input == "" {
+		return fmt.Errorf("Email cannot be empty")
+	}
+
+	if err := checkVarLength(input, 30); err != nil {
+		return fmt.Errorf("Email: %s is not within the defined character limit %d", input, 30)
+	}
+
+	return nil
+}
+
+func checkVarLength(input string, max int) error {
+	if len(input) >= max {
+		return fmt.Errorf("Input string is not within the defined character limit")
+	}
+	return nil
 }
