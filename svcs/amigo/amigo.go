@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -20,7 +21,7 @@ import (
 	logger "github.com/rs/zerolog/log"
 
 	"github.com/aau-network-security/haaukins/store"
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 const (
@@ -35,7 +36,19 @@ var (
 	ErrInvalidTokenFormat   = errors.New("invalid token format")
 	ErrInvalidFlag          = errors.New("invalid flag")
 	ErrIncorrectCredentials = errors.New("Credentials does not match")
+	ErrTeamNameEmpty        = errors.New("Team name can NOT be empty")
+	ErrTeamNameToLarge      = errors.New("Team name is too long")
+	ErrTeamNameCharacters   = errors.New("Team name should NOT contain non-alphanumeric characters")
+	ErrEmailEmpty           = errors.New("Email can NOT be empty")
+	ErrEmailToLarge         = errors.New("Email is NOT within the defined character limit")
+	ErrEmailCharacters      = errors.New("Non alphabetic characters are NOT allowed in email address such as - , { [ _   ")
+	teamNameRegex           = "^[A-Za-z0-9]+$"
+	emailRegex              = "^[a-zA-Z0-9.!#$%&'*+^\\{|}~]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 	wd                      = GetWd()
+	passMaxLength           = 20
+	passMinLength           = 6
+	emailMaxLength          = 30
+	teamNameMaxLength       = 20
 )
 
 type siteInfo struct {
@@ -462,16 +475,20 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			Password: r.PostFormValue("password"),
 		}
 
-		if data.Email == "" {
-			return data, fmt.Errorf("Email cannot be empty")
+		if err := checkTeamName(data.TeamName); err != nil {
+			return data, err
 		}
 
-		if data.TeamName == "" {
-			return data, fmt.Errorf("Team Name cannot be empty")
+		if err := checkEmail(data.Email); err != nil {
+			return data, err
 		}
 
-		if len(data.Password) <= 5 {
-			return data, fmt.Errorf("Password needs to be at least six characters")
+		if len(data.Password) < passMinLength {
+			return data, fmt.Errorf("Password needs to be at least %d characters", passMinLength)
+		}
+
+		if len(data.Password) > passMaxLength {
+			return data, fmt.Errorf("The maximum password length is %d characters", passMaxLength)
 		}
 
 		if data.Password != r.PostFormValue("password-repeat") {
@@ -924,4 +941,47 @@ func parseTemplates(givenTemplate string) (*template.Template, error) {
 		givenTemplate,
 	)
 	return tmpl, err
+}
+
+func checkTeamName(input string) error {
+	re := regexp.MustCompile(teamNameRegex)
+
+	if input == "" {
+		return ErrTeamNameEmpty
+	}
+
+	if err := checkVarLength(input, teamNameMaxLength); err != nil {
+		return ErrTeamNameToLarge
+	}
+
+	if !re.MatchString(input) {
+		return ErrTeamNameCharacters
+	}
+
+	return nil
+}
+
+func checkEmail(input string) error {
+	re := regexp.MustCompile(emailRegex)
+
+	if input == "" {
+		return ErrEmailEmpty
+	}
+
+	if err := checkVarLength(input, emailMaxLength); err != nil {
+		return ErrEmailToLarge
+	}
+
+	if !re.MatchString(input) {
+		return ErrEmailCharacters
+	}
+
+	return nil
+}
+
+func checkVarLength(input string, max int) error {
+	if len(input) >= max {
+		return fmt.Errorf("exceeds character limit")
+	}
+	return nil
 }
