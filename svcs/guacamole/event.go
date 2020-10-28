@@ -653,12 +653,14 @@ func (ev *event) Handler() http.Handler {
 	}
 	// resume labs in login of amigo
 	resumeTeamLab := func(t *store.Team) error {
-
+		var waitGroup sync.WaitGroup
 		labb, ok := ev.GetLabByTeam(t.ID())
 		if !ok {
 			return errors.New("Lab could not found for given team, error on loginhook")
 		}
+		waitGroup.Add(1)
 		go func() {
+			defer waitGroup.Done()
 			for _, instance := range labb.InstanceInfo() {
 				if instance.State == virtual.Suspended {
 					if err := labb.Resume(context.Background()); err != nil {
@@ -668,6 +670,7 @@ func (ev *event) Handler() http.Handler {
 				}
 			}
 		}()
+		waitGroup.Wait()
 		return nil
 	}
 

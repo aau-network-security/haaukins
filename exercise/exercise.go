@@ -162,8 +162,10 @@ func (e *exercise) Start(ctx context.Context) error {
 
 func (e *exercise) Suspend(ctx context.Context) error {
 	for _, m := range e.machines {
-		if err := m.Suspend(ctx); err != nil {
-			return err
+		if m.Info().State == virtual.Running {
+			if err := m.Suspend(ctx); err != nil {
+				return err
+			}
 		}
 	}
 

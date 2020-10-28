@@ -22,7 +22,7 @@ import (
 
 func TestTeam_GetHashedPassword(t *testing.T) {
 	password := "some_password"
-	team := store.NewTeam("some@email.com", "some name", password, "", "", "", 0, nil)
+	team := store.NewTeam("some@email.com", "some name", password, "", "", "", "", 0, time.Now().UTC(), nil)
 
 	if team.GetHashedPassword() == password {
 		t.Fatalf("expected password to be hashed")
@@ -47,12 +47,12 @@ func TestTeamSolveTask(t *testing.T) {
 	_, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", 0, client)
+	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", "", 0, time.Now().UTC(), client)
 
 	chal := store.Challenge{
 		Name:  "FTP",
 		Tag:   "ftp",
-		Value: store.NewFlag().String(false),
+		Value: store.NewFlag().String(),
 	}
 
 	flag, _ := team.AddChallenge(chal)
@@ -106,7 +106,7 @@ func TestCreateToken(t *testing.T) {
 
 	client := pb.NewStoreClient(conn)
 
-	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", 0, client)
+	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", "", 0, time.Now().UTC(), client)
 
 	tt := []struct {
 		name  string
@@ -193,7 +193,7 @@ func TestGetTokenForTeam(t *testing.T) {
 		FinishedAt:     nil,
 	}, tmp, client)
 
-	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", 0, client)
+	team := store.NewTeam("some@email.com", "some name", "password", "", "", "", "", 0, time.Now().UTC(), client)
 
 	if err := ts.SaveTeam(team); err != nil {
 		t.Fatalf("expected no error when creating team")

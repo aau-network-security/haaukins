@@ -3,8 +3,10 @@ package daemon
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/aau-network-security/haaukins/virtual"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
@@ -100,37 +102,56 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	return nil
 }
 
-// suspendTeams function will check all teams in all events
-// then suspend their resources if lastAccessTime is higher than INACTIVITY_DURATION
-func (d *daemon) suspendTeams() error {
+func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) error {
+	now := time.Now().UTC()
 	var suspendError error
-	log.Info().Msg("Suspend teams called ! ")
-	events := d.eventPool.GetAllEvents()
-	now := time.Now()
-
-	for _, e := range events {
-		for _, t := range e.GetTeams() {
-			if !t.LastAccessTime().IsZero() {
-				difference := math.Round(now.Sub(t.LastAccessTime()).Hours()) // get in rounded format in hours
-				if difference > INACTIVITY_DURATION {
-					lab, ok := e.GetLabByTeam(t.ID())
-					if !ok {
-						return UnknownTeamErr
-					}
-					// check if it is already suspended or not.
-					for _, instanceInfo := range lab.InstanceInfo() {
-						if instanceInfo.State != virtual.Suspended {
-							go func() {
-								if err := lab.Suspend(context.Background()); err != nil {
-									suspendError = err
-								}
-							}()
+	defer wg.Done()
+	suspendLab := func(ev guacamole.Event) {
+		for _, t := range ev.GetTeams() {
+			difference := math.Round(now.Sub(t.LastAccessTime().UTC()).Hours()) // get in rounded format in hours
+			if difference > INACTIVITY_DURATION {
+				lab, ok := ev.GetLabByTeam(t.ID())
+				if !ok {
+					suspendError = UnknownTeamErr
+					log.Error().Msgf("Error on team lab suspend/GetLabByTeam  : %v", suspendError)
+				}
+				log.Info().Msgf("Suspending resources for team %s", t.Name())
+				// check if it is already suspended or not.
+				for _, instanceInfo := range lab.InstanceInfo() {
+					if instanceInfo.State != virtual.Suspended {
+						if err := lab.Suspend(context.Background()); err != nil {
+							suspendError = err
+							log.Error().Msgf("Error on team lab suspend: %v", suspendError)
 						}
-						return suspendError
 					}
 				}
 			}
 		}
 	}
+	select {
+	case ev := <-ch:
+		suspendLab(ev)
+	}
+
+	return suspendError
+}
+
+// suspendTeams function will check all teams in all events
+// then suspend their resources if lastAccessTime is higher than INACTIVITY_DURATION
+func (d *daemon) suspendTeams() error {
+	var wg sync.WaitGroup
+	log.Info().Msg("Suspend teams called ! ")
+	events := d.eventPool.GetAllEvents()
+	ch := make(chan guacamole.Event, len(events))
+	for _, ev := range events {
+		go processEvent(ev, ch)
+		wg.Add(1)
+		go checkTeamLab(ch, &wg)
+	}
+	wg.Wait()
 	return nil
+}
+
+func processEvent(ev guacamole.Event, ch chan guacamole.Event) {
+	ch <- ev
 }

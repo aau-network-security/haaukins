@@ -275,8 +275,10 @@ func (l *lab) Suspend(ctx context.Context) error {
 	}
 
 	for _, fconf := range l.frontends {
-		if err := fconf.vm.Suspend(ctx); err != nil {
-			return err
+		if fconf.vm.Info().State == virtual.Running {
+			if err := fconf.vm.Suspend(ctx); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -288,8 +290,11 @@ func (l *lab) Resume(ctx context.Context) error {
 		return err
 	}
 	for _, fconf := range l.frontends {
-		if err := fconf.vm.Start(ctx); err != nil {
-			return err
+		state := fconf.vm.Info().State
+		if state == virtual.Suspended {
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 		}
 	}
 
