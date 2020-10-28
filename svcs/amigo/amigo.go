@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -35,7 +36,17 @@ var (
 	ErrInvalidTokenFormat   = errors.New("invalid token format")
 	ErrInvalidFlag          = errors.New("invalid flag")
 	ErrIncorrectCredentials = errors.New("Credentials does not match")
+	ErrTeamNameEmpty        = errors.New("TeamName cannot be empty")
+	ErrTeamNameToLarge      = errors.New("The team name is to long")
+	ErrTeamNameCharacters   = errors.New("The teamname should not contain non-alphanumeric characters")
+	ErrEmailEmpty           = errors.New("Email cannot be empty")
+	ErrEmailToLarge         = errors.New("Email is not within the defined character limit")
+	ErrEmailCharacters      = errors.New("The email is not following the allowed format")
 	wd                      = GetWd()
+	passwordMaxLength       = 20
+	passwordMinLength       = 6
+	emailMaxLength          = 30
+	TeamNameMaxLength       = 20
 )
 
 type siteInfo struct {
@@ -470,12 +481,12 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			return data, err
 		}
 
-		if len(data.Password) <= 5 {
-			return data, fmt.Errorf("Password needs to be at least six characters")
+		if len(data.Password) <= passwordMinLength {
+			return data, fmt.Errorf("Password needs to be at least %d characters", passwordMinLength)
 		}
 
-		if len(data.Password) >= 20 {
-			return data, fmt.Errorf("The maximum password length is 30 characters")
+		if len(data.Password) >= passwordMaxLength {
+			return data, fmt.Errorf("The maximum password length is %d characters", passwordMaxLength)
 		}
 
 		if data.Password != r.PostFormValue("password-repeat") {
@@ -931,24 +942,36 @@ func parseTemplates(givenTemplate string) (*template.Template, error) {
 }
 
 func checkTeamName(input string) error {
+	re := regexp.MustCompile("^[A-Za-z0-9]+$")
+
 	if input == "" {
-		return fmt.Errorf("TeamName cannot be empty")
+		return ErrTeamNameEmpty
 	}
 
-	if err := checkVarLength(input, 15); err != nil {
-		return fmt.Errorf("TeamName: %s is not within the defined character limit %d", input, 15)
+	if err := checkVarLength(input, TeamNameMaxLength); err != nil {
+		return ErrTeamNameToLarge
+	}
+
+	if !re.MatchString(input) {
+		return ErrTeamNameCharacters
 	}
 
 	return nil
 }
 
 func checkEmail(input string) error {
+	re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+^`{|}~]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
 	if input == "" {
-		return fmt.Errorf("Email cannot be empty")
+		return ErrEmailEmpty
 	}
 
-	if err := checkVarLength(input, 30); err != nil {
-		return fmt.Errorf("Email: %s is not within the defined character limit %d", input, 30)
+	if err := checkVarLength(input, emailMaxLength); err != nil {
+		return ErrEmailToLarge
+	}
+
+	if !re.MatchString(input) {
+		return ErrEmailCharacters
 	}
 
 	return nil
