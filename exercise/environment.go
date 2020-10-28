@@ -6,6 +6,7 @@ package exercise
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -56,7 +57,7 @@ func NewEnvironment(lib vbox.Library) Environment {
 func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 	network, err := docker.NewNetwork(isVPN)
 	if err != nil {
-		return err
+		return fmt.Errorf("docker new network err %v", err)
 	}
 	ee.network = network
 	ee.network.SetIsVPN(ee.isVPN)

@@ -6,6 +6,7 @@ package lab
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -48,11 +49,11 @@ type LabHost struct {
 func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
 	env := newEnvironment(lh.Vlib)
 	if err := env.Create(ctx, isVPN); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new environment create err %v ", err)
 	}
 
 	if err := env.Add(ctx, lh.Conf.Exercises...); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new environment add err %v ", err)
 	}
 
 	dockerHost := docker.NewHost()
