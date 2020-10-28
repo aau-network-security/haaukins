@@ -981,7 +981,7 @@ func checkEmail(input string) error {
 
 func checkVarLength(input string, max int) error {
 	if len(input) >= max {
-		return fmt.Errorf("Input string is not within the defined character limit")
+		return fmt.Errorf("exceeds character limit")
 	}
 	return nil
 }
