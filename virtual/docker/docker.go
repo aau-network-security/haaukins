@@ -488,7 +488,7 @@ type Network interface {
 func NewNetwork(isVPN bool) (Network, error) {
 	sub, err := ipPool.Get()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ip pool get new network err %v", err)
 	}
 	var dOption string
 
@@ -514,7 +514,7 @@ func NewNetwork(isVPN bool) (Network, error) {
 
 	netw, err := DefaultClient.CreateNetwork(conf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("docker CreateNetwork err %v", err)
 	}
 
 	netInfo, _ := DefaultClient.NetworkInfo(netw.ID)
