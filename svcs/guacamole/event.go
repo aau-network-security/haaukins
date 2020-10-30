@@ -311,7 +311,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	subnet := ev.store.VPNAddress
 
 	// retrieve domain from configuration file
-	endpoint := fmt.Sprintf("%s.ntp-event.dk:%d", evTag, ev.store.EndPointPort)
+	endpoint := fmt.Sprintf("%s.%s:%d", evTag, ev.store.Endpoint, ev.store.EndPointPort)
 
 	// get public key of server
 	log.Info().Msg("Getting server public key...")
