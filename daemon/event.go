@@ -521,6 +521,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Bool("IsVPN", event.OnlyVPN).Msgf("Generating event config from database !")
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
+		Host: 	   d.conf.Host.Http,
 		Tag:       store.Tag(event.Tag),
 		Available: int(event.Available),
 		Capacity:  int(event.Capacity),
