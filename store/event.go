@@ -139,7 +139,7 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 		if err != nil {
 			log.Error().Msgf("[NewEventStore] Time parsing error %v", err)
 		}
-		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, teamDB.SkippedChallenges, uint(teamDB.Step), lastAccessedTime, dbc)
+		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, teamDB.SkippedChallenges, uint(teamDB.Step), lastAccessedTime.UTC(), dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {
 			log.Debug().Msgf("Error in getting token for team %s", team.Name())
