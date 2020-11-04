@@ -39,10 +39,10 @@ const (
 var (
 	UnreachableDaemonErr = errors.New("Daemon seems to be unreachable")
 	UnauthorizedErr      = errors.New("You seem to not be logged in")
-	LocalCertificates    =map[string]string{
-		"CERT":"https://gist.githubusercontent.com/mrturkmen06/c53edc50ca777bcece6fca8c21d62ce1/raw/f13ca172eb70c84e0abdfc957cdb563a9a072dcc/localhost.crt",
-		"CERT_KEY": "https://gist.githubusercontent.com/mrturkmen06/2b11591ddda806ce8fa2036693ee347b/raw/2b17c484b520380935102c5268de9911ef2a16eb/localhost.key",
-		"CERT_CA_FILE":  "https://gist.githubusercontent.com/mrturkmen06/5de6d51cd398be1c3d7df691fc0e4c71/raw/fb557eba6e55ab753b7ac73f32c5e02e820ed802/haaukins-store.com.crt",
+	LocalCertificates    = map[string]string{
+		"CERT":         "https://gist.githubusercontent.com/mrturkmen06/c53edc50ca777bcece6fca8c21d62ce1/raw/f13ca172eb70c84e0abdfc957cdb563a9a072dcc/localhost.crt",
+		"CERT_KEY":     "https://gist.githubusercontent.com/mrturkmen06/2b11591ddda806ce8fa2036693ee347b/raw/2b17c484b520380935102c5268de9911ef2a16eb/localhost.key",
+		"CERT_CA_FILE": "https://gist.githubusercontent.com/mrturkmen06/5de6d51cd398be1c3d7df691fc0e4c71/raw/fb557eba6e55ab753b7ac73f32c5e02e820ed802/haaukins-store.com.crt",
 	}
 )
 
@@ -140,7 +140,7 @@ func NewClient() (*Client, error) {
 	host := os.Getenv("HKN_HOST")
 	//todo i have change it for testing purpose
 	if host == "" {
-		host = "cli2.sec-aau.dk"
+		host = "grpc.haaukins.com"
 	}
 
 	port := os.Getenv("HKN_PORT")
@@ -153,7 +153,6 @@ func NewClient() (*Client, error) {
 		grpc.WithUnaryInterceptor(versionCheckInterceptor),
 	}
 
-
 	ssl_off := os.Getenv("HKN_SSL_OFF")
 	endpoint := fmt.Sprintf("%s:%s", host, port)
 	var creds credentials.TransportCredentials
@@ -165,10 +164,10 @@ func NewClient() (*Client, error) {
 	} else {
 		if host == "localhost" {
 			devCertPool := x509.NewCertPool()
-			creds = setCertConfig(false,devCertPool)
+			creds = setCertConfig(false, devCertPool)
 		} else {
-			certPool,_ := x509.SystemCertPool()
-			creds = setCertConfig(true,certPool)
+			certPool, _ := x509.SystemCertPool()
+			creds = setCertConfig(true, certPool)
 		}
 		dialOpts = append(dialOpts,
 			grpc.WithTransportCredentials(creds),
@@ -194,7 +193,7 @@ func downloadCerts(certMap map[string]string) error {
 		if errDir != nil {
 			log.Fatal(err)
 		}
-		for k,v := range certMap {
+		for k, v := range certMap {
 			// Get the data
 			resp, err := http.Get(v)
 			if err != nil {
@@ -220,17 +219,16 @@ func downloadCerts(certMap map[string]string) error {
 
 }
 
-
-func setCertConfig(isProd bool,certPool *x509.CertPool) credentials.TransportCredentials {
+func setCertConfig(isProd bool, certPool *x509.CertPool) credentials.TransportCredentials {
 	var certificates []tls.Certificate
 	creds := credentials.NewTLS(&tls.Config{})
 	// todo: this will gonna change
 	// Create a certificate pool from the certificate authority
 	if !isProd {
-		if err := downloadCerts(LocalCertificates); err!=nil {
+		if err := downloadCerts(LocalCertificates); err != nil {
 			log.Printf("Error on dowloading certificates from given path %s", err)
 		}
-		certificate, err := tls.LoadX509KeyPair("localcerts/CERT","localcerts/CERT_KEY")
+		certificate, err := tls.LoadX509KeyPair("localcerts/CERT", "localcerts/CERT_KEY")
 		if err != nil {
 			log.Printf("could not load client key pair: %s", err)
 		}
@@ -245,11 +243,11 @@ func setCertConfig(isProd bool,certPool *x509.CertPool) credentials.TransportCre
 		certificates = append(certificates, certificate)
 		creds = credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{certificate},
-			RootCAs:   certPool,
+			RootCAs:      certPool,
 		})
 	}
 	creds = credentials.NewTLS(&tls.Config{
-		RootCAs:      certPool,
+		RootCAs: certPool,
 	})
 	return creds
 }
