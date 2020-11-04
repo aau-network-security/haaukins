@@ -6,7 +6,7 @@ In this guideline, the way of handling troubles and possible reasons of troubles
 
 - [No space left on device](#no-space-left-on-device)
 - [Failed to create the VirtualBox object!](#vm-import-failed)
-
+- [guacamole: trying to login. failed: unexpected response 500](#guacamole-500-error)
 - [Pool overlaps with other one on this address space](#pool-overlaps-with-other-one-on-this-address-space)
 
 *Issues which can be seeing in setting up development environment*
@@ -173,6 +173,23 @@ For demonized version of Haaukins, you can provide config path after binary such
 
 Keep in mind that Haaukins is looking for config.yml file on the same directory with binary, which means that if config.yml file on the same directory with Haaukins binary, 
 there is no need to provide absolute path of configuration file. 
+
+## Guacamole 500 Error 
+This error might happen for some reasons which are;
+
+- VRDE feature is NOT enabled on virtualbox. It needs to be installed by following 
+```bash
+   $ VBoxManage extpack install Oracle_VM_VirtualBox_Extension_Pack-5.2.44.vbox-extpack 
+```
+   The version of extension version differs according to version of virtual box that you are having on the server. 
+   
+- VM might NOT be active (Not running state, check it)
+
+- Be careful about updating and downgrading the kernel version, it may cause serious headaches 
+  Make sure that Docker and Vboxmanage have been installed correctly. 
+  
+- For Haaukins specific; check resume functionality on teams to make sure that suspended VMs started without error. 
+  If there is an error happened restart VM which throws the error. 
 
 
 ## Pool overlaps with other one on this address space
