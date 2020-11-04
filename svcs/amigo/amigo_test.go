@@ -1,4 +1,4 @@
-package amigo_test
+package amigo
 
 import (
 	"bytes"
@@ -15,7 +15,6 @@ import (
 
 	"github.com/aau-network-security/haaukins/store"
 	pb "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/aau-network-security/haaukins/svcs/amigo"
 	mockserver "github.com/aau-network-security/haaukins/testing"
 	"google.golang.org/grpc"
 )
@@ -91,14 +90,14 @@ func TestVerifyFlag(t *testing.T) {
 		name   string
 		input  string
 		cookie *http.Cookie
-		opts   []amigo.AmigoOpt
+		opts   []AmigoOpt
 		err    string
 	}{
 		{
 			name:   "too large",
 			input:  `{"flag": "too-large"}`,
 			cookie: validCookie,
-			opts:   []amigo.AmigoOpt{amigo.WithMaxReadBytes(0)},
+			opts:   []AmigoOpt{WithMaxReadBytes(0)},
 			err:    "request body is too large",
 		},
 		{
@@ -135,8 +134,8 @@ func TestVerifyFlag(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			am := amigo.NewAmigo(ts, challenges, "", nil, tc.opts...)
-			srv := httptest.NewServer(am.Handler(amigo.Hooks{}, http.NewServeMux()))
+			am := NewAmigo(ts, challenges, "", nil, tc.opts...)
+			srv := httptest.NewServer(am.Handler(Hooks{}, http.NewServeMux()))
 
 			req, err := http.NewRequest("POST", srv.URL+"/flags/verify", bytes.NewBuffer([]byte(tc.input)))
 			if err != nil {
@@ -178,5 +177,65 @@ func TestVerifyFlag(t *testing.T) {
 				t.Fatalf("unexpected status: %s", r.Status)
 			}
 		})
+	}
+}
+
+func Test_checkTeamName(t *testing.T) {
+	tt := []struct {
+		input string
+		err   error
+	}{
+		{
+			input: `CoolTeamName`,
+			err:   nil,
+		},
+		{
+			input: `ThisIsAWayTooLongName`,
+			err:   ErrTeamNameToLarge,
+		},
+		{
+			input: `{":%s`,
+			err:   ErrTeamNameCharacters,
+		},
+		{
+			input: ``,
+			err:   ErrTeamNameEmpty,
+		},
+	}
+	for _, tc := range tt {
+		got := checkTeamName(tc.input)
+		if tc.err != got {
+			t.Fatalf("Got %v, and wanted %v", got, tc.err)
+		}
+	}
+}
+
+func Test_checkEmail(t *testing.T) {
+	tt := []struct {
+		input string
+		err   error
+	}{
+		{
+			input: `Jens@es.aau.dk`,
+			err:   nil,
+		},
+		{
+			input: `NotAVeryLongEmail@testemail.com`,
+			err:   ErrEmailToLarge,
+		},
+		{
+			input: `Email-test@es.aau.dk`,
+			err:   ErrEmailCharacters,
+		},
+		{
+			input: ``,
+			err:   ErrEmailEmpty,
+		},
+	}
+	for _, tc := range tt {
+		got := checkEmail(tc.input)
+		if tc.err != got {
+			t.Fatalf("Got %v, and wanted %v", got, tc.err)
+		}
 	}
 }

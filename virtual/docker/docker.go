@@ -473,7 +473,7 @@ type network struct {
 	net       *docker.Network
 	subnet    string
 	isVPN     bool
-	ipPool    map[uint8]struct{}
+	ipPool    map[uint]struct{}
 	connected []Identifier
 }
 
@@ -488,7 +488,7 @@ type Network interface {
 func NewNetwork(isVPN bool) (Network, error) {
 	sub, err := ipPool.Get()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ip pool get new network err %v", err)
 	}
 	var dOption string
 
@@ -514,15 +514,15 @@ func NewNetwork(isVPN bool) (Network, error) {
 
 	netw, err := DefaultClient.CreateNetwork(conf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("docker CreateNetwork err %v", err)
 	}
 
 	netInfo, _ := DefaultClient.NetworkInfo(netw.ID)
 	subnet = netInfo.IPAM.Config[0].Subnet
 
-	ipPool := make(map[uint8]struct{})
+	ipPool := make(map[uint]struct{})
 	for i := 30; i < 255; i++ {
-		ipPool[uint8(i)] = struct{}{}
+		ipPool[uint(i)] = struct{}{}
 	}
 
 	return &network{net: netw, subnet: subnet, ipPool: ipPool}, nil
@@ -576,7 +576,7 @@ func (n *network) releaseIP(ip string) {
 		return
 	}
 
-	n.ipPool[uint8(num)] = struct{}{}
+	n.ipPool[uint(num)] = struct{}{}
 }
 
 func (n *network) Connect(c Container, ip ...int) (int, error) {
