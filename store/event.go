@@ -33,6 +33,7 @@ var (
 
 type EventConfig struct {
 	Name           string
+	Host 		   string
 	Tag            Tag
 	Available      int
 	Capacity       int
