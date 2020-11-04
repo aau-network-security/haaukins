@@ -148,11 +148,11 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 		log.Info().Msgf("Create event with VPN IP Address %s   ", vpnIp)
 		conf := store.EventConfig{
-			Name:      req.Name,
-			Tag:       evtag,
-			Available: int(req.Available),
-			Capacity:  int(req.Capacity),
-
+			Name:           req.Name,
+			Tag:            evtag,
+			Available:      int(req.Available),
+			Capacity:       int(req.Capacity),
+			Host:           d.conf.Host.Http,
 			StartedAt:      &startTime,
 			FinishExpected: &finishTime,
 			Lab: store.Lab{
@@ -521,7 +521,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Bool("IsVPN", event.OnlyVPN).Msgf("Generating event config from database !")
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
-		Host: 	   d.conf.Host.Http,
+		Host:      d.conf.Host.Http,
 		Tag:       store.Tag(event.Tag),
 		Available: int(event.Available),
 		Capacity:  int(event.Capacity),
