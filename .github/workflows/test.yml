@@ -1,12 +1,18 @@
 name: Test
 
-on: 
+on:
   push:
-    tags-ignore:
-      - '*.*.*'
+    branches:
+      - master
+      - develop
+      - 'hotfix/**'
+      - 'feature/**'
   pull_request:
-    tags-ignore:
-      - '**'
+    branches:
+      - master
+      - develop
+      - 'hotfix/**'
+      - 'feature/**'
   
 jobs:
 
