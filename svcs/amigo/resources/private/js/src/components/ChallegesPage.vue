@@ -1,6 +1,9 @@
 <template>
   <div id="challenges-board">
-    <div class="row mt-5" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.Category">
+    <div class="alert alert-warning mt-5" role="alert">
+      <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Warning: VM will be in <strong>sleep mode</strong> after 8 hours of not usage! Just log out and log in from the event in case of VM error after connect button.
+    </div>
+    <div class="row mt-2" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.Category">
       <div class="category-header col-md-12 mb-3">
         <h3>{{category[0].challenge.Category}}</h3>
       </div>
