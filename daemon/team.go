@@ -102,9 +102,8 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	return nil
 }
 
-func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) error {
+func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {
 	now := time.Now().UTC()
-	var suspendError error
 	defer wg.Done()
 	suspendLab := func(ev guacamole.Event) {
 		for _, t := range ev.GetTeams() {
@@ -112,16 +111,16 @@ func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) error {
 			if difference > INACTIVITY_DURATION {
 				lab, ok := ev.GetLabByTeam(t.ID())
 				if !ok {
-					suspendError = UnknownTeamErr
-					log.Error().Msgf("Error on team lab suspend/GetLabByTeam  : %v", suspendError)
+					log.Error().Str("Team ID", t.ID()).
+						Str("Team Name", t.Name()).
+						Msgf("Error on team lab suspend/GetLabByTeam")
 				}
 				log.Info().Msgf("Suspending resources for team %s", t.Name())
 				// check if it is already suspended or not.
 				for _, instanceInfo := range lab.InstanceInfo() {
 					if instanceInfo.State != virtual.Suspended {
 						if err := lab.Suspend(context.Background()); err != nil {
-							suspendError = err
-							log.Error().Msgf("Error on team lab suspend: %v", suspendError)
+							log.Error().Msgf("Error on team lab suspend: %v", err)
 						}
 					}
 				}
@@ -132,8 +131,6 @@ func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) error {
 	case ev := <-ch:
 		suspendLab(ev)
 	}
-
-	return suspendError
 }
 
 // suspendTeams function will check all teams in all events
