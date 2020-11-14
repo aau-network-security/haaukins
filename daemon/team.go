@@ -116,11 +116,14 @@ func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {
 						Msgf("Error on team lab suspend/GetLabByTeam")
 				}
 				log.Info().Msgf("Suspending resources for team %s", t.Name())
-				// check if it is already suspended or not.
-				for _, instanceInfo := range lab.InstanceInfo() {
-					if instanceInfo.State != virtual.Suspended {
-						if err := lab.Suspend(context.Background()); err != nil {
-							log.Error().Msgf("Error on team lab suspend: %v", err)
+				// check if lab might be nil !
+				if lab != nil {
+					// check if it is already suspended or not.
+					for _, instanceInfo := range lab.InstanceInfo() {
+						if instanceInfo.State != virtual.Suspended {
+							if err := lab.Suspend(context.Background()); err != nil {
+								log.Error().Msgf("Error on team lab suspend: %v", err)
+							}
 						}
 					}
 				}

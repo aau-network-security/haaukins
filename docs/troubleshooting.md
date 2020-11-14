@@ -192,6 +192,15 @@ This error might happen for some reasons which are;
   If there is an error happened restart VM which throws the error. 
 
 
+- Guacamole mysql is NOT able to run. (Crashing) 
+
+Mysql requires following configuration file to be placed. 
+
+ - [https://help.directadmin.com/item.php?id=529](https://help.directadmin.com/item.php?id=529)
+ 
+ - [https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_use_native_aio](https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_use_native_aio)
+
+
 ## Pool overlaps with other one on this address space
 
 This error is directly related with docker containers and network, in order to overcome this error, docker related clean up 
