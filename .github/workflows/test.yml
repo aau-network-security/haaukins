@@ -41,7 +41,7 @@ jobs:
 
       - name: Install Protoc
         run: |
-          apt install -y protobuf-compiler
+          sudo apt install -y protobuf-compiler
 
       - name: Compile Daemon Protoc
         run : |
