@@ -13,7 +13,7 @@ on:
       - develop
       - 'hotfix/**'
       - 'feature/**'
-  
+
 jobs:
 
   test:
@@ -38,15 +38,23 @@ jobs:
               curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
               dep ensure
           fi
-      ## Linting codebase will be added in future.
-      #      - name: Lint
-      #        run: |
-      #          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.24.0
-      #          ./bin/golangci-lint run -D errcheck
+
+      - name: Install Protoc
+        run: |
+          go get -u github.com/golang/protobuf/{proto,protoc-gen-go}
+          sudo apt install -y protobuf-compiler
+          sudo apt install golang-goprotobuf-dev
+          echo 'export GOPATH=$HOME/go' >> $HOME/.bashrc
+          echo 'export PATH=$PATH:$GOPATH/bin' >> $HOME/.bashrc
+          source $HOME/.bashrc
+
+      - name: Compile Daemon Protoc
+        run : |
+          cd daemon && protoc -I proto/ proto/daemon.proto --go_out=plugins=grpc:proto
+
       - name: Test
         env:
           GITHUB_CI: "GITHUB_CI"
-          # CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
           go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
           # bash <(curl -s https://codecov.io/bash)
