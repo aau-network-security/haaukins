@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
@@ -541,45 +542,61 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 	return eventConfig
 }
 
-// CloseEvents will fetch Running events from DB
-// compares finish time, closes events if required.
+// CloseEvents closes overdue events
 func (d *daemon) closeEvents() error {
-	ctx := context.Background()
-	events, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: Running})
-	if err != nil {
-		log.Warn().Msgf("get events error on close overdue events %v ", err)
-		return err
+	var wg sync.WaitGroup
+	allEvents := d.eventPool.GetAllEvents()
+	ch := make(chan guacamole.Event, len(allEvents))
+	for _, ev := range allEvents {
+		go processEvent(ev, ch)
+		wg.Add(1)
+		go d.closeEvent(ch, &wg)
 	}
+	wg.Wait()
+	return nil
+}
 
-	for _, e := range events.Events {
+func (d *daemon) closeEvent(ch chan guacamole.Event, wg *sync.WaitGroup) error {
+	log.Info().Msgf("Running close events...")
+	ctx := context.Background()
+	var closeErr error
+	defer wg.Done()
+	closer := func(ev guacamole.Event) {
+		e := ev.GetConfig()
+		log.Info().Msgf("Running close events, checking %s", e.Tag)
+
 		eTag := store.Tag(e.Tag)
-
-		if isDelayed(e.ExpectedFinishTime) {
+		if isDelayed(e.FinishExpected.String()) {
 			currentTime := strconv.Itoa(int(time.Now().Unix()))
 			newEventTag := fmt.Sprintf("%s-%s", e.Tag, currentTime)
 			event, err := d.eventPool.GetEvent(eTag)
 			if err != nil {
 				log.Warn().Msgf("event pool get event error %v ", err)
-				return err
+				closeErr = err
 			}
 			_, err = d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{
 				EventTag: string(eTag),
 				Status:   Closed})
 			if err != nil {
 				log.Warn().Msgf("Error in setting up status of event in database side event: %s", string(eTag))
-				return err
+				closeErr = err
 			}
 			log.Debug().Msgf("Status is set to %d for event:  %s", Closed, string(eTag))
 			if err := d.eventPool.RemoveEvent(eTag); err != nil {
-				return err
+				closeErr = err
 			}
 			if err := event.Close(); err != nil {
-				return err
+				closeErr = err
 			}
 			event.Finish(newEventTag)
 		}
 	}
-	return nil
+
+	select {
+	case ev := <-ch:
+		closer(ev)
+	}
+	return closeErr
 }
 
 // StressEvent is making requests to daemon to see how daemon can handle them
