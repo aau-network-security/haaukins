@@ -41,7 +41,12 @@ jobs:
 
       - name: Install Protoc
         run: |
+          go get -u github.com/golang/protobuf/{proto,protoc-gen-go}
           sudo apt install -y protobuf-compiler
+          sudo apt install golang-goprotobuf-dev
+          echo 'export GOPATH=$HOME/go' >> $HOME/.bashrc
+          echo 'export PATH=$PATH:$GOPATH/bin' >> $HOME/.bashrc
+          source $HOME/.bashrc
 
       - name: Compile Daemon Protoc
         run : |
