@@ -514,6 +514,20 @@ func NewNetwork(isVPN bool) (Network, error) {
 
 	netw, err := DefaultClient.CreateNetwork(conf)
 	if err != nil {
+		for i := 0; ; i++ {
+			attempts := 10
+			netw, err = DefaultClient.CreateNetwork(conf)
+			if err == nil {
+				return nil, nil
+			}
+			if i >= (attempts - 1) {
+				log.Error().Msgf("Lab could not be initialized after %d attempts", attempts)
+				break
+			}
+			time.Sleep(time.Second)
+			log.Error().Msgf("retrying after error: %v", err)
+		}
+		log.Debug().Msgf("Preventing docker overlap pools in case of error tried 10 times...")
 		return nil, fmt.Errorf("docker CreateNetwork err %v", err)
 	}
 
