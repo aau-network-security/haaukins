@@ -566,7 +566,7 @@ func (d *daemon) closeEvent(ch chan guacamole.Event, wg *sync.WaitGroup) error {
 		log.Info().Msgf("Running close events, checking %s", e.Tag)
 
 		eTag := store.Tag(e.Tag)
-		if isDelayed(e.FinishExpected.String()) {
+		if isDelayed(e.FinishExpected.Format(displayTimeFormat)) {
 			currentTime := strconv.Itoa(int(time.Now().Unix()))
 			newEventTag := fmt.Sprintf("%s-%s", e.Tag, currentTime)
 			event, err := d.eventPool.GetEvent(eTag)
