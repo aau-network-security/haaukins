@@ -479,7 +479,21 @@ func NewNetwork() (Network, error) {
 
 	netw, err := DefaultClient.CreateNetwork(conf)
 	if err != nil {
-		return nil, err
+		for i := 0; ; i++ {
+			attempts := 10
+			netw, err = DefaultClient.CreateNetwork(conf)
+			if err == nil {
+				return nil, nil
+			}
+			if i >= (attempts - 1) {
+				log.Error().Msgf("Lab could not be initialized after %d attempts", attempts)
+				break
+			}
+			time.Sleep(time.Second)
+			log.Error().Msgf("retrying after error: %v", err)
+		}
+		log.Debug().Msgf("Preventing docker overlap pools in case of error tried 10 times...")
+		return nil, fmt.Errorf("docker CreateNetwork err %v", err)
 	}
 
 	netInfo, _ := DefaultClient.NetworkInfo(netw.ID)
@@ -575,9 +589,9 @@ type IPPool struct {
 func newIPPoolFromHost() *IPPool {
 	ips := map[string]struct{}{}
 	weights := map[string]int{
-		"172": 7 * 255,   // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
-		"10":  255 * 255, // 10.{2nd}.{0-255}.{0-255} => 2nd => 0-254 => 254 + 1 => 255
-		"192": 1 * 255,   // 10.{2nd}.{0-255}.{0-255} => 2nd => 198-198 => 0 + 1 => 1
+		"45":  7 * 255,   // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
+		"156": 255 * 255, // 10.{2nd}.{0-255}.{0-255} => 2nd => 0-254 => 254 + 1 => 255
+		"76":  1 * 255,   // 10.{2nd}.{0-255}.{0-255} => 2nd => 198-198 => 0 + 1 => 1
 	}
 
 	ifaces, err := net.Interfaces()
@@ -631,11 +645,11 @@ func (ipp *IPPool) Get() (string, error) {
 	genIP := func() string {
 		ip := randomPickWeighted(ipp.weights)
 		switch ip {
-		case "172":
+		case "45":
 			ip += fmt.Sprintf(".%d", rand.Intn(6)+25)
-		case "192":
+		case "76":
 			ip += ".168"
-		case "10":
+		case "156":
 			ip += fmt.Sprintf(".%d", rand.Intn(255))
 		}
 
