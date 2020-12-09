@@ -1,0 +1,4 @@
+---
+- name: Stop Haaukins
+  command: sudo systemctl stop hknd
+
