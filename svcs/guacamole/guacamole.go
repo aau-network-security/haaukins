@@ -149,7 +149,7 @@ func (guac *guacamole) GetAdminPass() string {
 func (guac *guacamole) create(ctx context.Context) error {
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
-		Image:     "guacamole/guacd:1.0.0",
+		Image:     "guacamole/guacd:1.2.0",
 		UseBridge: true,
 		Labels: map[string]string{
 			"api": "guacamole_guacd",
@@ -158,7 +158,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 
 	mysqlPass := uuid.New().String()
 	containers["db"] = docker.NewContainer(docker.ContainerConfig{
-		Image: "registry.gitlab.com/haaukins/core-utils/guacamole-mysql",
+		Image: "aaunetworksecurity/guacamole-mysql",
 		EnvVars: map[string]string{
 			"MYSQL_ROOT_PASSWORD": uuid.New().String(),
 			"MYSQL_DATABASE":      "guacamole_db",
