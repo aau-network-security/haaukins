@@ -11,7 +11,7 @@
   "dependencies": {
     "axios": "^0.20.0",
     "bootstrap": "^4.5.3",
-    "bootstrap-vue": "^2.20.1",
+    "bootstrap-vue": "^2.21.0",
     "core-js": "^3.8.1",
     "jquery": "^3.5.1",
     "vue": "^2.6.11",
