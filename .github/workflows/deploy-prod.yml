@@ -1,0 +1,57 @@
+name: Deploy application with Ansible
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on tagged commits
+  push:
+    tags:
+      - '*.*.*'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Install Ansible
+        run: |
+          sudo apt update -y
+          sudo apt install software-properties-common -y
+          sudo apt-add-repository --yes --update ppa:ansible/ansible
+          sudo apt install ansible -y
+
+      - name: Run GoReleaser
+          uses: goreleaser/goreleaser-action@v2
+          with:
+            version: latest
+            args: release --rm-dist
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Execute command to bash script
+        run: chmod +x ./.github/scripts/decrypt.sh
+
+      # Runs a single command using the runners shell
+      - name: Decrypt large secret
+        run: ./.github/scripts/decrypt.sh
+        env:
+          LARGE_SECRET_PASSPHRASE: ${{ secrets.LARGE_SECRET_PASSPHRASE }}
+
+      - name: Escalate Private Key Permissions
+        run: chmod 400 ~/.privkey
+
+      - name: Run ansible command
+        run: |
+          cd ./scripts/ansible
+          ansible-playbook -i ./inventory main.yml
+        env:
+          ANSIBLE_CONFIG: ./ansible.cfg
+
+      - name: Clean Key
+        run: rm -rf ~/.privkey

@@ -1,0 +1,8 @@
+---
+- name: Deploy new binary
+  copy:
+    src: ../../dist/hknd_linux_amd64/hknd
+    dest: "{{ deploy_path }}"
+    mode: 0755
+    owner: ntpd
+    group: ntpd
