@@ -1,5 +1,10 @@
 <template>
   <div id="challenges-board">
+    <div role="alert" class="alert alert-primary mt-5" style="text-align: center;">
+     <i class="fa fa-info-circle " aria-hidden="true"></i> <strong>Login credentials to the Virtual Environment (If required):</strong><br>
+      <strong>Username: haaukins</strong><br>
+      <strong>Password: haaukins</strong>
+    </div>
     <div class="alert alert-warning mt-5" role="alert">
       <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Warning: VM will be in <strong>sleep mode</strong> after 8 hours of not usage! Just log out and log in from the event in case of VM error after connect button.
     </div>
