@@ -169,17 +169,18 @@ checksum:
   # Default is sha256.
   algorithm: sha256
 
-brews:
-  - 
-    ids: 
-      - haaukins_client
-    tap:
-      owner: aau-network-security
-      name: homebrew-haaukins
-    folder: Formula
-    homepage: https://github.com/aau-network-security/haaukins/
-    description: Haaukins CLI
-    install: |
-      bin.install "hkn"
-    test: |
-      system "#{bin}/hkn --help"
+# it will be enabled later
+# brews:
+#   -
+#     ids:
+#       - haaukins_client
+#     tap:
+#       owner: aau-network-security
+#       name: homebrew-haaukins
+#     folder: Formula
+#     homepage: https://github.com/aau-network-security/haaukins/
+#     description: Haaukins CLI
+#     install: |
+#       bin.install "hkn"
+#     test: |
+#       system "#{bin}/hkn --help"
