@@ -44,7 +44,7 @@ jobs:
           LARGE_SECRET_PASSPHRASE: ${{ secrets.LARGE_SECRET_PASSPHRASE }}
 
       - name: Escalate Private Key Permissions
-        run: chmod 400 ~/.privkey
+        run: chmod 400 ~/.sshkey
 
       - name: Run ansible command
         run: |
