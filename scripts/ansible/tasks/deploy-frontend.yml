@@ -1,0 +1,8 @@
+---
+- name: Deploy Amigo Files
+  copy:
+    src: ../../svcs/amigo/resources
+    dest: "{{ deploy_path }}"
+    mode: 0744
+    owner: ntpd
+    group: ntpd

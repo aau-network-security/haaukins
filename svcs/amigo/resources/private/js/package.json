@@ -11,16 +11,16 @@
   "dependencies": {
     "axios": "^0.20.0",
     "bootstrap": "^4.5.3",
-    "bootstrap-vue": "^2.19.0",
-    "core-js": "^3.7.0",
+    "bootstrap-vue": "^2.21.1",
+    "core-js": "^3.8.1",
     "jquery": "^3.5.1",
     "vue": "^2.6.11",
     "vue-plotly": "^1.1.0"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^4.5.8",
-    "@vue/cli-plugin-eslint": "^4.5.8",
-    "@vue/cli-service": "^4.5.8",
+    "@vue/cli-plugin-babel": "^4.5.9",
+    "@vue/cli-plugin-eslint": "^4.5.9",
+    "@vue/cli-service": "^4.5.9",
     "babel-eslint": "^10.0.3",
     "eslint": "^6.7.2",
     "eslint-plugin-vue": "^6.1.2",

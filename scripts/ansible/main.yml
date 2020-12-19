@@ -1,0 +1,13 @@
+---
+- hosts: production
+  become: true
+  become_user: ntpd
+  vars_files:
+    - vars/vars.yml
+
+  tasks:
+    - import_tasks: tasks/stop.yml
+    - import_tasks: tasks/deploy-binary.yml
+    - import_tasks: tasks/deploy-frontend.yml
+    - import_tasks: tasks/start.yml
+

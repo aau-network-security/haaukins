@@ -1,0 +1,7 @@
+[production]
+haaukins ansible_host=130.225.166.251 ansible_user=ntpd
+[development]
+ntp-event ansible_host=130.225.166.250 ansible_user=haaukins
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
