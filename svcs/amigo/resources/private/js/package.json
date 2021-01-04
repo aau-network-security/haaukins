@@ -12,7 +12,7 @@
     "axios": "^0.20.0",
     "bootstrap": "^4.5.3",
     "bootstrap-vue": "^2.21.1",
-    "core-js": "^3.8.1",
+    "core-js": "^3.8.2",
     "jquery": "^3.5.1",
     "vue": "^2.6.11",
     "vue-plotly": "^1.1.0"
