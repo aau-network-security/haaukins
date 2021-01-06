@@ -11,8 +11,8 @@
   "dependencies": {
     "axios": "^0.20.0",
     "bootstrap": "^4.5.3",
+    "core-js": "^3.8.2",
     "bootstrap-vue": "^2.21.2",
-    "core-js": "^3.8.1",
     "jquery": "^3.5.1",
     "vue": "^2.6.11",
     "vue-plotly": "^1.1.0"
