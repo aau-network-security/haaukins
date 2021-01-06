@@ -1,2 +1,3 @@
 ---
 deploy_path: /data/home/ntpd/daemon/
+amigo_deploy_path: /data/home/ntpd/daemon/svcs/amigo/
