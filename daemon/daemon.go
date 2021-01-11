@@ -20,6 +20,7 @@ import (
 	"time"
 
 	wg "github.com/aau-network-security/haaukins/network/vpn"
+	eservice "github.com/aau-network-security/haaukins/store/eproto"
 
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 
@@ -48,7 +49,7 @@ var (
 	PortIsAllocatedError = errors.New("Given gRPC port is already allocated")
 	ReservedDomainErr    = errors.New("Reserved sub domain, change event tag !  ")
 
-	ReservedSubDomains = map[string]bool{"docs": true, "admin": true, "grpc": true, "api": true, "vpn":true}
+	ReservedSubDomains = map[string]bool{"docs": true, "admin": true, "grpc": true, "api": true, "vpn": true}
 	version            string
 	schedulers         []jobSpecs
 )
@@ -92,16 +93,17 @@ type jobSpecs struct {
 }
 
 type daemon struct {
-	conf      *Config
-	auth      Authenticator
-	users     store.UsersFile
-	exercises store.ExerciseStore
+	conf  *Config
+	auth  Authenticator
+	users store.UsersFile
+	//exercises store.ExerciseStore
 	eventPool *eventPool
 	frontends store.FrontendStore
 	ehost     guacamole.Host
 	logPool   logging.Pool
 	closers   []io.Closer
 	dbClient  pbc.StoreClient
+	exClient  eservice.ExerciseStoreClient
 }
 
 func (m *MissingConfigErr) Error() string {
@@ -214,10 +216,10 @@ func New(conf *Config) (*daemon, error) {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.ConfFiles.UsersFile))
 	}
 
-	ef, err := store.NewExerciseFile(conf.ConfFiles.ExercisesFile)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ConfFiles.ExercisesFile))
-	}
+	//ef, err := store.NewExerciseFile(conf.ConfFiles.ExercisesFile)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, fmt.Sprintf("unable to read exercises file: %s", conf.ConfFiles.ExercisesFile))
+	//}
 
 	ff, err := store.NewFrontendsFile(conf.ConfFiles.FrontendsFile)
 	if err != nil {
@@ -247,7 +249,7 @@ func New(conf *Config) (*daemon, error) {
 	}
 	// todo: could be done in much better way.
 
-	dbConfig := store.DBConfig{
+	dbConfig := store.Config{
 		Grpc:     conf.Database.Grpc,
 		AuthKey:  conf.Database.AuthKey,
 		SignKey:  conf.Database.SignKey,
@@ -269,9 +271,24 @@ func New(conf *Config) (*daemon, error) {
 		Dir:      conf.VPNConn.Dir,
 	}
 
+	eserviceConfig := store.Config{
+		Grpc:     conf.ExerciseService.Grpc,
+		AuthKey:  conf.ExerciseService.AuthKey,
+		SignKey:  conf.ExerciseService.SignKey,
+		Enabled:  conf.ExerciseService.CertConfig.Enabled,
+		CertFile: conf.ExerciseService.CertConfig.CertFile,
+		CertKey:  conf.ExerciseService.CertConfig.CertKey,
+		CAFile:   conf.ExerciseService.CertConfig.CAFile,
+	}
+
+	exServiceClient, err := store.NewExerciseClientConn(eserviceConfig)
+	if err != nil {
+		return nil, fmt.Errorf("[exercise-service]: error on creating gRPC communication %v ", err)
+	}
+
 	dbc, err := store.NewGRPClientDBConnection(dbConfig)
 	if err != nil {
-		return nil, fmt.Errorf("error on creating GRPClient DB Connection %v", err)
+		return nil, fmt.Errorf("[store-service]: error on creating GRPClient DB Connection %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -290,16 +307,17 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	d := &daemon{
-		conf:      conf,
-		auth:      NewAuthenticator(uf, conf.SigningKey),
-		users:     uf,
-		exercises: ef,
+		conf:  conf,
+		auth:  NewAuthenticator(uf, conf.SigningKey),
+		users: uf,
+		//exercises: ef,
 		eventPool: eventPool,
 		frontends: ff,
-		ehost:     guacamole.NewHost(vlib, ef, conf.ConfFiles.EventsDir, dbc, vpnConfig),
+		ehost:     guacamole.NewHost(vlib, exServiceClient, conf.ConfFiles.EventsDir, dbc, vpnConfig),
 		logPool:   logPool,
 		closers:   []io.Closer{logPool, eventPool},
 		dbClient:  dbc,
+		exClient:  exServiceClient,
 	}
 
 	for _, ef := range runningEvents.Events {
