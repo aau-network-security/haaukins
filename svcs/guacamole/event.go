@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	wg "github.com/aau-network-security/haaukins/network/vpn"
+	eservice "github.com/aau-network-security/haaukins/store/eproto"
 
 	"net/http"
 	"path/filepath"
@@ -58,17 +59,17 @@ var (
 )
 
 type Host interface {
-	UpdateEventHostExercisesFile(store.ExerciseStore) error
+	//UpdateEventHostExercisesFile(store.ExerciseStore) error
 	CreateEventFromEventDB(context.Context, store.EventConfig, string) (Event, error)
 	CreateEventFromConfig(context.Context, store.EventConfig, string) (Event, error)
 }
 
-func NewHost(vlib vbox.Library, elib store.ExerciseStore, eDir string, dbc pbc.StoreClient, config wg.WireGuardConfig) Host {
+func NewHost(vlib vbox.Library, exerciseClient eservice.ExerciseStoreClient, eDir string, dbc pbc.StoreClient, config wg.WireGuardConfig) Host {
 	return &eventHost{
 		ctx:       context.Background(),
 		dbc:       dbc,
 		vlib:      vlib,
-		elib:      elib,
+		elib:      exerciseClient,
 		dir:       eDir,
 		vpnConfig: config,
 	}
@@ -78,17 +79,28 @@ type eventHost struct {
 	ctx       context.Context
 	dbc       pbc.StoreClient
 	vlib      vbox.Library
-	elib      store.ExerciseStore
+	elib      eservice.ExerciseStoreClient
 	vpnConfig wg.WireGuardConfig
 	dir       string
 }
 
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
+	// todo: temporary check for time being
+	var exercises []string
+	for _, d := range conf.Lab.Exercises {
+		exercises = append(exercises, string(d))
+	}
+	response, err := eh.elib.GetExerciseByTags(ctx, &eservice.GetExerciseByTagsRequest{Tag: exercises})
 	if err != nil {
 		return nil, err
 	}
+	// todo: refactor following section
+	log.Debug().Msgf("Will be refactored with more roboust implementation %v", response.Exercises)
+	//exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
+	//if err != nil {
+	//	return nil, err
+	//}
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
 		return nil, err
@@ -97,13 +109,13 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	var labConf lab.Config
 	if conf.OnlyVPN {
 		labConf = lab.Config{
-			Exercises: exer,
+			//Exercises: exer,
 		}
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
 	} else {
 		labConf = lab.Config{
-			Exercises: exer,
+			//Exercises: exer,
 			Frontends: conf.Lab.Frontends,
 		}
 	}
@@ -147,13 +159,13 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 	return eh.CreateEventFromEventDB(ctx, conf, reCaptchaKey)
 }
 
-func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error {
-	if len(es.ListExercises()) == 0 {
-		return errors.New("Provided exercisestore is empty, be careful next time ! ")
-	}
-	eh.elib = es
-	return nil
-}
+//func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error {
+//	if len(es.ListExercises()) == 0 {
+//		return errors.New("Provided exercisestore is empty, be careful next time ! ")
+//	}
+//	eh.elib = es
+//	return nil
+//}
 
 type Event interface {
 	Start(context.Context) error
