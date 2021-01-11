@@ -18,7 +18,7 @@ service Daemon {
 
   rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {}
 
-  rpc UpdateExercisesFile(Empty) returns (UpdateExercisesFileResponse){}
+//  rpc UpdateExercisesFile(Empty) returns (UpdateExercisesFileResponse){}
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
 
