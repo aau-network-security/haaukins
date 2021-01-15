@@ -16,8 +16,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/aau-network-security/haaukins/virtual"
-
 	wg "github.com/aau-network-security/haaukins/network/vpn"
 
 	"net/http"
@@ -661,13 +659,8 @@ func (ev *event) Handler() http.Handler {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			for _, instance := range labb.InstanceInfo() {
-				if instance.State == virtual.Suspended {
-					if err := labb.Resume(context.Background()); err != nil {
-						log.Error().Msgf("Error on lab resume %v", err)
-						return
-					}
-				}
+			if err := labb.Resume(context.Background()); err != nil {
+				log.Error().Msgf("Error on lab resume %v", err)
 			}
 		}()
 		waitGroup.Wait()
