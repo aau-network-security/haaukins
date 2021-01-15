@@ -209,33 +209,3 @@ func Test_checkTeamName(t *testing.T) {
 		}
 	}
 }
-
-func Test_checkEmail(t *testing.T) {
-	tt := []struct {
-		input string
-		err   error
-	}{
-		{
-			input: `Jens@es.aau.dk`,
-			err:   nil,
-		},
-		{
-			input: `NotAVeryLongEmail@testemail.com`,
-			err:   ErrEmailToLarge,
-		},
-		{
-			input: `Email-test@es.aau.dk`,
-			err:   ErrEmailCharacters,
-		},
-		{
-			input: ``,
-			err:   ErrEmailEmpty,
-		},
-	}
-	for _, tc := range tt {
-		got := checkEmail(tc.input)
-		if tc.err != got {
-			t.Fatalf("Got %v, and wanted %v", got, tc.err)
-		}
-	}
-}
