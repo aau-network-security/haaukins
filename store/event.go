@@ -33,7 +33,7 @@ var (
 
 type EventConfig struct {
 	Name           string
-	Host 		   string
+	Host           string
 	Tag            Tag
 	Available      int
 	Capacity       int
@@ -144,7 +144,6 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 			log.Debug().Msgf("Error in getting token for team %s", team.Name())
 		}
 		ts.tokens[teamToken] = team.ID()
-		ts.emails[team.Email()] = team.ID()
 		ts.names[team.Name()] = team.ID()
 		ts.teams[team.ID()] = team
 	}

@@ -470,16 +470,12 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 
 	readParams := func(r *http.Request) (signupData, error) {
 		data := signupData{
-			Email:    strings.TrimSpace(r.PostFormValue("email")),
+			Email:    "", // removed due to GDPR
 			TeamName: strings.TrimSpace(r.PostFormValue("team-name")),
 			Password: r.PostFormValue("password"),
 		}
 
 		if err := checkTeamName(data.TeamName); err != nil {
-			return data, err
-		}
-
-		if err := checkEmail(data.Email); err != nil {
 			return data, err
 		}
 
@@ -529,8 +525,8 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 				return
 			}
 		}
-
-		t := store.NewTeam(strings.TrimSpace(params.Email), strings.TrimSpace(params.TeamName), params.Password, "", "", "", time.Now().UTC(), nil)
+		// email removed  due to GDPR
+		t := store.NewTeam("", strings.TrimSpace(params.TeamName), params.Password, "", "", "", time.Now().UTC(), nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -956,24 +952,6 @@ func checkTeamName(input string) error {
 
 	if !re.MatchString(input) {
 		return ErrTeamNameCharacters
-	}
-
-	return nil
-}
-
-func checkEmail(input string) error {
-	re := regexp.MustCompile(emailRegex)
-
-	if input == "" {
-		return ErrEmailEmpty
-	}
-
-	if err := checkVarLength(input, emailMaxLength); err != nil {
-		return ErrEmailToLarge
-	}
-
-	if !re.MatchString(input) {
-		return ErrEmailCharacters
 	}
 
 	return nil
