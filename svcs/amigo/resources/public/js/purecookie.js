@@ -1,5 +1,5 @@
 // --- Config --- //
-var purecookieTitle = "Required Cookies."; // Title
+var purecookieTitle = "Information"; // Title
 var purecookieDesc = "By signing up, you consent that the information is stored on servers at Aalborg University. We only use the information in order to setup and conduct the event. We do NOT share the information with anyone."; // Description
 var purecookieLink = '<a href="cookie-policy.html" target="_blank">What for?</a>'; // Cookiepolicy link
 var purecookieButton = "Understood"; // Button text
