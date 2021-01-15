@@ -30,7 +30,6 @@ type TeamStore interface {
 	GetTeamByToken(string) (*Team, error)
 	SaveTeam(*Team) error
 	GetTeamByID(string) (*Team, error)
-	GetTeamByEmail(string) (*Team, error)
 	GetTeamByUsername(string) (*Team, error)
 	GetTeams() []*Team
 	SaveTokenForTeam(string, *Team) error
@@ -79,27 +78,21 @@ func (es *teamstore) GetTeamByToken(token string) (*Team, error) {
 // Save the Team on the DB and on TeamStore
 func (es *teamstore) SaveTeam(t *Team) error {
 	es.m.Lock()
+	// email field removed due to GDPR
+	// will be enabled when privacy policy ready
 
-	email := t.Email()
-	_, ok := es.emails[email]
-	if ok {
-		es.m.Unlock()
-		return ErrEmailAlreadyExists
-	}
 	username := t.Name()
-	_, ok = es.names[username]
+	_, ok := es.names[username]
 	if ok {
 		es.m.Unlock()
 		return ErrTeamAlreadyExist
 	}
 	es.names[username] = t.ID()
-	es.emails[email] = t.ID()
 	es.teams[t.ID()] = t
 
 	_, err := es.dbc.AddTeam(context.Background(), &pbc.AddTeamRequest{
 		Id:       strings.TrimSpace(t.ID()),
 		EventTag: strings.TrimSpace(string(es.eConf.Tag)),
-		Email:    strings.TrimSpace(t.Email()),
 		Name:     strings.TrimSpace(t.Name()),
 		Password: t.GetHashedPassword(),
 	})
@@ -140,22 +133,6 @@ func (es *teamstore) GetTeamByID(id string) (*Team, error) {
 	return t, nil
 }
 
-func (es *teamstore) GetTeamByEmail(email string) (*Team, error) {
-	es.m.RLock()
-
-	tid, ok := es.emails[email]
-	if !ok {
-		es.m.RUnlock()
-		return nil, fmt.Errorf("GetTeamByEmail function error %v", UnknownTeamErr)
-	}
-	t, ok := es.teams[tid]
-	if !ok {
-		es.m.RUnlock()
-		return nil, fmt.Errorf("GetTeamByEmail function error %v", UnknownTeamErr)
-	}
-	es.m.RUnlock()
-	return t, nil
-}
 func (es *teamstore) GetVPNConn(teamid string) []string {
 	es.m.RLock()
 	t, ok := es.teams[teamid]
@@ -247,7 +224,6 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB, skippedChalsD
 		hPass = []byte(hashedPass)
 	}
 
-	email = strings.ToLower(email)
 	if id == "" {
 		id = uuid.New().String()[0:8]
 	}
@@ -579,29 +555,3 @@ func (t *Team) AddStep() error {
 	}
 	return nil
 }
-
-//Not used anywhere
-//func (t *Team) GetChallenges(order ...Tag) []TeamChallenge {
-//	t.m.RLock()
-//	var chals []TeamChallenge
-//	if len(order) > 0 {
-//	loop:
-//		for _, tag := range order {
-//			for _, chal := range t.challenges {
-//				if tag == chal.Tag {
-//					chals = append(chals, chal)
-//					continue loop
-//				}
-//			}
-//		}
-//		t.m.RUnlock()
-//		return chals
-//	}
-//
-//	for _, chal := range t.challenges {
-//		chals = append(chals, chal)
-//	}
-//
-//	t.m.RUnlock()
-//	return chals
-//}
