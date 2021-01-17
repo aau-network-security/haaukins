@@ -93,10 +93,10 @@ type jobSpecs struct {
 }
 
 type daemon struct {
-	conf  *Config
-	auth  Authenticator
-	users store.UsersFile
-	//exercises store.ExerciseStore
+	conf      *Config
+	auth      Authenticator
+	users     store.UsersFile
+	exercises store.ExerciseStore
 	eventPool *eventPool
 	frontends store.FrontendStore
 	ehost     guacamole.Host
