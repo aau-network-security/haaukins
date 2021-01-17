@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	eservice "github.com/aau-network-security/haaukins/store/eproto"
@@ -55,7 +54,7 @@ func (c Creds) RequireTransportSecurity() bool {
 }
 
 func NewExerciseClientConn(config Config) (eservice.ExerciseStoreClient, error) {
-	creds := enableCertificates(config.CertFile, config.CertKey)
+	creds := enableClientCertificates()
 	authCreds, err := constructAuthCreds(config.AuthKey, config.SignKey)
 	if err != nil {
 		return nil, fmt.Errorf("[exercise-service]: Error in constructing auth credentials %v", err)
@@ -84,7 +83,7 @@ func NewExerciseClientConn(config Config) (eservice.ExerciseStoreClient, error) 
 }
 
 func NewGRPClientDBConnection(dbConn Config) (pbc.StoreClient, error) {
-	creds := enableCertificates(dbConn.CertFile, dbConn.CertKey)
+	creds := enableClientCertificates()
 	authCreds, err := constructAuthCreds(dbConn.AuthKey, dbConn.SignKey)
 	if err != nil {
 		return nil, fmt.Errorf("[store-service]: Error in constructing auth credentials %v", err)
@@ -125,35 +124,13 @@ func constructAuthCreds(authKey, signKey string) (Creds, error) {
 	return authCreds, nil
 }
 
-func enableCertificates(certFile, certKey string) credentials.TransportCredentials {
+func enableClientCertificates() credentials.TransportCredentials {
 	// Load the client certificates from disk
-	certificate, err := tls.LoadX509KeyPair(certFile, certKey)
-	log.Info().Str("Certfile", certFile).
-		Str("CertKey", certKey).Msg("Certs files")
-	if err != nil {
-		log.Printf("could not load client key pair: %s", err)
-	}
+	pool, _ := x509.SystemCertPool()
+	creds := credentials.NewClientTLSFromCert(pool, "")
 
-	// Create a certificate pool from the certificate authority
-	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		log.Printf("DBCONN could not read ca certificate: %s", err)
-	}
-
-	// Append the certificates from the CA
-	// This is chain.pem for letsencrypt
-	// can be found in same place with existing certificates
-	if ok := certPool.AppendCertsFromPEM(ca); !ok {
-		log.Error().Msg("failed to append ca certs")
-	}
-
-	creds := credentials.NewTLS(&tls.Config{
-		// no need to give specific Grpc address
-		// if it is given certificates should be generated
-		// per given address
-		Certificates: []tls.Certificate{certificate},
-		RootCAs:      certPool,
+	creds = credentials.NewTLS(&tls.Config{
+		RootCAs: pool,
 	})
 
 	return creds
