@@ -18,7 +18,6 @@ service Daemon {
 
   rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {}
 
-//  rpc UpdateExercisesFile(Empty) returns (UpdateExercisesFileResponse){}
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
 
@@ -174,9 +173,7 @@ message ResetExerciseRequest {
   repeated Team teams = 3;
 }
 
-message UpdateExercisesFileResponse {
-  string msg=1;
-}
+
 message ListExercisesResponse {
   message Exercise {
     message ExerciseInfo{
