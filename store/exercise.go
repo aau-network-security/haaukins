@@ -36,6 +36,7 @@ func (eee *ExerTagExistsErr) Error() string {
 
 type Exercise struct {
 	Name        string         `yaml:"name"`
+	Secret      bool           `yaml:"secret"`
 	Tags        []Tag          `yaml:"tags"`
 	DockerConfs []DockerConfig `yaml:"docker"`
 	VboxConfs   []VboxConfig   `yaml:"vbox"`
