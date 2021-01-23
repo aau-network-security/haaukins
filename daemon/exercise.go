@@ -2,12 +2,11 @@ package daemon
 
 import (
 	"context"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
 )
-
-
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
 	var exercises []*pb.ListExercisesResponse_Exercise
@@ -19,29 +18,29 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		}
 
 		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
-		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]){
+		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]) {
 
 			exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
-				Tag:                  string(e.Tag),
-				Name:                 e.Name,
-				Points:               int32(e.Points),
-				Category:             e.Category,
-				Description:          e.Description,
+				Tag:         string(e.Tag),
+				Name:        e.Name,
+				Points:      int32(e.Points),
+				Category:    e.Category,
+				Description: e.Description,
 			})
 		}
 
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
-			Name:             	  e.Name,
-			Tags:             	  tags,
-			DockerImageCount: 	  int32(len(e.DockerConfs)),
-			VboxImageCount:   	  int32(len(e.VboxConfs)),
-			Exerciseinfo:         exercisesInfo,
+			Name:             e.Name,
+			Tags:             tags,
+			Secret:           e.Secret,
+			DockerImageCount: int32(len(e.DockerConfs)),
+			VboxImageCount:   int32(len(e.VboxConfs)),
+			Exerciseinfo:     exercisesInfo,
 		})
 	}
 
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
 }
-
 
 func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
 	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ConfFiles.ExercisesFile)
