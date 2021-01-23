@@ -47,8 +47,8 @@ func (c *Client) CmdExercises() *cobra.Command {
 			}
 
 			f := formatter{
-				header: []string{"NAME", "TAGS", "# DOCKER IMAGES", "# VBOX IMAGES"},
-				fields: []string{"Name", "Tags", "DockerImageCount", "VboxImageCount"},
+				header: []string{"NAME", "TAGS", "Secret", "# DOCKER IMAGES", "# VBOX IMAGES"},
+				fields: []string{"Name", "Tags", "Secret", "DockerImageCount", "VboxImageCount"},
 			}
 
 			var elements []formatElement
@@ -58,11 +58,13 @@ func (c *Client) CmdExercises() *cobra.Command {
 					Tags             string
 					DockerImageCount int32
 					VboxImageCount   int32
+					Secret           bool
 				}{
 					Name:             e.Name,
 					Tags:             strings.Join(e.Tags, ","),
 					DockerImageCount: e.DockerImageCount,
 					VboxImageCount:   e.VboxImageCount,
+					Secret:           e.Secret,
 				})
 			}
 
