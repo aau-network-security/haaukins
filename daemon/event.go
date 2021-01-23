@@ -109,6 +109,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			if tagErr != nil {
 				return tagErr
 			}
+			isSecret, err := d.exercises.IsSecretExercise(t)
+			if err != nil {
+				log.Error().Err(err).Msg("Error on checking secret challenges")
+				return err
+			}
+			if isSecret && !user.SuperUser {
+				return fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", t)
+			}
 			tags[i] = t
 		}
 		evtag, _ := store.NewTag(req.Tag)

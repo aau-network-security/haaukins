@@ -294,6 +294,7 @@ func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error)
 type ExerciseStore interface {
 	GetExercisesByTags(...Tag) ([]Exercise, error)
 	GetExercisesInfo(Tag) []FlagConfig
+	IsSecretExercise(Tag) (bool, error)
 	CreateExercise(Exercise) error
 	DeleteExerciseByTag(Tag) error
 	ListExercises() []Exercise
@@ -321,6 +322,16 @@ func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (Ex
 	s.hooks = hooks
 
 	return &s, nil
+}
+
+func (es *exercisestore) IsSecretExercise(t Tag) (bool, error) {
+	es.m.Lock()
+	defer es.m.Unlock()
+	ex := es.tags[t]
+	if ex == nil {
+		return false, fmt.Errorf("No exercise with tag %s", t)
+	}
+	return ex.Secret, nil
 }
 
 func (es *exercisestore) GetExercisesInfo(tag Tag) []FlagConfig {
