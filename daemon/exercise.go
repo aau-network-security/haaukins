@@ -10,8 +10,16 @@ import (
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
 	var exercises []*pb.ListExercisesResponse_Exercise
+	usr, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return &pb.ListExercisesResponse{}, NoUserInformation
+	}
 
 	for _, e := range d.exercises.ListExercises() {
+		if !usr.SuperUser && e.Secret {
+			// skip if user is not super user
+			continue
+		}
 		var tags []string
 		for _, t := range e.Tags {
 			tags = append(tags, string(t))
