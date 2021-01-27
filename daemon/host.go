@@ -1,10 +1,14 @@
 package daemon
 
 import (
+	"context"
+	"fmt"
+
+	"time"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-	"time"
 )
 
 func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
@@ -37,4 +41,17 @@ func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) 
 			return err
 		}
 	}
+}
+func (d *daemon) GetAPICreds(ctx context.Context, req *pb.Empty) (*pb.CredsResponse, error) {
+	usr, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return &pb.CredsResponse{}, err
+	}
+	if !usr.SuperUser {
+		return &pb.CredsResponse{}, fmt.Errorf("No priviledge to see auth keys for API")
+	}
+	return &pb.CredsResponse{
+		Username: d.conf.APICreds.Username,
+		Password: d.conf.APICreds.Password,
+	}, nil
 }
