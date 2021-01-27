@@ -23,7 +23,13 @@ type Config struct {
 	ConfFiles          Files                            `yaml:"files,omitempty"`
 	SigningKey         string                           `yaml:"sign-key,omitempty"`
 	Rechaptcha         string                           `yaml:"recaptcha-key,omitempty"`
+	APICreds           APICreds                         `yaml:"api-creds,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
+}
+
+type APICreds struct {
+	Username string `yaml:"username,omitempty"`
+	Password string `yaml:"password,omitempty"`
 }
 
 // VPNConnConf includes configuration

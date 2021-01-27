@@ -9,6 +9,7 @@ service Daemon {
   rpc DestroyUser (DestroyUserRequest) returns (DestroyUserResponse) {}
   rpc SetTeamSuspend (SetTeamSuspendRequest) returns (Empty) {}
 
+  rpc GetAPICreds(Empty) returns (CredsResponse) {}
   rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
   rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
   rpc SuspendEvent(SuspendEventRequest) returns (stream EventStatus) {}
@@ -31,6 +32,10 @@ service Daemon {
   rpc Version (Empty) returns (VersionResponse) {}
 }
 
+message CredsResponse {
+  string username = 1;
+  string password = 2;
+}
 
 message Team {
   string Id = 1;
