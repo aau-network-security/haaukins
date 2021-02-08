@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/aau-network-security/haaukins/network/dhcp"
@@ -26,6 +27,7 @@ type Environment interface {
 	NetworkInterface() string
 	LabSubnet() string
 	LabDNS() string
+	DNSRecords() []*DNSRecord
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
@@ -35,10 +37,14 @@ type Environment interface {
 	io.Closer
 }
 
-type environment struct {
-	tags      map[store.Tag]*exercise
-	exercises []*exercise
+type DNSRecord struct {
+	Record map[string]string
+}
 
+type environment struct {
+	tags       map[store.Tag]*exercise
+	exercises  []*exercise
+	dnsrecords []*DNSRecord
 	network    docker.Network
 	dnsServer  *dns.Server
 	dhcpServer *dhcp.Server
@@ -86,7 +92,21 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 		for _, t := range conf.Tags {
 			ee.tags[t] = e
 		}
+		var aRecord string
+		ip := strings.Split(e.dnsAddr, ".")
+		strings.Split(ee.dnsAddr, ".")
 
+		for _, d := range conf.DockerConfs {
+			for _, r := range d.Records {
+				if r.Type == "A" {
+					aRecord = r.Name
+					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
+						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
+					}})
+				}
+			}
+		}
+		//log.Printf("IP Address: %s.%s.%s.%d  ---> Domain: %s", , aRecord)
 		ee.exercises = append(ee.exercises, e)
 	}
 
@@ -98,6 +118,10 @@ func (ee *environment) NetworkInterface() string {
 }
 func (ee *environment) LabSubnet() string {
 	return ee.dhcpServer.LabSubnet()
+}
+
+func (ee *environment) DNSRecords() []*DNSRecord {
+	return ee.dnsrecords
 }
 
 func (ee *environment) LabDNS() string {
@@ -133,11 +157,12 @@ func (ee *environment) Start(ctx context.Context) error {
 			if err := e.Start(ctx); err != nil && res == nil {
 				res = err
 			}
+
 			wg.Done()
 		}(ex)
+
 	}
 	wg.Wait()
-
 	return res
 }
 
