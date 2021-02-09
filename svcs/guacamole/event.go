@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aau-network-security/haaukins/exercise"
 	wg "github.com/aau-network-security/haaukins/network/vpn"
 
 	"net/http"
@@ -193,6 +194,7 @@ type event struct {
 type labNetInfo struct {
 	dns             string
 	subnet          string
+	dnsrecords      []*exercise.DNSRecord
 	wgInterfacePort int
 }
 
@@ -307,6 +309,14 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	ctx := context.Background()
 	evTag := string(ev.GetConfig().Tag)
 	team := t.ID()
+	var hosts string
+	for _, r := range labInfo.dnsrecords {
+		for ip, arecord := range r.Record {
+			hosts += fmt.Sprintf("# %s \t %s \n", ip, arecord)
+		}
+
+	}
+
 	// generate an ip for peer for wireguard interface
 	subnet := ev.store.VPNAddress
 
@@ -379,7 +389,17 @@ MTU = 1500
 PublicKey = %s
 AllowedIps = %s
 Endpoint =  %s
-PersistentKeepalive = 25`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint)
+PersistentKeepalive = 25
+
+
+##### HOSTS INFORMATION ########
+#   Append given IP Address(es) with Domain(s) to your /etc/hosts file
+#   It enables you to browse domain of challenge through VPN 
+#   when you connected to internet.
+################################
+
+%s
+`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint, hosts)
 		t.SetVPNKeys(i, resp.Message)
 		//log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
@@ -549,8 +569,9 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	} else {
 		// create client configuration file for team
 		labInfo := &labNetInfo{
-			dns:    lab.Environment().LabDNS(),
-			subnet: lab.Environment().LabSubnet(),
+			dns:        lab.Environment().LabDNS(),
+			subnet:     lab.Environment().LabSubnet(),
+			dnsrecords: lab.Environment().DNSRecords(),
 		}
 
 		log.Info().Str("Team DNS", labInfo.dns).
