@@ -99,14 +99,15 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 		for _, d := range conf.DockerConfs {
 			for _, r := range d.Records {
 				if r.Type == "A" {
-					aRecord = r.Name
-					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
-						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
-					}})
+					if !strings.Contains(d.Image, "client") {
+						aRecord = r.Name
+						ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
+							fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
+						}})
+					}
 				}
 			}
 		}
-		//log.Printf("IP Address: %s.%s.%s.%d  ---> Domain: %s", , aRecord)
 		ee.exercises = append(ee.exercises, e)
 	}
 

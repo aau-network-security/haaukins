@@ -559,12 +559,27 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 }
 
 func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
-
+	var hosts []string
 	if !ev.store.OnlyVPN {
 		if err := ev.createGuacConn(t, lab); err != nil {
 			log.Error().Msgf("Error on creatig guacamole connection !, err : %v", err)
 			return err
 		}
+		labInfo := &labNetInfo{
+			dns:        lab.Environment().LabDNS(),
+			subnet:     lab.Environment().LabSubnet(),
+			dnsrecords: lab.Environment().DNSRecords(),
+		}
+		for _, r := range labInfo.dnsrecords {
+			for ip, arecord := range r.Record {
+				hosts = append(hosts, fmt.Sprintf("%s \t %s", ip, arecord))
+			}
+		}
+		t.SetHostsInfo(hosts)
+		log.Info().Str("Team DNS", labInfo.dns).
+			Str("Team Subnet", labInfo.subnet).
+			Msgf("Creating Guac connection for team %s", t.ID())
+
 		//}
 	} else {
 		// create client configuration file for team
