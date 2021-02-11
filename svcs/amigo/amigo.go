@@ -51,11 +51,17 @@ var (
 	teamNameMaxLength       = 20
 )
 
+type Hosts struct {
+	Domain string
+	IP     string
+}
+
 type siteInfo struct {
 	EventName string
 	Team      *team
 	IsVPN     bool
 	Content   interface{}
+	Hosts     []Hosts
 }
 
 type team struct {
@@ -116,7 +122,6 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	if err != nil {
 		return info
 	}
-
 	team, err := am.getTeamInfoFromToken(c.Value)
 	if err != nil {
 		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
@@ -143,6 +148,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/", am.handleIndex())
 	m.HandleFunc("/challenges", am.handleChallenges())
 	m.HandleFunc("/teams", am.handleTeams())
+	m.HandleFunc("/hosts", am.handleHostsInformation())
 	m.HandleFunc("/scoreboard", am.handleScoreBoard())
 	m.HandleFunc("/signup", am.handleSignup(hooks.AssignLab))
 	m.HandleFunc("/login", am.handleLogin(hooks.ResumeTeamLab))
@@ -183,6 +189,44 @@ func (am *Amigo) handleIndex() http.HandlerFunc {
 			log.Println("template err index: ", err)
 		}
 	}
+}
+
+func (am *Amigo) handleHostsInformation() http.HandlerFunc {
+	type data struct {
+		hostinfo string
+	}
+	hostsTemplate := wd + "/svcs/amigo/resources/private/hosts.tmpl.html"
+	tmpl, err := parseTemplates(hostsTemplate)
+	if err != nil {
+		log.Println("error index tmpl: ", err)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/hosts" {
+			http.NotFound(w, r)
+			return
+		}
+
+		t, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+		}
+
+		data := am.getSiteInfo(w, r)
+		hosts := t.GetHostsInfo()
+		var hostInfo []Hosts
+		if hosts != nil {
+			for _, r := range hosts {
+				record := strings.Split(r, "\t")
+				hostInfo = append(hostInfo, Hosts{IP: record[0], Domain: record[1]})
+			}
+			data.Hosts = hostInfo
+		}
+		if err := tmpl.Execute(w, data); err != nil {
+			log.Println("template err index: ", err)
+		}
+	}
+
 }
 
 func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.Handler) http.HandlerFunc {
