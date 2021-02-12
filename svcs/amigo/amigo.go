@@ -210,6 +210,7 @@ func (am *Amigo) handleHostsInformation() http.HandlerFunc {
 		t, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
 		}
 
 		data := am.getSiteInfo(w, r)
