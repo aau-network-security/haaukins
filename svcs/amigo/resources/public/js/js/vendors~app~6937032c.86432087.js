@@ -1,0 +1,1 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([["vendors~app~6937032c"],{"5f5b":function(n,a,s){"use strict";var i=s("3790"),o=s("2f99"),p=s("fa18"),e={install:Object(i.a)({plugins:{componentsPlugin:o.a,directivesPlugin:p.a}}),NAME:"BootstrapVue"};a.a=e}}]);
