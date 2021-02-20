@@ -36,19 +36,13 @@ func TestCreateEvent(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := fakeEvent{}
-			exStore, err := store.NewExerciseStore([]store.Exercise{{
-				Tags: []store.Tag{"hb"},
-			}})
-			if err != nil {
-				t.Fatalf("Error %v", err)
-			}
+
 			ctx := context.Background()
 			eventPool := NewEventPool("")
 			d := &daemon{
 				conf:      &Config{},
 				eventPool: eventPool,
 				frontends: &fakeFrontendStore{},
-				exercises: exStore,
 				auth: &noAuth{
 					allowed: !tc.unauthorized,
 				},
