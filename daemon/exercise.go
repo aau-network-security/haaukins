@@ -9,58 +9,58 @@ import (
 )
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
-	var exercises []*pb.ListExercisesResponse_Exercise
-	usr, err := getUserFromIncomingContext(ctx)
-	if err != nil {
-		return &pb.ListExercisesResponse{}, NoUserInformation
-	}
+	//var exercises []*pb.ListExercisesResponse_Exercise
+	//usr, err := getUserFromIncomingContext(ctx)
+	//if err != nil {
+	//	return &pb.ListExercisesResponse{}, NoUserInformation
+	//}
+	//
+	//for _, e := range d.exercises.ListExercises() {
+	//	if !usr.SuperUser && e.Secret {
+	//		// skip if user is not super user
+	//		continue
+	//	}
+	//	var tags []string
+	//	for _, t := range e.Tags {
+	//		tags = append(tags, string(t))
+	//	}
+	//
+	//	var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
+	//	for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]) {
+	//
+	//		exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
+	//			Tag:         string(e.Tag),
+	//			Name:        e.Name,
+	//			Points:      int32(e.Points),
+	//			Category:    e.Category,
+	//			Description: e.Description,
+	//		})
+	//	}
+	//
+	//	exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
+	//		Name:             e.Name,
+	//		Tags:             tags,
+	//		Secret:           e.Secret,
+	//		DockerImageCount: int32(len(e.DockerConfs)),
+	//		VboxImageCount:   int32(len(e.VboxConfs)),
+	//		Exerciseinfo:     exercisesInfo,
+	//	})
+	//}
 
-	for _, e := range d.exercises.ListExercises() {
-		if !usr.SuperUser && e.Secret {
-			// skip if user is not super user
-			continue
-		}
-		var tags []string
-		for _, t := range e.Tags {
-			tags = append(tags, string(t))
-		}
-
-		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
-		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]) {
-
-			exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
-				Tag:         string(e.Tag),
-				Name:        e.Name,
-				Points:      int32(e.Points),
-				Category:    e.Category,
-				Description: e.Description,
-			})
-		}
-
-		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
-			Name:             e.Name,
-			Tags:             tags,
-			Secret:           e.Secret,
-			DockerImageCount: int32(len(e.DockerConfs)),
-			VboxImageCount:   int32(len(e.VboxConfs)),
-			Exerciseinfo:     exercisesInfo,
-		})
-	}
-
-	return &pb.ListExercisesResponse{Exercises: exercises}, nil
+	return &pb.ListExercisesResponse{}, nil
 }
 
 func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
-	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ConfFiles.ExercisesFile)
-	if err != nil {
-		return nil, err
-	}
-	// update event host exercises store
-	if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
-		return nil, err
-	}
-	// update daemons' exercises store
-	d.exercises = exercises
+	//exercises, err := d.exercises.UpdateExercisesFile(d.conf.ConfFiles.ExercisesFile)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//// update event host exercises store
+	//if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
+	//	return nil, err
+	//}
+	//// update daemons' exercises store
+	//d.exercises = exercises
 	return &pb.UpdateExercisesFileResponse{
 		Msg: "Exercises file updated ",
 	}, nil
