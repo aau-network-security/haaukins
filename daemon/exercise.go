@@ -35,14 +35,11 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		if err != nil {
 			return nil, err
 		}
-		log.Debug().Msgf("Exercise; coming from protobuf to JSON %s", exercise)
-
 		estruct := store.Exercise{}
 		json.Unmarshal([]byte(exercise), &estruct)
 		if !usr.SuperUser && estruct.IsSecret {
 			continue
 		}
-		log.Debug().Msgf("Unmarshalled object as an exercise %v", estruct)
 		exers = append(exers, estruct)
 	}
 
