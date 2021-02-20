@@ -54,8 +54,6 @@ func (eve *EmptyVarErr) Error() string {
 	return fmt.Sprintf("%s cannot be empty for %s", eve.Var, eve.Type)
 }
 
-type Tag string
-
 func NewTag(s string) (Tag, error) {
 	t := Tag(s)
 	if err := t.Validate(); err != nil {
