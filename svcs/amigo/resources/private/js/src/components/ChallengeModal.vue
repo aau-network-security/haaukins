@@ -9,17 +9,17 @@
                     <div class="nav nav-tabs" id="nav-tab" role="tablist">
                         <a class="nav-item nav-link active" id="nav-challenge-tab" data-toggle="tab" href="#nav-challenge" role="tab" aria-controls="nav-challenge" aria-selected="true">Challenge</a>
                         <a class="nav-item nav-link" id="nav-solves-tab" data-toggle="tab" href="#nav-solves" role="tab" aria-controls="nav-solves" aria-selected="false">{{checkTeams(teamsCompleted)}} Solves</a>
-                        <ResetChallenge :challengeTag="challenge.Tag"></ResetChallenge>
+                        <ResetChallenge :challengeTag="challenge.tag"></ResetChallenge>
                     </div>
                 </nav>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="nav-challenge" role="tabpanel" aria-labelledby="nav-challenge-tab">
-                        <h2 class="chal-name text-center pt-5 pb-1">{{challenge.Name}}</h2>
-                        <h4 class="chal-value text-center mb-5">{{challenge.Points}}</h4>
+                        <h2 class="chal-name text-center pt-5 pb-1">{{challenge.name}}</h2>
+                        <h4 class="chal-value text-center mb-5">{{challenge.points}}</h4>
                         <span class="chal-desc mb-5">
-                            <p>{{challenge.Description}}</p>
+                            <p>{{challenge.teamDescription}}</p>
                         </span>
-                        <FlagChecker :challengeTag="challenge.Tag" v-on:challengeComplete="$emit('challengeCompleteReload')" class="mt-5"></FlagChecker>
+                        <FlagChecker :challengeTag="challenge.tag" v-on:challengeComplete="$emit('challengeCompleteReload')" class="mt-5"></FlagChecker>
                     </div>
                     <div class="tab-pane fade" id="nav-solves" role="tabpanel" aria-labelledby="nav-solves-tab">
                         <table class="table table-striped text-center mt-4">
