@@ -11,6 +11,7 @@ type Category struct {
 type Exercise struct {
 	Tag      Tag                      `json:"tag,omitempty"`
 	Name     string                   `json:"name,omitempty"`
+	IsSecret bool                     `json:"secret,omitempty"`
 	Category string                   `json:"category,omitempty"`
 	Instance []ExerciseInstanceConfig `json:"instance,omitempty"`
 	Status   int                      `json:"status,omitempty"`

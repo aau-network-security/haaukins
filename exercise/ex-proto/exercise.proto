@@ -55,6 +55,7 @@ message Exercise{
     string category = 4;
     int32 status = 5;
     repeated ExerciseInstance instance = 6;
+    bool secret = 7;
 }
 
 message GetExercisesResponse{
