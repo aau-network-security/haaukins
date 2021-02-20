@@ -18,7 +18,8 @@ type Config struct {
 		InSecure uint `yaml:"insecure,omitempty"`
 	}
 	Certs              CertificateConfig                `yaml:"tls,omitempty"`
-	Database           DatabaseConfig                   `yaml:"db-config,omitempty"`
+	Database           ServiceConfig                    `yaml:"db-config,omitempty"`
+	ExerciseService    ServiceConfig                    `yaml:"exercise-service,omitempty"`
 	VPNConn            VPNConnConf                      `yaml:"vpn-service,omitempty"`
 	ConfFiles          Files                            `yaml:"files,omitempty"`
 	SigningKey         string                           `yaml:"sign-key,omitempty"`
@@ -51,10 +52,10 @@ type CertificateConfig struct {
 	CAFile    string `yaml:"cafile"`
 }
 
-type DatabaseConfig struct {
+type ServiceConfig struct {
 	Grpc       string            `yaml:"grpc,omitempty"`
-	AuthKey    string            `yaml:"db-auth-key,omitempty"`
-	SignKey    string            `yaml:"db-sign-key,omitempty"`
+	AuthKey    string            `yaml:"auth-key,omitempty"`
+	SignKey    string            `yaml:"sign-key,omitempty"`
 	CertConfig CertificateConfig `yaml:"tls,omitempty"`
 }
 
