@@ -14,6 +14,7 @@ import (
 	"time"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/store"
 	pbc "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
@@ -99,24 +100,25 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		uniqueExercisesList := removeDuplicates(req.Exercises)
 
 		tags := make([]store.Tag, len(uniqueExercisesList))
+		_, tagErr := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: uniqueExercisesList})
+		if tagErr != nil {
+			return tagErr
+		}
 		for i, s := range uniqueExercisesList {
 			t, err := store.NewTag(s)
 			if err != nil {
 				return err
 			}
 			// check exercise before creating event file
-			_, tagErr := d.exercises.GetExercisesByTags(t)
-			if tagErr != nil {
-				return tagErr
-			}
-			isSecret, err := d.exercises.IsSecretExercise(t)
-			if err != nil {
-				log.Error().Err(err).Msg("Error on checking secret challenges")
-				return err
-			}
-			if isSecret && !user.SuperUser {
-				return fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", t)
-			}
+
+			//isSecret, err := d.exercises.IsSecretExercise(t)
+			//if err != nil {
+			//	log.Error().Err(err).Msg("Error on checking secret challenges")
+			//	return err
+			//}
+			//if isSecret && !user.SuperUser {
+			//	return fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", t)
+			//}
 			tags[i] = t
 		}
 		evtag, _ := store.NewTag(req.Tag)
