@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
@@ -14,6 +15,7 @@ import (
 )
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
+	var vboxCount int32
 	var exercises []*pb.ListExercisesResponse_Exercise
 	usr, err := getUserFromIncomingContext(ctx)
 	if err != nil {
@@ -52,6 +54,9 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
 
 		for _, i := range e.Instance {
+			if !strings.Contains(i.Image, d.conf.DockerRepositories[0].ServerAddress) {
+				vboxCount++
+			}
 			for _, c := range i.Flags {
 				exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
 					Tag:         string(c.Tag),
@@ -69,7 +74,7 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 			Tags:             tags,
 			Secret:           e.IsSecret,
 			DockerImageCount: int32(len(e.Instance)),
-			VboxImageCount:   0, // todo: should be updated !
+			VboxImageCount:   vboxCount,
 			Exerciseinfo:     exercisesInfo,
 		})
 	}

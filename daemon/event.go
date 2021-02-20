@@ -100,25 +100,19 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		uniqueExercisesList := removeDuplicates(req.Exercises)
 
 		tags := make([]store.Tag, len(uniqueExercisesList))
-		_, tagErr := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: uniqueExercisesList})
+		exs, tagErr := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: uniqueExercisesList})
 		if tagErr != nil {
 			return tagErr
 		}
-		for i, s := range uniqueExercisesList {
-			t, err := store.NewTag(s)
+
+		for i, s := range exs.Exercises {
+			if s.Secret && !user.SuperUser {
+				return fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", s.Tag)
+			}
+			t, err := store.NewTag(s.Tag)
 			if err != nil {
 				return err
 			}
-			// check exercise before creating event file
-
-			//isSecret, err := d.exercises.IsSecretExercise(t)
-			//if err != nil {
-			//	log.Error().Err(err).Msg("Error on checking secret challenges")
-			//	return err
-			//}
-			//if isSecret && !user.SuperUser {
-			//	return fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", t)
-			//}
 			tags[i] = t
 		}
 		evtag, _ := store.NewTag(req.Tag)
