@@ -1,0 +1,25 @@
+{{ define "content"}}
+<img class="wave-bg-general" src="/assets/img/wave-general-bot.png">
+<div class="container" id="hostspage">
+    <div class="row mb-botpage">
+        <div class="col-lg-4 col-md-0"></div>
+        <div class="col-lg-12 col-md-0">
+            <h1 class="text-center mt-toppage mb-2">Hosts</h1>
+            <div role="alert" class="alert alert-primary mt-3" style="text-align: center;">
+                <i class="fa fa-info-circle " aria-hidden="true"></i> <strong>DNS Records</strong>
+                <p> Use following hosts information below to enable reverse DNS lookup when using nmap tool.</p>
+                <p> Given records can be appended to <b>/etc/hosts</b> file on virtual environment.</p>
+                <p> It can also be directly browsed from virtual environment. </p>
+            </div>
+            <div class="alert alert-warning mt-3" role="alert">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> If the gray area is empty, it means either challenges does not have domains or you have not assigned to any lab. Please be patient !
+            </div>
+            <div  role="alert" class="alert alert-secondary mt-3" style="text-align: center; overflow-y: scroll; height:400px;">
+                {{range .Hosts}}
+                <div><code>{{.IP}}</code>                       <code>{{.Domain}}</code> </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
