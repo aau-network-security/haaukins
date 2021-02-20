@@ -26,7 +26,6 @@ func (c *Client) CmdExercise() *cobra.Command {
 	cmd.AddCommand(
 		c.CmdExerciseList(),
 		c.CmdExerciseReset(),
-		//c.CmdUpdateExerciseFile(),
 	)
 
 	return cmd
@@ -84,25 +83,6 @@ func (c *Client) CmdExerciseList() *cobra.Command {
 	cmd.Aliases = []string{"ls", "list"}
 	return &cmd
 }
-
-//func (c *Client) CmdUpdateExerciseFile() *cobra.Command {
-//	cmd := &cobra.Command{
-//		Use:     "update [path of challenges file]",
-//		Short:   "Updates challenges file",
-//		Example: "hkn update exercises.yml",
-//		Args:    cobra.MaximumNArgs(1),
-//		Run: func(cmd *cobra.Command, args []string) {
-//			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-//			defer cancel()
-//			resp, err := c.rpcClient.UpdateExercisesFile(ctx, &pb.Empty{})
-//			if err != nil {
-//				PrintError(err)
-//			}
-//			fmt.Println(resp.Msg)
-//		},
-//	}
-//	return cmd
-//}
 
 func (c *Client) CmdExerciseReset() *cobra.Command {
 	var (
