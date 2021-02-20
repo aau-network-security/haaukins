@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"regexp"
-	"strings"
 
 	"sync"
 
@@ -23,8 +22,9 @@ var (
 	DuplicateTagErr = errors.New("Tag already exists")
 	MissingTagsErr  = errors.New("No tags, need atleast one tag")
 	UnknownTagErr   = errors.New("Unknown tag")
-	tagRawRegexp    = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
-	tagRegex        = regexp.MustCompile(tagRawRegexp)
+
+	tagRawRegexp = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
+	tagRegex     = regexp.MustCompile(tagRawRegexp)
 )
 
 type DockerHost interface {
@@ -42,7 +42,7 @@ func (dockerHost) CreateContainer(ctx context.Context, conf docker.ContainerConf
 
 type exercise struct {
 	containerOpts []store.ContainerOptions
-	vboxOpts      []store.InstanceConfig
+	vboxOpts      []store.ExerciseInstanceConfig
 
 	dhost DockerHost
 	vlib  vbox.Library
@@ -58,18 +58,14 @@ type exercise struct {
 func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net docker.Network, dnsAddr string) *exercise {
 	containerOpts := conf.ContainerOpts()
 
-	//var vboxOpts []store.InstanceConfig
-	//for _, vboxConf := range conf.Instance {
-	//	vboxOpts = append(vboxOpts, store.InstanceConfig{
-	//		Image:    vboxConf.Image,
-	//		MemoryMB: vboxConf.MemoryMB,
-	//		CPU:      vboxConf.CPU,
-	//	})
-	//}
+	var vboxOpts []store.ExerciseInstanceConfig
+	for _, vboxConf := range conf.Instance {
+		vboxOpts = append(vboxOpts, vboxConf)
+	}
 
 	return &exercise{
 		containerOpts: containerOpts,
-		//vboxOpts:      vboxOpts,
+		vboxOpts:      vboxOpts,
 
 		dhost:   dhost,
 		vlib:    vlib,
@@ -82,7 +78,6 @@ func (e *exercise) Create(ctx context.Context) error {
 	var machines []virtual.Instance
 	var newIps []int
 	for i, opt := range e.containerOpts {
-
 		opt.DockerConf.DNS = []string{e.dnsAddr}
 		opt.DockerConf.Labels = map[string]string{
 			"hkn": "lab_exercise",
@@ -126,12 +121,14 @@ func (e *exercise) Create(ctx context.Context) error {
 	}
 
 	for _, vboxConf := range e.vboxOpts {
-		if strings.Contains(vboxConf.Image, e.RegistryLink()) {
-			continue
+		vmConf := store.InstanceConfig{
+			Image:    vboxConf.Image,
+			CPU:      vboxConf.CPU,
+			MemoryMB: vboxConf.MemoryMB,
 		}
 		vm, err := e.vlib.GetCopy(
 			ctx,
-			vboxConf,
+			vmConf,
 			vbox.SetBridge(e.net.Interface()),
 		)
 		if err != nil {
@@ -167,13 +164,6 @@ func (e *exercise) Start(ctx context.Context) error {
 	wg.Wait()
 
 	return res
-}
-func (e *exercise) RegistryLink() string {
-	var strs []string
-	for _, i := range e.containerOpts {
-		strs = strings.Split(i.DockerConf.Image, "/")
-	}
-	return strs[0]
 }
 
 func (e *exercise) Suspend(ctx context.Context) error {
@@ -240,14 +230,14 @@ func (e *exercise) Challenges() []store.Challenge {
 		challenges = append(challenges, opt.Challenges...)
 	}
 
-	//for _, opt := range e.vboxOpts {
-	//	for _, f := range opt.Flags {
-	//		challenges = append(challenges, store.Challenge{
-	//			Tag:   f.Tag,
-	//			Value: f.Static,
-	//		})
-	//	}
-	//}
+	for _, opt := range e.vboxOpts {
+		for _, f := range opt.Flags {
+			challenges = append(challenges, store.Challenge{
+				Tag:   f.Tag,
+				Value: f.StaticFlag,
+			})
+		}
+	}
 
 	return challenges
 }

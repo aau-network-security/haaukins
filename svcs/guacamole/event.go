@@ -91,10 +91,7 @@ type eventHost struct {
 
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-	//exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
-	//if err != nil {
-	//	return nil, err
-	//}
+
 	var exers []store.Exercise
 	var exercises []string
 	for _, d := range conf.Lab.Exercises {

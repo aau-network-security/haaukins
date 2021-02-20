@@ -102,7 +102,6 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 				}
 			}
 		}
-		//log.Printf("IP Address: %s.%s.%s.%d  ---> Domain: %s", , aRecord)
 		ee.exercises = append(ee.exercises, e)
 	}
 
