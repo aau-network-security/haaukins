@@ -31,12 +31,10 @@ func TestBasicEnvironment(t *testing.T) {
 	tst.SkipOnGh(t)
 	conf := store.Exercise{
 		Name: "Test Exercise",
-		Tags: []store.Tag{"test"},
-		DockerConfs: []store.DockerConfig{
+		Tag:  store.Tag("test"),
+		Instance: []store.ExerciseInstanceConfig{
 			{
-				ExerciseInstanceConfig: store.ExerciseInstanceConfig{
-					InstanceConfig: store.InstanceConfig{Image: "nginx"},
-				},
+				Image: "nginx",
 			},
 		},
 	}
