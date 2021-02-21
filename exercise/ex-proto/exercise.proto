@@ -51,11 +51,10 @@ message ExerciseInstance{
 message Exercise{
     string tag = 1;
     string name = 2;
-    string description = 3; //might be useful for organizers
+    bool secret = 3;
     string category = 4;
     int32 status = 5;
     repeated ExerciseInstance instance = 6;
-    bool secret = 7;
 }
 
 message GetExercisesResponse{

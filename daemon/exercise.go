@@ -37,7 +37,8 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		}
 		estruct := store.Exercise{}
 		json.Unmarshal([]byte(exercise), &estruct)
-		if !usr.SuperUser && estruct.IsSecret {
+		if !usr.SuperUser && estruct.Secret {
+			log.Debug().Msgf("You are not super user skipping secret challenge %v", estruct)
 			continue
 		}
 		exers = append(exers, estruct)
@@ -69,7 +70,7 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
 			Name:             e.Name,
 			Tags:             tags,
-			Secret:           e.IsSecret,
+			Secret:           e.Secret,
 			DockerImageCount: int32(len(e.Instance)),
 			VboxImageCount:   vboxCount,
 			Exerciseinfo:     exercisesInfo,
