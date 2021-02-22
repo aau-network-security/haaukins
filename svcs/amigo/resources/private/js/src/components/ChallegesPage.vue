@@ -8,17 +8,18 @@
     <div class="alert alert-warning mt-5" role="alert">
       <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Warning: VM will be in <strong>sleep mode</strong> after 8 hours of not usage! Just log out and log in from the event in case of VM error after connect button.
     </div>
-    <div class="row mt-2" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.Category">
+    <div class="row mt-2" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.category">
       <div class="category-header col-md-12 mb-3">
-        <h3>{{category[0].challenge.Category}}</h3>
+        <h3>{{category[0].challenge.category}}</h3>
       </div>
-      <div class="col-lg-3 col-md-4" v-for="el in category" v-bind:key="el.challenge.Tag">
+      <div class="col-lg-3 col-md-4" v-for="el in category" v-bind:key="el.challenge.tag">
         <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted}">
-          <p class="chal-name-font">{{el.challenge.Name}}</p>
-          <span>{{el.challenge.Points}}</span>
+          <p class="chal-name-font">{{ el.challenge.name }}</p>
+          <span>{{ el.challenge.points }}</span>
         </button>
       </div>
     </div>
+
     <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
   </div>
 </template>
@@ -47,16 +48,16 @@ export default {
 
       //Sort the challenges per category
       this.challengesFromAmigo.forEach(function (el) {
-        if (!(el.challenge.Category in challenges)){
-          challenges[el.challenge.Category] = []
+        if (!(el.challenge.category in challenges)){
+          challenges[el.challenge.category] = []
         }
-        challenges[el.challenge.Category].push(el)
+        challenges[el.challenge.category].push(el)
       }, this);
 
 
       //Sort the challenges for points
       for (let cat in challenges){
-        challenges[cat] = challenges[cat].sort((a, b) => a.challenge.Points - b.challenge.Points);
+        challenges[cat] = challenges[cat].sort((a, b) => a.challenge.points - b.challenge.points);
       }
 
       this.challengesFromAmigo = challenges;

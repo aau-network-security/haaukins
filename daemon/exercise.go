@@ -2,69 +2,87 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/store"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/rs/zerolog/log"
 )
 
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
+	var vboxCount int32
 	var exercises []*pb.ListExercisesResponse_Exercise
 	usr, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		return &pb.ListExercisesResponse{}, NoUserInformation
 	}
 
-	for _, e := range d.exercises.ListExercises() {
-		if !usr.SuperUser && e.Secret {
-			// skip if user is not super user
+	exes, err := d.exClient.GetExercises(ctx, &eproto.Empty{})
+	log.Debug().Msgf("Request all exercises from the service")
+	if err != nil {
+		return &pb.ListExercisesResponse{}, fmt.Errorf("[exercise-service]: ERR getting exercises %v", err)
+	}
+
+	var exers []store.Exercise
+
+	for _, e := range exes.Exercises {
+		exercise, err := protobufToJson(e)
+		if err != nil {
+			return nil, err
+		}
+		estruct := store.Exercise{}
+		json.Unmarshal([]byte(exercise), &estruct)
+		if !usr.SuperUser && estruct.Secret {
+			log.Debug().Msgf("You are not super user skipping secret challenge %v", estruct)
 			continue
 		}
-		var tags []string
-		for _, t := range e.Tags {
-			tags = append(tags, string(t))
+		if d.conf.ProductionMode && e.Status == 1 {
+			// do not include exercises which are in test mode
+			// if production mode active
+			continue
 		}
+		exers = append(exers, estruct)
+	}
+
+	for _, e := range exers {
+
+		var tags []string
+		tags = append(tags, string(e.Tag))
 
 		var exercisesInfo []*pb.ListExercisesResponse_Exercise_ExerciseInfo
-		for _, e := range d.exercises.GetExercisesInfo(e.Tags[0]) {
 
-			exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
-				Tag:         string(e.Tag),
-				Name:        e.Name,
-				Points:      int32(e.Points),
-				Category:    e.Category,
-				Description: e.Description,
-			})
+		for _, i := range e.Instance {
+			if !strings.Contains(i.Image, d.conf.DockerRepositories[0].ServerAddress) {
+				vboxCount++
+			}
+			for _, c := range i.Flags {
+				exercisesInfo = append(exercisesInfo, &pb.ListExercisesResponse_Exercise_ExerciseInfo{
+					Tag:         string(c.Tag),
+					Name:        c.Name,
+					Points:      int32(c.Points),
+					Category:    c.Category,
+					Description: c.TeamDescription,
+				})
+			}
+
 		}
 
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
 			Name:             e.Name,
 			Tags:             tags,
 			Secret:           e.Secret,
-			DockerImageCount: int32(len(e.DockerConfs)),
-			VboxImageCount:   int32(len(e.VboxConfs)),
+			DockerImageCount: int32(len(e.Instance)),
+			VboxImageCount:   vboxCount,
 			Exerciseinfo:     exercisesInfo,
 		})
 	}
 
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
-}
-
-func (d *daemon) UpdateExercisesFile(ctx context.Context, req *pb.Empty) (*pb.UpdateExercisesFileResponse, error) {
-	exercises, err := d.exercises.UpdateExercisesFile(d.conf.ConfFiles.ExercisesFile)
-	if err != nil {
-		return nil, err
-	}
-	// update event host exercises store
-	if err := d.ehost.UpdateEventHostExercisesFile(exercises); err != nil {
-		return nil, err
-	}
-	// update daemons' exercises store
-	d.exercises = exercises
-	return &pb.UpdateExercisesFileResponse{
-		Msg: "Exercises file updated ",
-	}, nil
-
 }
 
 func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_ResetExerciseServer) error {
@@ -114,4 +132,14 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 	}
 
 	return nil
+}
+
+func protobufToJson(message proto.Message) (string, error) {
+	marshaler := jsonpb.Marshaler{
+		EnumsAsInts:  false,
+		EmitDefaults: false,
+		Indent:       "  ",
+	}
+
+	return marshaler.MarshalToString(message)
 }

@@ -185,6 +185,7 @@ type VpnConn struct {
 	PubKey     string
 	Endpoint   string
 	AllowedIps string //lab subnet
+	Hosts      string
 }
 
 type Team struct {
@@ -203,6 +204,7 @@ type Team struct {
 	vpnConf       []string
 	labSubnet     string
 	isLabAssigned bool
+	hostsInfo     []string
 }
 
 type TeamChallenge struct {
@@ -313,6 +315,18 @@ func (t *Team) SetLabInfo(labSubnet string) {
 	t.m.Lock()
 	t.labSubnet = labSubnet
 	t.m.Unlock()
+}
+
+func (t *Team) SetHostsInfo(hostInfo []string) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	t.hostsInfo = hostInfo
+}
+
+func (t *Team) GetHostsInfo() []string {
+	t.m.RLock()
+	defer t.m.RUnlock()
+	return t.hostsInfo
 }
 
 func (t *Team) GetLabInfo() string {

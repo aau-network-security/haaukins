@@ -45,7 +45,7 @@ type Scoreboard struct {
 // returning list
 func (fd *FrontendData) getChallengeCategories() []string {
 	keys := make(map[string]bool)
-	challengeCats := []string{}
+	var challengeCats []string
 	for _, challenge := range fd.challenges {
 		if _, value := keys[challenge.Category]; !value {
 			keys[challenge.Category] = true
@@ -63,7 +63,6 @@ func (fd *FrontendData) initTeams(teamId string) []byte {
 
 	// this part contains a lot of loops
 	// in my opinion structs are not well defined
-	// todo: refactor structs in order to get rid off from too much for loops
 
 	for _, c := range fd.getChallengeCategories() {
 		challenges = append(challenges, Category{
@@ -154,7 +153,6 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 	team, err := fd.ts.GetTeamByID(teamId)
 	teams := fd.ts.GetTeams()
 	rows := make([]ChallengeCP, len(fd.challenges))
-
 	for i, c := range fd.challenges {
 		r := ChallengeCP{
 			ChalInfo: c,

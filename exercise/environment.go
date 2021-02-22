@@ -74,14 +74,12 @@ func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 
 func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 	for _, conf := range confs {
-		if len(conf.Tags) == 0 {
+		if conf.Tag == "" {
 			return MissingTagsErr
 		}
 
-		for _, t := range conf.Tags {
-			if _, ok := ee.tags[t]; ok {
-				return DuplicateTagErr
-			}
+		if _, ok := ee.tags[conf.Tag]; ok {
+			return DuplicateTagErr
 		}
 
 		e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
@@ -89,24 +87,23 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 			return err
 		}
 
-		for _, t := range conf.Tags {
-			ee.tags[t] = e
-		}
+		ee.tags[conf.Tag] = e
 		var aRecord string
 		ip := strings.Split(e.dnsAddr, ".")
 		strings.Split(ee.dnsAddr, ".")
 
-		for _, d := range conf.DockerConfs {
+		for _, d := range conf.Instance {
 			for _, r := range d.Records {
 				if r.Type == "A" {
-					aRecord = r.Name
-					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
-						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
-					}})
+					if !strings.Contains(d.Image, "client") {
+						aRecord = r.Name
+						ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
+							fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
+						}})
+					}
 				}
 			}
 		}
-		//log.Printf("IP Address: %s.%s.%s.%d  ---> Domain: %s", , aRecord)
 		ee.exercises = append(ee.exercises, e)
 	}
 

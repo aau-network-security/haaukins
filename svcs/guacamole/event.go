@@ -6,6 +6,7 @@ package guacamole
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -15,6 +16,10 @@ import (
 	"strings"
 
 	"github.com/aau-network-security/haaukins/exercise"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+
+	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	wg "github.com/aau-network-security/haaukins/network/vpn"
 
 	"net/http"
@@ -59,12 +64,12 @@ var (
 )
 
 type Host interface {
-	UpdateEventHostExercisesFile(store.ExerciseStore) error
+	//UpdateEventHostExercisesFile(store.ExerciseStore) error
 	CreateEventFromEventDB(context.Context, store.EventConfig, string) (Event, error)
 	CreateEventFromConfig(context.Context, store.EventConfig, string) (Event, error)
 }
 
-func NewHost(vlib vbox.Library, elib store.ExerciseStore, eDir string, dbc pbc.StoreClient, config wg.WireGuardConfig) Host {
+func NewHost(vlib vbox.Library, elib eproto.ExerciseStoreClient, eDir string, dbc pbc.StoreClient, config wg.WireGuardConfig) Host {
 	return &eventHost{
 		ctx:       context.Background(),
 		dbc:       dbc,
@@ -79,16 +84,32 @@ type eventHost struct {
 	ctx       context.Context
 	dbc       pbc.StoreClient
 	vlib      vbox.Library
-	elib      store.ExerciseStore
+	elib      eproto.ExerciseStoreClient
 	vpnConfig wg.WireGuardConfig
 	dir       string
 }
 
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-	exer, err := eh.elib.GetExercisesByTags(conf.Lab.Exercises...)
+
+	var exers []store.Exercise
+	var exercises []string
+	for _, d := range conf.Lab.Exercises {
+		exercises = append(exercises, string(d))
+	}
+	exer, err := eh.elib.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: exercises})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("[exercises-service] error %v", err)
+	}
+
+	for _, e := range exer.Exercises {
+		exercise, err := protobufToJson(e)
+		if err != nil {
+			return nil, err
+		}
+		estruct := store.Exercise{}
+		json.Unmarshal([]byte(exercise), &estruct)
+		exers = append(exers, estruct)
 	}
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
@@ -98,13 +119,13 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	var labConf lab.Config
 	if conf.OnlyVPN {
 		labConf = lab.Config{
-			Exercises: exer,
+			Exercises: exers,
 		}
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
 	} else {
 		labConf = lab.Config{
-			Exercises: exer,
+			Exercises: exers,
 			Frontends: conf.Lab.Frontends,
 		}
 	}
@@ -112,12 +133,23 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
+
 	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity, conf.OnlyVPN)
 	if err != nil {
 		return nil, err
 	}
 
 	return NewEvent(eh.ctx, es, hub, labConf.Flags(), reCaptchaKey)
+}
+
+func protobufToJson(message proto.Message) (string, error) {
+	marshaler := jsonpb.Marshaler{
+		EnumsAsInts:  false,
+		EmitDefaults: false,
+		Indent:       "  ",
+	}
+
+	return marshaler.MarshalToString(message)
 }
 
 //Save the event in the DB and create the event configuration
@@ -146,14 +178,6 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 	}
 
 	return eh.CreateEventFromEventDB(ctx, conf, reCaptchaKey)
-}
-
-func (eh *eventHost) UpdateEventHostExercisesFile(es store.ExerciseStore) error {
-	if len(es.ListExercises()) == 0 {
-		return errors.New("Provided exercisestore is empty, be careful next time ! ")
-	}
-	eh.elib = es
-	return nil
 }
 
 type Event interface {
@@ -199,7 +223,6 @@ type labNetInfo struct {
 }
 
 func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig, reCaptchaKey string) (Event, error) {
-
 	guac, err := New(ctx, Config{}, e.OnlyVPN)
 	if err != nil {
 		return nil, err
@@ -559,12 +582,27 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 }
 
 func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
-
+	var hosts []string
 	if !ev.store.OnlyVPN {
 		if err := ev.createGuacConn(t, lab); err != nil {
 			log.Error().Msgf("Error on creatig guacamole connection !, err : %v", err)
 			return err
 		}
+		labInfo := &labNetInfo{
+			dns:        lab.Environment().LabDNS(),
+			subnet:     lab.Environment().LabSubnet(),
+			dnsrecords: lab.Environment().DNSRecords(),
+		}
+		for _, r := range labInfo.dnsrecords {
+			for ip, arecord := range r.Record {
+				hosts = append(hosts, fmt.Sprintf("%s \t %s", ip, arecord))
+			}
+		}
+		t.SetHostsInfo(hosts)
+		log.Info().Str("Team DNS", labInfo.dns).
+			Str("Team Subnet", labInfo.subnet).
+			Msgf("Creating Guac connection for team %s", t.ID())
+
 		//}
 	} else {
 		// create client configuration file for team
