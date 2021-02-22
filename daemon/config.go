@@ -22,6 +22,7 @@ type Config struct {
 	ExerciseService    ServiceConfig                    `yaml:"exercise-service,omitempty"`
 	VPNConn            VPNConnConf                      `yaml:"vpn-service,omitempty"`
 	ConfFiles          Files                            `yaml:"files,omitempty"`
+	ProductionMode     bool                             `yaml:"prodmode,omitempty"`
 	SigningKey         string                           `yaml:"sign-key,omitempty"`
 	Rechaptcha         string                           `yaml:"recaptcha-key,omitempty"`
 	APICreds           APICreds                         `yaml:"api-creds,omitempty"`
