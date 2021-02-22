@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+service ExerciseStore{
+    rpc GetExercises(Empty) returns (GetExercisesResponse) {}
+    rpc GetExerciseByTags(GetExerciseByTagsRequest) returns (GetExercisesResponse) {}
+    rpc GetExerciseByCategory(GetExerciseByCategoryRequest) returns (GetExercisesResponse) {}
+    rpc GetCategories(Empty) returns (GetCategoriesResponse) {}
+
+    rpc UpdateStatus(Empty) returns (ResponseStatus) {}
+
+    //todo future implementation, those will be managed by the webclient
+    rpc AddExercise(AddExerciseRequest) returns (ResponseStatus) {}
+    rpc AddCategory(AddCategoryRequest) returns (ResponseStatus) {}
+}
+
+message Empty{}
+
+message ChildExercise{
+    string tag = 1;
+    string name = 2;
+    string env_flag = 3;
+    int32 points = 4;
+    string static = 5;
+    string team_description = 6;
+    string category = 7;
+    string organizer_description = 8;
+    repeated string prerequisite = 9;
+    repeated string outcome = 10;
+}
+
+message EnvVariable{
+    string name = 1;
+    string value = 2;
+}
+
+message Records{
+    string type = 1;
+    string name = 2;
+    string data = 3;
+}
+
+message ExerciseInstance{
+    string image = 1;
+    int32 memory = 2;
+    float cpu = 3;
+    repeated EnvVariable envs = 4;
+    repeated Records records = 5;
+    repeated ChildExercise children = 6;
+}
+
+message Exercise{
+    string tag = 1;
+    string name = 2;
+    bool secret = 3;
+    string category = 4;
+    int32 status = 5;
+    repeated ExerciseInstance instance = 6;
+}
+
+message GetExercisesResponse{
+    repeated Exercise exercises = 1;
+}
+
+message GetExerciseByTagsRequest{
+    repeated string tag = 1;
+}
+
+message GetExerciseByCategoryRequest{
+    string category = 1;
+}
+
+message GetCategoriesResponse{
+    message Category {
+        string tag = 1;
+        string name = 2;
+    }
+    repeated Category categories = 1;
+}
+
+
+message AddExerciseRequest{
+    string content = 3;
+}
+
+message AddCategoryRequest{
+    string tag = 1;
+    string name = 2;
+}
+
+message ResponseStatus{}

@@ -74,14 +74,12 @@ func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 
 func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 	for _, conf := range confs {
-		if len(conf.Tags) == 0 {
+		if conf.Tag == "" {
 			return MissingTagsErr
 		}
 
-		for _, t := range conf.Tags {
-			if _, ok := ee.tags[t]; ok {
-				return DuplicateTagErr
-			}
+		if _, ok := ee.tags[conf.Tag]; ok {
+			return DuplicateTagErr
 		}
 
 		e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
@@ -89,14 +87,12 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 			return err
 		}
 
-		for _, t := range conf.Tags {
-			ee.tags[t] = e
-		}
+		ee.tags[conf.Tag] = e
 		var aRecord string
 		ip := strings.Split(e.dnsAddr, ".")
 		strings.Split(ee.dnsAddr, ".")
 
-		for _, d := range conf.DockerConfs {
+		for _, d := range conf.Instance {
 			for _, r := range d.Records {
 				if r.Type == "A" {
 					if !strings.Contains(d.Image, "client") {

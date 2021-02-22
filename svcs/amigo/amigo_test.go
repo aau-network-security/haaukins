@@ -54,13 +54,13 @@ func TestVerifyFlag(t *testing.T) {
 	}, tmp, client)
 
 	var chal = store.FlagConfig{
-		Tag:         "test",
-		Name:        "Test Challenge",
-		EnvVar:      "",
-		Static:      "",
-		Points:      10,
-		Description: "",
-		Category:    "",
+		Tag:             "test",
+		Name:            "Test Challenge",
+		EnvVar:          "",
+		StaticFlag:      "",
+		Points:          10,
+		TeamDescription: "",
+		Category:        "",
 	}
 
 	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", time.Now().UTC(), client)

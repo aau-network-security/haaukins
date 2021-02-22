@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strings"
 
 	"sync"
 
@@ -22,9 +23,9 @@ var (
 	DuplicateTagErr = errors.New("Tag already exists")
 	MissingTagsErr  = errors.New("No tags, need atleast one tag")
 	UnknownTagErr   = errors.New("Unknown tag")
-
-	tagRawRegexp = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
-	tagRegex     = regexp.MustCompile(tagRawRegexp)
+	RegistryLink    = "registry.gitlab.com"
+	tagRawRegexp    = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
+	tagRegex        = regexp.MustCompile(tagRawRegexp)
 )
 
 type DockerHost interface {
@@ -59,8 +60,11 @@ func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net d
 	containerOpts := conf.ContainerOpts()
 
 	var vboxOpts []store.ExerciseInstanceConfig
-	for _, vboxConf := range conf.VboxConfs {
-		vboxOpts = append(vboxOpts, vboxConf.ExerciseInstanceConfig)
+	for _, vboxConf := range conf.Instance {
+		if !strings.Contains(vboxConf.Image, RegistryLink) {
+			vboxOpts = append(vboxOpts, vboxConf)
+		}
+
 	}
 
 	return &exercise{
@@ -121,9 +125,14 @@ func (e *exercise) Create(ctx context.Context) error {
 	}
 
 	for _, vboxConf := range e.vboxOpts {
+		vmConf := store.InstanceConfig{
+			Image:    vboxConf.Image,
+			CPU:      vboxConf.CPU,
+			MemoryMB: vboxConf.MemoryMB,
+		}
 		vm, err := e.vlib.GetCopy(
 			ctx,
-			vboxConf.InstanceConfig,
+			vmConf,
 			vbox.SetBridge(e.net.Interface()),
 		)
 		if err != nil {
@@ -229,7 +238,7 @@ func (e *exercise) Challenges() []store.Challenge {
 		for _, f := range opt.Flags {
 			challenges = append(challenges, store.Challenge{
 				Tag:   f.Tag,
-				Value: f.Static,
+				Value: f.StaticFlag,
 			})
 		}
 	}
