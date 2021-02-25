@@ -30,7 +30,7 @@ type FlagConfig struct {
 	Tag             Tag      `json:"tag,omitempty"`
 	Name            string   `json:"name,omitempty"`
 	EnvVar          string   `json:"envFlag,omitempty"`
-	StaticFlag      string   `json:"static_flag,omitempty"`
+	StaticFlag      string   `json:"static,omitempty"`
 	Points          uint     `json:"points,omitempty"`
 	Category        string   `json:"category,omitempty"`
 	TeamDescription string   `json:"teamDescription,omitempty"`
