@@ -44,6 +44,7 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		if d.conf.ProductionMode && e.Status == 1 {
 			// do not include exercises which are in test mode
 			// if production mode active
+			log.Debug().Bool("Production Mode", d.conf.ProductionMode).Msgf("Message: %v", e)
 			continue
 		}
 		exers = append(exers, estruct)
