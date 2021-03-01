@@ -373,6 +373,12 @@ func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 			// no need to RequireAndVerifyClientCert
 			Certificates: []tls.Certificate{certificate},
 			ClientCAs:    certPool,
+			MinVersion:   tls.VersionTLS12, // disable TLS 1.0 and 1.1
+			CipherSuites: []uint16{ // only enable secure algorithms for TLS 1.2
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			},
 		})
 
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
@@ -406,8 +412,22 @@ func (d *daemon) Run() error {
 
 	// start frontend
 	go func() {
+		srv := &http.Server{
+			Addr:    fmt.Sprintf(":%d", d.conf.Port.Secure),
+			Handler: d.eventPool,
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12, // disable TLS 1.0 and 1.1
+				CipherSuites: []uint16{ // only enable secure algorithms for 1.2
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				},
+			},
+		}
 		if d.conf.Certs.Enabled {
-			if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", d.conf.Port.Secure), d.conf.Certs.CertFile, d.conf.Certs.CertKey, d.eventPool); err != nil {
+			if err := srv.ListenAndServeTLS(
+				d.conf.Certs.CertFile,
+				d.conf.Certs.CertKey); err != nil {
 				log.Warn().Msgf("Serving error: %s", err)
 			}
 			return

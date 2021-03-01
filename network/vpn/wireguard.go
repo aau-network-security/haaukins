@@ -90,11 +90,15 @@ func NewGRPCVPNClient(wgConn WireGuardConfig) (WireguardClient, error) {
 		}
 
 		creds := credentials.NewTLS(&tls.Config{
-			// no need to give specific Grpc address
-			// if it is given certificates should be generated
-			// per given address
+			// no need to RequireAndVerifyClientCert
 			Certificates: []tls.Certificate{certificate},
-			RootCAs:      certPool,
+			ClientCAs:    certPool,
+			MinVersion:   tls.VersionTLS12, // disable TLS 1.0 and 1.1
+			CipherSuites: []uint16{ // only enable secure algorithms for TLS 1.2
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			},
 		})
 
 		dialOpts := []grpc.DialOption{
