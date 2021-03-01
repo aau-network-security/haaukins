@@ -221,7 +221,15 @@ func downloadCerts(certMap map[string]string) error {
 
 func setCertConfig(isProd bool, certPool *x509.CertPool) credentials.TransportCredentials {
 	var certificates []tls.Certificate
-	creds := credentials.NewTLS(&tls.Config{})
+	creds := credentials.NewTLS(&tls.Config{
+		RootCAs:    certPool,
+		MinVersion: tls.VersionTLS12, // disable TLS 1.0 and 1.1
+		CipherSuites: []uint16{ // only enable secure algorithms for TLS 1.2
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		},
+	})
 	// todo: this will gonna change
 	// Create a certificate pool from the certificate authority
 	if !isProd {
@@ -244,11 +252,14 @@ func setCertConfig(isProd bool, certPool *x509.CertPool) credentials.TransportCr
 		creds = credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{certificate},
 			RootCAs:      certPool,
+			MinVersion:   tls.VersionTLS12, // disable TLS 1.0 and 1.1
+			CipherSuites: []uint16{ // only enable secure algorithms for TLS 1.2
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			},
 		})
 	}
-	creds = credentials.NewTLS(&tls.Config{
-		RootCAs: certPool,
-	})
 	return creds
 }
 
