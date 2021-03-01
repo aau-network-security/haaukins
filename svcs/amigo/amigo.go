@@ -179,6 +179,7 @@ func (am *Amigo) handleIndex() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return
@@ -202,6 +203,7 @@ func (am *Amigo) handleHostsInformation() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		if r.URL.Path != "/hosts" {
 			http.NotFound(w, r)
 			return
@@ -233,6 +235,7 @@ func (am *Amigo) handleHostsInformation() http.HandlerFunc {
 func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		team, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -259,6 +262,8 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
 		if r.URL.Path != "/challenges" {
 			http.NotFound(w, r)
 			return
@@ -285,6 +290,7 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 	ctx := context.Background()
 
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		team, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			replyJsonRequestErr(w, err)
@@ -332,6 +338,7 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 func (am *Amigo) handleVPNFiles() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		type vpnStatus struct {
 			VPNConfID string `json:"vpnConnID"`
 			Status    string `json:"status"` // this could be returned to stream
@@ -388,6 +395,7 @@ func (am *Amigo) handleTeams() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		if r.URL.Path != "/teams" {
 			http.NotFound(w, r)
 			return
@@ -409,6 +417,7 @@ func (am *Amigo) handleScoreBoard() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		if r.URL.Path != "/scoreboard" {
 			http.NotFound(w, r)
 			return
@@ -432,6 +441,7 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 	}
 
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		team, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			replyJsonRequestErr(w, err)
@@ -471,6 +481,7 @@ func (am *Amigo) handleSignup(hook func(t *store.Team) error) http.HandlerFunc {
 	post := am.handleSignupPOST(hook)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		switch r.Method {
 		case http.MethodGet:
 			get(w, r)
@@ -493,6 +504,7 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		if err := tmpl.Execute(w, am.globalInfo); err != nil {
 			log.Println("template err signup: ", err)
 		}
@@ -610,6 +622,7 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 	}
 
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		team, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			replyJsonRequestErr(w, err)
@@ -646,6 +659,7 @@ func (am *Amigo) handleResetFrontend(resetFrontend func(t *store.Team) error) ht
 	}
 
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		team, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			replyJsonRequestErr(w, err)
@@ -673,6 +687,7 @@ func (am *Amigo) handleLogin(resumeLabHook func(t *store.Team) error) http.Handl
 	post := am.handleLoginPOST(resumeLabHook)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		switch r.Method {
 		case http.MethodGet:
 			get(w, r)
@@ -803,6 +818,7 @@ func (am *Amigo) handleLoginPOST(resumeLabHook func(t *store.Team) error) http.H
 
 func (am *Amigo) handleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
@@ -813,7 +829,7 @@ func (am *Amigo) loginTeam(w http.ResponseWriter, r *http.Request, t *store.Team
 	if err != nil {
 		return err
 	}
-
+	w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	http.SetCookie(w, &http.Cookie{Name: "session", Value: token, MaxAge: am.cookieTTL})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 
@@ -869,6 +885,7 @@ func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes i
 
 //Return json format
 func replyJson(sc int, w http.ResponseWriter, i interface{}) error {
+	w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(sc)
 
