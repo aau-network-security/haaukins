@@ -37,8 +37,8 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		}
 		estruct := store.Exercise{}
 		json.Unmarshal([]byte(exercise), &estruct)
+		log.Debug().Str("User", usr.Name).Msgf("listed exercises.")
 		if !usr.SuperUser && estruct.Secret {
-			log.Debug().Msgf("You are not super user skipping secret challenge %v", estruct)
 			continue
 		}
 		if d.conf.ProductionMode && e.Status == 1 {
