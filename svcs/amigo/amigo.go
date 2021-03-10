@@ -454,7 +454,7 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 			return
 		}
 
-		flag, err := store.NewFlagFromString(msg.Flag)
+		flag, err := store.NewFlagFromString(strings.TrimSpace(msg.Flag))
 		if err != nil {
 			replyJson(http.StatusOK, w, errReply{ErrInvalidFlag.Error()})
 			return
