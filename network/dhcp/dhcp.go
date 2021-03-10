@@ -31,7 +31,7 @@ func New(format func(n int) string) (*Server, error) {
 	subnet := format(0)
 	dns := format(dns.PreferedIP)
 	minRange := format(4)
-	maxRange := format(29)
+	maxRange := format(254)
 	broadcast := format(255)
 	router := format(1)
 
@@ -50,7 +50,7 @@ func New(format func(n int) string) (*Server, error) {
 		return nil, err
 	}
 	cont := docker.NewContainer(docker.ContainerConfig{
-		Image: "networkboot/dhcpd", // no need to add tag since it is not updated for 5 months.
+		Image: "networkboot/dhcpd",
 		Mounts: []string{
 			fmt.Sprintf("%s:/data/dhcpd.conf", confFile),
 		},
