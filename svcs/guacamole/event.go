@@ -199,20 +199,26 @@ type Event interface {
 }
 
 type event struct {
-	amigo  *amigo.Amigo
-	guac   Guacamole
-	labhub lab.Hub
-
+	amigo         *amigo.Amigo
+	guac          Guacamole
+	labhub        lab.Hub
+	ipT           IPTables
 	labs          map[string]lab.Lab
 	store         store.Event
 	keyLoggerPool KeyLoggerPool
 
+	ipRules       map[string]ipRules
 	ipAddrs       []int
 	wg            wg.WireguardClient
 	guacUserStore *GuacUserStore
 	dockerHost    docker.Host
 
 	closers []io.Closer
+}
+
+type ipRules struct {
+	labsubnet string
+	vpnIps    string
 }
 
 type labNetInfo struct {
@@ -232,6 +238,11 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	if err != nil {
 		log.Error().Msgf("Connection error on wireguard service error %v ", err)
 		return nil, err
+	}
+
+	ipT := IPTables{
+		sudo:     true,
+		execFunc: shellExec,
 	}
 
 	dirname, err := store.GetDirNameForEvent(e.Dir, e.Tag, e.StartedAt)
@@ -258,6 +269,8 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 		closers:       []io.Closer{guac, hub, keyLoggerPool},
 		dockerHost:    dockerHost,
 		keyLoggerPool: keyLoggerPool,
+		ipT:           ipT,
+		ipRules:       map[string]ipRules{},
 	}
 
 	return ev, nil
@@ -330,8 +343,9 @@ func (ev *event) Start(ctx context.Context) error {
 func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, error) {
 	var teamConfigFiles []string
 	ctx := context.Background()
+	var vpnIPs []string
 	evTag := string(ev.GetConfig().Tag)
-	team := t.ID()
+	teamID := t.ID()
 	var hosts string
 	for _, r := range labInfo.dnsrecords {
 		for ip, arecord := range r.Record {
@@ -357,31 +371,31 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	for i := 0; i < 4; i++ {
 		// generate client privatekey
 		ipAddr := pop(&ev.ipAddrs)
-		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+team)
-		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
+		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+teamID)
+		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + teamID + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			return []string{}, err
 		}
 
 		// generate client public key
-		log.Info().Msgf("Generating public key for team %s", evTag+"_"+team+"_"+strconv.Itoa(ipAddr))
-		_, err = ev.wg.GenPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr), PrivKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
+		log.Info().Msgf("Generating public key for team %s", evTag+"_"+teamID+"_"+strconv.Itoa(ipAddr))
+		_, err = ev.wg.GenPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + teamID + "_" + strconv.Itoa(ipAddr), PrivKeyName: evTag + "_" + teamID + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			return []string{}, err
 		}
 		// get client public key
-		log.Info().Msgf("Retrieving public key for teaam %s", evTag+"_"+team+"_"+strconv.Itoa(ipAddr))
-		resp, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
+		log.Info().Msgf("Retrieving public key for teaam %s", evTag+"_"+teamID+"_"+strconv.Itoa(ipAddr))
+		resp, err := ev.wg.GetPublicKey(ctx, &wg.PubKeyReq{PubKeyName: evTag + "_" + teamID + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			log.Error().Msgf("Error on GetPublicKey %v", err)
 			return []string{}, err
 		}
 
-		//pIP := fmt.Sprintf("%d/32", len(ev.GetTeams())+2)
 		peerIP := strings.Replace(subnet, "1/24", fmt.Sprintf("%d/32", ipAddr), 1)
+		gwIP := strings.Replace(subnet, "1/24", fmt.Sprintf("1/32"), 1)
 		log.Info().Str("NIC", evTag).
 			Str("AllowedIPs", peerIP).
-			Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", team, peerIP)
+			Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", teamID, peerIP)
 		addPeerResp, err := ev.wg.AddPeer(ctx, &wg.AddPReq{
 			Nic:        evTag,
 			AllowedIPs: peerIP,
@@ -392,14 +406,14 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 			return []string{}, err
 		}
 		log.Info().Str("Event: ", evTag).
-			Str("Peer: ", team).Msgf("Message : %s", addPeerResp.Message)
+			Str("Peer: ", teamID).Msgf("Message : %s", addPeerResp.Message)
 		//get client privatekey
-		log.Info().Msgf("Retrieving private key for team %s", team)
-		teamPrivKey, err := ev.wg.GetPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + team + "_" + strconv.Itoa(ipAddr)})
+		log.Info().Msgf("Retrieving private key for team %s", teamID)
+		teamPrivKey, err := ev.wg.GetPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + teamID + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
 			return []string{}, err
 		}
-		log.Info().Msgf("Privatee key for team %s is %s ", team, teamPrivKey.Message)
+		log.Info().Msgf("Private key for team %s is %s ", teamID, teamPrivKey.Message)
 		log.Info().Msgf("Client configuration is created for server %s", endpoint)
 		// creating client configuration file
 		clientConfig := fmt.Sprintf(
@@ -410,7 +424,7 @@ DNS = 1.1.1.1
 MTU = 1500
 [Peer]
 PublicKey = %s
-AllowedIps = %s
+AllowedIps = %s,%s
 Endpoint =  %s
 PersistentKeepalive = 25
 
@@ -422,12 +436,21 @@ PersistentKeepalive = 25
 ################################
 
 %s
-`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), endpoint, hosts)
+`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), gwIP, endpoint, hosts)
 		t.SetVPNKeys(i, resp.Message)
-		//log.Info().Msgf("Client configuration:\n %s\n", clientConfig)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
+		vpnIPs = append(vpnIPs, peerIP)
 	}
 
+	s := fmt.Sprintf("%s/24", labInfo.subnet)
+	vpnIPs = append(vpnIPs, s)
+	ev.ipT.createRejectRule(s)
+	ev.ipT.createStateRule(s)
+	ev.ipT.createAcceptRule(s, strings.Join(vpnIPs, ","))
+	ev.ipRules[teamID] = ipRules{
+		labsubnet: s,
+		vpnIps:    strings.Join(vpnIPs, ","),
+	}
 	return teamConfigFiles, nil
 }
 
@@ -443,6 +466,7 @@ func (ev *event) Suspend(ctx context.Context) error {
 	}
 	return teamLabSuspendError
 }
+
 func checkPort(port int) bool {
 	portAllocated := fmt.Sprintf(":%d", port)
 	// ensure that VPN port is free to allocate
@@ -486,14 +510,25 @@ func (ev *event) Close() error {
 	waitGroup.Wait()
 	if ev.store.OnlyVPN {
 		ev.removeVPNConfs()
+		ev.removeIPTableRules()
 	}
 
 	return nil
 }
 
+func (ev *event) removeIPTableRules() {
+	for tid, ipR := range ev.ipRules {
+		log.Debug().Str("Team ID ", tid).Msgf("iptables are removing... ")
+		ev.ipT.removeRejectRule(ipR.labsubnet)
+		ev.ipT.removeStateRule(ipR.labsubnet)
+		ev.ipT.removeAcceptRule(ipR.labsubnet, ipR.vpnIps)
+	}
+}
+
 func (ev *event) removeVPNConfs() {
 	evTag := string(ev.GetConfig().Tag)
 	log.Debug().Msgf("Closing VPN connection for event %s", evTag)
+
 	resp, err := ev.wg.ManageNIC(context.Background(), &wg.ManageNICReq{Cmd: "down", Nic: evTag})
 	if err != nil {
 		log.Error().Msgf("Error when disabling VPN connection for event %s", evTag)
