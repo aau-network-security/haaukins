@@ -1,5 +1,5 @@
 syntax = "proto3";
-
+package store.proto;
 service Store {
     //Insert
     rpc AddEvent (AddEventRequest) returns (InsertResponse) {}
