@@ -93,15 +93,12 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 		var aRecord string
 		ip := strings.Split(e.dnsAddr, ".")
 
-		for _, d := range conf.Instance {
-			if strings.Contains(d.Image, "client") {
-				continue
-			}
-			for _, r := range d.Records {
+		for i, c := range e.containerOpts {
+			for _, r := range c.Records {
 				if r.Type == "A" {
 					aRecord = r.Name
 					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
-						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
+						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[i]): aRecord,
 					}})
 				}
 			}
