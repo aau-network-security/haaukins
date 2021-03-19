@@ -73,6 +73,8 @@ func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 }
 
 func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
+	// server should always come first in any exercise config
+	// otherwise hosts information could be misleading.
 	for _, conf := range confs {
 		if conf.Tag == "" {
 			return MissingTagsErr
@@ -90,17 +92,17 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 		ee.tags[conf.Tag] = e
 		var aRecord string
 		ip := strings.Split(e.dnsAddr, ".")
-		strings.Split(ee.dnsAddr, ".")
 
 		for _, d := range conf.Instance {
+			if strings.Contains(d.Image, "client") {
+				continue
+			}
 			for _, r := range d.Records {
 				if r.Type == "A" {
-					if !strings.Contains(d.Image, "client") {
-						aRecord = r.Name
-						ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
-							fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
-						}})
-					}
+					aRecord = r.Name
+					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
+						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
+					}})
 				}
 			}
 		}
