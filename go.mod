@@ -4,8 +4,6 @@ go 1.13
 
 replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20190717161051-705d9623b7c1
 
-replace github.com/schollz/progressbar v1.0.0 => github.com/schollz/progressbar/v2 v2.14.0
-
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/coreos/go-semver v0.3.0
@@ -22,7 +20,6 @@ require (
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/pkg/errors v0.8.1
 	github.com/rs/zerolog v1.16.0
-	github.com/schollz/progressbar v1.0.0
 	github.com/shirou/gopsutil v2.19.9+incompatible
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/spf13/cobra v0.0.5

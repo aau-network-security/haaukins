@@ -620,7 +620,7 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	var hosts []string
 	if !ev.store.OnlyVPN {
 		if err := ev.createGuacConn(t, lab); err != nil {
-			log.Error().Msgf("Error on creatig guacamole connection !, err : %v", err)
+			log.Error().Msgf("Error on creating guacamole connection !, err : %v", err)
 			return err
 		}
 		labInfo := &labNetInfo{
