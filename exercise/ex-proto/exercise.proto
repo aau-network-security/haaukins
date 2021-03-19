@@ -1,5 +1,4 @@
 syntax = "proto3";
-package exercise.proto;
 
 service ExerciseStore{
     rpc GetExercises(Empty) returns (GetExercisesResponse) {}

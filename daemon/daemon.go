@@ -34,7 +34,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/reflection"
 	"gopkg.in/yaml.v2"
 )
 
@@ -456,7 +455,6 @@ func (d *daemon) Run() error {
 	s := d.GetServer(opts...)
 	pb.RegisterDaemonServer(s, d)
 
-	reflection.Register(s)
 	log.Info().Msg("Reflection Registration is called.... ")
 
 	// initialize schedulers

@@ -1,5 +1,4 @@
 syntax = "proto3";
-package daemon.proto;
 
 service Daemon {
   rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {}
