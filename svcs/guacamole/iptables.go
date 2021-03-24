@@ -67,7 +67,7 @@ func (ipTab *IPTables) createRejectRule(labSubnet string) error {
 
 // sudo iptables --insert DOCKER-USER -s 77.218.127.0/24 -m state --state RELATED,ESTABLISHED -j RETURN
 func (ipTab *IPTables) createStateRule(labSubnet string) error {
-	cmds := []string{string(insertA), "DOCKER-USER", "-s", labSubnet, "-m", "state", "--state", "RELATED", "ESTABLISHED", "-j", string(returnP)}
+	cmds := []string{string(insertA), "DOCKER-USER", "-s", labSubnet, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", string(returnP)}
 	log.Debug().Strs("STATE RULE", cmds).Msgf("Creating Iptables State Rule for VPN Connection")
 	_, err := ipTab.execute(cmds...)
 	return err
@@ -87,7 +87,7 @@ func (ipTab *IPTables) removeAcceptRule(labSubnet string, vpnIps string) error {
 	return err
 }
 func (ipTab *IPTables) removeStateRule(labSubnet string) error {
-	cmds := []string{string(deleteA), "DOCKER-USER", "-s", labSubnet, "-m", "state", "--state", "RELATED", "ESTABLISHED", "-j", string(returnP)}
+	cmds := []string{string(deleteA), "DOCKER-USER", "-s", labSubnet, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", string(returnP)}
 	log.Debug().Strs("STATE RULE", cmds).Msgf("Removing Iptables State Rule for VPN Connection")
 	_, err := ipTab.execute(cmds...)
 	return err
