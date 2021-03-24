@@ -421,7 +421,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 Address = %s
 PrivateKey = %s
 DNS = 1.1.1.1
-MTU = 1500
+MTU = 1420
 [Peer]
 PublicKey = %s
 AllowedIps = %s,%s
