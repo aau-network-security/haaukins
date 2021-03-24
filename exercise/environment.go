@@ -95,6 +95,9 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 
 		for i, c := range e.containerOpts {
 			for _, r := range c.Records {
+				if strings.Contains(c.DockerConf.Image, "client") {
+					continue
+				}
 				if r.Type == "A" {
 					aRecord = r.Name
 					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
