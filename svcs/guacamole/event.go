@@ -616,6 +616,16 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	return nil
 }
 
+func getDNSRecords(l []*exercise.DNSRecord) []string {
+	var hosts []string
+	for _, r := range l {
+		for ip, arecord := range r.Record {
+			hosts = append(hosts, fmt.Sprintf("%s \t %s", ip, arecord))
+		}
+	}
+	return hosts
+}
+
 func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	var hosts []string
 	if !ev.store.OnlyVPN {
@@ -628,17 +638,12 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			subnet:     lab.Environment().LabSubnet(),
 			dnsrecords: lab.Environment().DNSRecords(),
 		}
-		for _, r := range labInfo.dnsrecords {
-			for ip, arecord := range r.Record {
-				hosts = append(hosts, fmt.Sprintf("%s \t %s", ip, arecord))
-			}
-		}
+		hosts = getDNSRecords(labInfo.dnsrecords)
 		t.SetHostsInfo(hosts)
 		log.Info().Str("Team DNS", labInfo.dns).
 			Str("Team Subnet", labInfo.subnet).
 			Msgf("Creating Guac connection for team %s", t.ID())
 
-		//}
 	} else {
 		// create client configuration file for team
 		labInfo := &labNetInfo{
@@ -665,8 +670,10 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			}
 			log.Info().Msg("Client configuration file written to wg dir")
 		}
+		hosts = getDNSRecords(labInfo.dnsrecords)
 		t.SetLabInfo(labInfo.subnet)
 		t.SetVPNConn(clientConf)
+		t.SetHostsInfo(hosts)
 	}
 
 	ev.labs[t.ID()] = lab
