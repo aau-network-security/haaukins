@@ -73,6 +73,7 @@ func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 }
 
 func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
+
 	for _, conf := range confs {
 		if conf.Tag == "" {
 			return MissingTagsErr
@@ -90,17 +91,17 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 		ee.tags[conf.Tag] = e
 		var aRecord string
 		ip := strings.Split(e.dnsAddr, ".")
-		strings.Split(ee.dnsAddr, ".")
 
-		for _, d := range conf.Instance {
-			for _, r := range d.Records {
+		for i, c := range e.containerOpts {
+			for _, r := range c.Records {
+				if strings.Contains(c.DockerConf.Image, "client") {
+					continue
+				}
 				if r.Type == "A" {
-					if !strings.Contains(d.Image, "client") {
-						aRecord = r.Name
-						ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
-							fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[0]): aRecord,
-						}})
-					}
+					aRecord = r.Name
+					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
+						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[i]): aRecord,
+					}})
 				}
 			}
 		}

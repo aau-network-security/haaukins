@@ -1,5 +1,5 @@
 syntax = "proto3";
-
+package exercise;
 service ExerciseStore{
     rpc GetExercises(Empty) returns (GetExercisesResponse) {}
     rpc GetExerciseByTags(GetExerciseByTagsRequest) returns (GetExercisesResponse) {}

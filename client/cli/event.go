@@ -12,7 +12,6 @@ import (
 	"time"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	pbar "github.com/schollz/progressbar"
 	"github.com/spf13/cobra"
 )
 
@@ -75,13 +74,9 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				PrintError(err)
 				return
 			}
-			// progress bar library changed
-			// now it does not create stack of progress bar,
-			// once anything is received from daemon.
-			bar := pbar.New(available)
-			bar.RenderBlank()
+
 			for {
-				labStatus, err := stream.Recv()
+				_, err := stream.Recv()
 				if err == io.EOF {
 					break
 				}
@@ -89,18 +84,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 					PrintError(err)
 					return
 				}
-				if labStatus.ErrorMessage != "" {
-					fmt.Println(labStatus.ErrorMessage)
-					// Once we have got error, error message will be displayed
-					// and support information will be shown on client terminal.
-					// todo : it might be good idea to create unique case id and print it out to client
-					// todo : once user is trying to contact with us they can communicate with error message and case id.
-					// sometime, it is not required to shutdown event from scratch if any error occured during cloning VM,
-					// server might also can send notification about the error.
-				}
-				bar.Add(1)
 			}
-			bar.Finish()
 		},
 	}
 
