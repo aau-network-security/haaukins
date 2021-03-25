@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
@@ -61,6 +62,10 @@ var (
 	// random port number for creating different VPN servers
 	min = 5000
 	max = 6000
+)
+
+const (
+	vpnInfo = "https://gist.githubusercontent.com/mrtrkmn/46e76a1eeb15dca307c76b526e0729dd/raw/0ada4f6c4e7174e951bfe83f0e318dd02f4db9a0/instructions.txt"
 )
 
 type Host interface {
@@ -344,6 +349,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	var teamConfigFiles []string
 	ctx := context.Background()
 	var vpnIPs []string
+	vpnInstructions := getContent(vpnInfo)
 	evTag := string(ev.GetConfig().Tag)
 	teamID := t.ID()
 	var hosts string
@@ -429,14 +435,19 @@ Endpoint =  %s
 PersistentKeepalive = 25
 
 
-##### HOSTS INFORMATION ########
+##### HOSTS INFORMATION #############
 #   Append given IP Address(es) with Domain(s) to your /etc/hosts file
 #   It enables you to browse domain of challenge through VPN 
 #   when you connected to internet.
-################################
+###################################
 
 %s
-`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), gwIP, endpoint, hosts)
+
+####### SETTING VPN CONFIGURATION #########
+
+%s
+
+`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), gwIP, endpoint, hosts, vpnInstructions)
 		t.SetVPNKeys(i, resp.Message)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
 		vpnIPs = append(vpnIPs, peerIP)
@@ -805,4 +816,18 @@ func pop(alist *[]int) int {
 	rv := (*alist)[f-1]
 	*alist = append((*alist)[:f-1])
 	return rv
+}
+
+// get page content
+func getContent(link string) string {
+	res, err := http.Get(link)
+	if err != nil {
+		log.Debug().Msgf("Error on retrieving link [ %s ] Err: [ %v ]", link, err)
+	}
+	content, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		log.Debug().Msgf("Read error content [ %s ] Err: [ %v ]", link, err)
+	}
+	return string(content)
 }
