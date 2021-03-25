@@ -73,8 +73,7 @@ func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 }
 
 func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
-	// server should always come first in any exercise config
-	// otherwise hosts information could be misleading.
+
 	for _, conf := range confs {
 		if conf.Tag == "" {
 			return MissingTagsErr
