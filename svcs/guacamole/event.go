@@ -65,7 +65,7 @@ var (
 )
 
 const (
-	vpnInfo = "https://gist.githubusercontent.com/mrtrkmn/46e76a1eeb15dca307c76b526e0729dd/raw/0ada4f6c4e7174e951bfe83f0e318dd02f4db9a0/instructions.txt"
+	vpnInfo = "https://gitlab.com/-/snippets/2096681/raw/master/instructions.txt"
 )
 
 type Host interface {
