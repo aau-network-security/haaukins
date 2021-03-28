@@ -69,7 +69,6 @@ const (
 )
 
 type Host interface {
-	//UpdateEventHostExercisesFile(store.ExerciseStore) error
 	CreateEventFromEventDB(context.Context, store.EventConfig, string) (Event, error)
 	CreateEventFromConfig(context.Context, store.EventConfig, string) (Event, error)
 }
