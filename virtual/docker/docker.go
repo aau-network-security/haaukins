@@ -254,12 +254,6 @@ func (c *container) getCreateConfig() (*docker.CreateContainerOptions, error) {
 		ExtraHosts:       []string{fmt.Sprintf("host:%s", hostIP)},
 		MemorySwap:       0,
 		MemorySwappiness: &swap,
-		// RestartPolicy, in case of crash on
-		// failure restart container
-		RestartPolicy: docker.RestartPolicy{
-			Name:              "on-failure",
-			MaximumRetryCount: 10,
-		},
 	}
 
 	if c.conf.Resources != nil {
