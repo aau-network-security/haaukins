@@ -62,6 +62,7 @@ type siteInfo struct {
 	IsVPN     bool
 	Content   interface{}
 	Hosts     []Hosts
+	LabSubnet string
 }
 
 type team struct {
@@ -146,6 +147,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m := http.NewServeMux()
 
 	m.HandleFunc("/", am.handleIndex())
+	m.HandleFunc("/info", am.handleInfo())
 	m.HandleFunc("/challenges", am.handleChallenges())
 	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/hosts", am.handleHostsInformation())
@@ -254,11 +256,49 @@ func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.
 	}
 }
 
+func (am *Amigo) handleInfo() http.HandlerFunc {
+	infoTemplate := wd + "/svcs/amigo/resources/private/info.tmpl.html"
+	tmpl, err := parseTemplates(infoTemplate)
+	if err != nil {
+		log.Println("error info tmpl: ", err)
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		if r.URL.Path != "/info" {
+			http.NotFound(w, r)
+			return
+		}
+		t, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		data := am.getSiteInfo(w, r)
+		hosts := t.GetHostsInfo()
+		var ip string
+		data.LabSubnet = "LAB IS NOT ASSIGNED YET"
+		if len(hosts) != 0 {
+			for _, r := range hosts {
+				record := strings.Split(r, "\t")
+				ip = record[0]
+				break
+			}
+			ipParts := strings.Split(ip, ".")
+			data.LabSubnet = fmt.Sprintf("%s.%s.%s.%s", ipParts[0], ipParts[1], ipParts[2], "0/24")
+		}
+
+		if err := tmpl.Execute(w, data); err != nil {
+			log.Println("info template err : ", err)
+		}
+	}
+}
+
 func (am *Amigo) handleChallenges() http.HandlerFunc {
 	chalsTemplate := wd + "/svcs/amigo/resources/private/challenges.tmpl.html"
 	tmpl, err := parseTemplates(chalsTemplate)
 	if err != nil {
-		log.Println("error index tmpl: ", err)
+		log.Println("error challenges tmpl: ", err)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
