@@ -23,8 +23,8 @@
                 {{ end }}
                 {{ if .IsVPN }}
                     <div class="alert alert-warning mt-5 text-center" role="alert">
-                        <b class="text-center"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Warning:</b><br> Virtual Environment will be in <strong>SLEEP MODE</strong> in 8 hours when you logged in ! <br>
-                        Just log out and log in from the event in case you do not see any running hosts on your subnet.
+                        <b class="text-center"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Warning:</b><br>The virtual environment will go to <strong>sleep mode</strong>  8 hours after the last login.<br>
+                        Just log out and log in again to avoid this, or to bring the lab up again in case you see no running hosts on the subnet.
                     </div>
                 {{ end }}
                 <div id="challenges"></div>
