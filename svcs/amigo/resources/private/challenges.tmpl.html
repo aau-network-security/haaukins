@@ -11,6 +11,22 @@
                 <div id="reset-frontend-resp"></div>
             </div>
             <div class="col-12">
+                {{ if not .IsVPN }}
+                <div role="alert" class="alert alert-primary mt-5" style="text-align: center;">
+                    <i class="fa fa-info-circle " aria-hidden="true"></i> <strong>Login credentials to the Virtual Environment (If required):</strong><br>
+                    <strong>Username: haaukins</strong><br>
+                        <strong>Password: haaukins</strong>
+                </div>
+                <div class="alert alert-warning mt-5" role="alert">
+                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Warning: VM will be in <strong>SLEEP MODE</strong> after 8 hours of not usage! Just log out and log in from the event in case of VM error after connect button.
+                </div>
+                {{ end }}
+                {{ if .IsVPN }}
+                    <div class="alert alert-warning mt-5 text-center" role="alert">
+                        <b class="text-center"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Warning:</b><br> Virtual Environment will be in <strong>SLEEP MODE</strong> in 8 hours when you logged in ! <br>
+                        Just log out and log in from the event in case you do not see any running hosts on your subnet.
+                    </div>
+                {{ end }}
                 <div id="challenges"></div>
             </div>
         </div>
