@@ -55,7 +55,11 @@ export default {
       const res = await fetch('/get/labsubnet', opts).
       then(res => res.json());
       this.isVpn = res.isVPN
-      this.labSubnet = res.labSubnet
+      if (res.labSubnet == ''){
+        this.labSubnet = 'NOT ASSIGNED YET'
+      } else {
+        this.labSubnet = res.labSubnet+'/24'
+      }
     }
   },
 }
