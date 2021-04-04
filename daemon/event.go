@@ -47,6 +47,7 @@ func (d *daemon) startEvent(ev guacamole.Event) {
 	log.Info().
 		Str("Name", conf.Name).
 		Str("Tag", string(conf.Tag)).
+		Str("SecretKey", conf.SecretKey).
 		Int("Available", conf.Available).
 		Int("Capacity", conf.Capacity).
 		Strs("Frontends", frontendNames).
@@ -71,6 +72,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Strs("exercises", req.Exercises).
 		Str("startTime", req.StartTime).
 		Str("finishTime", req.FinishTime).
+		Str("SecretKey", req.SecretEvent).
 		Bool("VPN", req.OnlyVPN).
 		Msg("create event")
 		// get random subnet for vpn connection
@@ -151,7 +153,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		if err != nil {
 			log.Error().Msgf("Get VPN IP error %v, from CreateEvent function", err)
 		}
-		log.Info().Msgf("Create event with VPN IP Address %s   ", vpnIp)
+
+		secretKey := strings.TrimSpace(req.SecretEvent)
+
 		conf := store.EventConfig{
 			Name:           req.Name,
 			Tag:            evtag,
@@ -168,6 +172,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			CreatedBy:  user.Username,
 			OnlyVPN:    req.OnlyVPN,
 			VPNAddress: vpnIp,
+			SecretKey:  secretKey,
 		}
 
 		if err := conf.Validate(); err != nil {
@@ -243,6 +248,7 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 			Status:             Booked,
 			CreatedBy:          user.Username,
 			OnlyVPN:            req.OnlyVPN,
+			SecretKey:          req.SecretEvent,
 		})
 		if err != nil {
 			log.Warn().Msgf("problem for inserting booked event into table, err %v", err)
@@ -365,9 +371,15 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
+	var event *pb.ListEventsResponse_Events
 	// in list events there is no need to distinguish based on users.
 	// could be changed based on feedback
 	// events are listed through database instead of eventPool
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.ListEventsResponse{}, fmt.Errorf("user credentials could not found on context %v", err)
+	}
 
 	eventsFromDB, err := d.dbClient.GetEvents(ctx, &pbc.GetEventRequest{Status: req.Status})
 	if err != nil {
@@ -382,20 +394,37 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			return &pb.ListEventsResponse{}, err
 		}
 		teamCount := int32(len(teamsFromDB.Teams))
+		if user.SuperUser {
+			event = &pb.ListEventsResponse_Events{
 
-		events = append(events, &pb.ListEventsResponse_Events{
+				Tag:          string(e.Tag),
+				Name:         e.Name,
+				TeamCount:    teamCount,
+				Exercises:    e.Exercises,
+				Availability: e.Available,
+				Capacity:     e.Capacity,
+				CreationTime: e.StartedAt,
+				FinishTime:   e.ExpectedFinishTime, //This is the Expected finish time
+				Status:       e.Status,
+				CreatedBy:    e.CreatedBy,
+				SecretEvent:  e.SecretKey,
+			}
+		} else {
+			event = &pb.ListEventsResponse_Events{
 
-			Tag:          string(e.Tag),
-			Name:         e.Name,
-			TeamCount:    teamCount,
-			Exercises:    e.Exercises,
-			Availability: e.Available,
-			Capacity:     e.Capacity,
-			CreationTime: e.StartedAt,
-			FinishTime:   e.ExpectedFinishTime, //This is the Expected finish time
-			Status:       e.Status,
-			CreatedBy:    e.CreatedBy,
-		})
+				Tag:          string(e.Tag),
+				Name:         e.Name,
+				TeamCount:    teamCount,
+				Exercises:    e.Exercises,
+				Availability: e.Available,
+				Capacity:     e.Capacity,
+				CreationTime: e.StartedAt,
+				FinishTime:   e.ExpectedFinishTime, //This is the Expected finish time
+				Status:       e.Status,
+				CreatedBy:    e.CreatedBy,
+			}
+		}
+		events = append(events, event)
 	}
 
 	return &pb.ListEventsResponse{Events: events}, nil
@@ -541,6 +570,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		CreatedBy:      event.CreatedBy,
 		VPNAddress:     vpnAddress,
 		OnlyVPN:        event.OnlyVPN,
+		SecretKey:      event.SecretKey,
 	}
 
 	return eventConfig
