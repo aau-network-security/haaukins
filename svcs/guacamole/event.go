@@ -175,6 +175,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
 		CreatedBy:          conf.CreatedBy,
 		OnlyVPN:            conf.OnlyVPN,
+		SecretKey:          conf.SecretKey,
 	})
 
 	if err != nil {

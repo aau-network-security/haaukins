@@ -46,6 +46,7 @@ type EventConfig struct {
 	OnlyVPN        bool
 	VPNAddress     string
 	EndPointPort   int
+	SecretKey      string // secret key is a key which is defined by event creator to setup events which are accessible only with signup key
 }
 
 type Lab struct {
