@@ -33,6 +33,17 @@
 								<input class="input" name="password-repeat" type="password" maxlength="20" minlength="6">
 							</div>
 						</div>
+						{{ if .IsSecretEvent }}
+							<div class="input-div mb-2">
+								<div class="input-div-icon">
+									<i class="fas fa-user-secret"></i>
+								</div>
+								<div class="input-div-input">
+									<h5>Secret Key</h5>
+									<input class="input" name="secret-event-key" type="password" maxlength="20" minlength="1">
+								</div>
+							</div>
+						{{ end }}
 						<div class="g-recaptcha ml-0 ml-sm-4" data-sitekey="6LduW74ZAAAAAI9eDk0Btd_fbjegoXOfCSR-kLSo"></div>
 						<input type="submit" class="btn btn-login mt-3" value="Login">
 							{{ with .Content }}
