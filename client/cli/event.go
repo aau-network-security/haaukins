@@ -49,26 +49,28 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 		startTime  uint64
 		finishTime uint64
 		onlyVPN    bool
+		secretKey  string
 	)
 
 	cmd := &cobra.Command{
 		Use:     "create [event tag]",
 		Short:   "Create event",
-		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali -d 2020-02-15`,
+		Example: `hkn event create esboot -name "ES Bootcamp" -a 5 -c 30 -e scan,sql,hb -f kali -d 2020-02-15 -k secretKey`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:       name,
-				Tag:        tag,
-				Frontends:  frontends,
-				Exercises:  exercises,
-				Available:  int32(available),
-				Capacity:   int32(capacity),
-				OnlyVPN:    true,
-				StartTime:  time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
-				FinishTime: time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
+				Name:        name,
+				Tag:         tag,
+				Frontends:   frontends,
+				Exercises:   exercises,
+				Available:   int32(available),
+				Capacity:    int32(capacity),
+				OnlyVPN:     false,
+				StartTime:   time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
+				FinishTime:  time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
+				SecretEvent: secretKey,
 			})
 			if err != nil {
 				PrintError(err)
@@ -96,6 +98,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
 	cmd.Flags().Uint64VarP(&finishTime, "finishtime", "d", 15, "expected finish time of the event")
 	cmd.Flags().Uint64VarP(&startTime, "starttime", "s", 0, "expected start time of the event")
+	cmd.Flags().StringVarP(&secretKey, "secretkey", "k", "", "secret key for protecting events")
 	cmd.MarkFlagRequired("name")
 
 	return cmd
