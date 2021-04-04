@@ -42,6 +42,7 @@ var (
 	ErrEmailEmpty           = errors.New("Email can NOT be empty")
 	ErrEmailToLarge         = errors.New("Email is NOT within the defined character limit")
 	ErrEmailCharacters      = errors.New("Non alphabetic characters are NOT allowed in email address such as - , { [ _   ")
+	ErrProtectedEvent       = errors.New("UNABLE TO SIGNUP: WRONG SECRET KEY FOR PROTECTED EVENT ! \n ASK EVENT ADMINISTRATOR FOR SECRET KEY FOR THIS EVENT ! ")
 	teamNameRegex           = "^[A-Za-z0-9]+$"
 	emailRegex              = "^[a-zA-Z0-9.!#$%&'*+^\\{|}~]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 	wd                      = GetWd()
@@ -57,12 +58,14 @@ type Hosts struct {
 }
 
 type siteInfo struct {
-	EventName string
-	Team      *team
-	IsVPN     bool
-	Content   interface{}
-	Hosts     []Hosts
-	LabSubnet string
+	EventName     string
+	Team          *team
+	EventSecret   string // this will be the secret value which will be used on signup !
+	IsVPN         bool
+	IsSecretEvent bool
+	Content       interface{}
+	Hosts         []Hosts
+	LabSubnet     string
 }
 
 type team struct {
@@ -96,6 +99,7 @@ func WithEventName(eventName string) AmigoOpt {
 }
 
 func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgClient wg.WireguardClient, opts ...AmigoOpt) *Amigo {
+
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,
 		signingKey:   []byte(signingKey),
@@ -103,7 +107,9 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgC
 		cookieTTL:    int((7 * time.Hour).Seconds()), // Less than inactivity duration on daemon
 		TeamStore:    ts,
 		globalInfo: siteInfo{
-			EventName: "Test Event",
+			EventName:     "Test Event",
+			EventSecret:   ts.SecretKey,
+			IsSecretEvent: ts.SecretKey != "",
 		},
 		recaptcha: NewRecaptcha(reCaptchaKey),
 		wgClient:  wgClient,
@@ -128,6 +134,7 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
 		return info
 	}
+	log.Printf("IS EVENT SECRET ! !! %s\n", info.EventSecret)
 	info.IsVPN = am.TeamStore.OnlyVPN
 	info.Team = team
 	return info
@@ -462,8 +469,13 @@ func (am *Amigo) handleScoreBoard() http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-
 		data := am.getSiteInfo(w, r)
+		if data.IsSecretEvent {
+			_, err := am.getTeamFromRequest(w, r)
+			if err != nil {
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+			}
+		}
 		if err := tmpl.Execute(w, data); err != nil {
 			log.Println("template err index: ", err)
 		}
@@ -545,7 +557,7 @@ func (am *Amigo) handleSignupGET() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		if err := tmpl.Execute(w, am.globalInfo); err != nil {
+		if err := tmpl.Execute(w, am.getSiteInfo(w, r)); err != nil {
 			log.Println("template err signup: ", err)
 		}
 	}
@@ -559,17 +571,19 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 	}
 
 	type signupData struct {
-		Email       string
-		TeamName    string
-		Password    string
-		SignupError string
+		Email          string
+		TeamName       string
+		Password       string
+		SignupError    string
+		SecretEventKey string
 	}
 
 	readParams := func(r *http.Request) (signupData, error) {
 		data := signupData{
-			Email:    "", // removed due to GDPR
-			TeamName: strings.TrimSpace(r.PostFormValue("team-name")),
-			Password: r.PostFormValue("password"),
+			Email:          "", // removed due to GDPR
+			TeamName:       strings.TrimSpace(r.PostFormValue("team-name")),
+			Password:       r.PostFormValue("password"),
+			SecretEventKey: r.PostFormValue("secret-event-key"),
 		}
 
 		if err := checkTeamName(data.TeamName); err != nil {
@@ -606,6 +620,16 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 		if err != nil {
 			displayErr(w, params, err)
 			return
+		}
+		userSecretInput := strings.TrimSpace(params.SecretEventKey)
+		siteInfo := am.getSiteInfo(w, r)
+		eventSecretKey := strings.TrimSpace(siteInfo.EventSecret)
+
+		if siteInfo.EventSecret != "" {
+			if userSecretInput != eventSecretKey {
+				displayErr(w, params, ErrProtectedEvent)
+				return
+			}
 		}
 
 		if len(am.TeamStore.GetTeams()) == am.TeamStore.Capacity {
