@@ -121,6 +121,7 @@ message CreateEventRequest {
   string  startTime = 7;
   string finishTime = 8;
   bool onlyVPN = 9;
+  string secretEvent = 10;
 }
 
 
@@ -149,6 +150,7 @@ message ListEventsResponse {
     string finishTime = 8;
     int32 status = 9;
     string createdBy = 10;
+    string secretEvent = 11;
   }
 
   repeated Events events = 1;
