@@ -7,27 +7,29 @@
 				<i class="fas fa-bars"></i>
 			</button>
 			<div class="collapse navbar-collapse" id="navbarResponsive">
-				<ul class="navbar-nav text-uppercase mr-auto">
-					{{ if .Team }}
-						<li class="nav-item">
-							<a class="nav-link" href="/info"><i class="fas fa-info"></i> Info</a>
+				<div style="display: inline-table; white-space:nowrap;">
+					<ul class="navbar-nav text-uppercase mr-auto">
+						{{ if .Team }}
+							<li class="nav-item">
+								<a class="nav-link" href="/info"><i class="fas fa-info"></i> Info</a>
+							</li>
+						{{ end }}
+						<li class="nav-item active">
+							<a class="nav-link" href="/teams"><i class="fas fa-users"></i> Teams</a>
 						</li>
-					{{ end }}
-					<li class="nav-item active">
-						<a class="nav-link" href="/teams"><i class="fas fa-users"></i> Teams</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="/challenges"><i class="fas fa-flag-checkered"></i> Challenges</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="/scoreboard"><i class="fas fa-chess-board"></i> Scoreboard</a>
-					</li>
-					{{ if .Team }}
 						<li class="nav-item">
-							<a class="nav-link" href="/hosts"><i class="fas fa-file-alt"></i> Hosts</a>
+							<a class="nav-link" href="/challenges"><i class="fas fa-flag-checkered"></i> Challenges</a>
 						</li>
-					{{ end }}
-				</ul>
+						<li class="nav-item">
+							<a class="nav-link" href="/scoreboard"><i class="fas fa-chess-board"></i> Scoreboard</a>
+						</li>
+						{{ if .Team }}
+							<li class="nav-item">
+								<a class="nav-link" href="/hosts"><i class="fas fa-file-alt"></i> Hosts</a>
+							</li>
+						{{ end }}
+					</ul>
+				</div>
 				<ul class="navbar-nav text-uppercase ml-auto">
 					{{ if .Team}}
 						<span class="navbar-text my-auto mr-4">{{ .Team.Name }}</span>
