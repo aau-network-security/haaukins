@@ -63,6 +63,7 @@
                                         <li> <b><code> ln -s /usr/bin/resolvectl /usr/local/bin/resolvconf </code></b> </li>
                                         <li> If given command DOES NOT solve your problem do following: ( if the problem solved <b>SKIP THIS STEP</b> ) </li>
                                         <li> <b><code> sudo apt-get update -y && sudo apt-get install resolvconf -y </code></b></li>
+                                        <li>If you receive <b><code>Unknown interface 'tun': No such device</code></b>, remove <code>DNS = 1.1.1</code> from VPN configuration file</li>
                                         <li> Make sure about filename when you are connecting to VPN</li>
                                         <li> Check connection with <b><code>wg</code></b> command </li>
 
