@@ -374,7 +374,9 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	}
 
 	// create 4 different config file for 1 user
-	for i := 0; i < 4; i++ {
+
+	// todo: temporary changed 1.
+	for i := 0; i < 1; i++ {
 		// generate client privatekey
 		ipAddr := pop(&ev.ipAddrs)
 		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+teamID)
@@ -642,16 +644,17 @@ func getDNSRecords(l []*exercise.DNSRecord) []string {
 
 func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 	var hosts []string
+	labInfo := &labNetInfo{
+		dns:        lab.Environment().LabDNS(),
+		subnet:     lab.Environment().LabSubnet(),
+		dnsrecords: lab.Environment().DNSRecords(),
+	}
 	if !ev.store.OnlyVPN {
 		if err := ev.createGuacConn(t, lab); err != nil {
 			log.Error().Msgf("Error on creating guacamole connection !, err : %v", err)
 			return err
 		}
-		labInfo := &labNetInfo{
-			dns:        lab.Environment().LabDNS(),
-			subnet:     lab.Environment().LabSubnet(),
-			dnsrecords: lab.Environment().DNSRecords(),
-		}
+
 		hosts = getDNSRecords(labInfo.dnsrecords)
 		t.SetHostsInfo(hosts)
 		log.Info().Str("Team DNS", labInfo.dns).
@@ -659,13 +662,6 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 			Msgf("Creating Guac connection for team %s", t.ID())
 
 	} else {
-		// create client configuration file for team
-		labInfo := &labNetInfo{
-			dns:        lab.Environment().LabDNS(),
-			subnet:     lab.Environment().LabSubnet(),
-			dnsrecords: lab.Environment().DNSRecords(),
-		}
-
 		log.Info().Str("Team DNS", labInfo.dns).
 			Str("Team Subnet", labInfo.subnet).
 			Msgf("Creating VPN connection for team %s", t.ID())
