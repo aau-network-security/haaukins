@@ -134,7 +134,6 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 		http.SetCookie(w, &http.Cookie{Name: "session", MaxAge: -1})
 		return info
 	}
-	log.Printf("IS EVENT SECRET ! !! %s\n", info.EventSecret)
 	info.IsVPN = am.TeamStore.OnlyVPN
 	info.Team = team
 	return info
