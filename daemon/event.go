@@ -394,7 +394,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 			return &pb.ListEventsResponse{}, err
 		}
 		teamCount := int32(len(teamsFromDB.Teams))
-		if user.SuperUser {
+		if user.SuperUser || user.Username == e.CreatedBy {
 			event = &pb.ListEventsResponse_Events{
 
 				Tag:          string(e.Tag),
