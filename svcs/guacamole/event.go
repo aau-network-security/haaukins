@@ -175,6 +175,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
 		CreatedBy:          conf.CreatedBy,
 		OnlyVPN:            conf.OnlyVPN,
+		SecretKey:          conf.SecretKey,
 	})
 
 	if err != nil {
@@ -358,7 +359,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 		}
 
 	}
-
+	labSubnet := fmt.Sprintf("%s/24", labInfo.subnet)
 	// generate an ip for peer for wireguard interface
 	subnet := ev.store.VPNAddress
 
@@ -433,6 +434,10 @@ AllowedIps = %s,%s
 Endpoint =  %s
 PersistentKeepalive = 25
 
+# --------------------------------------------------------------------------
+#  YOUR LAB SUBNET IS:  %s 													
+# --------------------------------------------------------------------------
+
 
 ##### HOSTS INFORMATION #############
 #   Append given IP Address(es) with Domain(s) to your /etc/hosts file
@@ -446,19 +451,18 @@ PersistentKeepalive = 25
 
 %s
 
-`, peerIP, teamPrivKey.Message, serverPubKey.Message, fmt.Sprintf("%s/24", labInfo.subnet), gwIP, endpoint, hosts, vpnInstructions)
+`, peerIP, teamPrivKey.Message, serverPubKey.Message, labSubnet, gwIP, endpoint, labSubnet, hosts, vpnInstructions)
 		t.SetVPNKeys(i, resp.Message)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
 		vpnIPs = append(vpnIPs, peerIP)
 	}
 
-	s := fmt.Sprintf("%s/24", labInfo.subnet)
-	vpnIPs = append(vpnIPs, s)
-	ev.ipT.createRejectRule(s)
-	ev.ipT.createStateRule(s)
-	ev.ipT.createAcceptRule(s, strings.Join(vpnIPs, ","))
+	vpnIPs = append(vpnIPs, labSubnet)
+	ev.ipT.createRejectRule(labSubnet)
+	ev.ipT.createStateRule(labSubnet)
+	ev.ipT.createAcceptRule(labSubnet, strings.Join(vpnIPs, ","))
 	ev.ipRules[teamID] = ipRules{
-		labsubnet: s,
+		labsubnet: labSubnet,
 		vpnIps:    strings.Join(vpnIPs, ","),
 	}
 	return teamConfigFiles, nil

@@ -87,6 +87,7 @@ message AddEventRequest{
     int32 status = 10;
     string createdBy = 11;
     bool onlyVPN = 12;
+    string secretKey = 13;
 }
 
 message AddTeamRequest{
@@ -116,6 +117,7 @@ message GetEventResponse{
         int32 status = 10;
         string createdBy =11;
         bool onlyVPN = 12;
+        string secretKey = 13;
     }
     repeated Events events = 1;
     string errorMessage = 2;
