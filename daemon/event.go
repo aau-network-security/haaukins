@@ -32,6 +32,8 @@ var (
 	NPUserMaxLabs           = 40
 	NotAvailableTag         = "not available tag, there is already an event which is either running, booked or suspended"
 	vpnIPPools              = newIPPoolFromHost()
+	CapacityExceedsErr      = errors.New("VPN Events can have maximum 252 people on board !")
+	OutOfQuota              = errors.New("Out of quota for members, you have limited access")
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
@@ -83,8 +85,12 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
+	if req.OnlyVPN && req.Capacity > 253 {
+		return CapacityExceedsErr
+	}
+
 	if user.NPUser && req.Capacity > int32(NPUserMaxLabs) {
-		return fmt.Errorf("out of quota for members, you have limited access")
+		return OutOfQuota
 	}
 
 	isEligible, err := d.checkUserQuota(ctx, user.Username)
