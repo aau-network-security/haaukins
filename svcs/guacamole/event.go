@@ -65,7 +65,9 @@ var (
 )
 
 const (
-	vpnInfo = "https://gitlab.com/-/snippets/2096681/raw/master/instructions.txt"
+	vpnInfo          = "https://gitlab.com/-/snippets/2096681/raw/master/instructions.txt"
+	installWireguard = "https://gitlab.com/-/snippets/2102002/raw/master/install_wireguard.sh"
+	connectWireguard = "https://gitlab.com/-/snippets/2102000/raw/master/connectwireguard.py"
 )
 
 type Host interface {
@@ -446,11 +448,24 @@ PersistentKeepalive = 25
 #  YOUR LAB SUBNET IS:  %s 													
 # --------------------------------------------------------------------------
 
+######### << USER SCRIPTS >> #####
+#  
+#	Use following scripts to install wireguard and connect to lab. 
+#
+#   Install Wireguard: %s 
+#  	
+#	Connect Event:  %s
+#
+#   The scripts are automating steps which you do manually. Use them with your responsibility.
+#   If you notice outdated information, help us to update it :) 
+#
+####################
 
 ##### HOSTS INFORMATION #############
 #   Append given IP Address(es) with Domain(s) to your /etc/hosts file
 #   It enables you to browse domain of challenge through VPN 
-#   when you connected to internet.
+#   when you connected to internet. 
+#   (* If you used the script given above, your /etc/hosts file is updated already, you can skip this.)
 ###################################
 
 %s
@@ -459,7 +474,7 @@ PersistentKeepalive = 25
 
 %s
 
-`, peerIP, teamPrivKey.Message, serverPubKey.Message, labSubnet, gwIP, endpoint, labSubnet, hosts, vpnInstructions)
+`, peerIP, teamPrivKey.Message, serverPubKey.Message, labSubnet, gwIP, endpoint, labSubnet, installWireguard, connectWireguard, hosts, vpnInstructions)
 		t.SetVPNKeys(i, resp.Message)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
 		vpnIPs = append(vpnIPs, peerIP)
