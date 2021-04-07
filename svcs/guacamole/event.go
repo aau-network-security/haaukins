@@ -262,12 +262,18 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 		return nil, err
 	}
 
+	var eventVPNIPs []int
+	ipAddrs := makeRange(2, 254)
+	for i := 0; i < 4; i++ {
+		eventVPNIPs = append(eventVPNIPs, ipAddrs...)
+	}
+
 	ev := &event{
 		store:         e,
 		labhub:        hub,
 		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, wgClient, amigoOpt),
 		guac:          guac,
-		ipAddrs:       makeRange(2, 254),
+		ipAddrs:       eventVPNIPs,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: NewGuacUserStore(),
 		wg:            wgClient,
@@ -310,7 +316,7 @@ func (ev *event) Start(ctx context.Context) error {
 
 		if err != nil {
 			// handle error
-			log.Debug().Msgf("Information initializing interface for wireguard failed, VPN connection might not be available ! err %v\n", err)
+			log.Debug().Msgf("Initializing interface %s for wireguard failed , VPN connection will not be available: %v\n", ev.store.VPNAddress, err)
 			return err
 		}
 		log.Info().Str("Address:", ev.store.VPNAddress).
@@ -360,7 +366,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 
 	}
 	labSubnet := fmt.Sprintf("%s/24", labInfo.subnet)
-	// generate an ip for peer for wireguard interface
+	// random.random.240.1/22
 	subnet := ev.store.VPNAddress
 
 	// retrieve domain from configuration file
@@ -376,7 +382,8 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	// create 4 different config file for 1 user
 
 	// todo: temporary changed 1.
-	for i := 0; i < 1; i++ {
+	for i := 240; i < 244; i++ {
+
 		// generate client privatekey
 		ipAddr := pop(&ev.ipAddrs)
 		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+teamID)
@@ -399,8 +406,8 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 			return []string{}, err
 		}
 
-		peerIP := strings.Replace(subnet, "1/24", fmt.Sprintf("%d/32", ipAddr), 1)
-		gwIP := strings.Replace(subnet, "1/24", fmt.Sprintf("1/32"), 1)
+		peerIP := strings.Replace(subnet, "240.1/22", fmt.Sprintf("%d.%d/32", i, ipAddr), 2)
+		gwIP := strings.Replace(subnet, "1/22", fmt.Sprintf("1/32"), 1)
 		log.Info().Str("NIC", evTag).
 			Str("AllowedIPs", peerIP).
 			Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", teamID, peerIP)
