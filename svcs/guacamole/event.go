@@ -380,17 +380,10 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	}
 
 	// create 4 different config file for 1 user
-	var ipAddr int
-	// todo: temporary changed 1.
 	for i := 240; i < 244; i++ {
 
 		// generate client privatekey
-		if len(ev.ipAddrs) != 0 {
-			ipAddr = pop(&ev.ipAddrs)
-		} else {
-			log.Error().Msgf("Max number of connections reached on VPN connection %d", 252)
-			break
-		}
+		ipAddr := pop(&ev.ipAddrs)
 
 		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+teamID)
 		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + teamID + "_" + strconv.Itoa(ipAddr)})
