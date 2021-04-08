@@ -322,7 +322,8 @@ func New(conf *Config) (*daemon, error) {
 			if err != nil {
 				log.Error().Msgf("Getting VPN address error on New() in daemon %v", err)
 			}
-			eventConfig := d.generateEventConfig(ef, ef.Status, vpnIP)
+			vpnAddress := fmt.Sprintf("%s.240.1/22", vpnIP)
+			eventConfig := d.generateEventConfig(ef, ef.Status, vpnAddress)
 			err = d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)

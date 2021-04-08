@@ -32,6 +32,8 @@ var (
 	NPUserMaxLabs           = 40
 	NotAvailableTag         = "not available tag, there is already an event which is either running, booked or suspended"
 	vpnIPPools              = newIPPoolFromHost()
+	CapacityExceedsErr      = errors.New("VPN Events can have maximum 252 people on board !")
+	OutOfQuota              = errors.New("Out of quota for members, you have limited access")
 )
 
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
@@ -83,8 +85,12 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
+	if req.OnlyVPN && req.Capacity > 253 {
+		return CapacityExceedsErr
+	}
+
 	if user.NPUser && req.Capacity > int32(NPUserMaxLabs) {
-		return fmt.Errorf("out of quota for members, you have limited access")
+		return OutOfQuota
 	}
 
 	isEligible, err := d.checkUserQuota(ctx, user.Username)
@@ -149,13 +155,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			}
 			return nil
 		}
+		// 25.43
 		vpnIp, err := getVPNIP()
 		if err != nil {
 			log.Error().Msgf("Get VPN IP error %v, from CreateEvent function", err)
 		}
 
 		secretKey := strings.TrimSpace(req.SecretEvent)
-
+		vpnAddress := fmt.Sprintf("%s.240.1/22", vpnIp)
 		conf := store.EventConfig{
 			Name:           req.Name,
 			Tag:            evtag,
@@ -171,7 +178,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			Status:     Running,
 			CreatedBy:  user.Username,
 			OnlyVPN:    req.OnlyVPN,
-			VPNAddress: vpnIp,
+			VPNAddress: vpnAddress,
 			SecretKey:  secretKey,
 		}
 
@@ -519,7 +526,9 @@ func (d *daemon) visitBookedEvents() error {
 			if err != nil {
 				log.Error().Msgf("Error on getting IP for VPN connection error: %v", err)
 			}
-			eventConfig := d.generateEventConfig(event, Running, vpnIP)
+			vpnAddress := fmt.Sprintf("%s.240.1/22", vpnIP)
+
+			eventConfig := d.generateEventConfig(event, Running, vpnAddress)
 			if err := d.createEventFromEventDB(ctx, eventConfig); err != nil {
 				log.Warn().Msgf("Error on creating booked event, event %s err %v", event.Tag, err)
 				return fmt.Errorf("error on booked event creation %v", err)
@@ -553,6 +562,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Int32("Available", event.Available).
 		Int32("Capacity", event.Capacity).
 		Bool("IsVPN", event.OnlyVPN).Msgf("Generating event config from database !")
+
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
 		Host:      d.conf.Host.Http,
@@ -766,5 +776,5 @@ func getVPNIP() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s.1/24", ip), nil
+	return ip, nil
 }

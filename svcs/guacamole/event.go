@@ -65,7 +65,9 @@ var (
 )
 
 const (
-	vpnInfo = "https://gitlab.com/-/snippets/2096681/raw/master/instructions.txt"
+	vpnInfo          = "https://gitlab.com/-/snippets/2096681/raw/master/instructions.txt"
+	installWireguard = "https://gitlab.com/-/snippets/2102002/raw/master/install_wireguard.sh"
+	connectWireguard = "https://gitlab.com/-/snippets/2102000/raw/master/connectwireguard.py"
 )
 
 type Host interface {
@@ -262,12 +264,18 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 		return nil, err
 	}
 
+	var eventVPNIPs []int
+	ipAddrs := makeRange(2, 254)
+	for i := 0; i < 4; i++ {
+		eventVPNIPs = append(eventVPNIPs, ipAddrs...)
+	}
+
 	ev := &event{
 		store:         e,
 		labhub:        hub,
 		amigo:         amigo.NewAmigo(e, flags, reCaptchaKey, wgClient, amigoOpt),
 		guac:          guac,
-		ipAddrs:       makeRange(2, 254),
+		ipAddrs:       eventVPNIPs,
 		labs:          map[string]lab.Lab{},
 		guacUserStore: NewGuacUserStore(),
 		wg:            wgClient,
@@ -310,7 +318,7 @@ func (ev *event) Start(ctx context.Context) error {
 
 		if err != nil {
 			// handle error
-			log.Debug().Msgf("Information initializing interface for wireguard failed, VPN connection might not be available ! err %v\n", err)
+			log.Debug().Msgf("Initializing interface %s for wireguard failed , VPN connection will not be available: %v\n", ev.store.VPNAddress, err)
 			return err
 		}
 		log.Info().Str("Address:", ev.store.VPNAddress).
@@ -360,7 +368,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 
 	}
 	labSubnet := fmt.Sprintf("%s/24", labInfo.subnet)
-	// generate an ip for peer for wireguard interface
+	// random.random.240.1/22
 	subnet := ev.store.VPNAddress
 
 	// retrieve domain from configuration file
@@ -374,11 +382,11 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	}
 
 	// create 4 different config file for 1 user
+	for i := 240; i < 244; i++ {
 
-	// todo: temporary changed 1.
-	for i := 0; i < 1; i++ {
 		// generate client privatekey
 		ipAddr := pop(&ev.ipAddrs)
+
 		log.Info().Msgf("Generating privatekey for team %s", evTag+"_"+teamID)
 		_, err = ev.wg.GenPrivateKey(ctx, &wg.PrivKeyReq{PrivateKeyName: evTag + "_" + teamID + "_" + strconv.Itoa(ipAddr)})
 		if err != nil {
@@ -399,8 +407,8 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 			return []string{}, err
 		}
 
-		peerIP := strings.Replace(subnet, "1/24", fmt.Sprintf("%d/32", ipAddr), 1)
-		gwIP := strings.Replace(subnet, "1/24", fmt.Sprintf("1/32"), 1)
+		peerIP := strings.Replace(subnet, "240.1/22", fmt.Sprintf("%d.%d/32", i, ipAddr), 2)
+		gwIP := strings.Replace(subnet, "1/22", fmt.Sprintf("1/32"), 1)
 		log.Info().Str("NIC", evTag).
 			Str("AllowedIPs", peerIP).
 			Str("PublicKey ", resp.Message).Msgf("Generating ip address for peer %s, ip address of peer is %s ", teamID, peerIP)
@@ -440,11 +448,24 @@ PersistentKeepalive = 25
 #  YOUR LAB SUBNET IS:  %s 													
 # --------------------------------------------------------------------------
 
+######### << USER SCRIPTS >> #####
+#  
+#	Use following scripts to install wireguard and connect to lab. 
+#
+#   Install Wireguard: %s 
+#  	
+#	Connect Event:  %s
+#
+#   The scripts are automating steps which you do manually. Use them with your responsibility.
+#   If you notice outdated information, help us to update it :) 
+#
+####################
 
 ##### HOSTS INFORMATION #############
 #   Append given IP Address(es) with Domain(s) to your /etc/hosts file
 #   It enables you to browse domain of challenge through VPN 
-#   when you connected to internet.
+#   when you connected to internet. 
+#   (* If you used the script given above, your /etc/hosts file is updated already, you can skip this.)
 ###################################
 
 %s
@@ -453,7 +474,7 @@ PersistentKeepalive = 25
 
 %s
 
-`, peerIP, teamPrivKey.Message, serverPubKey.Message, labSubnet, gwIP, endpoint, labSubnet, hosts, vpnInstructions)
+`, peerIP, teamPrivKey.Message, serverPubKey.Message, labSubnet, gwIP, endpoint, labSubnet, installWireguard, connectWireguard, hosts, vpnInstructions)
 		t.SetVPNKeys(i, resp.Message)
 		teamConfigFiles = append(teamConfigFiles, clientConfig)
 		vpnIPs = append(vpnIPs, peerIP)

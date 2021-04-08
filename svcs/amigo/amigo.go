@@ -421,12 +421,12 @@ func (am *Amigo) handleVPNFiles() http.HandlerFunc {
 		switch confID {
 		case 0:
 			writeConfig(0)
-			//case 1:
-			//	writeConfig(1)
-			//case 2:
-			//	writeConfig(2)
-			//case 3:
-			//	writeConfig(3)
+		case 1:
+			writeConfig(1)
+		case 2:
+			writeConfig(2)
+		case 3:
+			writeConfig(3)
 		}
 
 	}

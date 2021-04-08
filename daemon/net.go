@@ -51,10 +51,8 @@ func (ipp *IPPool) Get() (string, error) {
 		case "25":
 			ip += fmt.Sprintf(".%d", rand.Intn(255))
 		case "35":
-			ip += ".213"
+			ip += fmt.Sprintf(".%d", rand.Intn(255))
 		}
-
-		ip += fmt.Sprintf(".%d", rand.Intn(255))
 
 		return ip
 	}
@@ -74,7 +72,8 @@ func (ipp *IPPool) Get() (string, error) {
 func newIPPoolFromHost() *IPPool {
 	ips := map[string]struct{}{}
 	weights := map[string]int{
-		"35": 1 * 255,   // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
+		"35": 1 * 255, // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
+
 		"25": 255 * 255, // 10.{2nd}.{0-255}.{0-255} => 2nd => 0-254 => 254 + 1 => 255
 	}
 
