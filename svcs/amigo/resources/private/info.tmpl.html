@@ -37,11 +37,20 @@
 
                                     In order to have VPN connection into virtualized lab environment on Haaukins,
                                     you need to install Wireguard client for your computer. <br><br>
+
                                     <b>Installation guideline for variety of clients are available on official website of Wireguard.</b>
 
                                     <p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">Install Wireguard Client</p>
 
                                     <li> Installation instructions for all clients: <a href="https://www.wireguard.com/install/">https://www.wireguard.com/install/</a></li>
+
+                                    <p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">User Scripts</p>
+                                    <li> Install Wireguard script : <a href="https://gitlab.com/-/snippets/2102002/raw/master/install_wireguard.sh">install_wireguard.sh</a> </li>
+                                    <li> Connect Event script: <a href="https://gitlab.com/-/snippets/2102000/raw/master/connectwireguard.py">connect_event.py</a> </li>
+                                    <li> Connect Event script is making your Wireguard interface up and modifies your <code>/etc/hosts</code> file</li>
+                                    <li> If you notice outdated information, help us to update :)</li>
+                                    <li> Use the scripts with your responsibility. </li>
+
 
                                     <p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">Lab Information</p>
                                         <li>Your Lab subnet: <b><code>{{ .LabSubnet }}</code></b></li>
@@ -51,10 +60,11 @@
                                         <li>Four people can solve challenges simultaneously on VPN connection</li>
                                         <li>Make sure each member of team using different configuration file</li>
                                         <li>In configuration file, you will have hosts information.</li>
-                                        <li>Append hosts information in configuration file to your local /etc/hosts file.</li>
+                                        <li>Append hosts information in configuration file to your local <code>/etc/hosts</code> file.</li>
 
                                     <p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">For Linux users: (after installation of client)</p>
 
+                                        <li> * If you used scripts given above, you can skip steps below </li>
                                         <li> Download the configuration file from the event page</li>
                                         <li> Place the configuration file under <b><code>/etc/wireguard/</code></b></li>
                                         <li> Connect VPN by typing <b><code>wg-quick up filename</code></b></li>
@@ -66,6 +76,8 @@
                                         <li>If you receive <b><code>Unknown interface 'tun': No such device</code></b>, remove <code>DNS = 1.1.1</code> from VPN configuration file</li>
                                         <li> Make sure about filename when you are connecting to VPN</li>
                                         <li> Check connection with <b><code>wg</code></b> command </li>
+
+
 
                                     <p class="p-2 mt-2 dark-color mb-0" style="font-weight: bold; color:red;">For MacOS users: (after installation of client)</p>
 
