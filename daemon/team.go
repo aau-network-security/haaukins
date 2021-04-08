@@ -2,15 +2,16 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
-	"github.com/aau-network-security/haaukins/virtual"
-
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/rs/zerolog/log"
 )
 
@@ -100,6 +101,59 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	}
 
 	return nil
+}
+
+func (d *daemon) SolveChallenge(ctx context.Context, req *pb.SolveChallengeRequest) (*pb.SolveChallengeResponse, error) {
+	var challenge store.Challenge
+	event := d.eventPool.events[store.Tag(req.EventTag)]
+
+	lab, ok := event.GetLabByTeam(req.TeamID)
+	if !ok {
+		return &pb.SolveChallengeResponse{}, fmt.Errorf("Lab is not assigned yet ! ")
+	}
+	chals := lab.Environment().Challenges()
+
+	for _, ch := range chals {
+		if string(ch.Tag) == req.ChallengeTag {
+			challenge = ch
+			break
+		}
+	}
+
+	flag, err := store.NewFlagFromString(strings.TrimSpace(challenge.Value))
+	if err != nil {
+		return &pb.SolveChallengeResponse{}, err
+	}
+
+	for _, team := range event.GetTeams() {
+		if team.ID() == req.TeamID {
+			if err := team.VerifyFlag(challenge, flag); err != nil {
+				return &pb.SolveChallengeResponse{}, err
+			}
+			break
+		}
+	}
+	return &pb.SolveChallengeResponse{Status: fmt.Sprintf("Challenge solved on event [ %s ] for team [ %s ] !", req.EventTag, req.TeamID)}, nil
+}
+
+func (d *daemon) GetTeamChals(ctx context.Context, req *pb.GetTeamInfoRequest) (*pb.TeamChalsInfo, error) {
+	var flags []*pb.Flag
+	event := d.eventPool.events[store.Tag(req.EventTag)]
+
+	lab, ok := event.GetLabByTeam(req.TeamId)
+	if !ok {
+		return &pb.TeamChalsInfo{}, fmt.Errorf("Lab is not assigned yet ! ")
+	}
+	chals := lab.Environment().Challenges()
+
+	for _, ch := range chals {
+		flags = append(flags, &pb.Flag{
+			ChallengeName: ch.Name,
+			ChallengeTag:  string(ch.Tag),
+			ChallengeFlag: ch.Value,
+		})
+	}
+	return &pb.TeamChalsInfo{Flags: flags}, nil
 }
 
 func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {
