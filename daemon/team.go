@@ -133,7 +133,7 @@ func (d *daemon) SolveChallenge(ctx context.Context, req *pb.SolveChallengeReque
 			break
 		}
 	}
-	return &pb.SolveChallengeResponse{Status: fmt.Sprintf("Challenge solved on event [ %s ] for team [ %s ] !", req.EventTag, req.TeamID)}, nil
+	return &pb.SolveChallengeResponse{Status: fmt.Sprintf("Challenge [ %s ] solved on event [ %s ] for team [ %s ] !", challenge.Name, req.EventTag, req.TeamID)}, nil
 }
 
 func (d *daemon) GetTeamChals(ctx context.Context, req *pb.GetTeamInfoRequest) (*pb.TeamChalsInfo, error) {
