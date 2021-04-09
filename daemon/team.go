@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -17,6 +18,11 @@ import (
 
 const (
 	INACTIVITY_DURATION = 8 // in hours
+)
+
+var (
+	NoFlagMngtPrivErr   = errors.New("No priviledge to see/solve challenges on an event created by others !")
+	LabIsNotAssignedErr = errors.New("Lab is not assigned yet ! ")
 )
 
 func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*pb.GetTeamInfoResponse, error) {
@@ -105,11 +111,20 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 
 func (d *daemon) SolveChallenge(ctx context.Context, req *pb.SolveChallengeRequest) (*pb.SolveChallengeResponse, error) {
 	var challenge store.Challenge
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.SolveChallengeResponse{}, fmt.Errorf("user credentials could not found on context %v", err)
+	}
 	event := d.eventPool.events[store.Tag(req.EventTag)]
+
+	if user.NPUser && event.GetConfig().CreatedBy != user.Username {
+		return &pb.SolveChallengeResponse{}, NoFlagMngtPrivErr
+	}
 
 	lab, ok := event.GetLabByTeam(req.TeamID)
 	if !ok {
-		return &pb.SolveChallengeResponse{}, fmt.Errorf("Lab is not assigned yet ! ")
+		return &pb.SolveChallengeResponse{}, LabIsNotAssignedErr
 	}
 	chals := lab.Environment().Challenges()
 
@@ -139,7 +154,15 @@ func (d *daemon) SolveChallenge(ctx context.Context, req *pb.SolveChallengeReque
 func (d *daemon) GetTeamChals(ctx context.Context, req *pb.GetTeamInfoRequest) (*pb.TeamChalsInfo, error) {
 	var flags []*pb.Flag
 	event := d.eventPool.events[store.Tag(req.EventTag)]
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.TeamChalsInfo{}, fmt.Errorf("user credentials could not found on context %v", err)
+	}
 
+	if user.NPUser && event.GetConfig().CreatedBy != user.Username {
+		return &pb.TeamChalsInfo{}, NoFlagMngtPrivErr
+	}
 	lab, ok := event.GetLabByTeam(req.TeamId)
 	if !ok {
 		return &pb.TeamChalsInfo{}, fmt.Errorf("Lab is not assigned yet ! ")
