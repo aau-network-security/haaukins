@@ -396,7 +396,7 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 
 	if chal.CompletedAt != nil {
 		t.m.Unlock()
-		return ErrFlagAlreadyComplete
+		return fmt.Errorf("Flag for challenge [ %s ] is already completed!", chal.Tag)
 	}
 	now := time.Now()
 	chal.CompletedAt = &now

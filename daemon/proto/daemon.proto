@@ -16,6 +16,9 @@ service Daemon {
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
+  rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {}
+
+  rpc GetTeamChals(GetTeamInfoRequest) returns (TeamChalsInfo) {}
 
   rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {}
 
@@ -29,6 +32,26 @@ service Daemon {
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
+}
+
+message SolveChallengeRequest {
+  string eventTag = 1;
+  string teamID = 2;
+  string challengeTag = 3;
+}
+
+message SolveChallengeResponse {
+  string status =1 ;
+}
+
+message Flag {
+  string challengeName = 1;
+  string challengeTag = 2;
+  string challengeFlag = 3;
+}
+
+message TeamChalsInfo {
+  repeated Flag flags =  1;
 }
 
 message CredsResponse {

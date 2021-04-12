@@ -69,6 +69,7 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 			}
 
 			challenges = append(challenges, Challenge{
+				Name:  flag.Name,
 				Tag:   flag.Tag,
 				Value: value,
 			})
