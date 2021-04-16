@@ -38,6 +38,21 @@ func handleCancel(clean func() error) {
 	}()
 }
 
+func handleHotConfigReload(confFile *string, reload func(confFile *string) error) {
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP)
+	go func() {
+		<-c
+		log.Info().Msgf("Hot reload for config file...")
+		if err := reload(confFile); err != nil {
+			log.Error().Msgf("Error on reloading config file: %s", err)
+			os.Exit(1)
+		}
+		log.Info().Msgf("Config is updated !")
+	}()
+}
+
 func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
@@ -68,6 +83,11 @@ func main() {
 	handleCancel(func() error {
 		return d.Close()
 	})
+
+	handleHotConfigReload(confFilePtr, func(confFile *string) error {
+		return d.ReloadConfig(confFilePtr)
+	})
+
 	log.Info().Msgf("Started daemon")
 
 	if err := d.Run(); err != nil {
