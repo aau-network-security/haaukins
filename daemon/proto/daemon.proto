@@ -8,6 +8,7 @@ service Daemon {
   rpc ChangeUserPasswd (UpdatePasswdRequest) returns (UpdatePasswdResponse) {}
   rpc DestroyUser (DestroyUserRequest) returns (DestroyUserResponse) {}
   rpc SetTeamSuspend (SetTeamSuspendRequest) returns (Empty) {}
+  rpc UpdateTeamPassword(UpdateTeamPassRequest) returns (UpdateTeamPassResponse) {}
 
   rpc GetAPICreds(Empty) returns (CredsResponse) {}
   rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
@@ -33,6 +34,19 @@ service Daemon {
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
 }
+
+
+message UpdateTeamPassRequest {
+  string eventTag = 1;
+  string teamID = 2;
+  string password = 3;
+  string passwordRepeat = 4;
+}
+
+message UpdateTeamPassResponse {
+  string status = 1;
+}
+
 
 message SolveChallengeRequest {
   string eventTag = 1;
