@@ -27,6 +27,7 @@ func (c *Client) CmdTeam() *cobra.Command {
 		c.CmdTeamResume(),
 		c.CmdSolveChallenge(),
 		c.CmdTeamFlags(),
+		c.CmdUpdateTeamPassword(),
 	)
 
 	return cmd
@@ -189,6 +190,37 @@ func (c *Client) CmdSolveChallenge() *cobra.Command {
 			}
 
 			resp, err := c.rpcClient.SolveChallenge(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+			fmt.Println(resp.Status)
+		},
+	}
+	return cmd
+}
+
+func (c *Client) CmdUpdateTeamPassword() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "update-pass [event tag] [team id] [ password ] [ password-repeat ]",
+		Short:   "Update password of a team.",
+		Example: "hkn team update-pass test-event azbu29c1 pass1 pass1",
+		Args:    cobra.MinimumNArgs(4),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+			eventTag := args[0]
+			teamId := args[1]
+			password := args[2]
+			passwordRepeat := args[3]
+			req := &pb.UpdateTeamPassRequest{
+				EventTag:       eventTag,
+				TeamID:         teamId,
+				Password:       password,
+				PasswordRepeat: passwordRepeat,
+			}
+
+			resp, err := c.rpcClient.UpdateTeamPassword(ctx, req)
 			if err != nil {
 				PrintError(err)
 				return
