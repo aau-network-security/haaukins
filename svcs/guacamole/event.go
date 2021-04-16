@@ -124,16 +124,13 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 
 	var labConf lab.Config
 	if conf.OnlyVPN {
-		labConf = lab.Config{
-			Exercises: exers,
-		}
+		labConf.Exercises = exers
+		labConf.Exercises = exers
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
 	} else {
-		labConf = lab.Config{
-			Exercises: exers,
-			Frontends: conf.Lab.Frontends,
-		}
+		labConf.Exercises = exers
+		labConf.Frontends = conf.Lab.Frontends
 	}
 	lh := lab.LabHost{
 		Vlib: eh.vlib,
