@@ -428,6 +428,39 @@ func (t *Team) UpdateTeamAccessed(tm time.Time) error {
 	return nil
 }
 
+func (t *Team) UpdatePass(pass, passRepeat, evTag string) error {
+	t.m.RLock()
+	ctx := context.Background()
+	if pass != passRepeat {
+		t.m.RUnlock()
+		return fmt.Errorf("Passwords DOES NOT match !")
+	}
+
+	hPass, _ := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	resp, err := t.dbc.GetEventID(ctx, &pbc.GetEventIDReq{EventTag: evTag})
+	if err != nil {
+		t.m.RUnlock()
+		return err
+	}
+	eventID := resp.EventID
+
+	t.hashedPassword = string(hPass)
+
+	_, err = t.dbc.UpdateTeamPassword(ctx, &pbc.UpdateTeamPassRequest{
+		EncryptedPass: string(hPass),
+		TeamID:        t.ID(),
+		EventID:       int32(eventID),
+	})
+
+	if err != nil {
+		t.m.RUnlock()
+		return err
+	}
+
+	t.m.RUnlock()
+	return nil
+}
+
 // Update the Team Solved Challenges on the DB
 func (t *Team) UpdateTeamSolvedChallenges(chal TeamChallenge) error {
 
