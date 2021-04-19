@@ -13,15 +13,31 @@ service Store {
     rpc IsEventExists(GetEventByTagReq) returns (GetEventByTagResp) {}
     rpc GetTimeSeries(EmptyRequest) returns (GetTimeSeriesResponse) {}
     rpc DropEvent(DropEventReq) returns (DropEventResp){}
+    rpc GetEventID(GetEventIDReq) returns (GetEventIDResp) {}
 
     rpc SetEventStatus (SetEventStatusRequest) returns (EventStatusStore) {}
     //Update
     rpc UpdateCloseEvent (UpdateEventRequest) returns (UpdateResponse) {}
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
+    rpc UpdateTeamPassword (UpdateTeamPassRequest) returns (UpdateResponse) {}
 }
 
 message EmptyRequest {}
+
+message UpdateTeamPassRequest {
+    string encryptedPass = 1;
+    string teamID = 2;
+    int32 eventID  = 3;
+}
+
+message GetEventIDReq {
+    string eventTag = 1;
+}
+
+message GetEventIDResp {
+    int32 eventID = 1;
+}
 
 message GetTimeSeriesResponse {
     map<string, int32> timeseries = 1;

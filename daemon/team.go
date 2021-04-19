@@ -179,6 +179,20 @@ func (d *daemon) GetTeamChals(ctx context.Context, req *pb.GetTeamInfoRequest) (
 	return &pb.TeamChalsInfo{Flags: flags}, nil
 }
 
+func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassRequest) (*pb.UpdateTeamPassResponse, error) {
+	ev, ok := d.eventPool.events[store.Tag(req.EventTag)]
+	if !ok {
+		return &pb.UpdateTeamPassResponse{}, fmt.Errorf("Event [ %s ] could not be found ", req.EventTag)
+	}
+
+	status, err := ev.UpdateTeamPassword(req.TeamID, req.Password, req.PasswordRepeat)
+	if err != nil {
+		return &pb.UpdateTeamPassResponse{}, err
+	}
+
+	return &pb.UpdateTeamPassResponse{Status: status}, nil
+}
+
 func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {
 	now := time.Now().UTC()
 	defer wg.Done()

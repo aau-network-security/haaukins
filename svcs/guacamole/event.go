@@ -199,6 +199,7 @@ type Event interface {
 	GetConfig() store.EventConfig
 	GetTeams() []*store.Team
 	GetHub() lab.Hub
+	UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	GetLabByTeam(teamId string) (lab.Lab, bool)
 }
 
@@ -293,6 +294,18 @@ func (ev *event) SetStatus(state int32) {
 
 func (ev *event) GetStatus() int32 {
 	return ev.store.Status
+}
+
+func (ev *event) UpdateTeamPassword(id, pass, passRepeat string) (string, error) {
+	tm, err := ev.store.TeamStore.GetTeamByID(id)
+	if err != nil {
+		return "", err
+	}
+	if err := tm.UpdatePass(pass, passRepeat, string(ev.store.Tag)); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Password for team [ %s ] is updated ! ", id), nil
 }
 
 func (ev *event) Start(ctx context.Context) error {
