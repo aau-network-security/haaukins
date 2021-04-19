@@ -86,15 +86,18 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	}
 
 	if req.OnlyVPN && req.Capacity > 253 {
+		resp.Send(&pb.LabStatus{ErrorMessage: CapacityExceedsErr.Error()})
 		return CapacityExceedsErr
 	}
 
 	if user.NPUser && req.Capacity > int32(NPUserMaxLabs) {
+		resp.Send(&pb.LabStatus{ErrorMessage: OutOfQuota.Error()})
 		return OutOfQuota
 	}
 
 	isEligible, err := d.checkUserQuota(ctx, user.Username)
 	if err != nil {
+		resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
 		return err
 	}
 
@@ -102,6 +105,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 		now := time.Now()
 		if ReservedSubDomains[strings.ToLower(req.Tag)] {
+			resp.Send(&pb.LabStatus{ErrorMessage: ReservedDomainErr.Error()})
 			return ReservedDomainErr
 		}
 
@@ -110,6 +114,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		tags := make([]store.Tag, len(uniqueExercisesList))
 		exs, tagErr := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: uniqueExercisesList})
 		if tagErr != nil {
+			resp.Send(&pb.LabStatus{ErrorMessage: tagErr.Error()})
 			return tagErr
 		}
 
@@ -128,7 +133,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		startTime, _ := time.Parse(dbTimeFormat, req.StartTime)
 
 		if isInvalidDate(startTime) {
-			return fmt.Errorf("invalid startTime format %v", startTime)
+			invalidDateErr := fmt.Errorf("invalid startTime format %v", startTime)
+			resp.Send(&pb.LabStatus{ErrorMessage: invalidDateErr.Error()})
+			return invalidDateErr
 		}
 
 		// checking through eventPool is not good enough since booked events are not added to eventpool
@@ -139,9 +146,12 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			Status: Closed,
 		})
 		if err != nil {
-			return fmt.Errorf("event does not exist or something is wrong: %v", err)
+			noEventExist := fmt.Errorf("event does not exist or something is wrong: %v", err)
+			resp.Send(&pb.LabStatus{ErrorMessage: noEventExist.Error()})
+			return noEventExist
 		}
 		if isEventExist.IsExist {
+			resp.Send(&pb.LabStatus{ErrorMessage: NotAvailableTag})
 			return fmt.Errorf(NotAvailableTag)
 		}
 
@@ -151,6 +161,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		difference := math.Round(startTime.Sub(now).Hours() / 24)
 		if difference >= 1 {
 			if err := d.bookEvent(ctx, req); err != nil {
+				resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
 				return err
 			}
 			return nil
@@ -183,12 +194,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 
 		if err := conf.Validate(); err != nil {
+
 			return err
 		}
 
 		_, err = d.eventPool.GetEvent(evtag)
 
 		if err == nil {
+			resp.Send(&pb.LabStatus{ErrorMessage: DuplicateEventErr.Error()})
 			return DuplicateEventErr
 		}
 
@@ -208,6 +221,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		ev, err := d.ehost.CreateEventFromConfig(ctx, conf, d.conf.Rechaptcha)
 		if err != nil {
 			log.Error().Err(err).Msg("Error creating event from database event")
+			resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
 			return err
 		}
 
