@@ -21,8 +21,9 @@ const (
 )
 
 var (
-	NoFlagMngtPrivErr   = errors.New("No priviledge to see/solve challenges on an event created by others !")
+	NoFlagMngtPrivErr   = errors.New("No privilege to see/solve challenges on an event created by others !")
 	LabIsNotAssignedErr = errors.New("Lab is not assigned yet ! ")
+	NoPrivToUpdate      = errors.New("No privilege to change team password !")
 )
 
 func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*pb.GetTeamInfoResponse, error) {
@@ -180,11 +181,15 @@ func (d *daemon) GetTeamChals(ctx context.Context, req *pb.GetTeamInfoRequest) (
 }
 
 func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassRequest) (*pb.UpdateTeamPassResponse, error) {
+	usr, err := getUserFromIncomingContext(ctx)
+
 	ev, ok := d.eventPool.events[store.Tag(req.EventTag)]
 	if !ok {
 		return &pb.UpdateTeamPassResponse{}, fmt.Errorf("Event [ %s ] could not be found ", req.EventTag)
 	}
-
+	if usr.NPUser && ev.GetConfig().CreatedBy != usr.Username {
+		return &pb.UpdateTeamPassResponse{}, NoFlagMngtPrivErr
+	}
 	status, err := ev.UpdateTeamPassword(req.TeamID, req.Password, req.PasswordRepeat)
 	if err != nil {
 		return &pb.UpdateTeamPassResponse{}, err
