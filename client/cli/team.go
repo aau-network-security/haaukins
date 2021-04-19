@@ -25,6 +25,9 @@ func (c *Client) CmdTeam() *cobra.Command {
 		c.CmdTeamInfo(),
 		c.CmdTeamSuspend(),
 		c.CmdTeamResume(),
+		c.CmdSolveChallenge(),
+		c.CmdTeamFlags(),
+		c.CmdUpdateTeamPassword(),
 	)
 
 	return cmd
@@ -110,6 +113,7 @@ func (c *Client) CmdTeamInfo() *cobra.Command {
 
 	return cmd
 }
+
 func (c *Client) CmdTeamSuspend() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "suspend [team id] [event tag]",
@@ -160,6 +164,122 @@ func (c *Client) CmdTeamResume() *cobra.Command {
 				PrintError(err)
 				return
 			}
+		},
+	}
+
+	return cmd
+}
+
+func (c *Client) CmdSolveChallenge() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "solve [event tag] [team id] [challenge-tag]",
+		Short:   "Solves a challenge for specified team",
+		Example: "hkn team solve test-event azbu29c1 sql-1",
+		Args:    cobra.MinimumNArgs(3),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+
+			teamId := args[1]
+			eventTag := args[0]
+			chalTag := args[2]
+			req := &pb.SolveChallengeRequest{
+				TeamID:       teamId,
+				EventTag:     eventTag,
+				ChallengeTag: chalTag,
+			}
+
+			resp, err := c.rpcClient.SolveChallenge(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+			fmt.Println(resp.Status)
+		},
+	}
+	return cmd
+}
+
+func (c *Client) CmdUpdateTeamPassword() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "update-pass [event tag] [team id] [ password ] [ password-repeat ]",
+		Short:   "Update password of a team.",
+		Example: "hkn team update-pass test-event azbu29c1 pass1 pass1",
+		Args:    cobra.MinimumNArgs(4),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+			eventTag := args[0]
+			teamId := args[1]
+			password := args[2]
+			passwordRepeat := args[3]
+			req := &pb.UpdateTeamPassRequest{
+				EventTag:       eventTag,
+				TeamID:         teamId,
+				Password:       password,
+				PasswordRepeat: passwordRepeat,
+			}
+
+			resp, err := c.rpcClient.UpdateTeamPassword(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+			fmt.Println(resp.Status)
+		},
+	}
+	return cmd
+}
+
+func (c *Client) CmdTeamFlags() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "flags [event tag] [team id]",
+		Short:   "Get all flags on team",
+		Example: "hkn team flags test-event azbu29c1",
+		Args:    cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+
+			teamId := args[1]
+			eventTag := args[0]
+			req := &pb.GetTeamInfoRequest{
+				TeamId:   teamId,
+				EventTag: eventTag,
+			}
+			resp, err := c.rpcClient.GetTeamChals(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			f := formatter{
+				header: []string{"CHALLENGE NAME", "CHALLENGE TAG", "CHALLENGE FLAG"},
+				fields: []string{"ChalName", "ChalTag", "ChalFlag"},
+			}
+
+			var elements []formatElement
+			for _, i := range resp.Flags {
+
+				el := struct {
+					ChalName string
+					ChalTag  string
+					ChalFlag string
+				}{
+					ChalName: i.ChallengeName,
+					ChalTag:  i.ChallengeTag,
+					ChalFlag: i.ChallengeFlag,
+				}
+
+				elements = append(elements, el)
+			}
+
+			table, err := f.AsTable(elements)
+			if err != nil {
+				PrintError(UnableCreateEListErr)
+				return
+			}
+			fmt.Printf(table)
 		},
 	}
 

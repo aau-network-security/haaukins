@@ -396,7 +396,7 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 
 	if chal.CompletedAt != nil {
 		t.m.Unlock()
-		return ErrFlagAlreadyComplete
+		return fmt.Errorf("Flag for challenge [ %s ] is already completed!", chal.Tag)
 	}
 	now := time.Now()
 	chal.CompletedAt = &now
@@ -419,6 +419,39 @@ func (t *Team) UpdateTeamAccessed(tm time.Time) error {
 		AccessAt: tm.Format(displayTimeFormat),
 	})
 	t.lastAccess = tm
+	if err != nil {
+		t.m.RUnlock()
+		return err
+	}
+
+	t.m.RUnlock()
+	return nil
+}
+
+func (t *Team) UpdatePass(pass, passRepeat, evTag string) error {
+	t.m.RLock()
+	ctx := context.Background()
+	if pass != passRepeat {
+		t.m.RUnlock()
+		return fmt.Errorf("Passwords DOES NOT match !")
+	}
+
+	hPass, _ := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	resp, err := t.dbc.GetEventID(ctx, &pbc.GetEventIDReq{EventTag: evTag})
+	if err != nil {
+		t.m.RUnlock()
+		return err
+	}
+	eventID := resp.EventID
+
+	t.hashedPassword = string(hPass)
+
+	_, err = t.dbc.UpdateTeamPassword(ctx, &pbc.UpdateTeamPassRequest{
+		EncryptedPass: string(hPass),
+		TeamID:        t.ID(),
+		EventID:       int32(eventID),
+	})
+
 	if err != nil {
 		t.m.RUnlock()
 		return err

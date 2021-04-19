@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sync"
 	"time"
 
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
@@ -287,12 +288,23 @@ func New(conf *Config) (*daemon, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
+	var dbEvents []*pbc.GetEventResponse_Events
+
 	// query running events only
 	runningEvents, err := dbc.GetEvents(ctx, &pbc.GetEventRequest{Status: Running})
 	if err != nil {
-		log.Error().Msgf("error on getting events from database %v", err)
+		log.Error().Msgf("error on getting running events from database %v", err)
 		return nil, store.TranslateRPCErr(err)
 	}
+
+	suspendedEvents, err := dbc.GetEvents(ctx, &pbc.GetEventRequest{Status: Suspended})
+	if err != nil {
+		log.Error().Msgf("error on getting suspended events from database %v", err)
+		return nil, store.TranslateRPCErr(err)
+	}
+
+	dbEvents = append(dbEvents, runningEvents.Events...)
+	dbEvents = append(dbEvents, suspendedEvents.Events...)
 
 	logPool, err := logging.NewPool(conf.ConfFiles.LogDir)
 	if err != nil {
@@ -312,7 +324,8 @@ func New(conf *Config) (*daemon, error) {
 		exClient:  exServiceClient,
 	}
 
-	for _, ef := range runningEvents.Events {
+	for _, ef := range dbEvents {
+		var eventConfig store.EventConfig
 		// check through status of event
 		// suspended is also included since at first start
 		// daemon should be aware of the event which is suspended
@@ -323,15 +336,34 @@ func New(conf *Config) (*daemon, error) {
 				log.Error().Msgf("Getting VPN address error on New() in daemon %v", err)
 			}
 			vpnAddress := fmt.Sprintf("%s.240.1/22", vpnIP)
-			eventConfig := d.generateEventConfig(ef, ef.Status, vpnAddress)
+
+			if ef.Status == Suspended {
+				d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{Status: Running, EventTag: ef.Tag})
+				ef.Status = Running
+			}
+
+			eventConfig = d.generateEventConfig(ef, ef.Status, vpnAddress)
 			err = d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
 				return nil, fmt.Errorf("Error on creating event from db: %v", err)
 
 			}
 		}
-
 	}
+	var waitGroup sync.WaitGroup
+
+	for _, ef := range suspendedEvents.Events {
+		waitGroup.Add(1)
+		ev, ok := d.eventPool.events[store.Tag(ef.Tag)]
+		if !ok {
+			log.Error().Msgf("No event in event pool called [ %s ]", ef.Tag)
+		}
+		go func() {
+			ev.Suspend(ctx)
+			defer waitGroup.Done()
+		}()
+	}
+	waitGroup.Wait()
 
 	return d, nil
 }

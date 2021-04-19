@@ -113,6 +113,15 @@ func (d *daemon) Close() error {
 	return errs
 }
 
+func (d *daemon) ReloadConfig(confFile *string) error {
+	conf, err := NewConfigFromFile(*confFile)
+	if err != nil {
+		return err
+	}
+	d.conf = conf
+	return nil
+}
+
 func (s *contextStream) Context() context.Context {
 	return s.ctx
 }

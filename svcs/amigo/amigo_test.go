@@ -120,7 +120,7 @@ func TestVerifyFlag(t *testing.T) {
 			name:   "already taken flag",
 			cookie: validCookie,
 			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
-			err:    "Flag is already completed",
+			err:    fmt.Sprintf("Flag for challenge [ %s ] is already completed!", chal.Tag),
 		},
 	}
 

@@ -2,20 +2,27 @@ package daemon
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
-	"github.com/aau-network-security/haaukins/virtual"
-
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	"github.com/aau-network-security/haaukins/store"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/rs/zerolog/log"
 )
 
 const (
 	INACTIVITY_DURATION = 8 // in hours
+)
+
+var (
+	NoFlagMngtPrivErr   = errors.New("No priviledge to see/solve challenges on an event created by others !")
+	LabIsNotAssignedErr = errors.New("Lab is not assigned yet ! ")
 )
 
 func (d *daemon) GetTeamInfo(ctx context.Context, in *pb.GetTeamInfoRequest) (*pb.GetTeamInfoResponse, error) {
@@ -100,6 +107,90 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 	}
 
 	return nil
+}
+
+func (d *daemon) SolveChallenge(ctx context.Context, req *pb.SolveChallengeRequest) (*pb.SolveChallengeResponse, error) {
+	var challenge store.Challenge
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.SolveChallengeResponse{}, fmt.Errorf("user credentials could not found on context %v", err)
+	}
+	event := d.eventPool.events[store.Tag(req.EventTag)]
+
+	if user.NPUser && event.GetConfig().CreatedBy != user.Username {
+		return &pb.SolveChallengeResponse{}, NoFlagMngtPrivErr
+	}
+
+	lab, ok := event.GetLabByTeam(req.TeamID)
+	if !ok {
+		return &pb.SolveChallengeResponse{}, LabIsNotAssignedErr
+	}
+	chals := lab.Environment().Challenges()
+
+	for _, ch := range chals {
+		if string(ch.Tag) == req.ChallengeTag {
+			challenge = ch
+			break
+		}
+	}
+
+	flag, err := store.NewFlagFromString(strings.TrimSpace(challenge.Value))
+	if err != nil {
+		return &pb.SolveChallengeResponse{}, err
+	}
+
+	for _, team := range event.GetTeams() {
+		if team.ID() == req.TeamID {
+			if err := team.VerifyFlag(challenge, flag); err != nil {
+				return &pb.SolveChallengeResponse{}, err
+			}
+			break
+		}
+	}
+	return &pb.SolveChallengeResponse{Status: fmt.Sprintf("Challenge [ %s ] solved on event [ %s ] for team [ %s ] !", challenge.Name, req.EventTag, req.TeamID)}, nil
+}
+
+func (d *daemon) GetTeamChals(ctx context.Context, req *pb.GetTeamInfoRequest) (*pb.TeamChalsInfo, error) {
+	var flags []*pb.Flag
+	event := d.eventPool.events[store.Tag(req.EventTag)]
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return &pb.TeamChalsInfo{}, fmt.Errorf("user credentials could not found on context %v", err)
+	}
+
+	if user.NPUser && event.GetConfig().CreatedBy != user.Username {
+		return &pb.TeamChalsInfo{}, NoFlagMngtPrivErr
+	}
+	lab, ok := event.GetLabByTeam(req.TeamId)
+	if !ok {
+		return &pb.TeamChalsInfo{}, fmt.Errorf("Lab is not assigned yet ! ")
+	}
+	chals := lab.Environment().Challenges()
+
+	for _, ch := range chals {
+		flags = append(flags, &pb.Flag{
+			ChallengeName: ch.Name,
+			ChallengeTag:  string(ch.Tag),
+			ChallengeFlag: ch.Value,
+		})
+	}
+	return &pb.TeamChalsInfo{Flags: flags}, nil
+}
+
+func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassRequest) (*pb.UpdateTeamPassResponse, error) {
+	ev, ok := d.eventPool.events[store.Tag(req.EventTag)]
+	if !ok {
+		return &pb.UpdateTeamPassResponse{}, fmt.Errorf("Event [ %s ] could not be found ", req.EventTag)
+	}
+
+	status, err := ev.UpdateTeamPassword(req.TeamID, req.Password, req.PasswordRepeat)
+	if err != nil {
+		return &pb.UpdateTeamPassResponse{}, err
+	}
+
+	return &pb.UpdateTeamPassResponse{Status: status}, nil
 }
 
 func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {
