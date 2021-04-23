@@ -25,7 +25,7 @@ service Daemon {
 
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
-
+  rpc GetExercisesByTags (GetExsByTagsReq) returns (GetExsByTagsResp) {}
   rpc ListFrontends (Empty) returns (ListFrontendsResponse) {}
   rpc ResetFrontends (ResetFrontendsRequest) returns (stream ResetTeamStatus) {}
   rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Empty) {}
@@ -33,6 +33,18 @@ service Daemon {
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
+}
+
+message GetExsByTagsReq {
+  repeated string tags = 1;
+}
+
+message GetExsByTagsResp {
+  message ExInfo {
+    string name = 1;
+    string tag =  2;
+  }
+  repeated ExInfo exercises = 1;
 }
 
 

@@ -133,6 +133,19 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 	return nil
 }
 
+func (d *daemon) GetExercisesByTags(ctx context.Context, req *pb.GetExsByTagsReq) (*pb.GetExsByTagsResp, error) {
+	var exInfo []*pb.GetExsByTagsResp_ExInfo
+	exTags := req.Tags
+	resp, err := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: exTags})
+	if err != nil {
+		return &pb.GetExsByTagsResp{}, err
+	}
+	for _, e := range resp.Exercises {
+		exInfo = append(exInfo, &pb.GetExsByTagsResp_ExInfo{Tag: e.Tag, Name: e.Name})
+	}
+	return &pb.GetExsByTagsResp{Exercises: exInfo}, nil
+}
+
 func protobufToJson(message proto.Message) (string, error) {
 	marshaler := jsonpb.Marshaler{
 		EnumsAsInts:  false,
