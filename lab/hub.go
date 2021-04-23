@@ -50,22 +50,22 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 		for range ready {
 			wg.Add(1)
 			// todo: handle this in case of error
-			lab, err := creator.NewLab(ctx, isVPN)
+			l, err := creator.NewLab(ctx, isVPN)
 			if err != nil {
 				log.Error().Msgf("Error while creating new lab %s", err.Error())
 			}
 
-			if err := lab.Start(ctx); err != nil {
+			if err := l.Start(ctx); err != nil {
 				log.Error().Msgf("Error while starting lab %s", err.Error())
 			}
 			select {
-			case labs <- lab:
+			case labs <- l:
 				wg.Done()
 			case <-stop:
 				wg.Done()
 
 				/* Delete lab as it wasn't added to the lab queue */
-				if err := lab.Close(); err != nil {
+				if err := l.Close(); err != nil {
 					log.Error().Msgf("Error while closing lab %s", err.Error())
 				}
 				break
@@ -103,10 +103,10 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 
 		for {
 			select {
-			case lab := <-labs:
-				startedLabs[lab.Tag()] = lab
+			case l := <-labs:
+				startedLabs[l.Tag()] = l
 				select {
-				case queue <- lab:
+				case queue <- l:
 				case <-stop:
 					continue
 				}
