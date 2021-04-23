@@ -142,6 +142,7 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 type Hooks struct {
 	AssignLab     func(t *store.Team) error
 	ResetExercise func(t *store.Team, challengeTag string) error
+	RunExercise   func(t *store.Team, challengeTag string) error
 	ResetFrontend func(t *store.Team) error
 	ResumeTeamLab func(t *store.Team) error
 }

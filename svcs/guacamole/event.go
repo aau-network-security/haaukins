@@ -764,6 +764,18 @@ func (ev *event) Handler() http.Handler {
 		}
 		return nil
 	}
+
+	runHook := func(t *store.Team, challengeTag string) error {
+		teamLab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+		}
+		if err := teamLab.Environment().StartByTag(context.TODO(), challengeTag); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	// resume labs in login of amigo
 	resumeTeamLab := func(t *store.Team) error {
 		var waitGroup sync.WaitGroup
@@ -793,7 +805,13 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
-	hooks := amigo.Hooks{AssignLab: reghook, ResetExercise: resetHook, ResetFrontend: resetFrontendHook, ResumeTeamLab: resumeTeamLab}
+	hooks := amigo.Hooks{
+		AssignLab:     reghook,
+		ResetExercise: resetHook,
+		RunExercise:   runHook,
+		ResetFrontend: resetFrontendHook,
+		ResumeTeamLab: resumeTeamLab,
+	}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)
 
