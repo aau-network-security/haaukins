@@ -125,11 +125,12 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	var labConf lab.Config
 	if conf.OnlyVPN {
 		labConf.Exercises = exers
-		labConf.Exercises = exers
+		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
 	} else {
 		labConf.Exercises = exers
+		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		labConf.Frontends = conf.Lab.Frontends
 	}
 	lh := lab.LabHost{
@@ -158,10 +159,16 @@ func protobufToJson(message proto.Message) (string, error) {
 //Save the event in the DB and create the event configuration
 func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	var exercises []string
+	var disabledExercises []string
 	log.Info().Msgf("VPN Address from CreateEventFromConfig function %s ", conf.VPNAddress)
+	// todo: update this in more elegant way
 	for _, e := range conf.Lab.Exercises {
 		exercises = append(exercises, string(e))
 	}
+	for _, e := range conf.Lab.DisabledExercises {
+		disabledExercises = append(disabledExercises, string(e))
+	}
+
 	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
 		Name:               conf.Name,
 		Tag:                string(conf.Tag),
@@ -175,6 +182,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		CreatedBy:          conf.CreatedBy,
 		OnlyVPN:            conf.OnlyVPN,
 		SecretKey:          conf.SecretKey,
+		DisabledExercises:  strings.Join(disabledExercises, ","),
 	})
 
 	if err != nil {

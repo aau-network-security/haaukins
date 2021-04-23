@@ -25,8 +25,9 @@ var (
 )
 
 type Config struct {
-	Frontends []store.InstanceConfig
-	Exercises []store.Exercise
+	Frontends         []store.InstanceConfig
+	Exercises         []store.Exercise
+	DisabledExercises []store.Tag
 }
 
 func (conf Config) Flags() []store.FlagConfig {
@@ -55,6 +56,12 @@ func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
 	if err := env.Add(ctx, lh.Conf.Exercises...); err != nil {
 		return nil, fmt.Errorf("new environment add err %v ", err)
 	}
+	// setting disabled exercise tags
+	// will not be run when event is created
+	// instead will be created
+	// manual start is required
+
+	env.SetDisabledExercises(lh.Conf.DisabledExercises)
 
 	dockerHost := docker.NewHost()
 	l := &lab{

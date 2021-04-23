@@ -50,8 +50,9 @@ type EventConfig struct {
 }
 
 type Lab struct {
-	Frontends []InstanceConfig
-	Exercises []Tag
+	Frontends         []InstanceConfig
+	Exercises         []Tag
+	DisabledExercises []Tag
 }
 
 func (e EventConfig) Validate() error {

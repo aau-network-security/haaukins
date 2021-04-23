@@ -72,6 +72,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Int32("capacity", req.Capacity).
 		Strs("frontends", req.Frontends).
 		Strs("exercises", req.Exercises).
+		Strs("disabled exercises", req.DisableExercises).
 		Str("startTime", req.StartTime).
 		Str("finishTime", req.FinishTime).
 		Str("SecretKey", req.SecretEvent).
@@ -110,6 +111,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 
 		uniqueExercisesList := removeDuplicates(req.Exercises)
+
+		disabledExs := convertToTags(req.DisableExercises)
 
 		tags := make([]store.Tag, len(uniqueExercisesList))
 		exs, tagErr := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: uniqueExercisesList})
@@ -183,8 +186,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			StartedAt:      &startTime,
 			FinishExpected: &finishTime,
 			Lab: store.Lab{
-				Frontends: d.frontends.GetFrontends(req.Frontends...),
-				Exercises: tags,
+				Frontends:         d.frontends.GetFrontends(req.Frontends...),
+				Exercises:         tags,
+				DisabledExercises: disabledExs,
 			},
 			Status:     Running,
 			CreatedBy:  user.Username,
@@ -194,7 +198,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 
 		if err := conf.Validate(); err != nil {
-
 			return err
 		}
 
@@ -206,7 +209,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 
 		if conf.Available == 0 {
-			conf.Available = 5
+			conf.Available = 2
 		}
 
 		if conf.Capacity == 0 {
@@ -278,6 +281,14 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 	}
 	log.Info().Msgf("Event %s is booked by %s  between %s and %s ", req.Tag, user.Name, req.StartTime, req.FinishTime)
 	return nil
+}
+
+func convertToTags(exs []string) []store.Tag {
+	tags := make([]store.Tag, len(exs))
+	for i, v := range exs {
+		tags[i] = store.Tag(v)
+	}
+	return tags
 }
 
 func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsRequest) (*pb.ListEventTeamsResponse, error) {
@@ -563,19 +574,30 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 
 	var instanceConfig []store.InstanceConfig
 	var exercises []store.Tag
-
+	var disabledExerciseTags []store.Tag
 	requestedStartTime, _ := time.Parse(displayTimeFormat, event.StartedAt)
 	requestedFinishTime, _ := time.Parse(displayTimeFormat, event.ExpectedFinishTime)
 	listOfExercises := strings.Split(event.Exercises, ",")
+	disabledExs := strings.Split(event.DisabledExercises, ",")
 	instanceConfig = append(instanceConfig, d.frontends.GetFrontends(event.Frontends)[0])
 	for _, e := range listOfExercises {
 		exercises = append(exercises, store.Tag(e))
 	}
+	for _, e := range disabledExs {
+		disabledExerciseTags = append(disabledExerciseTags, store.Tag(e))
+	}
+
 	log.Debug().Str("Event name", event.Name).
 		Str("Event tag", event.Tag).
-		Int32("Available", event.Available).
-		Int32("Capacity", event.Capacity).
-		Bool("IsVPN", event.OnlyVPN).Msgf("Generating event config from database !")
+		Int32("available", event.Available).
+		Int32("capacity", event.Capacity).
+		Str("frontend", event.Frontends).
+		Str("exercises", event.Exercises).
+		//Strs("disabled exercises", event.).
+		Str("startTime", event.StartedAt).
+		Str("finishTime", event.ExpectedFinishTime).
+		Str("SecretKey", event.SecretKey).
+		Bool("VPN", event.OnlyVPN).Msgf("Generating event config from database !")
 
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
@@ -584,8 +606,9 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Available: int(event.Available),
 		Capacity:  int(event.Capacity),
 		Lab: store.Lab{
-			Frontends: instanceConfig,
-			Exercises: exercises,
+			Frontends:         instanceConfig,
+			Exercises:         exercises,
+			DisabledExercises: disabledExerciseTags,
 		},
 		StartedAt:      &requestedStartTime,
 		FinishExpected: &requestedFinishTime,
