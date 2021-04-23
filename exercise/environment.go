@@ -31,6 +31,7 @@ type Environment interface {
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
+	StartByTag(context.Context, string) error
 	Stop() error
 	Suspend(ctx context.Context) error
 	Resume(ctx context.Context) error
@@ -257,6 +258,21 @@ func (ee *environment) ResetByTag(ctx context.Context, s string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (ee *environment) StartByTag(ctx context.Context, tag string) error {
+	t, err := store.NewTag(tag)
+	if err != nil {
+		return err
+	}
+	e, ok := ee.tags[t]
+	if !ok {
+		return UnknownTagErr
+	}
+	if err := e.Start(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
