@@ -171,6 +171,7 @@ message CreateEventRequest {
   string finishTime = 8;
   bool onlyVPN = 9;
   string secretEvent = 10;
+  repeated string disableExercises = 11;
 }
 
 
