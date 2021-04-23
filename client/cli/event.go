@@ -41,15 +41,16 @@ func (c *Client) CmdEvent() *cobra.Command {
 
 func (c *Client) CmdEventCreate() *cobra.Command {
 	var (
-		name       string
-		available  int
-		capacity   int
-		frontends  []string
-		exercises  []string
-		startTime  uint64
-		finishTime uint64
-		onlyVPN    bool
-		secretKey  string
+		name              string
+		available         int
+		capacity          int
+		frontends         []string
+		exercises         []string
+		disabledExercises []string
+		startTime         uint64
+		finishTime        uint64
+		onlyVPN           bool
+		secretKey         string
 	)
 
 	cmd := &cobra.Command{
@@ -61,16 +62,17 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 			ctx := context.Background()
 			tag := args[0]
 			stream, err := c.rpcClient.CreateEvent(ctx, &pb.CreateEventRequest{
-				Name:        name,
-				Tag:         tag,
-				Frontends:   frontends,
-				Exercises:   exercises,
-				Available:   int32(available),
-				Capacity:    int32(capacity),
-				OnlyVPN:     false,
-				StartTime:   time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
-				FinishTime:  time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
-				SecretEvent: secretKey,
+				Name:             name,
+				Tag:              tag,
+				Frontends:        frontends,
+				Exercises:        exercises,
+				DisableExercises: disabledExercises,
+				Available:        int32(available),
+				Capacity:         int32(capacity),
+				OnlyVPN:          false,
+				StartTime:        time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
+				FinishTime:       time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
+				SecretEvent:      secretKey,
 			})
 			if err != nil {
 				PrintError(err)
@@ -96,6 +98,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 	cmd.Flags().BoolVarP(&onlyVPN, "vpnconn", "v", false, "enable only vpn connection")
 	cmd.Flags().StringSliceVarP(&frontends, "frontends", "f", []string{}, "list of frontends to have for each lab")
 	cmd.Flags().StringSliceVarP(&exercises, "exercises", "e", []string{}, "list of exercises to have for each lab")
+	cmd.Flags().StringSliceVarP(&disabledExercises, "disabled-exercises", "x", []string{}, "list of disabled exercises, will be spin off by user in the event manually")
 	cmd.Flags().Uint64VarP(&finishTime, "finishtime", "d", 15, "expected finish time of the event")
 	cmd.Flags().Uint64VarP(&startTime, "starttime", "s", 0, "expected start time of the event")
 	cmd.Flags().StringVarP(&secretKey, "secretkey", "k", "", "secret key for protecting events")
