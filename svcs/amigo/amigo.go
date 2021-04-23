@@ -166,6 +166,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
+	m.HandleFunc("/run/challenge", am.handleRunChallenge(hooks.RunExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.HandleFunc("/vpn/status", am.handleVPNStatus())
 	m.HandleFunc("/vpn/download", am.handleVPNFiles())
@@ -701,6 +702,47 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 
 		chalTag := getParentChallengeTag(msg.Tag)
 		err = resetHook(team, chalTag)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
+
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+func (am *Amigo) handleRunChallenge(runHook func(t *store.Team, challengeTag string) error) http.HandlerFunc {
+
+	type runChallenge struct {
+		Tag string `json:"tag"`
+	}
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		team, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		var msg runChallenge
+		if err := safeReadJson(w, r, &msg, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		chalTag := getParentChallengeTag(msg.Tag)
+		err = runHook(team, chalTag)
 		if err != nil {
 			replyJsonRequestErr(w, err)
 			return
