@@ -273,6 +273,7 @@ func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) erro
 			CreatedBy:          user.Username,
 			OnlyVPN:            req.OnlyVPN,
 			SecretKey:          req.SecretEvent,
+			DisabledExercises:  strings.Join(req.DisableExercises, ","),
 		})
 		if err != nil {
 			log.Warn().Msgf("problem for inserting booked event into table, err %v", err)

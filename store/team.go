@@ -197,14 +197,15 @@ type Team struct {
 	hashedPassword string
 	// used to suspend resources for that team
 	// this is last access time to environment of a team.
-	lastAccess    time.Time
-	challenges    map[Flag]TeamChallenge
-	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
-	vpnKeys       map[int]string
-	vpnConf       []string
-	labSubnet     string
-	isLabAssigned bool
-	hostsInfo     []string
+	lastAccess         time.Time
+	challenges         map[Flag]TeamChallenge
+	solvedChalsDB      []TeamChallenge //json got from the DB containing list of solved Challenges
+	vpnKeys            map[int]string
+	vpnConf            []string
+	labSubnet          string
+	isLabAssigned      bool
+	hostsInfo          []string
+	disabledChallenges map[string]bool // list of disabled children challenge tags to be used for amigo frontend
 }
 
 type TeamChallenge struct {
@@ -212,8 +213,10 @@ type TeamChallenge struct {
 	CompletedAt *time.Time
 }
 
-func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, lastAccessedT time.Time, dbc pbc.StoreClient) *Team {
+func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
+	lastAccessedT time.Time, disabledExs []string, dbc pbc.StoreClient) *Team {
 	var hPass []byte
+	disabledChals := make(map[string]bool, len(disabledExs))
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	} else {
@@ -229,17 +232,22 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, lastAc
 		log.Debug().Msgf(err.Error())
 	}
 
+	for _, ch := range disabledExs {
+		disabledChals[ch] = true
+	}
+
 	return &Team{
-		dbc:            dbc,
-		id:             id,
-		email:          strings.TrimSpace(email),
-		name:           strings.TrimSpace(name),
-		hashedPassword: string(hPass),
-		challenges:     map[Flag]TeamChallenge{},
-		solvedChalsDB:  solvedChals,
-		lastAccess:     lastAccessedT,
-		vpnKeys:        map[int]string{},
-		isLabAssigned:  false,
+		dbc:                dbc,
+		id:                 id,
+		email:              strings.TrimSpace(email),
+		name:               strings.TrimSpace(name),
+		hashedPassword:     string(hPass),
+		challenges:         map[Flag]TeamChallenge{},
+		solvedChalsDB:      solvedChals,
+		lastAccess:         lastAccessedT,
+		vpnKeys:            map[int]string{},
+		isLabAssigned:      false,
+		disabledChallenges: disabledChals,
 	}
 }
 
@@ -283,6 +291,25 @@ func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
 		}
 	}
 	return nil
+}
+
+func (t *Team) GetDisabledChals() []string {
+	t.m.Lock()
+	defer t.m.Unlock()
+	var chals []string
+	for ch := range t.disabledChallenges {
+		chals = append(chals, ch)
+	}
+	return chals
+}
+
+func (t *Team) RemoveDisabledChal(tag string) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	_, ok := t.disabledChallenges[tag]
+	if ok {
+		delete(t.disabledChallenges, tag)
+	}
 }
 
 // will be taken from amigo side

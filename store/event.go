@@ -32,21 +32,22 @@ var (
 )
 
 type EventConfig struct {
-	Name           string
-	Host           string
-	Tag            Tag
-	Available      int
-	Capacity       int
-	Lab            Lab
-	StartedAt      *time.Time
-	FinishExpected *time.Time
-	FinishedAt     *time.Time
-	Status         int32
-	CreatedBy      string
-	OnlyVPN        bool
-	VPNAddress     string
-	EndPointPort   int
-	SecretKey      string // secret key is a key which is defined by event creator to setup events which are accessible only with signup key
+	Name               string
+	Host               string
+	Tag                Tag
+	Available          int
+	Capacity           int
+	Lab                Lab
+	StartedAt          *time.Time
+	FinishExpected     *time.Time
+	FinishedAt         *time.Time
+	Status             int32
+	CreatedBy          string
+	OnlyVPN            bool
+	VPNAddress         string
+	EndPointPort       int
+	DisabledChallenges []string // list of disabled children challenge tags to be used for amigo frontend ...
+	SecretKey          string   // secret key is a key which is defined by event creator to setup events which are accessible only with signup key
 }
 
 type Lab struct {
@@ -130,7 +131,7 @@ func (e Event) SetStatus(eventTag string, status int32) error {
 func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, error) {
 	ctx := context.Background()
 	ts := NewTeamStore(conf, dbc)
-
+	log.Debug().Msgf("NewEventStore disabled challenges: %s ", conf.DisabledChallenges)
 	teamsDB, err := dbc.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: string(conf.Tag)})
 	if err != nil {
 		return Event{}, err
@@ -140,7 +141,9 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 		if err != nil {
 			log.Error().Msgf("[NewEventStore] Time parsing error %v", err)
 		}
-		team := NewTeam(teamDB.Email, teamDB.Name, "", teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges, lastAccessedTime.UTC(), dbc)
+		team := NewTeam(teamDB.Email, teamDB.Name, "",
+			teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges,
+			lastAccessedTime.UTC(), conf.DisabledChallenges, dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {
 			log.Debug().Msgf("Error in getting token for team %s", team.Name())

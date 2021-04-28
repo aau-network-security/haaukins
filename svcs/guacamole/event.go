@@ -97,9 +97,10 @@ type eventHost struct {
 
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-
+	var labConf lab.Config
 	var exers []store.Exercise
 	var exercises []string
+	var disabledExercises []string // to be used for amigo frontend
 	for _, d := range conf.Lab.Exercises {
 		exercises = append(exercises, string(d))
 	}
@@ -117,33 +118,36 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		json.Unmarshal([]byte(exercise), &estruct)
 		exers = append(exers, estruct)
 	}
+	labConf.Exercises = exers
+	for _, e := range conf.Lab.DisabledExercises {
+		disabledExercises = append(disabledExercises, labConf.GetDisabledChildrenChallenges(string(e))...)
+	}
+	conf.DisabledChallenges = disabledExercises
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
 		return nil, err
 	}
-
-	var labConf lab.Config
 	if conf.OnlyVPN {
-		labConf.Exercises = exers
 		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
 	} else {
-		labConf.Exercises = exers
 		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		labConf.Frontends = conf.Lab.Frontends
 	}
+
+	flags := labConf.Flags()
+
 	lh := lab.LabHost{
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
-
 	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity, conf.OnlyVPN)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewEvent(eh.ctx, es, hub, labConf.Flags(), reCaptchaKey)
+	return NewEvent(eh.ctx, es, hub, flags, reCaptchaKey)
 }
 
 func protobufToJson(message proto.Message) (string, error) {
