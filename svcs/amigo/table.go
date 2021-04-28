@@ -142,6 +142,7 @@ type ChallengeCP struct {
 	ChalInfo        store.FlagConfig `json:"challenge"`
 	IsUserCompleted bool             `json:"isUserCompleted"`
 	TeamsCompleted  []TeamsCompleted `json:"teamsCompleted"`
+	IsDisabledChal  bool             `json:"isChalDisabled"`
 }
 
 type TeamsCompleted struct {
@@ -167,12 +168,21 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 					CompletedAt: solved,
 				})
 			}
+			// check disabled challenges and its children challenges here
+			for _, d := range t.GetDisabledChals() {
+				if d == string(c.Tag) && solved == nil {
+					r.IsDisabledChal = true
+				} else {
+					r.IsDisabledChal = false
+				}
+			}
 		}
 
 		//check which challenge the user looged in has solved
 		if err == nil {
 			if team.IsTeamSolvedChallenge(string(c.Tag)) != nil {
 				r.IsUserCompleted = true
+				r.IsDisabledChal = false
 			}
 		}
 
