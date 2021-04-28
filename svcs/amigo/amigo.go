@@ -648,7 +648,8 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			}
 		}
 		// email removed  due to GDPR
-		t := store.NewTeam("", strings.TrimSpace(params.TeamName), params.Password, "", "", "", time.Now().UTC(), nil)
+		t := store.NewTeam("", strings.TrimSpace(params.TeamName), params.Password,
+			"", "", "", time.Now().UTC(), am.TeamStore.DisabledChallenges, nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -701,12 +702,16 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 		}
 
 		chalTag := getParentChallengeTag(msg.Tag)
+		if !team.IsLabAssigned() {
+			replyJsonRequestErr(w, fmt.Errorf("Lab is NOT assigned to team [ %s ] on event [ %s ]", team.Name(), am.TeamStore.Tag))
+			return
+		}
 		err = resetHook(team, chalTag)
 		if err != nil {
 			replyJsonRequestErr(w, err)
 			return
 		}
-
+		team.RemoveDisabledChal(msg.Tag)
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
 
@@ -729,7 +734,7 @@ func (am *Amigo) handleRunChallenge(runHook func(t *store.Team, challengeTag str
 
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		team, err := am.getTeamFromRequest(w, r)
+		t, err := am.getTeamFromRequest(w, r)
 		if err != nil {
 			replyJsonRequestErr(w, err)
 			return
@@ -742,12 +747,16 @@ func (am *Amigo) handleRunChallenge(runHook func(t *store.Team, challengeTag str
 		}
 
 		chalTag := getParentChallengeTag(msg.Tag)
-		err = runHook(team, chalTag)
+		if !t.IsLabAssigned() {
+			replyJsonRequestErr(w, fmt.Errorf("Lab is NOT assigned to team [ %s ] on event [ %s ]", t.Name(), am.TeamStore.Tag))
+			return
+		}
+		err = runHook(t, chalTag)
 		if err != nil {
 			replyJsonRequestErr(w, err)
 			return
 		}
-
+		t.RemoveDisabledChal(msg.Tag)
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
 
