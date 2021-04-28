@@ -6,14 +6,14 @@
         <h3>{{category[0].challenge.category}}</h3>
       </div>
       <div class="col-lg-3 col-md-4" v-for="el in category" v-bind:key="el.challenge.tag">
-        <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted}">
+        <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-disabled': el.isChalDisabled, 'btn-haaukins': !el.isChalDisabled, 'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted}">
           <p class="chal-name-font">{{ el.challenge.name }}</p>
           <span>{{ el.challenge.points }}</span>
         </button>
       </div>
     </div>
 
-    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
+    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:runChallenge="challengeCompleteReload"  v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
   </div>
 </template>
 
@@ -98,6 +98,18 @@ export default {
 .btn-haaukins:hover{
   color: #fff;
   background-color: #1a1441;
+  border-color: #1a1441;
+}
+
+.btn-disabled{
+  color: #fff;
+  background-color: #949494;
+  border-color: #565667;
+}
+
+.btn-disabled:hover{
+  color: #fff;
+  background-color: #6c6499;
   border-color: #1a1441;
 }
 .btn-success{
