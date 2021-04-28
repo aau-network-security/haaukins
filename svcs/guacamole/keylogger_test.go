@@ -31,7 +31,8 @@ func TestKeyLogger(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
-	team := store.NewTeam("some@email.com", "some name", "password", "team", "", "", time.Now().UTC(), nil)
+	team := store.NewTeam("some@email.com", "some name", "password",
+		"team", "", "", time.Now().UTC(), []string{}, nil)
 
 	logger, err := logpool.GetLogger(*team)
 	if err != nil {
