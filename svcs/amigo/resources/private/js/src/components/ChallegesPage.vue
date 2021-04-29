@@ -6,7 +6,7 @@
         <h3>{{category[0].challenge.category}}</h3>
       </div>
       <div class="col-lg-3 col-md-4" v-for="el in category" v-bind:key="el.challenge.tag">
-        <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-disabled': el.isChalDisabled, 'btn-haaukins': !el.isChalDisabled, 'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted}">
+        <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-disabled': el.isChalDisabled && !el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted,'btn-success': el.isUserCompleted}">
           <p class="chal-name-font">{{ el.challenge.name }}</p>
           <span>{{ el.challenge.points }}</span>
         </button>
@@ -26,6 +26,7 @@ export default {
   data: function () {
     return {
       chalInfo: {}, //passed to the modal
+
       teamsCompleted: [], //passed to the modal
       challengesFromAmigo: [], //they keys are the categories, each category has a list of challenges
     }
