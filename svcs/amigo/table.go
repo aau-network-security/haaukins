@@ -172,8 +172,6 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 			for _, d := range t.GetDisabledChals() {
 				if d == string(c.Tag) && solved == nil {
 					r.IsDisabledChal = true
-				} else {
-					r.IsDisabledChal = false
 				}
 			}
 		}
