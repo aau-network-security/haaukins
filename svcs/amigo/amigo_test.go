@@ -64,7 +64,7 @@ func TestVerifyFlag(t *testing.T) {
 	}
 
 	addTeam := store.NewTeam("some@email.com", "somename", "password",
-		"", "", "", time.Now().UTC(), []string{}, client)
+		"", "", "", time.Now().UTC(), map[string][]string{}, client)
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}

@@ -23,7 +23,7 @@ import (
 func TestTeam_GetHashedPassword(t *testing.T) {
 	password := "some_password"
 	team := store.NewTeam("some@email.com", "some name", password,
-		"", "", "", time.Now().UTC(), []string{}, nil)
+		"", "", "", time.Now().UTC(), map[string][]string{}, nil)
 
 	if team.GetHashedPassword() == password {
 		t.Fatalf("expected password to be hashed")
@@ -49,7 +49,7 @@ func TestTeamSolveTask(t *testing.T) {
 	defer cancel()
 
 	team := store.NewTeam("some@email.com", "some name", "password",
-		"", "", "", time.Now().UTC(), []string{}, client)
+		"", "", "", time.Now().UTC(), map[string][]string{}, client)
 
 	chal := store.Challenge{
 		Name:  "FTP",
@@ -109,7 +109,7 @@ func TestCreateToken(t *testing.T) {
 	client := pb.NewStoreClient(conn)
 
 	team := store.NewTeam("some@email.com", "some name", "password",
-		"", "", "", time.Now().UTC(), []string{}, client)
+		"", "", "", time.Now().UTC(), map[string][]string{}, client)
 
 	tt := []struct {
 		name  string
@@ -197,7 +197,7 @@ func TestGetTokenForTeam(t *testing.T) {
 	}, tmp, client)
 
 	team := store.NewTeam("some@email.com", "some name", "password",
-		"", "", "", time.Now().UTC(), []string{}, client)
+		"", "", "", time.Now().UTC(), map[string][]string{}, client)
 
 	if err := ts.SaveTeam(team); err != nil {
 		t.Fatalf("expected no error when creating team")
