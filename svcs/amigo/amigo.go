@@ -711,7 +711,7 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 			replyJsonRequestErr(w, err)
 			return
 		}
-		team.RemoveDisabledChal(msg.Tag)
+		team.RemoveDisabledChal(chalTag)
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
 
@@ -756,7 +756,7 @@ func (am *Amigo) handleRunChallenge(runHook func(t *store.Team, challengeTag str
 			replyJsonRequestErr(w, err)
 			return
 		}
-		t.RemoveDisabledChal(msg.Tag)
+		t.RemoveDisabledChal(chalTag)
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
 
