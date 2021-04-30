@@ -45,7 +45,7 @@ export default {
         setTimeout(function () {
           that.$bvModal.hide('challengeModal')
           that.$emit('runChallenge')
-        }, 800);
+        }, 1000);
       }
     }
   }

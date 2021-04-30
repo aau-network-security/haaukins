@@ -10,7 +10,7 @@
                         <a class="nav-item nav-link active" id="nav-challenge-tab" data-toggle="tab" href="#nav-challenge" role="tab" aria-controls="nav-challenge" aria-selected="true">Challenge</a>
                         <a class="nav-item nav-link" id="nav-solves-tab" data-toggle="tab" href="#nav-solves" role="tab" aria-controls="nav-solves" aria-selected="false">{{checkTeams(teamsCompleted)}} Solves</a>
                         <ResetChallenge :challengeTag="challenge.tag"></ResetChallenge>
-                        <RunChallenge :challengeTag="challenge.tag"></RunChallenge>
+                        <RunChallenge :challengeTag="challenge.tag" v-on:runChallenge="$emit('runChallenge')" ></RunChallenge>
                     </div>
                 </nav>
                 <div class="tab-content">

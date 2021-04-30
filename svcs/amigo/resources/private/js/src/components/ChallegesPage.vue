@@ -13,7 +13,7 @@
       </div>
     </div>
 
-    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:runChallenge="challengeCompleteReload"  v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
+    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:runChallenge="runChallenge"  v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
   </div>
 </template>
 
@@ -79,11 +79,15 @@ export default {
         let json = JSON.parse(msg);
         if (json.msg === "challenges"){
           this.challengesFromAmigo = json.values;
+          window.console.log(this.challengesFromAmigo)
         }
       }
       this.sortChallenges();
     },
     challengeCompleteReload: function () {
+      this.connectToWS()
+    },
+    runChallenge: function () {
       this.connectToWS()
     }
   }
