@@ -205,7 +205,7 @@ type Team struct {
 	labSubnet          string
 	isLabAssigned      bool
 	hostsInfo          []string
-	disabledChallenges map[string]bool // list of disabled children challenge tags to be used for amigo frontend
+	disabledChallenges map[string][]string // list of disabled children challenge tags to be used for amigo frontend
 }
 
 type TeamChallenge struct {
@@ -214,9 +214,8 @@ type TeamChallenge struct {
 }
 
 func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
-	lastAccessedT time.Time, disabledExs []string, dbc pbc.StoreClient) *Team {
+	lastAccessedT time.Time, disabledExs map[string][]string, dbc pbc.StoreClient) *Team {
 	var hPass []byte
-	disabledChals := make(map[string]bool, len(disabledExs))
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	} else {
@@ -232,10 +231,6 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
 		log.Debug().Msgf(err.Error())
 	}
 
-	for _, ch := range disabledExs {
-		disabledChals[ch] = true
-	}
-
 	return &Team{
 		dbc:                dbc,
 		id:                 id,
@@ -247,7 +242,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
 		lastAccess:         lastAccessedT,
 		vpnKeys:            map[int]string{},
 		isLabAssigned:      false,
-		disabledChallenges: disabledChals,
+		disabledChallenges: disabledExs,
 	}
 }
 
@@ -297,18 +292,18 @@ func (t *Team) GetDisabledChals() []string {
 	t.m.Lock()
 	defer t.m.Unlock()
 	var chals []string
-	for ch := range t.disabledChallenges {
-		chals = append(chals, ch)
+	for _, v := range t.disabledChallenges {
+		chals = append(chals, v...)
 	}
 	return chals
 }
 
-func (t *Team) RemoveDisabledChal(tag string) {
+func (t *Team) RemoveDisabledChal(parentTag string) {
 	t.m.Lock()
 	defer t.m.Unlock()
-	_, ok := t.disabledChallenges[tag]
+	_, ok := t.disabledChallenges[parentTag]
 	if ok {
-		delete(t.disabledChallenges, tag)
+		delete(t.disabledChallenges, parentTag)
 	}
 }
 

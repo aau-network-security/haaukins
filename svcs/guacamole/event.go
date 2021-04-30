@@ -100,7 +100,8 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	var labConf lab.Config
 	var exers []store.Exercise
 	var exercises []string
-	var disabledExercises []string // to be used for amigo frontend
+	disabledChals := make(map[string][]string, len(exers))
+	//var disabledExercises []string // to be used for amigo frontend
 	for _, d := range conf.Lab.Exercises {
 		exercises = append(exercises, string(d))
 	}
@@ -120,9 +121,11 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	}
 	labConf.Exercises = exers
 	for _, e := range conf.Lab.DisabledExercises {
-		disabledExercises = append(disabledExercises, labConf.GetDisabledChildrenChallenges(string(e))...)
+		disabledChals[string(e)] = labConf.GetDisabledChildrenChallenges(string(e))
+		//disabledExercises = append(disabledExercises, labConf.GetDisabledChildrenChallenges(string(e))...)
 	}
-	conf.DisabledChallenges = disabledExercises
+	//conf.DisabledChallenges = disabledExercises
+	conf.DisabledChallenges = disabledChals
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
 		return nil, err

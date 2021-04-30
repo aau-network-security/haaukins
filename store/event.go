@@ -46,8 +46,8 @@ type EventConfig struct {
 	OnlyVPN            bool
 	VPNAddress         string
 	EndPointPort       int
-	DisabledChallenges []string // list of disabled children challenge tags to be used for amigo frontend ...
-	SecretKey          string   // secret key is a key which is defined by event creator to setup events which are accessible only with signup key
+	DisabledChallenges map[string][]string // list of disabled children challenge tags to be used for amigo frontend ...
+	SecretKey          string              // secret key is a key which is defined by event creator to setup events which are accessible only with signup key
 }
 
 type Lab struct {
