@@ -122,9 +122,7 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	labConf.Exercises = exers
 	for _, e := range conf.Lab.DisabledExercises {
 		disabledChals[string(e)] = labConf.GetDisabledChildrenChallenges(string(e))
-		//disabledExercises = append(disabledExercises, labConf.GetDisabledChildrenChallenges(string(e))...)
 	}
-	//conf.DisabledChallenges = disabledExercises
 	conf.DisabledChallenges = disabledChals
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {

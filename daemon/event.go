@@ -594,7 +594,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Int32("capacity", event.Capacity).
 		Str("frontend", event.Frontends).
 		Str("exercises", event.Exercises).
-		//Strs("disabled exercises", event.).
+		Str("disabled exercises", event.DisabledExercises).
 		Str("startTime", event.StartedAt).
 		Str("finishTime", event.ExpectedFinishTime).
 		Str("SecretKey", event.SecretKey).
