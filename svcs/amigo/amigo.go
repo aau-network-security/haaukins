@@ -140,11 +140,11 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 }
 
 type Hooks struct {
-	AssignLab     func(t *store.Team) error
-	ResetExercise func(t *store.Team, challengeTag string) error
-	RunExercise   func(t *store.Team, challengeTag string) error
-	ResetFrontend func(t *store.Team) error
-	ResumeTeamLab func(t *store.Team) error
+	AssignLab         func(t *store.Team) error
+	ResetExercise     func(t *store.Team, challengeTag string) error
+	StartStopExercise func(t *store.Team, challengeTag string, state bool) error
+	ResetFrontend     func(t *store.Team) error
+	ResumeTeamLab     func(t *store.Team) error
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
@@ -166,7 +166,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
 	m.HandleFunc("/flags/verify", am.handleFlagVerify())
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
-	m.HandleFunc("/run/challenge", am.handleRunChallenge(hooks.RunExercise))
+	m.HandleFunc("/manage/challenge", am.handleStartStopChallenge(hooks.StartStopExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.HandleFunc("/vpn/status", am.handleVPNStatus())
 	m.HandleFunc("/vpn/download", am.handleVPNFiles())
@@ -649,7 +649,8 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 		}
 		// email removed  due to GDPR
 		t := store.NewTeam("", strings.TrimSpace(params.TeamName), params.Password,
-			"", "", "", time.Now().UTC(), am.TeamStore.DisabledChallenges, nil)
+			"", "", "", time.Now().UTC(),
+			am.TeamStore.DisabledChallenges, am.TeamStore.AllChallenges, nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -711,7 +712,6 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 			replyJsonRequestErr(w, err)
 			return
 		}
-		team.RemoveDisabledChal(chalTag)
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
 
@@ -722,7 +722,7 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 	return endpoint
 }
 
-func (am *Amigo) handleRunChallenge(runHook func(t *store.Team, challengeTag string) error) http.HandlerFunc {
+func (am *Amigo) handleStartStopChallenge(runHook func(t *store.Team, challengeTag string, state bool) error) http.HandlerFunc {
 
 	type runChallenge struct {
 		Tag string `json:"tag"`
@@ -751,12 +751,13 @@ func (am *Amigo) handleRunChallenge(runHook func(t *store.Team, challengeTag str
 			replyJsonRequestErr(w, fmt.Errorf("Lab is NOT assigned to team [ %s ] on event [ %s ]", t.Name(), am.TeamStore.Tag))
 			return
 		}
-		err = runHook(t, chalTag)
+		stopped := t.ManageDisabledChals(chalTag)
+		err = runHook(t, chalTag, stopped)
 		if err != nil {
+			t.AddDisabledChal(chalTag)
 			replyJsonRequestErr(w, err)
 			return
 		}
-		t.RemoveDisabledChal(chalTag)
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
 

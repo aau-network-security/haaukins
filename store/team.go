@@ -206,6 +206,7 @@ type Team struct {
 	isLabAssigned      bool
 	hostsInfo          []string
 	disabledChallenges map[string][]string // list of disabled children challenge tags to be used for amigo frontend
+	allChallenges      map[string][]string
 }
 
 type TeamChallenge struct {
@@ -214,7 +215,7 @@ type TeamChallenge struct {
 }
 
 func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
-	lastAccessedT time.Time, disabledExs map[string][]string, dbc pbc.StoreClient) *Team {
+	lastAccessedT time.Time, disabledExs, allChallenges map[string][]string, dbc pbc.StoreClient) *Team {
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -243,6 +244,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
 		vpnKeys:            map[int]string{},
 		isLabAssigned:      false,
 		disabledChallenges: disabledExs,
+		allChallenges:      allChallenges,
 	}
 }
 
@@ -298,12 +300,36 @@ func (t *Team) GetDisabledChals() []string {
 	return chals
 }
 
-func (t *Team) RemoveDisabledChal(parentTag string) {
+func (t *Team) ManageDisabledChals(parentTag string) bool {
 	t.m.Lock()
 	defer t.m.Unlock()
+	log.Debug().Msgf("Disabled challenges from team %v", t.disabledChallenges)
+	log.Debug().Msgf("Disabled challenges from team %v", t.allChallenges)
+	// this part is used for challenges to be run
 	_, ok := t.disabledChallenges[parentTag]
 	if ok {
+		log.Debug().Msgf("Challenge is removed from disabled challenges .... ")
 		delete(t.disabledChallenges, parentTag)
+		return true // returning true challenge is removed from disabledchal
+	}
+
+	// this part is used for challenges to stop
+	ch, ok := t.allChallenges[parentTag]
+	if ok {
+		t.disabledChallenges[parentTag] = ch
+		log.Debug().Msgf("Challenge is added to disabled challenges .... ")
+		return false
+	}
+	return false
+
+}
+
+func (t *Team) AddDisabledChal(parentTag string) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	ch, ok := t.allChallenges[parentTag]
+	if ok {
+		t.disabledChallenges[parentTag] = ch
 	}
 }
 

@@ -32,6 +32,7 @@ type Environment interface {
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
 	StartByTag(context.Context, string) error
+	StopByTag(string) error
 	Stop() error
 	Suspend(ctx context.Context) error
 	Resume(ctx context.Context) error
@@ -287,6 +288,21 @@ func (ee *environment) StartByTag(ctx context.Context, tag string) error {
 		return UnknownTagErr
 	}
 	if err := e.Start(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ee *environment) StopByTag(tag string) error {
+	t, err := store.NewTag(tag)
+	if err != nil {
+		return err
+	}
+	e, ok := ee.tags[t]
+	if !ok {
+		return UnknownTagErr
+	}
+	if err := e.Stop(); err != nil {
 		return err
 	}
 	return nil

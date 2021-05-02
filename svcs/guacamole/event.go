@@ -101,7 +101,7 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	var exers []store.Exercise
 	var exercises []string
 	disabledChals := make(map[string][]string, len(exers))
-	//var disabledExercises []string // to be used for amigo frontend
+	allChals := make(map[string][]string, len(exers))
 	for _, d := range conf.Lab.Exercises {
 		exercises = append(exercises, string(d))
 	}
@@ -121,8 +121,12 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	}
 	labConf.Exercises = exers
 	for _, e := range conf.Lab.DisabledExercises {
-		disabledChals[string(e)] = labConf.GetDisabledChildrenChallenges(string(e))
+		disabledChals[string(e)] = labConf.GetChildrenChallenges(string(e))
 	}
+	for _, e := range conf.Lab.Exercises {
+		allChals[string(e)] = labConf.GetChildrenChallenges(string(e))
+	}
+	conf.AllChallenges = allChals
 	conf.DisabledChallenges = disabledChals
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
@@ -777,15 +781,25 @@ func (ev *event) Handler() http.Handler {
 		}
 		return nil
 	}
+	// state 0 : running
+	// state 1 : stopped
 
-	runHook := func(t *store.Team, challengeTag string) error {
+	startStopHook := func(t *store.Team, challengeTag string, stopped bool) error {
 		teamLab, ok := ev.GetLabByTeam(t.ID())
 		if !ok {
 			fmt.Errorf("Not found suitable team for given id: %s", t.ID())
 		}
-		if err := teamLab.Environment().StartByTag(context.TODO(), challengeTag); err != nil {
-			return err
+
+		if stopped {
+			if err := teamLab.Environment().StartByTag(context.TODO(), challengeTag); err != nil {
+				return err
+			}
+		} else {
+			if err := teamLab.Environment().StopByTag(challengeTag); err != nil {
+				return err
+			}
 		}
+
 		return nil
 	}
 
@@ -819,11 +833,11 @@ func (ev *event) Handler() http.Handler {
 	}
 
 	hooks := amigo.Hooks{
-		AssignLab:     reghook,
-		ResetExercise: resetHook,
-		RunExercise:   runHook,
-		ResetFrontend: resetFrontendHook,
-		ResumeTeamLab: resumeTeamLab,
+		AssignLab:         reghook,
+		ResetExercise:     resetHook,
+		StartStopExercise: startStopHook,
+		ResetFrontend:     resetFrontendHook,
+		ResumeTeamLab:     resumeTeamLab,
 	}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)

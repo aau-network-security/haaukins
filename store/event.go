@@ -47,7 +47,9 @@ type EventConfig struct {
 	VPNAddress         string
 	EndPointPort       int
 	DisabledChallenges map[string][]string // list of disabled children challenge tags to be used for amigo frontend ...
-	SecretKey          string              // secret key is a key which is defined by event creator to setup events which are accessible only with signup key
+	AllChallenges      map[string][]string
+	SecretKey          string // secret key is a key which is defined by event creator to setup events which are accessible only with signup key
+
 }
 
 type Lab struct {
@@ -143,7 +145,7 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 		}
 		team := NewTeam(teamDB.Email, teamDB.Name, "",
 			teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges,
-			lastAccessedTime.UTC(), conf.DisabledChallenges, dbc)
+			lastAccessedTime.UTC(), conf.DisabledChallenges, conf.AllChallenges, dbc)
 		teamToken, err := GetTokenForTeam([]byte(token_key), team)
 		if err != nil {
 			log.Debug().Msgf("Error in getting token for team %s", team.Name())

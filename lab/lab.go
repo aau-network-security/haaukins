@@ -38,8 +38,8 @@ func (conf Config) Flags() []store.FlagConfig {
 	return res
 }
 
-// GetDisabledChildrenChallenges returns list of children challenge tags to be used in amigo frontend
-func (conf Config) GetDisabledChildrenChallenges(parentTag string) []string {
+// GetChildrenChallenges returns list of children challenge tags to be used in amigo frontend
+func (conf Config) GetChildrenChallenges(parentTag string) []string {
 	var childrenTags []string
 	var flags []store.FlagConfig
 	for _, i := range conf.Exercises {
@@ -52,7 +52,7 @@ func (conf Config) GetDisabledChildrenChallenges(parentTag string) []string {
 	for _, f := range flags {
 		childrenTags = append(childrenTags, string(f.Tag))
 	}
-	log.Debug().Msgf("Disabled children challenges are: [ %v ]", childrenTags)
+	log.Debug().Msgf("Children challenges are: [ %v ]", childrenTags)
 	return childrenTags
 }
 
