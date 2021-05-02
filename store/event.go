@@ -133,7 +133,6 @@ func (e Event) SetStatus(eventTag string, status int32) error {
 func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, error) {
 	ctx := context.Background()
 	ts := NewTeamStore(conf, dbc)
-	log.Debug().Msgf("NewEventStore disabled challenges: %s ", conf.DisabledChallenges)
 	teamsDB, err := dbc.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: string(conf.Tag)})
 	if err != nil {
 		return Event{}, err

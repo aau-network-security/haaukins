@@ -52,7 +52,6 @@ func (conf Config) GetChildrenChallenges(parentTag string) []string {
 	for _, f := range flags {
 		childrenTags = append(childrenTags, string(f.Tag))
 	}
-	log.Debug().Msgf("Children challenges are: [ %v ]", childrenTags)
 	return childrenTags
 }
 

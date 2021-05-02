@@ -303,12 +303,10 @@ func (t *Team) GetDisabledChals() []string {
 func (t *Team) ManageDisabledChals(parentTag string) bool {
 	t.m.Lock()
 	defer t.m.Unlock()
-	log.Debug().Msgf("Disabled challenges from team %v", t.disabledChallenges)
-	log.Debug().Msgf("Disabled challenges from team %v", t.allChallenges)
 	// this part is used for challenges to be run
 	_, ok := t.disabledChallenges[parentTag]
 	if ok {
-		log.Debug().Msgf("Challenge is removed from disabled challenges .... ")
+		log.Debug().Msgf("Challenge   [ %s ]  is removed from disabled challenges .... ", parentTag)
 		delete(t.disabledChallenges, parentTag)
 		return true // returning true challenge is removed from disabledchal
 	}
@@ -317,7 +315,7 @@ func (t *Team) ManageDisabledChals(parentTag string) bool {
 	ch, ok := t.allChallenges[parentTag]
 	if ok {
 		t.disabledChallenges[parentTag] = ch
-		log.Debug().Msgf("Challenge is added to disabled challenges .... ")
+		log.Debug().Msgf("Challenge [ %s ]  is added to disabled challenges .... ", parentTag)
 		return false
 	}
 	return false
