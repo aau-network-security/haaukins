@@ -32,7 +32,7 @@ func TestKeyLogger(t *testing.T) {
 	}
 
 	team := store.NewTeam("some@email.com", "some name", "password",
-		"team", "", "", time.Now().UTC(), map[string][]string{}, nil)
+		"team", "", "", time.Now().UTC(), map[string][]string{}, map[string][]string{}, nil)
 
 	logger, err := logpool.GetLogger(*team)
 	if err != nil {

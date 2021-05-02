@@ -70,7 +70,7 @@ func TestResetExercise(t *testing.T) {
 			ev := &fakeEvent{conf: store.EventConfig{Tag: store.Tag("tst")}, lab: &fakeLab{environment: &fakeEnvironment{}}}
 			for i := 1; i <= 2; i++ {
 				g := store.NewTeam(fmt.Sprintf("team-%d@team.dk", i), "whatever", "",
-					fmt.Sprintf("team-%d", i), "", "", time.Now().UTC(), map[string][]string{}, nil)
+					fmt.Sprintf("team-%d", i), "", "", time.Now().UTC(), map[string][]string{}, map[string][]string{}, nil)
 				ev.teams = append(ev.teams, g)
 			}
 			eventPool.AddEvent(ev)

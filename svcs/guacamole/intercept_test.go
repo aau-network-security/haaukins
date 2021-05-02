@@ -60,7 +60,7 @@ func TestGuacLoginTokenInterceptor(t *testing.T) {
 	}, tmp, client)
 
 	team := store.NewTeam("some@email.com", "some name", "password",
-		"", "", "", time.Now().UTC(), map[string][]string{}, client)
+		"", "", "", time.Now().UTC(), map[string][]string{}, map[string][]string{}, client)
 
 	if err := ts.SaveTeam(team); err != nil {
 		t.Fatalf("expected to be able to create team")
