@@ -520,23 +520,25 @@ func (am *Amigo) handleFlagVerify(stopExercise func(t *store.Team, challengeTag 
 		}
 
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
-
-		go func() {
-			childrenChals := team.GetChildChallenges(parentTag)
-			var solvedChildChals []string
-			for _, ch := range childrenChals {
-				solvedTime := team.IsTeamSolvedChallenge(ch)
-				if solvedTime != nil {
-					solvedChildChals = append(solvedChildChals, ch)
+		// recaptcha secret is added for tests
+		if am.recaptcha.secret != "" {
+			go func() {
+				childrenChals := team.GetChildChallenges(parentTag)
+				var solvedChildChals []string
+				for _, ch := range childrenChals {
+					solvedTime := team.IsTeamSolvedChallenge(ch)
+					if solvedTime != nil {
+						solvedChildChals = append(solvedChildChals, ch)
+					}
 				}
-			}
-			if len(solvedChildChals) == len(childrenChals) {
-				if err := stopExercise(team, parentTag, false); err != nil {
-					log.Print("Stop exercise failed for solved challenges")
+				if len(solvedChildChals) == len(childrenChals) {
+					if err := stopExercise(team, parentTag, false); err != nil {
+						log.Print("Stop exercise failed for solved challenges")
+					}
+					team.AddDisabledChal(parentTag)
 				}
-				team.AddDisabledChal(parentTag)
-			}
-		}()
+			}()
+		}
 	}
 
 	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
