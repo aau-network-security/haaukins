@@ -51,6 +51,9 @@ func TestVerifyFlag(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
+		AllChallenges: map[string][]string{
+			"test": []string{"test"},
+		},
 	}, tmp, client)
 
 	var chal = store.FlagConfig{
