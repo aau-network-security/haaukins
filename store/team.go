@@ -279,6 +279,8 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 }
 
 func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
+	t.m.Lock()
+	defer t.m.Unlock()
 	chals := t.challenges
 	for _, chal := range chals {
 		if chal.Tag == Tag(tag) {
@@ -298,6 +300,14 @@ func (t *Team) GetDisabledChals() []string {
 		chals = append(chals, v...)
 	}
 	return chals
+}
+
+func (t *Team) GetChildChallenges(parentTag string) []string {
+	ch, ok := t.allChallenges[parentTag]
+	if !ok {
+		log.Error().Msgf("Error  challenge could not be found from all available challenges ")
+	}
+	return ch
 }
 
 func (t *Team) ManageDisabledChals(parentTag string) bool {
@@ -450,6 +460,7 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 
 	err := t.UpdateTeamSolvedChallenges(chal)
 	if err != nil {
+		t.m.Unlock()
 		log.Debug().Msgf("Unable to write the solved challenges in the DB")
 	}
 

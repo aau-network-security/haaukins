@@ -164,7 +164,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
-	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+	m.HandleFunc("/flags/verify", am.handleFlagVerify(hooks.StartStopExercise))
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/manage/challenge", am.handleStartStopChallenge(hooks.StartStopExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
@@ -483,7 +483,7 @@ func (am *Amigo) handleScoreBoard() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleFlagVerify() http.HandlerFunc {
+func (am *Amigo) handleFlagVerify(stopExercise func(t *store.Team, challengeTag string, state bool) error) http.HandlerFunc {
 	type verifyFlagMsg struct {
 		Tag  string `json:"tag"`
 		Flag string `json:"flag"`
@@ -512,7 +512,7 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 			replyJson(http.StatusOK, w, errReply{ErrInvalidFlag.Error()})
 			return
 		}
-
+		parentTag := getParentChallengeTag(msg.Tag)
 		tag := store.Tag(msg.Tag)
 		if err := team.VerifyFlag(store.Challenge{Tag: tag}, flag); err != nil {
 			replyJson(http.StatusOK, w, errReply{err.Error()})
@@ -520,6 +520,23 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 		}
 
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
+
+		go func() {
+			childrenChals := team.GetChildChallenges(parentTag)
+			var solvedChildChals []string
+			for _, ch := range childrenChals {
+				solvedTime := team.IsTeamSolvedChallenge(ch)
+				if solvedTime != nil {
+					solvedChildChals = append(solvedChildChals, ch)
+				}
+			}
+			if len(solvedChildChals) == len(childrenChals) {
+				if err := stopExercise(team, parentTag, false); err != nil {
+					log.Print("Stop exercise failed for solved challenges")
+				}
+				team.AddDisabledChal(parentTag)
+			}
+		}()
 	}
 
 	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
@@ -1140,4 +1157,11 @@ func checkVarLength(input string, max int) error {
 		return fmt.Errorf("exceeds character limit")
 	}
 	return nil
+}
+
+func pop(alist *[]int) int {
+	f := len(*alist)
+	rv := (*alist)[f-1]
+	*alist = append((*alist)[:f-1])
+	return rv
 }
