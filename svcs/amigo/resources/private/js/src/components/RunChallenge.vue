@@ -1,7 +1,7 @@
 <template>
   <div class="pl-3">
     <form @submit.prevent="submit" >
-        <input type="submit" class="btn btn-haaukins"  :disabled='isDisabled' v-bind:class="{ 'btn-danger': isError, 'btn-success': isSuccess }" value="Run" style="width: auto;">
+        <input type="submit" class="btn btn-haaukins"  :disabled='isDisabled' v-bind:class="{ 'btn-danger': isError, 'btn-success': isSuccess }" value="Start/Stop" style="width: auto;">
     </form>
   </div>
 </template>
@@ -29,7 +29,7 @@ export default {
         body: JSON.stringify({ tag: this.challengeTag })
 
       };
-      const res = await fetch('/run/challenge', opts).
+      const res = await fetch('/manage/challenge', opts).
       then(res => res.json());
 
       if (res.error !== undefined) {
