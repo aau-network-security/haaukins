@@ -142,6 +142,7 @@ func NewEventStore(conf EventConfig, eDir string, dbc pbc.StoreClient) (Event, e
 		if err != nil {
 			log.Error().Msgf("[NewEventStore] Time parsing error %v", err)
 		}
+		// todo: add solved challenges to disabled challenges
 		team := NewTeam(teamDB.Email, teamDB.Name, "",
 			teamDB.Id, teamDB.HashPassword, teamDB.SolvedChallenges,
 			lastAccessedTime.UTC(), conf.DisabledChallenges, conf.AllChallenges, dbc)
