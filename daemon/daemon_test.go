@@ -159,6 +159,15 @@ func (fe *fakeEvent) GetLabByTeam(teamId string) (lab.Lab, bool) {
 	return nil, false
 }
 
+func (fe *fakeEvent) GetTeamById(teamId string) (*store.Team, error) {
+	for _, t := range fe.GetTeams() {
+		if t.ID() == teamId {
+			return t, nil
+		}
+	}
+	return nil, fmt.Errorf("Team could not be found err")
+}
+
 type fakeLab struct {
 	environment exercise.Environment
 	instances   []virtual.InstanceInfo
