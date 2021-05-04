@@ -38,8 +38,13 @@ export default {
       }
 
       if (res.status === "ok") {
+        let that = this
         this.isSuccess = true
         this.isDisabled = false
+        setTimeout(function () {
+          that.$bvModal.hide('challengeModal')
+          that.$emit('resetChallenge')
+        }, 1000);
       }
     }
   }

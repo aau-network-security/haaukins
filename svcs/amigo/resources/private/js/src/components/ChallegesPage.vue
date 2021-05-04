@@ -13,7 +13,7 @@
       </div>
     </div>
 
-    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:runChallenge="runChallenge"  v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
+    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:runChallenge="runChallenge"  v-on:resetChallenge="resetChallenge" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
   </div>
 </template>
 
@@ -88,6 +88,9 @@ export default {
       this.connectToWS()
     },
     runChallenge: function () {
+      this.connectToWS()
+    },
+    resetChallenge: function () {
       this.connectToWS()
     }
   }
