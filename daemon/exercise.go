@@ -120,10 +120,13 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 				log.Printf("GetTeamById error no team found %v", err)
 				continue
 			}
-			_, ok = teamDisabledMap[req.ExerciseTag]
-			if ok {
-				if t.ManageDisabledChals(req.ExerciseTag) {
-					log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises via gRPC for team [ %s ] ", req.ExerciseTag, t.ID())
+
+			if teamDisabledMap != nil {
+				_, ok = teamDisabledMap[req.ExerciseTag]
+				if ok {
+					if t.ManageDisabledChals(req.ExerciseTag) {
+						log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises via gRPC for team [ %s ] ", req.ExerciseTag, t.ID())
+					}
 				}
 			}
 		}
