@@ -215,6 +215,7 @@ type Event interface {
 	GetStatus() int32
 	GetConfig() store.EventConfig
 	GetTeams() []*store.Team
+	GetTeamById(teamId string) (*store.Team, error)
 	GetHub() lab.Hub
 	UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	GetLabByTeam(teamId string) (lab.Lab, bool)
@@ -779,9 +780,12 @@ func (ev *event) Handler() http.Handler {
 		if err := teamLab.Environment().ResetByTag(context.Background(), challengeTag); err != nil {
 			return fmt.Errorf("Reset challenge hook error %v", err)
 		}
-		if t.ManageDisabledChals(challengeTag) {
-			log.Printf("Exercise with tag [ %s ] removed from disabled challenges from team [ %s ]", challengeTag, t.ID())
-			return nil
+		teamDisabledMap := t.GetDisabledChalMap()
+		_, ok = teamDisabledMap[challengeTag]
+		if ok {
+			if t.ManageDisabledChals(challengeTag) {
+				log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises by team [ %s ] ", challengeTag, t.ID())
+			}
 		}
 		return nil
 	}
@@ -859,6 +863,14 @@ func (ev *event) GetConfig() store.EventConfig {
 
 func (ev *event) GetTeams() []*store.Team {
 	return ev.store.GetTeams()
+}
+
+func (ev *event) GetTeamById(teamid string) (*store.Team, error) {
+	t, err := ev.store.GetTeamByID(teamid)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (ev *event) GetLabByTeam(teamId string) (lab.Lab, bool) {

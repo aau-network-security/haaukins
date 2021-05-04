@@ -111,9 +111,22 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
-		}
 
+			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+
+			t, err := ev.GetTeamById(reqTeam.Id)
+			teamDisabledMap := t.GetDisabledChalMap()
+			if err != nil {
+				log.Printf("GetTeamById error no team found %v", err)
+				continue
+			}
+			_, ok = teamDisabledMap[req.ExerciseTag]
+			if ok {
+				if t.ManageDisabledChals(req.ExerciseTag) {
+					log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises via gRPC for team [ %s ] ", req.ExerciseTag, t.ID())
+				}
+			}
+		}
 		return nil
 	}
 
@@ -126,9 +139,6 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 
 		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
-		}
-		if t.ManageDisabledChals(req.ExerciseTag) {
-			log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises via gRPC for team [ %s ] ", req.ExerciseTag, t.ID())
 		}
 
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})

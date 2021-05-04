@@ -310,6 +310,12 @@ func (t *Team) GetChildChallenges(parentTag string) []string {
 	return ch
 }
 
+func (t *Team) GetDisabledChalMap() map[string][]string {
+	t.m.Lock()
+	defer t.m.Unlock()
+	return t.disabledChallenges
+}
+
 func (t *Team) ManageDisabledChals(parentTag string) bool {
 	t.m.Lock()
 	defer t.m.Unlock()
