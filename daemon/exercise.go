@@ -127,6 +127,10 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
+		if t.ManageDisabledChals(req.ExerciseTag) {
+			log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises via gRPC for team [ %s ] ", req.ExerciseTag, t.ID())
+		}
+
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})
 	}
 

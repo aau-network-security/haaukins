@@ -779,6 +779,10 @@ func (ev *event) Handler() http.Handler {
 		if err := teamLab.Environment().ResetByTag(context.Background(), challengeTag); err != nil {
 			return fmt.Errorf("Reset challenge hook error %v", err)
 		}
+		if t.ManageDisabledChals(challengeTag) {
+			log.Printf("Exercise with tag [ %s ] removed from disabled challenges from team [ %s ]", challengeTag, t.ID())
+			return nil
+		}
 		return nil
 	}
 	// state 0 : running
