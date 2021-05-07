@@ -793,21 +793,26 @@ func (ev *event) Handler() http.Handler {
 	// state 1 : stopped
 
 	startStopHook := func(t *store.Team, challengeTag string, stopped bool) error {
+		var waitGroup sync.WaitGroup
+		var startStopErr error
 		teamLab, ok := ev.GetLabByTeam(t.ID())
 		if !ok {
 			fmt.Errorf("Not found suitable team for given id: %s", t.ID())
 		}
-
-		if stopped {
-			if err := teamLab.Environment().StartByTag(context.TODO(), challengeTag); err != nil {
-				return err
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			if stopped {
+				if err := teamLab.Environment().StartByTag(context.TODO(), challengeTag); err != nil {
+					startStopErr = err
+				}
+			} else {
+				if err := teamLab.Environment().StopByTag(challengeTag); err != nil {
+					startStopErr = err
+				}
 			}
-		} else {
-			if err := teamLab.Environment().StopByTag(challengeTag); err != nil {
-				return err
-			}
-		}
-
+		}()
+		waitGroup.Wait()
 		return nil
 	}
 
