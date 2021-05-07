@@ -9,8 +9,9 @@ import (
 )
 
 type Message struct {
-	Message string      `json:"msg"`
-	Values  interface{} `json:"values"`
+	Message       string      `json:"msg"`
+	Values        interface{} `json:"values"`
+	IsLabAssigned bool        `json:"isLabAssigned"`
 }
 
 // Challenge name and the points relative that challenge
@@ -188,8 +189,9 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 	}
 
 	msg := Message{
-		Message: "challenges",
-		Values:  rows,
+		Message:       "challenges",
+		Values:        rows,
+		IsLabAssigned: team.IsLabAssigned(),
 	}
 	chalMsg, _ := json.Marshal(msg)
 	return chalMsg

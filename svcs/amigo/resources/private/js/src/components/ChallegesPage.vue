@@ -1,5 +1,5 @@
 <template>
-  <div id="challenges-board">
+  <div id="challenges-board" v-bind:style= "[this.isLabAssigned  ? {}: { 'pointer-events': 'none', 'opacity': '0.5' }]">
 
     <div class="row mt-2" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.category">
       <div class="category-header col-md-12 mb-3">
@@ -26,7 +26,7 @@ export default {
   data: function () {
     return {
       chalInfo: {}, //passed to the modal
-
+      isLabAssigned: false,
       teamsCompleted: [], //passed to the modal
       challengesFromAmigo: [], //they keys are the categories, each category has a list of challenges
     }
@@ -59,7 +59,9 @@ export default {
     openModal: function (obj) {
       this.chalInfo = obj.challenge;
       this.teamsCompleted = obj.teamsCompleted;
-      this.$bvModal.show('challengeModal')
+      if (this.isLabAssigned) {
+        this.$bvModal.show('challengeModal')
+      }
     },
     connectToWS: function() {
       let url = new URL('/challengesFrontend', window.location.href);
@@ -79,7 +81,7 @@ export default {
         let json = JSON.parse(msg);
         if (json.msg === "challenges"){
           this.challengesFromAmigo = json.values;
-          window.console.log(this.challengesFromAmigo)
+          this.isLabAssigned = json.isLabAssigned
         }
       }
       this.sortChallenges();
