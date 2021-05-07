@@ -813,7 +813,7 @@ func (ev *event) Handler() http.Handler {
 			}
 		}()
 		waitGroup.Wait()
-		return nil
+		return startStopErr
 	}
 
 	// resume labs in login of amigo
