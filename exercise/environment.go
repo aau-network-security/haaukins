@@ -31,9 +31,12 @@ type Environment interface {
 	Challenges() []store.Challenge
 	InstanceInfo() []virtual.InstanceInfo
 	Start(context.Context) error
+	StartByTag(context.Context, string) error
+	StopByTag(string) error
 	Stop() error
 	Suspend(ctx context.Context) error
 	Resume(ctx context.Context) error
+	SetDisabledExercises([]store.Tag)
 	io.Closer
 }
 
@@ -42,15 +45,16 @@ type DNSRecord struct {
 }
 
 type environment struct {
-	tags       map[store.Tag]*exercise
-	exercises  []*exercise
-	dnsrecords []*DNSRecord
-	network    docker.Network
-	dnsServer  *dns.Server
-	dhcpServer *dhcp.Server
-	dnsAddr    string
-	lib        vbox.Library
-	isVPN      bool
+	tags              map[store.Tag]*exercise
+	exercises         []*exercise
+	disabledExercises []store.Tag // this is parent tag of exercises to be disabled
+	dnsrecords        []*DNSRecord
+	network           docker.Network
+	dnsServer         *dns.Server
+	dhcpServer        *dhcp.Server
+	dnsAddr           string
+	lib               vbox.Library
+	isVPN             bool
 }
 
 func NewEnvironment(lib vbox.Library) Environment {
@@ -58,6 +62,11 @@ func NewEnvironment(lib vbox.Library) Environment {
 		tags: make(map[store.Tag]*exercise),
 		lib:  lib,
 	}
+}
+
+func (ee *environment) SetDisabledExercises(disabledExs []store.Tag) {
+	log.Debug().Msgf("Setting Disabled Exercises %v", disabledExs)
+	ee.disabledExercises = disabledExs
 }
 
 func (ee *environment) Create(ctx context.Context, isVPN bool) error {
@@ -127,6 +136,16 @@ func (ee *environment) LabDNS() string {
 }
 
 func (ee *environment) Start(ctx context.Context) error {
+	allExercises := ee.exercises
+	var enabledExercies []*exercise
+	disabledExercises := ee.disabledExercises
+	// disabledExercises : will be created but will not be started
+	for _, e := range allExercises {
+		if contains(disabledExercises, e.tag) {
+			continue
+		}
+		enabledExercies = append(enabledExercies, e)
+	}
 
 	if err := ee.refreshDNS(ctx); err != nil {
 		log.Error().Err(err).Msg("Refreshing DNS error")
@@ -149,13 +168,12 @@ func (ee *environment) Start(ctx context.Context) error {
 
 	var res error
 	var wg sync.WaitGroup
-	for _, ex := range ee.exercises {
+	for _, ex := range enabledExercies {
 		wg.Add(1)
 		go func(e *exercise) {
 			if err := e.Start(ctx); err != nil && res == nil {
 				res = err
 			}
-
 			wg.Done()
 		}(ex)
 
@@ -260,6 +278,36 @@ func (ee *environment) ResetByTag(ctx context.Context, s string) error {
 	return nil
 }
 
+func (ee *environment) StartByTag(ctx context.Context, tag string) error {
+	t, err := store.NewTag(tag)
+	if err != nil {
+		return err
+	}
+	e, ok := ee.tags[t]
+	if !ok {
+		return UnknownTagErr
+	}
+	if err := e.Start(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ee *environment) StopByTag(tag string) error {
+	t, err := store.NewTag(tag)
+	if err != nil {
+		return err
+	}
+	e, ok := ee.tags[t]
+	if !ok {
+		return UnknownTagErr
+	}
+	if err := e.Stop(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ee *environment) Challenges() []store.Challenge {
 	var challenges []store.Challenge
 	for _, e := range ee.exercises {
@@ -310,4 +358,13 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func contains(l []store.Tag, t store.Tag) bool {
+	for _, v := range l {
+		if v == t {
+			return true
+		}
+	}
+	return false
 }

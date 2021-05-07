@@ -197,14 +197,16 @@ type Team struct {
 	hashedPassword string
 	// used to suspend resources for that team
 	// this is last access time to environment of a team.
-	lastAccess    time.Time
-	challenges    map[Flag]TeamChallenge
-	solvedChalsDB []TeamChallenge //json got from the DB containing list of solved Challenges
-	vpnKeys       map[int]string
-	vpnConf       []string
-	labSubnet     string
-	isLabAssigned bool
-	hostsInfo     []string
+	lastAccess         time.Time
+	challenges         map[Flag]TeamChallenge
+	solvedChalsDB      []TeamChallenge //json got from the DB containing list of solved Challenges
+	vpnKeys            map[int]string
+	vpnConf            []string
+	labSubnet          string
+	isLabAssigned      bool
+	hostsInfo          []string
+	disabledChallenges map[string][]string // list of disabled children challenge tags to be used for amigo frontend
+	allChallenges      map[string][]string
 }
 
 type TeamChallenge struct {
@@ -212,7 +214,8 @@ type TeamChallenge struct {
 	CompletedAt *time.Time
 }
 
-func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, lastAccessedT time.Time, dbc pbc.StoreClient) *Team {
+func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
+	lastAccessedT time.Time, disabledExs, allChallenges map[string][]string, dbc pbc.StoreClient) *Team {
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -230,16 +233,18 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string, lastAc
 	}
 
 	return &Team{
-		dbc:            dbc,
-		id:             id,
-		email:          strings.TrimSpace(email),
-		name:           strings.TrimSpace(name),
-		hashedPassword: string(hPass),
-		challenges:     map[Flag]TeamChallenge{},
-		solvedChalsDB:  solvedChals,
-		lastAccess:     lastAccessedT,
-		vpnKeys:        map[int]string{},
-		isLabAssigned:  false,
+		dbc:                dbc,
+		id:                 id,
+		email:              strings.TrimSpace(email),
+		name:               strings.TrimSpace(name),
+		hashedPassword:     string(hPass),
+		challenges:         map[Flag]TeamChallenge{},
+		solvedChalsDB:      solvedChals,
+		lastAccess:         lastAccessedT,
+		vpnKeys:            map[int]string{},
+		isLabAssigned:      false,
+		disabledChallenges: disabledExs,
+		allChallenges:      allChallenges,
 	}
 }
 
@@ -274,6 +279,8 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 }
 
 func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
+	t.m.Lock()
+	defer t.m.Unlock()
 	chals := t.challenges
 	for _, chal := range chals {
 		if chal.Tag == Tag(tag) {
@@ -283,6 +290,61 @@ func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
 		}
 	}
 	return nil
+}
+
+func (t *Team) GetDisabledChals() []string {
+	t.m.Lock()
+	defer t.m.Unlock()
+	var chals []string
+	for _, v := range t.disabledChallenges {
+		chals = append(chals, v...)
+	}
+	return chals
+}
+
+func (t *Team) GetChildChallenges(parentTag string) []string {
+	ch, ok := t.allChallenges[parentTag]
+	if !ok {
+		log.Error().Msgf("Error  challenge could not be found from all available challenges ")
+	}
+	return ch
+}
+
+func (t *Team) GetDisabledChalMap() map[string][]string {
+	t.m.Lock()
+	defer t.m.Unlock()
+	return t.disabledChallenges
+}
+
+func (t *Team) ManageDisabledChals(parentTag string) bool {
+	t.m.Lock()
+	defer t.m.Unlock()
+	// this part is used for challenges to be run
+	_, ok := t.disabledChallenges[parentTag]
+	if ok {
+		log.Debug().Msgf("Challenge   [ %s ]  is removed from disabled challenges .... ", parentTag)
+		delete(t.disabledChallenges, parentTag)
+		return true // returning true challenge is removed from disabledchal
+	}
+
+	// this part is used for challenges to stop
+	ch, ok := t.allChallenges[parentTag]
+	if ok {
+		t.disabledChallenges[parentTag] = ch
+		log.Debug().Msgf("Challenge [ %s ]  is added to disabled challenges .... ", parentTag)
+		return false
+	}
+	return false
+
+}
+
+func (t *Team) AddDisabledChal(parentTag string) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	ch, ok := t.allChallenges[parentTag]
+	if ok {
+		t.disabledChallenges[parentTag] = ch
+	}
 }
 
 // will be taken from amigo side
@@ -404,6 +466,7 @@ func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
 
 	err := t.UpdateTeamSolvedChallenges(chal)
 	if err != nil {
+		t.m.Unlock()
 		log.Debug().Msgf("Unable to write the solved challenges in the DB")
 	}
 

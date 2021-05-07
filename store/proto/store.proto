@@ -104,6 +104,7 @@ message AddEventRequest{
     string createdBy = 11;
     bool onlyVPN = 12;
     string secretKey = 13;
+    string disabledExercises = 14;
 }
 
 message AddTeamRequest{
@@ -134,6 +135,7 @@ message GetEventResponse{
         string createdBy =11;
         bool onlyVPN = 12;
         string secretKey = 13;
+        string disabledExercises = 14;
     }
     repeated Events events = 1;
     string errorMessage = 2;

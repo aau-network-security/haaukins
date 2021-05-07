@@ -45,6 +45,8 @@ type exercise struct {
 	containerOpts []store.ContainerOptions
 	vboxOpts      []store.ExerciseInstanceConfig
 
+	tag store.Tag
+
 	dhost DockerHost
 	vlib  vbox.Library
 	net   docker.Network
@@ -70,11 +72,11 @@ func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net d
 	return &exercise{
 		containerOpts: containerOpts,
 		vboxOpts:      vboxOpts,
-
-		dhost:   dhost,
-		vlib:    vlib,
-		net:     net,
-		dnsAddr: dnsAddr,
+		tag:           conf.Tag,
+		dhost:         dhost,
+		vlib:          vlib,
+		net:           net,
+		dnsAddr:       dnsAddr,
 	}
 }
 

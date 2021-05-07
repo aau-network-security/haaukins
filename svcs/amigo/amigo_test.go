@@ -51,6 +51,9 @@ func TestVerifyFlag(t *testing.T) {
 		StartedAt:      nil,
 		FinishExpected: nil,
 		FinishedAt:     nil,
+		AllChallenges: map[string][]string{
+			"test": []string{"test"},
+		},
 	}, tmp, client)
 
 	var chal = store.FlagConfig{
@@ -63,7 +66,12 @@ func TestVerifyFlag(t *testing.T) {
 		Category:        "",
 	}
 
-	addTeam := store.NewTeam("some@email.com", "somename", "password", "", "", "", time.Now().UTC(), client)
+	addTeam := store.NewTeam("some@email.com", "somename", "password",
+		"", "", "", time.Now().UTC(),
+		map[string][]string{},
+		map[string][]string{
+			"test": []string{"test"},
+		}, client)
 	if err := ts.SaveTeam(addTeam); err != nil {
 		t.Fatalf("expected no error when creating team")
 	}

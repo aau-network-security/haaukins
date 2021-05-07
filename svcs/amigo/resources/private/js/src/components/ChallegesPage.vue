@@ -1,19 +1,19 @@
 <template>
-  <div id="challenges-board">
+  <div id="challenges-board" v-bind:style= "[this.isLabAssigned  ? {}: { 'pointer-events': 'none', 'opacity': '0.5' }]">
 
     <div class="row mt-2" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.category">
       <div class="category-header col-md-12 mb-3">
         <h3>{{category[0].challenge.category}}</h3>
       </div>
       <div class="col-lg-3 col-md-4" v-for="el in category" v-bind:key="el.challenge.tag">
-        <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-success': el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted}">
+        <button class="btn challenge-button w-100 text-truncate pt-3 pb-3 mb-2" v-on:click="openModal(el)" v-bind:class="{'btn-disabled': el.isChalDisabled && !el.isUserCompleted, 'btn-haaukins': !el.isUserCompleted,'btn-success': el.isUserCompleted}">
           <p class="chal-name-font">{{ el.challenge.name }}</p>
           <span>{{ el.challenge.points }}</span>
         </button>
       </div>
     </div>
 
-    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
+    <challenge-modal :challenge="this.chalInfo" :teamsCompleted="this.teamsCompleted" v-on:runChallenge="runChallenge"  v-on:resetChallenge="resetChallenge" v-on:challengeCompleteReload="challengeCompleteReload"></challenge-modal>
   </div>
 </template>
 
@@ -26,6 +26,7 @@ export default {
   data: function () {
     return {
       chalInfo: {}, //passed to the modal
+      isLabAssigned: false,
       teamsCompleted: [], //passed to the modal
       challengesFromAmigo: [], //they keys are the categories, each category has a list of challenges
     }
@@ -58,7 +59,9 @@ export default {
     openModal: function (obj) {
       this.chalInfo = obj.challenge;
       this.teamsCompleted = obj.teamsCompleted;
-      this.$bvModal.show('challengeModal')
+      if (this.isLabAssigned) {
+        this.$bvModal.show('challengeModal')
+      }
     },
     connectToWS: function() {
       let url = new URL('/challengesFrontend', window.location.href);
@@ -78,11 +81,18 @@ export default {
         let json = JSON.parse(msg);
         if (json.msg === "challenges"){
           this.challengesFromAmigo = json.values;
+          this.isLabAssigned = json.isLabAssigned
         }
       }
       this.sortChallenges();
     },
     challengeCompleteReload: function () {
+      this.connectToWS()
+    },
+    runChallenge: function () {
+      this.connectToWS()
+    },
+    resetChallenge: function () {
       this.connectToWS()
     }
   }
@@ -98,6 +108,18 @@ export default {
 .btn-haaukins:hover{
   color: #fff;
   background-color: #1a1441;
+  border-color: #1a1441;
+}
+
+.btn-disabled{
+  color: #fff;
+  background-color: #949494;
+  border-color: #565667;
+}
+
+.btn-disabled:hover{
+  color: #fff;
+  background-color: #6c6499;
   border-color: #1a1441;
 }
 .btn-success{
