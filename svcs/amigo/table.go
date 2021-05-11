@@ -152,14 +152,24 @@ type TeamsCompleted struct {
 }
 
 func (fd *FrontendData) initChallenges(teamId string) []byte {
-	team, err := fd.ts.GetTeamByID(teamId)
-	teams := fd.ts.GetTeams()
 	rows := make([]ChallengeCP, len(fd.challenges))
+	team, err := fd.ts.GetTeamByID(teamId)
+	if err != nil {
+		msg := Message{
+			Message:       "challenges",
+			Values:        rows,
+			IsLabAssigned: false,
+		}
+		chalMsg, _ := json.Marshal(msg)
+		return chalMsg
+	}
+	teams := fd.ts.GetTeams()
+	isTeamAssigned := team.IsLabAssigned()
+
 	for i, c := range fd.challenges {
 		r := ChallengeCP{
 			ChalInfo: c,
 		}
-
 		//check which teams has solve a specif challenge
 		for _, t := range teams {
 			solved := t.IsTeamSolvedChallenge(string(c.Tag))
@@ -191,7 +201,7 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 	msg := Message{
 		Message:       "challenges",
 		Values:        rows,
-		IsLabAssigned: team.IsLabAssigned(),
+		IsLabAssigned: isTeamAssigned,
 	}
 	chalMsg, _ := json.Marshal(msg)
 	return chalMsg
