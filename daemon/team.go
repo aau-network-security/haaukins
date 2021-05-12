@@ -10,6 +10,7 @@ import (
 	"time"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/aau-network-security/haaukins/virtual"
@@ -182,7 +183,9 @@ func (d *daemon) GetTeamChals(ctx context.Context, req *pb.GetTeamInfoRequest) (
 
 func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassRequest) (*pb.UpdateTeamPassResponse, error) {
 	usr, err := getUserFromIncomingContext(ctx)
-
+	if err != nil {
+		return &pb.UpdateTeamPassResponse{}, err
+	}
 	ev, ok := d.eventPool.events[store.Tag(req.EventTag)]
 	if !ok {
 		return &pb.UpdateTeamPassResponse{}, fmt.Errorf("Event [ %s ] could not be found ", req.EventTag)
@@ -196,6 +199,49 @@ func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassR
 	}
 
 	return &pb.UpdateTeamPassResponse{Status: status}, nil
+}
+
+func (d *daemon) DeleteTeam(ctx context.Context, req *pb.DeleteTeamRequest) (*pb.DeleteTeamResponse, error) {
+
+	usr, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return &pb.DeleteTeamResponse{}, err
+	}
+	ev, ok := d.eventPool.events[store.Tag(req.EvTag)]
+	if !ok {
+		return &pb.DeleteTeamResponse{}, fmt.Errorf("Event [ %s ] could not be found ", req.EvTag)
+	}
+	if !usr.SuperUser || ev.GetConfig().CreatedBy != usr.Username {
+		return &pb.DeleteTeamResponse{}, fmt.Errorf("No privileges to delete team ")
+	}
+	lh := ev.GetHub()
+	tLab, ok := ev.GetLabByTeam(req.TeamId)
+	if !ok {
+		return &pb.DeleteTeamResponse{}, fmt.Errorf("lab could not be found for team: [ %s ] on event [ %s ]", req.TeamId, req.EvTag)
+	}
+
+	//labTag := make(chan string)
+	lb := make(chan lab.Lab)
+	sendLb := func() {
+		lb <- tLab
+	}
+
+	go func() {
+		lh.Update(lb)
+		log.Debug().Msgf("The lab belongs to [ %s ] is released and available for other teams ")
+	}()
+	go sendLb()
+
+	//if err := tLab.Close(); err != nil {
+	//	return &pb.DeleteTeamResponse{}, fmt.Errorf("Team lab could not be closed %v", err)
+	//}
+
+	_, err = ev.DeleteTeam(req.TeamId)
+	if err != nil {
+		return &pb.DeleteTeamResponse{}, err
+	}
+
+	return &pb.DeleteTeamResponse{Message: fmt.Sprintf("Team [ %s ] is deleted from event tag [ %s ] ", req.TeamId, req.EvTag)}, nil
 }
 
 func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {

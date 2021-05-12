@@ -29,6 +29,7 @@ var (
 type TeamStore interface {
 	GetTeamByToken(string) (*Team, error)
 	SaveTeam(*Team) error
+	DeleteTeam(string, string) error
 	GetTeamByID(string) (*Team, error)
 	GetTeamByUsername(string) (*Team, error)
 	GetTeams() []*Team
@@ -113,6 +114,29 @@ func (es *teamstore) SaveTokenForTeam(token string, in *Team) error {
 		return fmt.Errorf("SaveTokenForTeam function error %v", UnknownTeamErr)
 	}
 	es.tokens[token] = in.ID()
+	return nil
+}
+
+func (es *teamstore) DeleteTeam(tId, eventTag string) error {
+	es.m.Lock()
+	defer es.m.Unlock()
+	team, ok := es.teams[tId]
+	_, oki := es.names[team.Name()]
+	if oki {
+		delete(es.names, team.Name())
+	}
+	if ok {
+		delete(es.teams, tId)
+	}
+
+	resp, err := es.dbc.DeleteTeam(context.TODO(), &pbc.DelTeamRequest{
+		EvTag:  eventTag,
+		TeamId: tId,
+	})
+	if err != nil {
+		return err
+	}
+	log.Debug().Msgf("%s", resp.Message)
 	return nil
 }
 

@@ -219,6 +219,7 @@ type Event interface {
 	GetHub() lab.Hub
 	UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	GetLabByTeam(teamId string) (lab.Lab, bool)
+	DeleteTeam(id string) (bool, error)
 }
 
 type event struct {
@@ -326,6 +327,18 @@ func (ev *event) UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	return fmt.Sprintf("Password for team [ %s ] is updated ! ", id), nil
 }
 
+func (ev *event) DeleteTeam(id string) (bool, error) {
+	t, err := ev.GetTeamById(id)
+	if err != nil {
+		return false, err
+	}
+	if err := ev.store.DeleteTeam(t.ID(), string(ev.GetConfig().Tag)); err != nil {
+		log.Debug().Msgf("Error on DeleteTeam: [ %s ] ", err.Error())
+		return false, err
+	}
+	return true, nil
+}
+
 func (ev *event) Start(ctx context.Context) error {
 	if ev.store.OnlyVPN {
 		//randomly taken port for each VPN endpoint
@@ -371,7 +384,10 @@ func (ev *event) Start(ctx context.Context) error {
 		}
 
 		if err := ev.AssignLab(team, lab); err != nil {
-			fmt.Println("Issue assigning lab: ", err)
+			log.
+				Debug().
+				Err(err).
+				Msgf("lab issue for team %s", team.ID())
 			return err
 		}
 
@@ -759,11 +775,22 @@ func (ev *event) Handler() http.Handler {
 		select {
 		case l, ok := <-ev.labhub.Queue():
 			if !ok {
-				return ErrMaxLabs
+				select {
+				case l, ok := <-ev.labhub.Freed():
+					if !ok {
+						return fmt.Errorf("NO AVAILABLE LABS ON FREED ONES")
+					}
+					if err := ev.AssignLab(t, l); err != nil {
+						return err
+					}
+				default:
+					return fmt.Errorf("DEFAULT: NO AVAILABLE LABS ON FREED ONES ")
+				}
 			}
 			if err := ev.AssignLab(t, l); err != nil {
 				return err
 			}
+
 		default:
 
 			return ErrNoAvailableLabs
