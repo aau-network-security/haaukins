@@ -19,6 +19,8 @@ service Daemon {
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
   rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {}
 
+  rpc DeleteTeam(DeleteTeamRequest) returns (DeleteTeamResponse) {}
+
   rpc GetTeamChals(GetTeamInfoRequest) returns (TeamChalsInfo) {}
 
   rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {}
@@ -45,6 +47,15 @@ message GetExsByTagsResp {
     string tag =  2;
   }
   repeated ExInfo exercises = 1;
+}
+
+message DeleteTeamRequest {
+  string evTag = 1;
+  string teamId = 2;
+}
+
+message DeleteTeamResponse {
+  string message = 1;
 }
 
 

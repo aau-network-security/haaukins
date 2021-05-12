@@ -21,9 +21,22 @@ service Store {
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
     rpc UpdateTeamPassword (UpdateTeamPassRequest) returns (UpdateResponse) {}
+
+    // Delete
+    rpc DeleteTeam(DelTeamRequest) returns (DelTeamResp) {}
 }
 
 message EmptyRequest {}
+
+
+message DelTeamRequest {
+    string evTag = 1;
+    string teamId = 2;
+}
+
+message DelTeamResp {
+    string message = 1;
+}
 
 message UpdateTeamPassRequest {
     string encryptedPass = 1;
