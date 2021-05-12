@@ -9,7 +9,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/aau-network-security/haaukins/logging"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,16 +19,21 @@ var (
 
 type Hub interface {
 	Queue() <-chan Lab
+	Freed() <-chan Lab
 	Close() error
 	Suspend(context.Context) error
 	Resume(context.Context) error
+	Update(labTag <-chan Lab)
 }
 
 type hub struct {
-	creator Creator
-	queue   <-chan Lab
-	labs    map[string]Lab
-	stop    chan struct{}
+	creator         Creator
+	queue           <-chan Lab
+	freed           <-chan Lab
+	update          <-chan Lab
+	deallocatedLabs chan<- Lab
+	labs            map[string]Lab
+	stop            chan struct{}
 }
 
 func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
@@ -37,12 +41,13 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 	if buffer < workerAmount {
 		buffer = workerAmount
 	}
-	grpcLogger := logging.LoggerFromCtx(ctx)
-
 	ready := make(chan struct{})
+	update := make(chan Lab)
 	stop := make(chan struct{})
 	labs := make(chan Lab, buffer-workerAmount)
 	queue := make(chan Lab, buffer-workerAmount)
+	deallocated := make(chan Lab, cap)
+	freed := make(chan Lab, cap)
 
 	var wg sync.WaitGroup
 	worker := func() {
@@ -70,12 +75,6 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 				}
 				break
 			}
-			if grpcLogger != nil {
-				msg := ""
-				if err := grpcLogger.Msg(msg); err != nil {
-					log.Debug().Msgf("failed to send data over grpc stream: %s", err)
-				}
-			}
 		}
 	}
 
@@ -94,11 +93,11 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 			}
 		}
 
-		queueCloser := permOnce(func() { close(queue) })
+		//queueCloser := permOnce(func() { close(queue) })
 		labsCloser := permOnce(func() { close(labs) })
 		readyCloser := permOnce(func() { close(ready) })
 
-		defer queueCloser()
+		//defer queueCloser()
 		defer readyCloser()
 
 		for {
@@ -107,6 +106,9 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 				startedLabs[l.Tag()] = l
 				select {
 				case queue <- l:
+				case lb := <-update:
+					log.Debug().Msgf("Sending back to freed channel 1 ")
+					freed <- lb
 				case <-stop:
 					continue
 				}
@@ -118,12 +120,12 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 					continue
 				}
 
-				if len(startedLabs) == cap {
-					queueCloser()
-					continue
-				}
+				//if len(startedLabs) == cap {
+				//	queueCloser()
+				//	continue
+				//}
 
-				ready <- struct{}{}
+				//ready <- struct{}{}
 
 			case <-stop:
 				// wait for workers to finish starting labs
@@ -146,11 +148,22 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 		}
 	}()
 
+	go func() {
+		for {
+			select {
+			case lb := <-deallocated:
+				queue <- lb
+			}
+		}
+	}()
+
 	return &hub{
-		creator: creator,
-		queue:   queue,
-		stop:    stop,
-		labs:    startedLabs,
+		creator:         creator,
+		queue:           queue,
+		stop:            stop,
+		labs:            startedLabs,
+		freed:           freed,
+		deallocatedLabs: deallocated,
 	}, nil
 }
 
@@ -161,6 +174,16 @@ func (h *hub) Queue() <-chan Lab {
 func (h *hub) Close() error {
 	close(h.stop)
 	return nil
+}
+
+func (h *hub) Freed() <-chan Lab {
+	log.Debug().Msgf("Freed called from hub !! ")
+	return h.freed
+}
+
+func (h *hub) Update(lab <-chan Lab) {
+	lb := <-lab
+	h.deallocatedLabs <- lb
 }
 
 func (h *hub) Suspend(ctx context.Context) error {
