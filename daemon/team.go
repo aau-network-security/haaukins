@@ -228,7 +228,6 @@ func (d *daemon) DeleteTeam(ctx context.Context, req *pb.DeleteTeamRequest) (*pb
 
 	go func() {
 		lh.Update(lb)
-		log.Debug().Msgf("The lab belongs to [ %s ] is released and available for other teams ")
 	}()
 	go sendLb()
 
