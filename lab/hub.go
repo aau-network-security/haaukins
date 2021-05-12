@@ -42,7 +42,6 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 		buffer = workerAmount
 	}
 	ready := make(chan struct{})
-	update := make(chan Lab)
 	stop := make(chan struct{})
 	labs := make(chan Lab, buffer-workerAmount)
 	queue := make(chan Lab, buffer-workerAmount)
@@ -106,9 +105,6 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 				startedLabs[l.Tag()] = l
 				select {
 				case queue <- l:
-				case lb := <-update:
-					log.Debug().Msgf("Sending back to freed channel 1 ")
-					freed <- lb
 				case <-stop:
 					continue
 				}
