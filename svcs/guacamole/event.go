@@ -147,7 +147,7 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
-	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity, conf.OnlyVPN)
+	hub, err := lab.NewHub(&lh, conf.Available, conf.Capacity, conf.OnlyVPN)
 	if err != nil {
 		return nil, err
 	}
@@ -775,17 +775,7 @@ func (ev *event) Handler() http.Handler {
 		select {
 		case l, ok := <-ev.labhub.Queue():
 			if !ok {
-				select {
-				case l, ok := <-ev.labhub.Freed():
-					if !ok {
-						return fmt.Errorf("NO AVAILABLE LABS ON FREED ONES")
-					}
-					if err := ev.AssignLab(t, l); err != nil {
-						return err
-					}
-				default:
-					return fmt.Errorf("DEFAULT: NO AVAILABLE LABS ON FREED ONES ")
-				}
+				return ErrMaxLabs
 			}
 			if err := ev.AssignLab(t, l); err != nil {
 				return err
