@@ -213,7 +213,7 @@ func (d *daemon) DeleteTeam(req *pb.DeleteTeamRequest, srv pb.Daemon_DeleteTeamS
 	if !ok {
 		return fmt.Errorf("Event [ %s ] could not be found ", req.EvTag)
 	}
-	if !usr.SuperUser || ev.GetConfig().CreatedBy != usr.Username {
+	if !usr.SuperUser && ev.GetConfig().CreatedBy != usr.Username {
 		return fmt.Errorf("No privileges to delete team ")
 	}
 	srv.Send(&pb.DeleteTeamResponse{Message: fmt.Sprintf("Team deletion / Lab release and restart for team [ %s ] is under process... ", req.TeamId)})
