@@ -103,6 +103,7 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 		log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
 		return NoLabByTeamIdErr
 	}
+	resp.Send(&pb.EventStatus{Status: fmt.Sprintf("Lab restarting for team [ %s ] is under process... ", req.TeamId)})
 
 	if err := lab.Restart(resp.Context()); err != nil {
 		return err
@@ -201,46 +202,55 @@ func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassR
 	return &pb.UpdateTeamPassResponse{Status: status}, nil
 }
 
-func (d *daemon) DeleteTeam(ctx context.Context, req *pb.DeleteTeamRequest) (*pb.DeleteTeamResponse, error) {
+func (d *daemon) DeleteTeam(req *pb.DeleteTeamRequest, srv pb.Daemon_DeleteTeamServer) error {
 
-	usr, err := getUserFromIncomingContext(ctx)
+	var waitGroup sync.WaitGroup
+	usr, err := getUserFromIncomingContext(srv.Context())
 	if err != nil {
-		return &pb.DeleteTeamResponse{}, err
+		return err
 	}
 	ev, ok := d.eventPool.events[store.Tag(req.EvTag)]
 	if !ok {
-		return &pb.DeleteTeamResponse{}, fmt.Errorf("Event [ %s ] could not be found ", req.EvTag)
+		return fmt.Errorf("Event [ %s ] could not be found ", req.EvTag)
 	}
 	if !usr.SuperUser || ev.GetConfig().CreatedBy != usr.Username {
-		return &pb.DeleteTeamResponse{}, fmt.Errorf("No privileges to delete team ")
+		return fmt.Errorf("No privileges to delete team ")
 	}
+	srv.Send(&pb.DeleteTeamResponse{Message: fmt.Sprintf("Team deletion / Lab release and restart for team [ %s ] is under process... ", req.TeamId)})
 	lh := ev.GetHub()
 	tLab, ok := ev.GetLabByTeam(req.TeamId)
 	if !ok {
-		return &pb.DeleteTeamResponse{}, fmt.Errorf("lab could not be found for team: [ %s ] on event [ %s ]", req.TeamId, req.EvTag)
+		return fmt.Errorf("lab could not be found for team: [ %s ] on event [ %s ]", req.TeamId, req.EvTag)
+	}
+	var restartErr error
+	waitGroup.Add(1)
+	go func() {
+		defer waitGroup.Done()
+		if err := tLab.Restart(srv.Context()); err != nil {
+			log.Debug().Msgf("Error on lab restart on de-assigning for team [ %s ] on event [ %s ]", req.TeamId, req.EvTag)
+			restartErr = err
+		}
+	}()
+	waitGroup.Wait()
+
+	if restartErr != nil {
+		return restartErr
 	}
 
-	//labTag := make(chan string)
 	lb := make(chan lab.Lab)
 	sendLb := func() {
 		lb <- tLab
 	}
 
-	go func() {
-		lh.Update(lb)
-	}()
+	go lh.Update(lb)
 	go sendLb()
-
-	//if err := tLab.Close(); err != nil {
-	//	return &pb.DeleteTeamResponse{}, fmt.Errorf("Team lab could not be closed %v", err)
-	//}
 
 	_, err = ev.DeleteTeam(req.TeamId)
 	if err != nil {
-		return &pb.DeleteTeamResponse{}, err
+		return err
 	}
 
-	return &pb.DeleteTeamResponse{Message: fmt.Sprintf("Team [ %s ] is deleted from event tag [ %s ] ", req.TeamId, req.EvTag)}, nil
+	return nil
 }
 
 func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {

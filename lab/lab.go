@@ -213,11 +213,8 @@ func (l *lab) Stop() error {
 }
 
 func (l *lab) Restart(ctx context.Context) error {
-	if err := l.environment.Stop(); err != nil {
-		return err
-	}
 
-	if err := l.environment.Start(ctx); err != nil {
+	if err := l.environment.Reset(ctx); err != nil {
 		return err
 	}
 
@@ -229,6 +226,7 @@ func (l *lab) Restart(ctx context.Context) error {
 		if err := fconf.vm.Start(ctx); err != nil {
 			return err
 		}
+
 	}
 
 	return nil

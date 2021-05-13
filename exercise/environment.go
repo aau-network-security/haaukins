@@ -24,6 +24,7 @@ type Environment interface {
 	Create(context.Context, bool) error
 	Add(context.Context, ...store.Exercise) error
 	ResetByTag(context.Context, string) error
+	Reset(context.Context) error
 	NetworkInterface() string
 	LabSubnet() string
 	LabDNS() string
@@ -200,6 +201,24 @@ func (ee *environment) Stop() error {
 	return nil
 }
 
+func (ee *environment) Reset(ctx context.Context) error {
+
+	if err := ee.refreshDHCP(ctx); err != nil {
+		return err
+	}
+
+	if err := ee.refreshDNS(ctx); err != nil {
+		return err
+	}
+	for _, e := range ee.exercises {
+		if err := e.Reset(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (ee *environment) Suspend(ctx context.Context) error {
 	for _, e := range ee.exercises {
 		if err := e.Suspend(ctx); err != nil {
@@ -326,13 +345,9 @@ func (ee *environment) InstanceInfo() []virtual.InstanceInfo {
 }
 
 func (ee *environment) refreshDNS(ctx context.Context) error {
+
 	if ee.dnsServer != nil {
 		if err := ee.dnsServer.Close(); err != nil {
-			return err
-		}
-	}
-	if ee.dhcpServer != nil {
-		if err := ee.dhcpServer.Close(); err != nil {
 			return err
 		}
 	}
@@ -349,11 +364,35 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 	}
 	ee.dnsServer = serv
 
-	if err := serv.Run(ctx); err != nil {
+	if err := ee.dnsServer.Run(ctx); err != nil {
 		return err
 	}
 
-	if _, err := ee.network.Connect(serv.Container(), dns.PreferedIP); err != nil {
+	if _, err := ee.network.Connect(ee.dnsServer.Container(), dns.PreferedIP); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ee *environment) refreshDHCP(ctx context.Context) error {
+	if ee.dhcpServer != nil {
+		if err := ee.dhcpServer.Close(); err != nil {
+			return err
+		}
+	}
+
+	serv, err := dhcp.New(ee.network.FormatIP)
+	if err != nil {
+		return err
+	}
+	ee.dhcpServer = serv
+
+	if err := ee.dhcpServer.Run(ctx); err != nil {
+		return err
+	}
+
+	if _, err := ee.network.Connect(ee.dhcpServer.Container(), 2); err != nil {
 		return err
 	}
 
