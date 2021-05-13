@@ -36,7 +36,7 @@ type hub struct {
 	stop            chan struct{}
 }
 
-func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
+func NewHub(creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
 	workerAmount := 2
 	if buffer < workerAmount {
 		buffer = workerAmount
@@ -80,7 +80,6 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 	for i := 0; i < workerAmount; i++ {
 		go worker()
 		ready <- struct{}{}
-
 	}
 
 	startedLabs := map[string]Lab{}
@@ -116,12 +115,12 @@ func NewHub(ctx context.Context, creator Creator, buffer int, cap int, isVPN boo
 					continue
 				}
 
-				//if len(startedLabs) == cap {
-				//	queueCloser()
-				//	continue
-				//}
+				if len(startedLabs) == cap {
+					//queueCloser()
+					continue
+				}
 
-				//ready <- struct{}{}
+				ready <- struct{}{}
 
 			case <-stop:
 				// wait for workers to finish starting labs
