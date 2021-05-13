@@ -19,7 +19,7 @@ service Daemon {
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
   rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {}
 
-  rpc DeleteTeam(DeleteTeamRequest) returns (DeleteTeamResponse) {}
+  rpc DeleteTeam(DeleteTeamRequest) returns (stream DeleteTeamResponse) {}
 
   rpc GetTeamChals(GetTeamInfoRequest) returns (TeamChalsInfo) {}
 
