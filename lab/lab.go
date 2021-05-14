@@ -219,14 +219,37 @@ func (l *lab) Restart(ctx context.Context) error {
 	}
 
 	for _, fconf := range l.frontends {
-		if err := fconf.vm.Stop(); err != nil {
-			return err
-		}
+		switch fconf.vm.Info().State {
+		case virtual.Running:
+			if err := fconf.vm.Stop(); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+		case virtual.Stopped:
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+		case virtual.Suspended:
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+			if err := fconf.vm.Stop(); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 
-		if err := fconf.vm.Start(ctx); err != nil {
-			return err
+		case virtual.Error:
+			if err := fconf.vm.Create(ctx); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 		}
-
 	}
 
 	return nil
