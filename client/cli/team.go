@@ -247,13 +247,11 @@ func (c *Client) CmdDeleteTeam() *cobra.Command {
 				EvTag:  eventTag,
 				TeamId: teamId,
 			}
-
-			resp, err := c.rpcClient.DeleteTeam(ctx, req)
+			_, err := c.rpcClient.DeleteTeam(ctx, req)
 			if err != nil {
 				PrintError(err)
 				return
 			}
-			fmt.Println(resp.Message)
 		},
 	}
 	return cmd
