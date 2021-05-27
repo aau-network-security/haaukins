@@ -28,7 +28,6 @@ type Hub interface {
 type hub struct {
 	creator         Creator
 	queue           <-chan Lab
-	freed           <-chan Lab
 	update          <-chan Lab
 	deallocatedLabs chan<- Lab
 	labs            map[string]Lab
