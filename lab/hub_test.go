@@ -134,14 +134,6 @@ func TestHub(t *testing.T) {
 			if startedLabsAfterQueue != startsAfterConsuming {
 				t.Fatalf("expected %d to be started, after fetching entire queue, but %d are started", startsAfterConsuming, startedLabsAfterQueue)
 			}
-
-			if tc.read+tc.buf >= tc.cap {
-				_, ok := <-h.Queue()
-				if ok {
-					t.Fatalf("expected queue to be closed")
-				}
-			}
-
 			if err := h.Close(); err != nil {
 				t.Fatalf("expected error to be nil, but received: %s", err)
 			}

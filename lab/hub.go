@@ -19,7 +19,6 @@ var (
 
 type Hub interface {
 	Queue() <-chan Lab
-	Freed() <-chan Lab
 	Close() error
 	Suspend(context.Context) error
 	Resume(context.Context) error
@@ -46,7 +45,6 @@ func NewHub(creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
 	labs := make(chan Lab, buffer-workerAmount)
 	queue := make(chan Lab, buffer-workerAmount)
 	deallocated := make(chan Lab, cap)
-	freed := make(chan Lab, cap)
 
 	var wg sync.WaitGroup
 	worker := func() {
@@ -91,11 +89,9 @@ func NewHub(creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
 			}
 		}
 
-		//queueCloser := permOnce(func() { close(queue) })
 		labsCloser := permOnce(func() { close(labs) })
 		readyCloser := permOnce(func() { close(ready) })
 
-		//defer queueCloser()
 		defer readyCloser()
 
 		for {
@@ -116,7 +112,6 @@ func NewHub(creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
 				}
 
 				if len(startedLabs) == cap {
-					//queueCloser()
 					continue
 				}
 
@@ -157,7 +152,6 @@ func NewHub(creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
 		queue:           queue,
 		stop:            stop,
 		labs:            startedLabs,
-		freed:           freed,
 		deallocatedLabs: deallocated,
 	}, nil
 }
@@ -169,11 +163,6 @@ func (h *hub) Queue() <-chan Lab {
 func (h *hub) Close() error {
 	close(h.stop)
 	return nil
-}
-
-func (h *hub) Freed() <-chan Lab {
-	log.Debug().Msgf("Freed called from hub !! ")
-	return h.freed
 }
 
 func (h *hub) Update(lab <-chan Lab) {
