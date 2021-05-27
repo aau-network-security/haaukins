@@ -1,11 +1,10 @@
 <template>
   <div class="pl-3">
-    <form @submit.prevent="submit">
-      <input type="submit" class="btn btn-haaukins" :disabled='isDisabled' v-bind:class="{ 'btn-danger': isError, 'btn-success': isSuccess }" value="RESET Challenge" style="width: auto;">
+    <form @submit.prevent="submit" >
+        <input type="submit" class="btn btn-haaukins"  :disabled='isDisabled' v-bind:class="{ 'btn-danger': isError, 'btn-success': isSuccess }" value="Reset" style="width: auto;">
     </form>
   </div>
 </template>
-
 <script>
 /* eslint-disable */
 export default {
@@ -39,8 +38,13 @@ export default {
       }
 
       if (res.status === "ok") {
+        let that = this
         this.isSuccess = true
         this.isDisabled = false
+        setTimeout(function () {
+          that.$bvModal.hide('challengeModal')
+          that.$emit('resetChallenge')
+        }, 1000);
       }
     }
   }

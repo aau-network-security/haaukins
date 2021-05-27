@@ -140,10 +140,11 @@ func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 }
 
 type Hooks struct {
-	AssignLab     func(t *store.Team) error
-	ResetExercise func(t *store.Team, challengeTag string) error
-	ResetFrontend func(t *store.Team) error
-	ResumeTeamLab func(t *store.Team) error
+	AssignLab         func(t *store.Team) error
+	ResetExercise     func(t *store.Team, challengeTag string) error
+	StartStopExercise func(t *store.Team, challengeTag string, state bool) error
+	ResetFrontend     func(t *store.Team) error
+	ResumeTeamLab     func(t *store.Team) error
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
@@ -163,8 +164,9 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/logout", am.handleLogout())
 	m.HandleFunc("/scores", fd.handleConns())
 	m.HandleFunc("/challengesFrontend", fd.handleConns())
-	m.HandleFunc("/flags/verify", am.handleFlagVerify())
+	m.HandleFunc("/flags/verify", am.handleFlagVerify(hooks.StartStopExercise))
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
+	m.HandleFunc("/manage/challenge", am.handleStartStopChallenge(hooks.StartStopExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
 	m.HandleFunc("/vpn/status", am.handleVPNStatus())
 	m.HandleFunc("/vpn/download", am.handleVPNFiles())
@@ -481,7 +483,7 @@ func (am *Amigo) handleScoreBoard() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleFlagVerify() http.HandlerFunc {
+func (am *Amigo) handleFlagVerify(stopExercise func(t *store.Team, challengeTag string, state bool) error) http.HandlerFunc {
 	type verifyFlagMsg struct {
 		Tag  string `json:"tag"`
 		Flag string `json:"flag"`
@@ -510,7 +512,7 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 			replyJson(http.StatusOK, w, errReply{ErrInvalidFlag.Error()})
 			return
 		}
-
+		parentTag := getParentChallengeTag(msg.Tag)
 		tag := store.Tag(msg.Tag)
 		if err := team.VerifyFlag(store.Challenge{Tag: tag}, flag); err != nil {
 			replyJson(http.StatusOK, w, errReply{err.Error()})
@@ -518,6 +520,25 @@ func (am *Amigo) handleFlagVerify() http.HandlerFunc {
 		}
 
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
+		// recaptcha secret is added for tests
+		if am.recaptcha.secret != "" {
+			go func() {
+				childrenChals := team.GetChildChallenges(parentTag)
+				var solvedChildChals []string
+				for _, ch := range childrenChals {
+					solvedTime := team.IsTeamSolvedChallenge(ch)
+					if solvedTime != nil {
+						solvedChildChals = append(solvedChildChals, ch)
+					}
+				}
+				if len(solvedChildChals) == len(childrenChals) {
+					if err := stopExercise(team, parentTag, false); err != nil {
+						log.Print("Stop exercise failed for solved challenges")
+					}
+					team.AddDisabledChal(parentTag)
+				}
+			}()
+		}
 	}
 
 	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
@@ -646,7 +667,9 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 			}
 		}
 		// email removed  due to GDPR
-		t := store.NewTeam("", strings.TrimSpace(params.TeamName), params.Password, "", "", "", time.Now().UTC(), nil)
+		t := store.NewTeam("", strings.TrimSpace(params.TeamName), params.Password,
+			"", "", "", time.Now().UTC(),
+			am.TeamStore.DisabledChallenges, am.TeamStore.AllChallenges, nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
@@ -699,12 +722,61 @@ func (am *Amigo) handleResetChallenge(resetHook func(t *store.Team, challengeTag
 		}
 
 		chalTag := getParentChallengeTag(msg.Tag)
+		if !team.IsLabAssigned() {
+			replyJsonRequestErr(w, fmt.Errorf("Lab is NOT assigned to team [ %s ] on event [ %s ]", team.Name(), am.TeamStore.Tag))
+			return
+		}
 		err = resetHook(team, chalTag)
 		if err != nil {
 			replyJsonRequestErr(w, err)
 			return
 		}
+		replyJson(http.StatusOK, w, replyMsg{"ok"})
+	}
 
+	for _, mw := range []Middleware{JSONEndpoint, POSTEndpoint} {
+		endpoint = mw(endpoint)
+	}
+
+	return endpoint
+}
+
+func (am *Amigo) handleStartStopChallenge(runHook func(t *store.Team, challengeTag string, state bool) error) http.HandlerFunc {
+
+	type runChallenge struct {
+		Tag string `json:"tag"`
+	}
+
+	type replyMsg struct {
+		Status string `json:"status"`
+	}
+
+	endpoint := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		t, err := am.getTeamFromRequest(w, r)
+		if err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		var msg runChallenge
+		if err := safeReadJson(w, r, &msg, am.maxReadBytes); err != nil {
+			replyJsonRequestErr(w, err)
+			return
+		}
+
+		chalTag := getParentChallengeTag(msg.Tag)
+		if !t.IsLabAssigned() {
+			replyJsonRequestErr(w, fmt.Errorf("Lab is NOT assigned to team [ %s ] on event [ %s ]", t.Name(), am.TeamStore.Tag))
+			return
+		}
+		stopped := t.ManageDisabledChals(chalTag)
+		err = runHook(t, chalTag, stopped)
+		if err != nil {
+			t.AddDisabledChal(chalTag)
+			replyJsonRequestErr(w, err)
+			return
+		}
 		replyJson(http.StatusOK, w, replyMsg{"ok"})
 	}
 
@@ -1087,4 +1159,11 @@ func checkVarLength(input string, max int) error {
 		return fmt.Errorf("exceeds character limit")
 	}
 	return nil
+}
+
+func pop(alist *[]int) int {
+	f := len(*alist)
+	rv := (*alist)[f-1]
+	*alist = append((*alist)[:f-1])
+	return rv
 }

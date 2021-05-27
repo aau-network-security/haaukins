@@ -25,8 +25,9 @@ var (
 )
 
 type Config struct {
-	Frontends []store.InstanceConfig
-	Exercises []store.Exercise
+	Frontends         []store.InstanceConfig
+	Exercises         []store.Exercise
+	DisabledExercises []store.Tag
 }
 
 func (conf Config) Flags() []store.FlagConfig {
@@ -35,6 +36,23 @@ func (conf Config) Flags() []store.FlagConfig {
 		res = append(res, exercise.Flags()...)
 	}
 	return res
+}
+
+// GetChildrenChallenges returns list of children challenge tags to be used in amigo frontend
+func (conf Config) GetChildrenChallenges(parentTag string) []string {
+	var childrenTags []string
+	var flags []store.FlagConfig
+	for _, i := range conf.Exercises {
+		if i.Tag == store.Tag(parentTag) {
+			for _, m := range i.Instance {
+				flags = append(flags, m.Flags...)
+			}
+		}
+	}
+	for _, f := range flags {
+		childrenTags = append(childrenTags, string(f.Tag))
+	}
+	return childrenTags
 }
 
 type Creator interface {
@@ -55,6 +73,12 @@ func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
 	if err := env.Add(ctx, lh.Conf.Exercises...); err != nil {
 		return nil, fmt.Errorf("new environment add err %v ", err)
 	}
+	// setting disabled exercise tags
+	// will not be run when event is created
+	// instead will be created
+	// manual start is required
+
+	env.SetDisabledExercises(lh.Conf.DisabledExercises)
 
 	dockerHost := docker.NewHost()
 	l := &lab{
@@ -189,21 +213,42 @@ func (l *lab) Stop() error {
 }
 
 func (l *lab) Restart(ctx context.Context) error {
-	if err := l.environment.Stop(); err != nil {
-		return err
-	}
 
-	if err := l.environment.Start(ctx); err != nil {
+	if err := l.environment.Reset(ctx); err != nil {
 		return err
 	}
 
 	for _, fconf := range l.frontends {
-		if err := fconf.vm.Stop(); err != nil {
-			return err
-		}
+		switch fconf.vm.Info().State {
+		case virtual.Running:
+			if err := fconf.vm.Stop(); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+		case virtual.Stopped:
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+		case virtual.Suspended:
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+			if err := fconf.vm.Stop(); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 
-		if err := fconf.vm.Start(ctx); err != nil {
-			return err
+		case virtual.Error:
+			if err := fconf.vm.Create(ctx); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 		}
 	}
 

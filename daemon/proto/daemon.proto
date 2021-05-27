@@ -19,13 +19,15 @@ service Daemon {
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
   rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {}
 
+  rpc DeleteTeam(DeleteTeamRequest) returns (stream DeleteTeamResponse) {}
+
   rpc GetTeamChals(GetTeamInfoRequest) returns (TeamChalsInfo) {}
 
   rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {}
 
   rpc ListExercises (Empty) returns (ListExercisesResponse) {}
   rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
-
+  rpc GetExercisesByTags (GetExsByTagsReq) returns (GetExsByTagsResp) {}
   rpc ListFrontends (Empty) returns (ListFrontendsResponse) {}
   rpc ResetFrontends (ResetFrontendsRequest) returns (stream ResetTeamStatus) {}
   rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Empty) {}
@@ -33,6 +35,27 @@ service Daemon {
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
+}
+
+message GetExsByTagsReq {
+  repeated string tags = 1;
+}
+
+message GetExsByTagsResp {
+  message ExInfo {
+    string name = 1;
+    string tag =  2;
+  }
+  repeated ExInfo exercises = 1;
+}
+
+message DeleteTeamRequest {
+  string evTag = 1;
+  string teamId = 2;
+}
+
+message DeleteTeamResponse {
+  string message = 1;
 }
 
 
@@ -159,6 +182,7 @@ message CreateEventRequest {
   string finishTime = 8;
   bool onlyVPN = 9;
   string secretEvent = 10;
+  repeated string disableExercises = 11;
 }
 
 

@@ -111,9 +111,25 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 				return err
 			}
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
-		}
 
+			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
+
+			t, err := ev.GetTeamById(reqTeam.Id)
+			teamDisabledMap := t.GetDisabledChalMap()
+			if err != nil {
+				log.Printf("GetTeamById error no team found %v", err)
+				continue
+			}
+
+			if teamDisabledMap != nil {
+				_, ok = teamDisabledMap[req.ExerciseTag]
+				if ok {
+					if t.ManageDisabledChals(req.ExerciseTag) {
+						log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises via gRPC for team [ %s ] ", req.ExerciseTag, t.ID())
+					}
+				}
+			}
+		}
 		return nil
 	}
 
@@ -127,10 +143,24 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
 			return err
 		}
+
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})
 	}
 
 	return nil
+}
+
+func (d *daemon) GetExercisesByTags(ctx context.Context, req *pb.GetExsByTagsReq) (*pb.GetExsByTagsResp, error) {
+	var exInfo []*pb.GetExsByTagsResp_ExInfo
+	exTags := req.Tags
+	resp, err := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: exTags})
+	if err != nil {
+		return &pb.GetExsByTagsResp{}, err
+	}
+	for _, e := range resp.Exercises {
+		exInfo = append(exInfo, &pb.GetExsByTagsResp_ExInfo{Tag: e.Tag, Name: e.Name})
+	}
+	return &pb.GetExsByTagsResp{Exercises: exInfo}, nil
 }
 
 func protobufToJson(message proto.Message) (string, error) {

@@ -97,9 +97,11 @@ type eventHost struct {
 
 //Create the event configuration for the event got from the DB
 func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-
+	var labConf lab.Config
 	var exers []store.Exercise
 	var exercises []string
+	disabledChals := make(map[string][]string, len(exers))
+	allChals := make(map[string][]string, len(exers))
 	for _, d := range conf.Lab.Exercises {
 		exercises = append(exercises, string(d))
 	}
@@ -117,32 +119,40 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		json.Unmarshal([]byte(exercise), &estruct)
 		exers = append(exers, estruct)
 	}
+	labConf.Exercises = exers
+	for _, e := range conf.Lab.DisabledExercises {
+		disabledChals[string(e)] = labConf.GetChildrenChallenges(string(e))
+	}
+	for _, e := range conf.Lab.Exercises {
+		allChals[string(e)] = labConf.GetChildrenChallenges(string(e))
+	}
+	conf.AllChallenges = allChals
+	conf.DisabledChallenges = disabledChals
 	es, err := store.NewEventStore(conf, eh.dir, eh.dbc)
 	if err != nil {
 		return nil, err
 	}
-
-	var labConf lab.Config
 	if conf.OnlyVPN {
-		labConf.Exercises = exers
-		labConf.Exercises = exers
+		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
 	} else {
-		labConf.Exercises = exers
+		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		labConf.Frontends = conf.Lab.Frontends
 	}
+
+	flags := labConf.Flags()
+
 	lh := lab.LabHost{
 		Vlib: eh.vlib,
 		Conf: labConf,
 	}
-
-	hub, err := lab.NewHub(ctx, &lh, conf.Available, conf.Capacity, conf.OnlyVPN)
+	hub, err := lab.NewHub(&lh, conf.Available, conf.Capacity, conf.OnlyVPN)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewEvent(eh.ctx, es, hub, labConf.Flags(), reCaptchaKey)
+	return NewEvent(eh.ctx, es, hub, flags, reCaptchaKey)
 }
 
 func protobufToJson(message proto.Message) (string, error) {
@@ -158,10 +168,16 @@ func protobufToJson(message proto.Message) (string, error) {
 //Save the event in the DB and create the event configuration
 func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	var exercises []string
+	var disabledExercises []string
 	log.Info().Msgf("VPN Address from CreateEventFromConfig function %s ", conf.VPNAddress)
+	// todo: update this in more elegant way
 	for _, e := range conf.Lab.Exercises {
 		exercises = append(exercises, string(e))
 	}
+	for _, e := range conf.Lab.DisabledExercises {
+		disabledExercises = append(disabledExercises, string(e))
+	}
+
 	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
 		Name:               conf.Name,
 		Tag:                string(conf.Tag),
@@ -175,6 +191,7 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		CreatedBy:          conf.CreatedBy,
 		OnlyVPN:            conf.OnlyVPN,
 		SecretKey:          conf.SecretKey,
+		DisabledExercises:  strings.Join(disabledExercises, ","),
 	})
 
 	if err != nil {
@@ -198,9 +215,11 @@ type Event interface {
 	GetStatus() int32
 	GetConfig() store.EventConfig
 	GetTeams() []*store.Team
+	GetTeamById(teamId string) (*store.Team, error)
 	GetHub() lab.Hub
 	UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	GetLabByTeam(teamId string) (lab.Lab, bool)
+	DeleteTeam(id string) (bool, error)
 }
 
 type event struct {
@@ -308,6 +327,18 @@ func (ev *event) UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	return fmt.Sprintf("Password for team [ %s ] is updated ! ", id), nil
 }
 
+func (ev *event) DeleteTeam(id string) (bool, error) {
+	t, err := ev.GetTeamById(id)
+	if err != nil {
+		return false, err
+	}
+	if err := ev.store.DeleteTeam(t.ID(), string(ev.GetConfig().Tag)); err != nil {
+		log.Debug().Msgf("Error on DeleteTeam: [ %s ] ", err.Error())
+		return false, err
+	}
+	return true, nil
+}
+
 func (ev *event) Start(ctx context.Context) error {
 	if ev.store.OnlyVPN {
 		//randomly taken port for each VPN endpoint
@@ -353,7 +384,10 @@ func (ev *event) Start(ctx context.Context) error {
 		}
 
 		if err := ev.AssignLab(team, lab); err != nil {
-			fmt.Println("Issue assigning lab: ", err)
+			log.
+				Debug().
+				Err(err).
+				Msgf("lab issue for team %s", team.ID())
 			return err
 		}
 
@@ -746,6 +780,7 @@ func (ev *event) Handler() http.Handler {
 			if err := ev.AssignLab(t, l); err != nil {
 				return err
 			}
+
 		default:
 
 			return ErrNoAvailableLabs
@@ -762,8 +797,42 @@ func (ev *event) Handler() http.Handler {
 		if err := teamLab.Environment().ResetByTag(context.Background(), challengeTag); err != nil {
 			return fmt.Errorf("Reset challenge hook error %v", err)
 		}
+		teamDisabledMap := t.GetDisabledChalMap()
+		_, ok = teamDisabledMap[challengeTag]
+		if ok {
+			if t.ManageDisabledChals(challengeTag) {
+				log.Printf("Disabled exercises updated [ %s ] removed from disabled exercises by team [ %s ] ", challengeTag, t.ID())
+			}
+		}
 		return nil
 	}
+	// state 0 : running
+	// state 1 : stopped
+
+	startStopHook := func(t *store.Team, challengeTag string, stopped bool) error {
+		var waitGroup sync.WaitGroup
+		var startStopErr error
+		teamLab, ok := ev.GetLabByTeam(t.ID())
+		if !ok {
+			fmt.Errorf("Not found suitable team for given id: %s", t.ID())
+		}
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			if stopped {
+				if err := teamLab.Environment().StartByTag(context.TODO(), challengeTag); err != nil {
+					startStopErr = err
+				}
+			} else {
+				if err := teamLab.Environment().StopByTag(challengeTag); err != nil {
+					startStopErr = err
+				}
+			}
+		}()
+		waitGroup.Wait()
+		return startStopErr
+	}
+
 	// resume labs in login of amigo
 	resumeTeamLab := func(t *store.Team) error {
 		var waitGroup sync.WaitGroup
@@ -793,7 +862,13 @@ func (ev *event) Handler() http.Handler {
 		return nil
 	}
 
-	hooks := amigo.Hooks{AssignLab: reghook, ResetExercise: resetHook, ResetFrontend: resetFrontendHook, ResumeTeamLab: resumeTeamLab}
+	hooks := amigo.Hooks{
+		AssignLab:         reghook,
+		ResetExercise:     resetHook,
+		StartStopExercise: startStopHook,
+		ResetFrontend:     resetFrontendHook,
+		ResumeTeamLab:     resumeTeamLab,
+	}
 
 	guacHandler := ev.guac.ProxyHandler(ev.guacUserStore, ev.keyLoggerPool, ev.amigo, ev)(ev.store)
 
@@ -810,6 +885,14 @@ func (ev *event) GetConfig() store.EventConfig {
 
 func (ev *event) GetTeams() []*store.Team {
 	return ev.store.GetTeams()
+}
+
+func (ev *event) GetTeamById(teamid string) (*store.Team, error) {
+	t, err := ev.store.GetTeamByID(teamid)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (ev *event) GetLabByTeam(teamId string) (lab.Lab, bool) {

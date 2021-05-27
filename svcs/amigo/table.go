@@ -9,8 +9,9 @@ import (
 )
 
 type Message struct {
-	Message string      `json:"msg"`
-	Values  interface{} `json:"values"`
+	Message       string      `json:"msg"`
+	Values        interface{} `json:"values"`
+	IsLabAssigned bool        `json:"isLabAssigned"`
 }
 
 // Challenge name and the points relative that challenge
@@ -142,6 +143,7 @@ type ChallengeCP struct {
 	ChalInfo        store.FlagConfig `json:"challenge"`
 	IsUserCompleted bool             `json:"isUserCompleted"`
 	TeamsCompleted  []TeamsCompleted `json:"teamsCompleted"`
+	IsDisabledChal  bool             `json:"isChalDisabled"`
 }
 
 type TeamsCompleted struct {
@@ -150,14 +152,24 @@ type TeamsCompleted struct {
 }
 
 func (fd *FrontendData) initChallenges(teamId string) []byte {
-	team, err := fd.ts.GetTeamByID(teamId)
-	teams := fd.ts.GetTeams()
 	rows := make([]ChallengeCP, len(fd.challenges))
+	team, err := fd.ts.GetTeamByID(teamId)
+	if err != nil {
+		msg := Message{
+			Message:       "challenges",
+			Values:        rows,
+			IsLabAssigned: false,
+		}
+		chalMsg, _ := json.Marshal(msg)
+		return chalMsg
+	}
+	teams := fd.ts.GetTeams()
+	isTeamAssigned := team.IsLabAssigned()
+
 	for i, c := range fd.challenges {
 		r := ChallengeCP{
 			ChalInfo: c,
 		}
-
 		//check which teams has solve a specif challenge
 		for _, t := range teams {
 			solved := t.IsTeamSolvedChallenge(string(c.Tag))
@@ -167,12 +179,19 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 					CompletedAt: solved,
 				})
 			}
+			// check disabled challenges and its children challenges here
+			for _, d := range t.GetDisabledChals() {
+				if d == string(c.Tag) && solved == nil {
+					r.IsDisabledChal = true
+				}
+			}
 		}
 
 		//check which challenge the user looged in has solved
 		if err == nil {
 			if team.IsTeamSolvedChallenge(string(c.Tag)) != nil {
 				r.IsUserCompleted = true
+				r.IsDisabledChal = false
 			}
 		}
 
@@ -180,8 +199,9 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 	}
 
 	msg := Message{
-		Message: "challenges",
-		Values:  rows,
+		Message:       "challenges",
+		Values:        rows,
+		IsLabAssigned: isTeamAssigned,
 	}
 	chalMsg, _ := json.Marshal(msg)
 	return chalMsg

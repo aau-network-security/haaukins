@@ -113,9 +113,8 @@ func TestHub(t *testing.T) {
 			resumed := make(chan bool, 1000)
 			suspended := make(chan bool, 1000)
 			closed := make(chan bool, 1000)
-			ctx := context.Background()
 			c := &testCreator{lab: &testLab{started, suspended, resumed, closed}}
-			h, err := NewHub(ctx, c, tc.buf, tc.cap, false)
+			h, err := NewHub(c, tc.buf, tc.cap, false)
 			if err != nil {
 				t.Fatalf("unable to create hub: %s", err)
 			}
@@ -135,14 +134,6 @@ func TestHub(t *testing.T) {
 			if startedLabsAfterQueue != startsAfterConsuming {
 				t.Fatalf("expected %d to be started, after fetching entire queue, but %d are started", startsAfterConsuming, startedLabsAfterQueue)
 			}
-
-			if tc.read+tc.buf >= tc.cap {
-				_, ok := <-h.Queue()
-				if ok {
-					t.Fatalf("expected queue to be closed")
-				}
-			}
-
 			if err := h.Close(); err != nil {
 				t.Fatalf("expected error to be nil, but received: %s", err)
 			}

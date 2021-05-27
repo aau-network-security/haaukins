@@ -21,9 +21,22 @@ service Store {
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
     rpc UpdateTeamPassword (UpdateTeamPassRequest) returns (UpdateResponse) {}
+
+    // Delete
+    rpc DeleteTeam(DelTeamRequest) returns (DelTeamResp) {}
 }
 
 message EmptyRequest {}
+
+
+message DelTeamRequest {
+    string evTag = 1;
+    string teamId = 2;
+}
+
+message DelTeamResp {
+    string message = 1;
+}
 
 message UpdateTeamPassRequest {
     string encryptedPass = 1;
@@ -104,6 +117,7 @@ message AddEventRequest{
     string createdBy = 11;
     bool onlyVPN = 12;
     string secretKey = 13;
+    string disabledExercises = 14;
 }
 
 message AddTeamRequest{
@@ -134,6 +148,7 @@ message GetEventResponse{
         string createdBy =11;
         bool onlyVPN = 12;
         string secretKey = 13;
+        string disabledExercises = 14;
     }
     repeated Events events = 1;
     string errorMessage = 2;
