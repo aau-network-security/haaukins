@@ -28,6 +28,7 @@ func (c *Client) CmdTeam() *cobra.Command {
 		c.CmdSolveChallenge(),
 		c.CmdTeamFlags(),
 		c.CmdUpdateTeamPassword(),
+		c.CmdDeleteTeam(),
 	)
 
 	return cmd
@@ -226,6 +227,31 @@ func (c *Client) CmdUpdateTeamPassword() *cobra.Command {
 				return
 			}
 			fmt.Println(resp.Status)
+		},
+	}
+	return cmd
+}
+
+func (c *Client) CmdDeleteTeam() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "del [ event-tag ] [team-id] ",
+		Short:   "Delete team from event.",
+		Example: "hkn team delete test-event azbu29c1",
+		Args:    cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+			eventTag := args[0]
+			teamId := args[1]
+			req := &pb.DeleteTeamRequest{
+				EvTag:  eventTag,
+				TeamId: teamId,
+			}
+			_, err := c.rpcClient.DeleteTeam(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
 		},
 	}
 	return cmd

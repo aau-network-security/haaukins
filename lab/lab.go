@@ -213,21 +213,42 @@ func (l *lab) Stop() error {
 }
 
 func (l *lab) Restart(ctx context.Context) error {
-	if err := l.environment.Stop(); err != nil {
-		return err
-	}
 
-	if err := l.environment.Start(ctx); err != nil {
+	if err := l.environment.Reset(ctx); err != nil {
 		return err
 	}
 
 	for _, fconf := range l.frontends {
-		if err := fconf.vm.Stop(); err != nil {
-			return err
-		}
+		switch fconf.vm.Info().State {
+		case virtual.Running:
+			if err := fconf.vm.Stop(); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+		case virtual.Stopped:
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+		case virtual.Suspended:
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
+			if err := fconf.vm.Stop(); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 
-		if err := fconf.vm.Start(ctx); err != nil {
-			return err
+		case virtual.Error:
+			if err := fconf.vm.Create(ctx); err != nil {
+				return err
+			}
+			if err := fconf.vm.Start(ctx); err != nil {
+				return err
+			}
 		}
 	}
 
