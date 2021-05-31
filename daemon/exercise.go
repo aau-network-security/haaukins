@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
@@ -171,4 +172,80 @@ func protobufToJson(message proto.Message) (string, error) {
 	}
 
 	return marshaler.MarshalToString(message)
+}
+
+func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) (*pb.AddChallengeResponse, error) {
+	eventTag := req.EventTag
+	challengeTags := req.ChallengeTag
+	var exers []store.Exercise
+	var waitGroup sync.WaitGroup
+	var once sync.Once
+
+	ev, err := d.eventPool.GetEvent(store.Tag(eventTag))
+	if err != nil {
+		return &pb.AddChallengeResponse{Message: err.Error()}, err
+	}
+
+	exer, err := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: challengeTags})
+	if err != nil {
+		return nil, fmt.Errorf("[exercises-service] error %v", err)
+	}
+
+	for _, e := range exer.Exercises {
+		exercise, err := protobufToJson(e)
+		if err != nil {
+			return nil, err
+		}
+		estruct := store.Exercise{}
+		json.Unmarshal([]byte(exercise), &estruct)
+		exers = append(exers, estruct)
+	}
+	var addChalError error
+	go func() {
+		lb := <-ev.GetHub().Queue()
+		if err := lb.AddChallenge(ctx, exers...); err != nil {
+			addChalError = err
+		}
+	}()
+	frontendData := ev.GetFrontendData()
+	for tid, l := range ev.GetAssignedLabs() {
+		if err := l.AddChallenge(ctx, exers...); err != nil {
+			addChalError = err
+		}
+		t, err := ev.GetTeamById(tid)
+		if err != nil {
+			addChalError = err
+		}
+
+		chals := l.Environment().Challenges()
+		for _, chal := range chals {
+			tag, _ := store.NewTag(string(chal.Tag))
+			_, _ = t.AddChallenge(store.Challenge{
+				Tag:   tag,
+				Name:  chal.Name,
+				Value: chal.Value,
+			})
+			log.Info().Str("chal-tag", string(tag)).
+				Str("chal-val", chal.Value).
+				Msgf("Flag is created for team %s [add-challenge function] ", t.Name())
+		}
+
+	}
+	updateChallenges := func() {
+		for _, fl := range exers {
+			waitGroup.Add(1)
+			go func() {
+				defer waitGroup.Done()
+				frontendData.UpdateChallenges(fl.Flags()...)
+
+			}()
+			waitGroup.Wait()
+		}
+	}
+	once.Do(updateChallenges)
+
+	if addChalError != nil {
+		return &pb.AddChallengeResponse{Message: fmt.Sprintf("Error: %v", addChalError)}, addChalError
+	}
+	return &pb.AddChallengeResponse{Message: fmt.Sprintf("challenges %v are added to event %s ", challengeTags, eventTag)}, nil
 }
