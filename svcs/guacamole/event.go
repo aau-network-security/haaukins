@@ -219,6 +219,8 @@ type Event interface {
 	GetHub() lab.Hub
 	UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	GetLabByTeam(teamId string) (lab.Lab, bool)
+	GetAssignedLabs() map[string]lab.Lab
+	GetFrontendData() *amigo.FrontendData
 	DeleteTeam(id string) (bool, error)
 }
 
@@ -304,6 +306,13 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	}
 
 	return ev, nil
+}
+
+func (ev *event) GetFrontendData() *amigo.FrontendData {
+	return ev.amigo.FrontEndData
+}
+func (ev *event) GetAssignedLabs() map[string]lab.Lab {
+	return ev.labs
 }
 
 // SetStatus sets status of event in cache
