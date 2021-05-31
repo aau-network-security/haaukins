@@ -82,6 +82,7 @@ type Amigo struct {
 	TeamStore    store.Event
 	recaptcha    Recaptcha
 	wgClient     wg.WireguardClient
+	FrontEndData *FrontendData
 }
 
 type AmigoOpt func(*Amigo)
@@ -148,9 +149,9 @@ type Hooks struct {
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
-	fd := newFrontendData(am.TeamStore, am.challenges...)
-	go fd.runFrontendData()
-
+	fd := NewFrontendData(am.TeamStore, am.challenges...)
+	go fd.RunFrontendData()
+	am.FrontEndData = fd
 	m := http.NewServeMux()
 
 	m.HandleFunc("/", am.handleIndex())
@@ -179,6 +180,10 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 
 	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir(wd+"/svcs/amigo/resources/public"))))
 	return m
+}
+
+func (am *Amigo) GetFrontendData() *FrontendData {
+	return am.FrontEndData
 }
 
 func (am *Amigo) handleIndex() http.HandlerFunc {
@@ -1159,11 +1164,4 @@ func checkVarLength(input string, max int) error {
 		return fmt.Errorf("exceeds character limit")
 	}
 	return nil
-}
-
-func pop(alist *[]int) int {
-	f := len(*alist)
-	rv := (*alist)[f-1]
-	*alist = append((*alist)[:f-1])
-	return rv
 }
