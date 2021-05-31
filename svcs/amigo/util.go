@@ -161,21 +161,28 @@ type FrontendData struct {
 	ts         store.TeamStore
 	challenges []store.FlagConfig
 	clients    map[*Client]struct{}
+	update     chan []store.FlagConfig
 	register   chan *Client
 	unregister chan *Client
 }
 
-func newFrontendData(ts store.TeamStore, chals ...store.FlagConfig) *FrontendData {
+func NewFrontendData(ts store.TeamStore, chals ...store.FlagConfig) *FrontendData {
+
 	return &FrontendData{
 		ts:         ts,
 		challenges: chals,
 		register:   make(chan *Client),
+		update:     make(chan []store.FlagConfig),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]struct{}),
 	}
 }
 
-func (fd *FrontendData) runFrontendData() {
+func (fd *FrontendData) UpdateChallenges(chals ...store.FlagConfig) {
+	fd.update <- chals
+}
+
+func (fd *FrontendData) RunFrontendData() {
 	for {
 		select {
 		case client := <-fd.register:
@@ -184,28 +191,23 @@ func (fd *FrontendData) runFrontendData() {
 			default:
 				continue
 			}
-
 			select {
 			case client.send <- fd.initTeams(client.teamId):
 			default:
 				continue
 			}
-
+			select {
+			case newChs := <-fd.update:
+				fd.challenges = append(fd.challenges, newChs...)
+			default:
+				continue
+			}
 			fd.clients[client] = struct{}{}
 		case client := <-fd.unregister:
 			if _, ok := fd.clients[client]; ok {
 				delete(fd.clients, client)
 				close(client.send)
 			}
-			// case message := <-sb.broadcast:
-			// 	for client := range sb.clients {
-			// 		select {
-			// 		case client.send <- message:
-			// 		default:
-			// 			close(client.send)
-			// 			delete(sb.clients, client)
-			// 		}
-			// 	}
 		}
 	}
 }
@@ -230,10 +232,6 @@ func (fd *FrontendData) handleConns() http.HandlerFunc {
 
 	}
 }
-
-// serveWs handles websocket requests from the peer.
-//func serveWs(sb *Scoreboard, w http.ResponseWriter, r *http.Request) {
-//}
 
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
