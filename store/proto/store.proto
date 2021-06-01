@@ -16,14 +16,25 @@ service Store {
     rpc GetEventID(GetEventIDReq) returns (GetEventIDResp) {}
 
     rpc SetEventStatus (SetEventStatusRequest) returns (EventStatusStore) {}
+
     //Update
     rpc UpdateCloseEvent (UpdateEventRequest) returns (UpdateResponse) {}
     rpc UpdateTeamSolvedChallenge (UpdateTeamSolvedChallengeRequest) returns (UpdateResponse) {}
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
     rpc UpdateTeamPassword (UpdateTeamPassRequest) returns (UpdateResponse) {}
+    rpc UpdateExercises(UpdateExerciseRequest) returns (UpdateExerciseResponse){}
 
     // Delete
     rpc DeleteTeam(DelTeamRequest) returns (DelTeamResp) {}
+}
+
+message UpdateExerciseRequest {
+    string eventTag = 1;
+    string challenges = 2;  // challenges should be exactly in this format :  [ ,ftp,microcms,scan    ]
+}
+
+message UpdateExerciseResponse {
+    string message = 1;
 }
 
 message EmptyRequest {}
