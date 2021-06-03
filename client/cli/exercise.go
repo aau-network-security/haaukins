@@ -156,7 +156,7 @@ func (c *Client) CmdAddExercise() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			_, err := c.rpcClient.AddChallenge(ctx, &pb.AddChallengeRequest{
+			resp, err := c.rpcClient.AddChallenge(ctx, &pb.AddChallengeRequest{
 				EventTag:     evTag,
 				ChallengeTag: exTags,
 			})
@@ -165,6 +165,7 @@ func (c *Client) CmdAddExercise() *cobra.Command {
 				PrintError(err)
 				return
 			}
+			fmt.Println(resp.Message)
 
 		},
 	}
