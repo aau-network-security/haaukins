@@ -9,7 +9,9 @@ import (
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
+	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
+	storeProto "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/rs/zerolog/log"
@@ -174,16 +176,25 @@ func protobufToJson(message proto.Message) (string, error) {
 	return marshaler.MarshalToString(message)
 }
 
+// todo: contains too much functions and for loop, requires some optimization
 func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) (*pb.AddChallengeResponse, error) {
 	eventTag := req.EventTag
 	challengeTags := req.ChallengeTag
 	var exers []store.Exercise
 	var waitGroup sync.WaitGroup
 	var once sync.Once
+	childrenChalTags := make(map[string][]string)
 
 	ev, err := d.eventPool.GetEvent(store.Tag(eventTag))
 	if err != nil {
 		return &pb.AddChallengeResponse{Message: err.Error()}, err
+	}
+	allChals := ev.GetConfig().AllChallenges
+	for _, i := range challengeTags {
+		_, ok := allChals[i]
+		if ok {
+			return &pb.AddChallengeResponse{Message: fmt.Sprintf("Requested challenge(s) %v is/are already exists on event", challengeTags)}, nil
+		}
 	}
 
 	exer, err := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: challengeTags})
@@ -200,13 +211,30 @@ func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) 
 		json.Unmarshal([]byte(exercise), &estruct)
 		exers = append(exers, estruct)
 	}
+	// getting all children childs in given parent challenge
+	for _, i := range exers {
+		for _, parentTag := range challengeTags {
+			if string(i.Tag) == parentTag {
+				childrenChalTags[parentTag] = i.ChildTags()
+			}
+		}
+	}
+
 	var addChalError error
+	var lb interface{}
 	go func() {
-		lb := <-ev.GetHub().Queue()
-		if err := lb.AddChallenge(ctx, exers...); err != nil {
+		lb = <-ev.GetHub().Queue()
+		if err := lb.(lab.Lab).AddChallenge(ctx, exers...); err != nil {
 			addChalError = err
 		}
 	}()
+
+	sendBackLab := make(chan lab.Lab, ev.GetConfig().Available)
+	go func() {
+		sendBackLab <- lb.(lab.Lab)
+		ev.GetHub().Update(sendBackLab)
+	}()
+
 	frontendData := ev.GetFrontendData()
 	for tid, l := range ev.GetAssignedLabs() {
 		if err := l.AddChallenge(ctx, exers...); err != nil {
@@ -229,8 +257,18 @@ func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) 
 				Str("chal-val", chal.Value).
 				Msgf("Flag is created for team %s [add-challenge function] ", t.Name())
 		}
-
+		t.UpdateAllChallenges(childrenChalTags)
 	}
+	delimeter := ","
+	resp, err := d.dbClient.UpdateExercises(ctx, &storeProto.UpdateExerciseRequest{
+		EventTag:   req.EventTag,
+		Challenges: delimeter + strings.Join(req.ChallengeTag, delimeter),
+	})
+	if err != nil {
+		return &pb.AddChallengeResponse{Message: err.Error()}, err
+	}
+	log.Printf(resp.Message)
+
 	updateChallenges := func() {
 		for _, fl := range exers {
 			waitGroup.Add(1)
