@@ -59,14 +59,16 @@ type exercise struct {
 }
 
 func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net docker.Network, dnsAddr string) *exercise {
-	containerOpts := conf.ContainerOpts()
-
+	var containerOpts []store.ContainerOptions
 	var vboxOpts []store.ExerciseInstanceConfig
-	for _, vboxConf := range conf.Instance {
-		if !strings.Contains(vboxConf.Image, RegistryLink) {
-			vboxOpts = append(vboxOpts, vboxConf)
-		}
 
+	for _, c := range conf.Instance {
+		if !strings.Contains(c.Image, RegistryLink) {
+			vboxOpts = append(vboxOpts, c)
+		} else {
+			containerOpts = conf.ContainerOpts()
+			break
+		}
 	}
 
 	return &exercise{
