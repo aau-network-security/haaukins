@@ -76,7 +76,7 @@ func (ee *environment) Create(ctx context.Context, isVPN bool) error {
 		return fmt.Errorf("docker new network err %v", err)
 	}
 	ee.network = network
-	ee.network.SetIsVPN(ee.isVPN)
+	ee.network.SetIsVPN(isVPN)
 	ee.dnsAddr = ee.network.FormatIP(dns.PreferedIP)
 
 	return nil
