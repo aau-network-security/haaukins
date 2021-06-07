@@ -178,8 +178,11 @@ func NewFrontendData(ts store.TeamStore, chals ...store.FlagConfig) *FrontendDat
 	}
 }
 
-func (fd *FrontendData) UpdateChallenges(chals ...store.FlagConfig) {
-	fd.update <- chals
+func (fd *FrontendData) UpdateChallenges(chals []store.FlagConfig) {
+	go func() {
+		fd.update <- chals
+	}()
+
 }
 
 func (fd *FrontendData) RunFrontendData() {
