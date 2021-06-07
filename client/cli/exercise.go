@@ -165,7 +165,18 @@ func (c *Client) CmdAddExercise() *cobra.Command {
 				PrintError(err)
 				return
 			}
-			fmt.Println(resp.Message)
+			for {
+				msg, err := resp.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if err != nil {
+					log.Fatalf(err.Error())
+				}
+
+				fmt.Printf("AddChallenge Response: %s \n", msg.Message)
+			}
 
 		},
 	}
