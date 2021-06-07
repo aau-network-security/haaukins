@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -26,7 +27,6 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	}
 
 	exes, err := d.exClient.GetExercises(ctx, &eproto.Empty{})
-	log.Debug().Msgf("Request all exercises from the service")
 	if err != nil {
 		return &pb.ListExercisesResponse{}, fmt.Errorf("[exercise-service]: ERR getting exercises %v", err)
 	}
@@ -177,9 +177,10 @@ func protobufToJson(message proto.Message) (string, error) {
 }
 
 // todo: contains too much functions and for loop, requires some optimization
-func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) (*pb.AddChallengeResponse, error) {
+func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChallengeServer) error {
 	eventTag := req.EventTag
 	challengeTags := req.ChallengeTag
+	ctx := context.TODO()
 	var exers []store.Exercise
 	var waitGroup sync.WaitGroup
 	var once sync.Once
@@ -187,25 +188,25 @@ func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) 
 
 	ev, err := d.eventPool.GetEvent(store.Tag(eventTag))
 	if err != nil {
-		return &pb.AddChallengeResponse{Message: err.Error()}, err
+		return err
 	}
 	allChals := ev.GetConfig().AllChallenges
 	for _, i := range challengeTags {
 		_, ok := allChals[i]
 		if ok {
-			return &pb.AddChallengeResponse{Message: fmt.Sprintf("Requested challenge(s) %v is/are already exists on event", challengeTags)}, nil
+			return errors.New(fmt.Sprintf("Requested challenge(s) %v is/are already exists on event", challengeTags))
 		}
 	}
 
 	exer, err := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: challengeTags})
 	if err != nil {
-		return nil, fmt.Errorf("[exercises-service] error %v", err)
+		return fmt.Errorf("[exercises-service] error %v", err)
 	}
 
 	for _, e := range exer.Exercises {
 		exercise, err := protobufToJson(e)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		estruct := store.Exercise{}
 		json.Unmarshal([]byte(exercise), &estruct)
@@ -222,15 +223,12 @@ func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) 
 
 	var addChalError error
 	var lb interface{}
+	sendBackLab := make(chan lab.Lab)
 	go func() {
 		lb = <-ev.GetHub().Queue()
 		if err := lb.(lab.Lab).AddChallenge(ctx, exers...); err != nil {
 			addChalError = err
 		}
-	}()
-
-	sendBackLab := make(chan lab.Lab, ev.GetConfig().Available)
-	go func() {
 		sendBackLab <- lb.(lab.Lab)
 		ev.GetHub().Update(sendBackLab)
 	}()
@@ -259,13 +257,15 @@ func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) 
 		}
 		t.UpdateAllChallenges(childrenChalTags)
 	}
+
+	srv.Send(&pb.AddChallengeResponse{Message: "Assigned labs are processing to add challenge(s) ..."})
 	delimeter := ","
 	resp, err := d.dbClient.UpdateExercises(ctx, &storeProto.UpdateExerciseRequest{
 		EventTag:   req.EventTag,
 		Challenges: delimeter + strings.Join(req.ChallengeTag, delimeter),
 	})
 	if err != nil {
-		return &pb.AddChallengeResponse{Message: err.Error()}, err
+		return err
 	}
 	log.Printf(resp.Message)
 
@@ -274,7 +274,7 @@ func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) 
 			waitGroup.Add(1)
 			go func() {
 				defer waitGroup.Done()
-				frontendData.UpdateChallenges(fl.Flags()...)
+				frontendData.UpdateChallenges(fl.Flags())
 
 			}()
 			waitGroup.Wait()
@@ -283,7 +283,9 @@ func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) 
 	once.Do(updateChallenges)
 
 	if addChalError != nil {
-		return &pb.AddChallengeResponse{Message: fmt.Sprintf("Error: %v", addChalError)}, addChalError
+		return addChalError
 	}
-	return &pb.AddChallengeResponse{Message: fmt.Sprintf("challenges %v are added to event %s ", challengeTags, eventTag)}, nil
+
+	srv.Send(&pb.AddChallengeResponse{Message: fmt.Sprintf("Challenge(s) %v is/(are) processing for event %s ", challengeTags, eventTag)})
+	return nil
 }
