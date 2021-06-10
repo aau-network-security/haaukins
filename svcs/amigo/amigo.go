@@ -65,12 +65,18 @@ type siteInfo struct {
 	IsSecretEvent bool
 	Content       interface{}
 	Hosts         []Hosts
+	Notification  Notification
 	LabSubnet     string
 }
 
 type team struct {
 	Id   string
 	Name string
+}
+
+type Notification struct {
+	Message       string
+	LoggedInUsers bool
 }
 
 type Amigo struct {
@@ -82,6 +88,7 @@ type Amigo struct {
 	TeamStore    store.Event
 	recaptcha    Recaptcha
 	wgClient     wg.WireguardClient
+	notification Notification
 	FrontEndData *FrontendData
 }
 
@@ -121,6 +128,10 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgC
 	}
 
 	return am
+}
+
+func (am *Amigo) SetNotification(n Notification) {
+	am.globalInfo.Notification = n
 }
 
 func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
@@ -1136,6 +1147,7 @@ func parseTemplates(givenTemplate string) (*template.Template, error) {
 	tmpl, err = template.ParseFiles(
 		wd+"/svcs/amigo/resources/private/base.tmpl.html",
 		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
+		wd+"/svcs/amigo/resources/private/notification.tmpl.html",
 		givenTemplate,
 	)
 	return tmpl, err

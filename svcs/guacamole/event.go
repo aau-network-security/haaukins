@@ -211,6 +211,7 @@ type Event interface {
 	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
 
+	AddNotification(message string, loggedInUsers bool) error
 	SetStatus(int32)
 	GetStatus() int32
 	GetConfig() store.EventConfig
@@ -306,6 +307,15 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	}
 
 	return ev, nil
+}
+
+func (ev *event) AddNotification(message string, loggedInUsers bool) error {
+	notification := amigo.Notification{
+		Message:       message,
+		LoggedInUsers: loggedInUsers,
+	}
+	ev.amigo.SetNotification(notification)
+	return nil
 }
 
 func (ev *event) GetFrontendData() *amigo.FrontendData {
