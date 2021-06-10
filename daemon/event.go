@@ -547,9 +547,6 @@ func (d *daemon) AddNotification(ctx context.Context, req *pb.AddNotificationReq
 	return &pb.AddNotificationResponse{Response: "Given notification set for all events "}, nil
 }
 
-// Due to planned maintenance the system will be unavailable from
-// Friday, 21 Jun at 9:00 PM CET, to Sunday, 23 Jun at 5:AM CET.
-
 //removeDuplicates removes duplicated values in given list
 // used incoming CreateEventRequest
 func removeDuplicates(exercises []string) []string {
