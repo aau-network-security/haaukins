@@ -57,11 +57,17 @@ func (conf Config) GetChildrenChallenges(parentTag string) []string {
 
 type Creator interface {
 	NewLab(context.Context, bool) (Lab, error)
+	UpdateExercises([]store.Exercise)
 }
 
 type LabHost struct {
 	Vlib vbox.Library
 	Conf Config
+}
+
+func (lh *LabHost) UpdateExercises(newExercises []store.Exercise) {
+	newExercises = append(newExercises, lh.Conf.Exercises...)
+	lh.Conf.Exercises = newExercises
 }
 
 func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
