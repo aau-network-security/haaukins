@@ -90,6 +90,8 @@ func (c *testCreator) NewLab(context.Context, bool) (Lab, error) {
 	return c.lab, nil
 
 }
+func (c *testCreator) UpdateExercises(exercises []store.Exercise) {
+}
 
 func TestHub(t *testing.T) {
 	tt := []struct {
