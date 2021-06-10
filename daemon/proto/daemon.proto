@@ -20,7 +20,7 @@ service Daemon {
   rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {}
 
   rpc AddChallenge(AddChallengeRequest) returns (stream AddChallengeResponse) {}
-
+  rpc AddNotification(AddNotificationRequest) returns (AddNotificationResponse) {}
 
   rpc DeleteTeam(DeleteTeamRequest) returns (stream DeleteTeamResponse) {}
 
@@ -38,6 +38,16 @@ service Daemon {
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
+}
+
+
+message AddNotificationRequest {
+  string message = 1;
+  bool loggedUsers = 2;
+}
+
+message AddNotificationResponse {
+  string response = 1;
 }
 
 message AddChallengeRequest {
