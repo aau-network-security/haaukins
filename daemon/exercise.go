@@ -269,6 +269,8 @@ func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChal
 	}
 	log.Printf(resp.Message)
 
+	ev.GetHub().UpdateExercises(exers)
+
 	updateChallenges := func() {
 		for _, fl := range exers {
 			waitGroup.Add(1)
