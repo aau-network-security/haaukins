@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version string
+var Version string
 
 type IncorrectVersonFmt struct {
 	src string
@@ -27,15 +27,15 @@ func (ivf *IncorrectVersonFmt) Error() string {
 }
 
 func isClientVersionLessThan(srv string) (bool, error) {
-	if version == "" {
+	if Version == "" {
 		return false, nil
 	}
 
-	cliParts := strings.Split(version, ".")
+	cliParts := strings.Split(Version, ".")
 	srvParts := strings.Split(srv, ".")
 
 	if len(cliParts) < 2 {
-		return false, &IncorrectVersonFmt{src: "client", fmt: version}
+		return false, &IncorrectVersonFmt{src: "client", fmt: Version}
 	}
 
 	if len(srvParts) < 2 {
@@ -45,12 +45,12 @@ func isClientVersionLessThan(srv string) (bool, error) {
 
 	intCliV, err := strconv.Atoi(strings.Join(cliParts[0:2], ""))
 	if err != nil {
-		return false, &IncorrectVersonFmt{src: "client", fmt: version}
+		return false, &IncorrectVersonFmt{src: "client", fmt: Version}
 	}
 
 	intSrvV, err := strconv.Atoi(strings.Join(srvParts[0:2], ""))
 	if err != nil {
-		return false, &IncorrectVersonFmt{src: "daemon", fmt: version}
+		return false, &IncorrectVersonFmt{src: "daemon", fmt: Version}
 	}
 
 	if intSrvV > intCliV {
@@ -80,11 +80,11 @@ func (c *Client) CmdVersionClient() *cobra.Command {
 		Short:   "Print client version",
 		Example: `hkn version client`,
 		Run: func(cmd *cobra.Command, args []string) {
-			if version == "" {
+			if Version == "" {
 				fmt.Printf("client: undefined\n")
 				return
 			}
-			fmt.Printf("client: %s\n", version)
+			fmt.Printf("client: %s\n", Version)
 		},
 	}
 }

@@ -50,7 +50,7 @@ var (
 	ReservedDomainErr    = errors.New("Reserved sub domain, change event tag !  ")
 
 	ReservedSubDomains = map[string]bool{"docs": true, "admin": true, "grpc": true, "api": true, "vpn": true}
-	version            string
+	Version            string
 	schedulers         []jobSpecs
 )
 
@@ -376,7 +376,7 @@ func (l *GrpcLogger) Msg(msg string) error {
 }
 
 func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error) {
-	return &pb.VersionResponse{Version: version}, nil
+	return &pb.VersionResponse{Version: Version}, nil
 }
 
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
