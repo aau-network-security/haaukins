@@ -1,5 +1,6 @@
 syntax = "proto3";
 package daemon;
+option go_package = "github.com/aau-network-security/haaukins/daemon/proto";
 service Daemon {
   rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {}
   rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {}
@@ -35,6 +36,18 @@ service Daemon {
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
+  rpc GetsolvedChallenges (GetsolvedChallengesReq) returns (GetsolvedChallengesResp) {}
+}
+
+
+message GetsolvedChallengesReq {
+  string eventTag = 1;
+  string teamID = 2;
+}
+
+message GetsolvedChallengesResp {
+  repeated string SolvedChallenges = 1;
+  string err = 2;
 }
 
 message GetExsByTagsReq {
