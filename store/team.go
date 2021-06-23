@@ -302,6 +302,14 @@ func ParseSolvedChallenges(solvedChalsDB string) ([]TeamChallenge, error) {
 	return solvedChallenges, nil
 }
 
+func (t *Team) GetSolvedChallenges() ([]string, error) {
+	var SolvedChallenges []string
+	for _, s := range t.solvedChalsDB {
+		SolvedChallenges = append(SolvedChallenges, string(s.Tag))
+	}
+	return SolvedChallenges, nil
+}
+
 func (t *Team) IsTeamSolvedChallenge(tag string) *time.Time {
 	t.m.Lock()
 	defer t.m.Unlock()

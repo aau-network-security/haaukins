@@ -93,6 +93,7 @@ type jobSpecs struct {
 }
 
 type daemon struct {
+	pb.UnimplementedDaemonServer
 	conf      *Config
 	auth      Authenticator
 	users     store.UsersFile
@@ -103,6 +104,28 @@ type daemon struct {
 	closers   []io.Closer
 	dbClient  pbc.StoreClient
 	exClient  eproto.ExerciseStoreClient
+}
+
+func (d *daemon) GetsolvedChallenges(ctx context.Context, req *pb.GetsolvedChallengesReq) (*pb.GetsolvedChallengesResp, error) {
+	eventTag := req.EventTag
+	teamID := req.TeamID
+
+	event, ok := d.eventPool.events[store.Tag(eventTag)]
+	if !ok {
+		return &pb.GetsolvedChallengesResp{}, errors.New("The event is not running at the moment")
+	}
+
+	team, err := event.GetTeamById(teamID)
+
+	if err != nil {
+		return &pb.GetsolvedChallengesResp{}, err
+	}
+	SolvedChallenges, err := team.GetSolvedChallenges()
+
+	if err != nil {
+		return &pb.GetsolvedChallengesResp{}, err
+	}
+	return &pb.GetsolvedChallengesResp{SolvedChallenges: SolvedChallenges}, nil
 }
 
 func (m *MissingConfigErr) Error() string {
