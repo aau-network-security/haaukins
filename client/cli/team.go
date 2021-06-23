@@ -29,6 +29,7 @@ func (c *Client) CmdTeam() *cobra.Command {
 		c.CmdTeamFlags(),
 		c.CmdUpdateTeamPassword(),
 		c.CmdDeleteTeam(),
+		c.CmdTeamGetSolvedChallenges(),
 	)
 
 	return cmd
@@ -137,6 +138,33 @@ func (c *Client) CmdTeamSuspend() *cobra.Command {
 				PrintError(err)
 				return
 			}
+		},
+	}
+
+	return cmd
+}
+func (c *Client) CmdTeamGetSolvedChallenges() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "solvedchallenges [team id] [event tag]",
+		Short:   "Get solved challenges of a team",
+		Example: "hkn team solvedchallenges azbu29c1 test-event",
+		Args:    cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+
+			teamId := args[0]
+			eventTag := args[1]
+			req := &pb.GetsolvedChallengesReq{
+				TeamID:   teamId,
+				EventTag: eventTag,
+			}
+			resp, err := c.rpcClient.GetsolvedChallenges(ctx, req)
+			if err != nil {
+				PrintError(err)
+				return
+			}
+			fmt.Println(resp.SolvedChallenges)
 		},
 	}
 
