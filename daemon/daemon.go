@@ -93,16 +93,17 @@ type jobSpecs struct {
 }
 
 type daemon struct {
-	conf      *Config
-	auth      Authenticator
-	users     store.UsersFile
-	eventPool *eventPool
-	frontends store.FrontendStore
-	ehost     guacamole.Host
-	logPool   logging.Pool
-	closers   []io.Closer
-	dbClient  pbc.StoreClient
-	exClient  eproto.ExerciseStoreClient
+	conf                         *Config
+	auth                         Authenticator
+	users                        store.UsersFile
+	eventPool                    *eventPool
+	frontends                    store.FrontendStore
+	ehost                        guacamole.Host
+	logPool                      logging.Pool
+	closers                      []io.Closer
+	dbClient                     pbc.StoreClient
+	exClient                     eproto.ExerciseStoreClient
+	pb.UnimplementedDaemonServer // discussing regarding to this https://github.com/grpc/grpc-go/issues/3669
 }
 
 func (m *MissingConfigErr) Error() string {
