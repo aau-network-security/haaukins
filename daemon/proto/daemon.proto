@@ -19,6 +19,9 @@ service Daemon {
   rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
   rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {}
 
+  rpc AddChallenge(AddChallengeRequest) returns (stream AddChallengeResponse) {}
+  rpc AddNotification(AddNotificationRequest) returns (AddNotificationResponse) {}
+
   rpc DeleteTeam(DeleteTeamRequest) returns (stream DeleteTeamResponse) {}
 
   rpc GetTeamChals(GetTeamInfoRequest) returns (TeamChalsInfo) {}
@@ -35,6 +38,26 @@ service Daemon {
   rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
+}
+
+
+message AddNotificationRequest {
+  string message = 1;
+  bool loggedUsers = 2;
+}
+
+message AddNotificationResponse {
+  string response = 1;
+}
+
+message AddChallengeRequest {
+  string eventTag = 1;
+  repeated string challengeTag = 2;
+}
+
+
+message AddChallengeResponse {
+  string message = 1;
 }
 
 message GetExsByTagsReq {

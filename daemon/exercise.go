@@ -3,12 +3,16 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
+	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
+	storeProto "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/rs/zerolog/log"
@@ -23,7 +27,6 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	}
 
 	exes, err := d.exClient.GetExercises(ctx, &eproto.Empty{})
-	log.Debug().Msgf("Request all exercises from the service")
 	if err != nil {
 		return &pb.ListExercisesResponse{}, fmt.Errorf("[exercise-service]: ERR getting exercises %v", err)
 	}
@@ -171,4 +174,120 @@ func protobufToJson(message proto.Message) (string, error) {
 	}
 
 	return marshaler.MarshalToString(message)
+}
+
+// todo: contains too much functions and for loop, requires some optimization
+func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChallengeServer) error {
+	eventTag := req.EventTag
+	challengeTags := req.ChallengeTag
+	ctx := context.TODO()
+	var exers []store.Exercise
+	var waitGroup sync.WaitGroup
+	var once sync.Once
+	childrenChalTags := make(map[string][]string)
+
+	ev, err := d.eventPool.GetEvent(store.Tag(eventTag))
+	if err != nil {
+		return err
+	}
+	allChals := ev.GetConfig().AllChallenges
+	for _, i := range challengeTags {
+		_, ok := allChals[i]
+		if ok {
+			return errors.New(fmt.Sprintf("Requested challenge(s) %v is/are already exists on event", challengeTags))
+		}
+	}
+
+	exer, err := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: challengeTags})
+	if err != nil {
+		return fmt.Errorf("[exercises-service] error %v", err)
+	}
+
+	for _, e := range exer.Exercises {
+		exercise, err := protobufToJson(e)
+		if err != nil {
+			return err
+		}
+		estruct := store.Exercise{}
+		json.Unmarshal([]byte(exercise), &estruct)
+		exers = append(exers, estruct)
+	}
+	// getting all children childs in given parent challenge
+	for _, i := range exers {
+		for _, parentTag := range challengeTags {
+			if string(i.Tag) == parentTag {
+				childrenChalTags[parentTag] = i.ChildTags()
+			}
+		}
+	}
+
+	var addChalError error
+	var lb interface{}
+	sendBackLab := make(chan lab.Lab)
+	go func() {
+		lb = <-ev.GetHub().Queue()
+		if err := lb.(lab.Lab).AddChallenge(ctx, exers...); err != nil {
+			addChalError = err
+		}
+		sendBackLab <- lb.(lab.Lab)
+		ev.GetHub().Update(sendBackLab)
+	}()
+
+	frontendData := ev.GetFrontendData()
+	for tid, l := range ev.GetAssignedLabs() {
+		if err := l.AddChallenge(ctx, exers...); err != nil {
+			addChalError = err
+		}
+		t, err := ev.GetTeamById(tid)
+		if err != nil {
+			addChalError = err
+		}
+
+		chals := l.Environment().Challenges()
+		for _, chal := range chals {
+			tag, _ := store.NewTag(string(chal.Tag))
+			_, _ = t.AddChallenge(store.Challenge{
+				Tag:   tag,
+				Name:  chal.Name,
+				Value: chal.Value,
+			})
+			log.Info().Str("chal-tag", string(tag)).
+				Str("chal-val", chal.Value).
+				Msgf("Flag is created for team %s [add-challenge function] ", t.Name())
+		}
+		t.UpdateAllChallenges(childrenChalTags)
+	}
+
+	srv.Send(&pb.AddChallengeResponse{Message: "Assigned labs are processing to add challenge(s) ..."})
+	delimeter := ","
+	resp, err := d.dbClient.UpdateExercises(ctx, &storeProto.UpdateExerciseRequest{
+		EventTag:   req.EventTag,
+		Challenges: delimeter + strings.Join(req.ChallengeTag, delimeter),
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf(resp.Message)
+
+	ev.GetHub().UpdateExercises(exers)
+
+	updateChallenges := func() {
+		for _, fl := range exers {
+			waitGroup.Add(1)
+			go func() {
+				defer waitGroup.Done()
+				frontendData.UpdateChallenges(fl.Flags())
+
+			}()
+			waitGroup.Wait()
+		}
+	}
+	once.Do(updateChallenges)
+
+	if addChalError != nil {
+		return addChalError
+	}
+
+	srv.Send(&pb.AddChallengeResponse{Message: fmt.Sprintf("Challenge(s) %v is/(are) processing for event %s ", challengeTags, eventTag)})
+	return nil
 }
