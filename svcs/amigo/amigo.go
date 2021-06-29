@@ -65,18 +65,12 @@ type siteInfo struct {
 	IsSecretEvent bool
 	Content       interface{}
 	Hosts         []Hosts
-	Notification  Notification
 	LabSubnet     string
 }
 
 type team struct {
 	Id   string
 	Name string
-}
-
-type Notification struct {
-	Message       string
-	LoggedInUsers bool
 }
 
 type Amigo struct {
@@ -88,8 +82,6 @@ type Amigo struct {
 	TeamStore    store.Event
 	recaptcha    Recaptcha
 	wgClient     wg.WireguardClient
-	notification Notification
-	FrontEndData *FrontendData
 }
 
 type AmigoOpt func(*Amigo)
@@ -130,10 +122,6 @@ func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgC
 	return am
 }
 
-func (am *Amigo) SetNotification(n Notification) {
-	am.globalInfo.Notification = n
-}
-
 func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {
 	info := am.globalInfo
 
@@ -160,9 +148,9 @@ type Hooks struct {
 }
 
 func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
-	fd := NewFrontendData(am.TeamStore, am.challenges...)
-	go fd.RunFrontendData()
-	am.FrontEndData = fd
+	fd := newFrontendData(am.TeamStore, am.challenges...)
+	go fd.runFrontendData()
+
 	m := http.NewServeMux()
 
 	m.HandleFunc("/", am.handleIndex())
@@ -191,10 +179,6 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 
 	m.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir(wd+"/svcs/amigo/resources/public"))))
 	return m
-}
-
-func (am *Amigo) GetFrontendData() *FrontendData {
-	return am.FrontEndData
 }
 
 func (am *Amigo) handleIndex() http.HandlerFunc {
@@ -1147,7 +1131,6 @@ func parseTemplates(givenTemplate string) (*template.Template, error) {
 	tmpl, err = template.ParseFiles(
 		wd+"/svcs/amigo/resources/private/base.tmpl.html",
 		wd+"/svcs/amigo/resources/private/navbar.tmpl.html",
-		wd+"/svcs/amigo/resources/private/notification.tmpl.html",
 		givenTemplate,
 	)
 	return tmpl, err
@@ -1176,4 +1159,11 @@ func checkVarLength(input string, max int) error {
 		return fmt.Errorf("exceeds character limit")
 	}
 	return nil
+}
+
+func pop(alist *[]int) int {
+	f := len(*alist)
+	rv := (*alist)[f-1]
+	*alist = append((*alist)[:f-1])
+	return rv
 }

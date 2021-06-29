@@ -549,7 +549,7 @@ table tr:last-child td:last-child {
 /*big screen*/
 @media (min-width: 992px) {
     #mainNav {
-        padding-top: 35px;
+        padding-top: 25px;
         padding-bottom: 25px;
         transition: padding-top 0.3s, padding-bottom 0.3s;
         border: none;

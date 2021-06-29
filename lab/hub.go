@@ -9,7 +9,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/aau-network-security/haaukins/store"
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,7 +23,6 @@ type Hub interface {
 	Suspend(context.Context) error
 	Resume(context.Context) error
 	Update(labTag <-chan Lab)
-	UpdateExercises(exercises []store.Exercise)
 }
 
 type hub struct {
@@ -186,11 +184,6 @@ func (h *hub) Suspend(ctx context.Context) error {
 	}
 
 	return suspendError
-}
-
-func (h *hub) UpdateExercises(exercises []store.Exercise) {
-	log.Debug().Msgf("[add-challenge]: Updating set of exercises on NewLab ... ")
-	h.creator.UpdateExercises(exercises)
 }
 
 func (h *hub) Resume(ctx context.Context) error {

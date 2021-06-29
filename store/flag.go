@@ -97,6 +97,7 @@ func randCharBytes(n int) string {
 
 type Flag [flagNumCharsFormat]byte
 
+//fmt.SpHKN{}
 func NewFlag() Flag {
 	var arr [flagUniqueChars]byte
 	s := []byte(randCharBytes(10))

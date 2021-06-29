@@ -26,7 +26,6 @@ func (c *Client) CmdExercise() *cobra.Command {
 	cmd.AddCommand(
 		c.CmdExerciseList(),
 		c.CmdExerciseReset(),
-		c.CmdAddExercise(),
 	)
 
 	return cmd
@@ -135,54 +134,6 @@ func (c *Client) CmdExerciseReset() *cobra.Command {
 
 	cmd.Flags().StringVarP(&evTag, "evtag", "e", "", "the event name")
 	cmd.Flags().StringSliceVarP(&teamIds, "teams", "t", nil, "list of team ids for which to reset the exercise")
-	cmd.MarkFlagRequired("evtag")
-
-	return cmd
-}
-
-func (c *Client) CmdAddExercise() *cobra.Command {
-	var (
-		evTag  string
-		exTags []string
-	)
-
-	cmd := &cobra.Command{
-		Use:     "add -e [event tag] -x [exercise tags]",
-		Short:   "Add exercises",
-		Long:    "Add exercise to given event",
-		Example: `hkn add -e bootcamp -x sql,scan,mitm`,
-		Args:    cobra.MinimumNArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-
-			resp, err := c.rpcClient.AddChallenge(ctx, &pb.AddChallengeRequest{
-				EventTag:     evTag,
-				ChallengeTag: exTags,
-			})
-
-			if err != nil {
-				PrintError(err)
-				return
-			}
-			for {
-				msg, err := resp.Recv()
-				if err == io.EOF {
-					break
-				}
-
-				if err != nil {
-					log.Fatalf(err.Error())
-				}
-
-				fmt.Printf("AddChallenge Response: %s \n", msg.Message)
-			}
-
-		},
-	}
-
-	cmd.Flags().StringVarP(&evTag, "evtag", "e", "", "the event tag")
-	cmd.Flags().StringSliceVarP(&exTags, "exercises", "x", nil, "list of exercise tags to be added to event")
 	cmd.MarkFlagRequired("evtag")
 
 	return cmd

@@ -38,14 +38,6 @@ func (e Exercise) Flags() []FlagConfig {
 	return res
 }
 
-func (e Exercise) ChildTags() []string {
-	var childTags []string
-	for _, i := range e.Flags() {
-		childTags = append(childTags, string(i.Tag))
-	}
-	return childTags
-}
-
 func (e Exercise) Validate() error {
 	if e.Tag == "" {
 		return &EmptyVarErr{Var: "Tag", Type: "Exercise"}

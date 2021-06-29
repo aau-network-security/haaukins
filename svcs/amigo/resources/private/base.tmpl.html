@@ -11,17 +11,8 @@
 		<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 	</head>
     <body>
-	{{ if .Notification.LoggedInUsers }}
-		{{ if .Team }}
-			{{ template "notification" . }}
-		{{ end }}
-	{{ else if .Notification.Message }}
-		{{ template "notification" . }}
-	{{ end  }}
-
 	{{ template "navbar" . }}
 	<main id="content">
-
 	    {{ template "content" . }}
 		<img class="wave-bg-footer" src="/assets/img/smallwave-footer.png">
 	</main>

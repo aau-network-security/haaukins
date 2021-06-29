@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/aau-network-security/haaukins/exercise"
-	"github.com/aau-network-security/haaukins/store"
 	"github.com/aau-network-security/haaukins/virtual"
 	"github.com/google/uuid"
 )
@@ -41,10 +40,6 @@ func (tl *testLab) Suspend(context.Context) error {
 
 func (tl *testLab) Resume(context.Context) error {
 	tl.resumed <- true
-	return nil
-}
-
-func (tl *testLab) AddChallenge(ctx context.Context, confs ...store.Exercise) error {
 	return nil
 }
 
@@ -89,8 +84,6 @@ func (c *testCreator) NewLab(context.Context, bool) (Lab, error) {
 
 	return c.lab, nil
 
-}
-func (c *testCreator) UpdateExercises(exercises []store.Exercise) {
 }
 
 func TestHub(t *testing.T) {

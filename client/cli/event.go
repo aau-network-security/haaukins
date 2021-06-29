@@ -34,8 +34,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 		c.CmdEventList(),
 		c.CmdEventTeams(),
 		c.CmdEventLoadTest(),
-		c.CmdEventTeamRestart(),
-		c.CmdAddNotification())
+		c.CmdEventTeamRestart())
 
 	return cmd
 }
@@ -319,34 +318,6 @@ func (c *Client) CmdEventLoadTest() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&eventTag, "tag", "t", "", "event tag")
 	cmd.Flags().Int32VarP(&numberOfTeams, "requests", "r", 1, "number of users")
-	return cmd
-}
-
-func (c *Client) CmdAddNotification() *cobra.Command {
-	var message string
-	var loggedInUsers bool
-	cmd := &cobra.Command{
-		Use:     "announce",
-		Short:   "Announce something before hand to all event pages...",
-		Example: `hkn event announce -m "This is just an example announcement for all users" -l true `,
-		Run: func(cmd *cobra.Command, args []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			defer cancel()
-			r, err := c.rpcClient.AddNotification(ctx, &pb.AddNotificationRequest{
-				Message:     message,
-				LoggedUsers: loggedInUsers,
-			})
-
-			if err != nil {
-				PrintError(err)
-				return
-			}
-			fmt.Println(r.Response)
-			return
-		},
-	}
-	cmd.Flags().StringVarP(&message, "message", "m", "", "announcement message")
-	cmd.Flags().BoolVarP(&loggedInUsers, "onlyloggedin", "l", false, "only logged users ")
 	return cmd
 }
 

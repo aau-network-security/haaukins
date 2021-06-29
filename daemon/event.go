@@ -520,33 +520,6 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, resp pb.Daemon_Suspen
 	return nil
 }
 
-func (d *daemon) AddNotification(ctx context.Context, req *pb.AddNotificationRequest) (*pb.AddNotificationResponse, error) {
-	usr, err := getUserFromIncomingContext(ctx)
-	if err != nil {
-		return &pb.AddNotificationResponse{}, err
-	}
-	if !usr.SuperUser {
-		return &pb.AddNotificationResponse{}, errors.New("this feature is only available for super users ")
-	}
-	var waitGroup sync.WaitGroup
-	message := strings.TrimSpace(req.Message)
-	loggedInUsers := req.LoggedUsers
-
-	for _, e := range d.eventPool.events {
-		waitGroup.Add(1)
-		go func() {
-			defer waitGroup.Done()
-			if err := e.AddNotification(message, loggedInUsers); err != nil {
-				log.Error().Msgf("[add-notification] err: %v ", err)
-				// todo: might be added return
-			}
-		}()
-		waitGroup.Wait()
-	}
-
-	return &pb.AddNotificationResponse{Response: "Given notification set for all events "}, nil
-}
-
 //removeDuplicates removes duplicated values in given list
 // used incoming CreateEventRequest
 func removeDuplicates(exercises []string) []string {
