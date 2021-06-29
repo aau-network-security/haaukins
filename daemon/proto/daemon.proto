@@ -1,5 +1,6 @@
 syntax = "proto3";
 package daemon;
+option go_package = "github.com/aau-network-security/haaukins/daemon/proto";
 service Daemon {
   rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {}
   rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {}
