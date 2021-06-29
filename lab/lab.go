@@ -57,11 +57,17 @@ func (conf Config) GetChildrenChallenges(parentTag string) []string {
 
 type Creator interface {
 	NewLab(context.Context, bool) (Lab, error)
+	UpdateExercises([]store.Exercise)
 }
 
 type LabHost struct {
 	Vlib vbox.Library
 	Conf Config
+}
+
+func (lh *LabHost) UpdateExercises(newExercises []store.Exercise) {
+	newExercises = append(newExercises, lh.Conf.Exercises...)
+	lh.Conf.Exercises = newExercises
 }
 
 func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
@@ -109,6 +115,7 @@ type Lab interface {
 	ResetFrontends(ctx context.Context) error
 	RdpConnPorts() []uint
 	Tag() string
+	AddChallenge(ctx context.Context, confs ...store.Exercise) error
 	InstanceInfo() []virtual.InstanceInfo
 	Close() error
 }
@@ -151,6 +158,27 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPor
 	log.Debug().Msgf("Created lab frontend on port %d", rdpPort)
 
 	return vm, nil
+}
+
+func (l *lab) AddChallenge(ctx context.Context, confs ...store.Exercise) error {
+	var waitGroup sync.WaitGroup
+	var startByTagError error
+	if err := l.environment.Add(ctx, confs...); err != nil {
+		return err
+	}
+
+	for _, ch := range confs {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			if err := l.environment.StartByTag(ctx, string(ch.Tag)); err != nil {
+				startByTagError = err
+			}
+		}()
+		waitGroup.Wait()
+	}
+
+	return startByTagError
 }
 
 func (l *lab) Environment() exercise.Environment {
