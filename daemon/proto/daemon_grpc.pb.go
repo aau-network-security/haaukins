@@ -34,6 +34,8 @@ type DaemonClient interface {
 	ListEventTeams(ctx context.Context, in *ListEventTeamsRequest, opts ...grpc.CallOption) (*ListEventTeamsResponse, error)
 	RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (Daemon_RestartTeamLabClient, error)
 	SolveChallenge(ctx context.Context, in *SolveChallengeRequest, opts ...grpc.CallOption) (*SolveChallengeResponse, error)
+	AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (Daemon_AddChallengeClient, error)
+	AddNotification(ctx context.Context, in *AddNotificationRequest, opts ...grpc.CallOption) (*AddNotificationResponse, error)
 	DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (Daemon_DeleteTeamClient, error)
 	GetTeamChals(ctx context.Context, in *GetTeamInfoRequest, opts ...grpc.CallOption) (*TeamChalsInfo, error)
 	StressEvent(ctx context.Context, in *TestEventLoadReq, opts ...grpc.CallOption) (*TestEventLoadResp, error)
@@ -293,8 +295,49 @@ func (c *daemonClient) SolveChallenge(ctx context.Context, in *SolveChallengeReq
 	return out, nil
 }
 
+func (c *daemonClient) AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (Daemon_AddChallengeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[4], "/daemon.Daemon/AddChallenge", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &daemonAddChallengeClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Daemon_AddChallengeClient interface {
+	Recv() (*AddChallengeResponse, error)
+	grpc.ClientStream
+}
+
+type daemonAddChallengeClient struct {
+	grpc.ClientStream
+}
+
+func (x *daemonAddChallengeClient) Recv() (*AddChallengeResponse, error) {
+	m := new(AddChallengeResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *daemonClient) AddNotification(ctx context.Context, in *AddNotificationRequest, opts ...grpc.CallOption) (*AddNotificationResponse, error) {
+	out := new(AddNotificationResponse)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/AddNotification", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *daemonClient) DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (Daemon_DeleteTeamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[4], "/daemon.Daemon/DeleteTeam", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[5], "/daemon.Daemon/DeleteTeam", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +396,7 @@ func (c *daemonClient) ListExercises(ctx context.Context, in *Empty, opts ...grp
 }
 
 func (c *daemonClient) ResetExercise(ctx context.Context, in *ResetExerciseRequest, opts ...grpc.CallOption) (Daemon_ResetExerciseClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[5], "/daemon.Daemon/ResetExercise", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[6], "/daemon.Daemon/ResetExercise", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +446,7 @@ func (c *daemonClient) ListFrontends(ctx context.Context, in *Empty, opts ...grp
 }
 
 func (c *daemonClient) ResetFrontends(ctx context.Context, in *ResetFrontendsRequest, opts ...grpc.CallOption) (Daemon_ResetFrontendsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[6], "/daemon.Daemon/ResetFrontends", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[7], "/daemon.Daemon/ResetFrontends", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +505,7 @@ func (c *daemonClient) GetTeamInfo(ctx context.Context, in *GetTeamInfoRequest, 
 }
 
 func (c *daemonClient) MonitorHost(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Daemon_MonitorHostClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[7], "/daemon.Daemon/MonitorHost", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[8], "/daemon.Daemon/MonitorHost", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -522,6 +565,8 @@ type DaemonServer interface {
 	ListEventTeams(context.Context, *ListEventTeamsRequest) (*ListEventTeamsResponse, error)
 	RestartTeamLab(*RestartTeamLabRequest, Daemon_RestartTeamLabServer) error
 	SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error)
+	AddChallenge(*AddChallengeRequest, Daemon_AddChallengeServer) error
+	AddNotification(context.Context, *AddNotificationRequest) (*AddNotificationResponse, error)
 	DeleteTeam(*DeleteTeamRequest, Daemon_DeleteTeamServer) error
 	GetTeamChals(context.Context, *GetTeamInfoRequest) (*TeamChalsInfo, error)
 	StressEvent(context.Context, *TestEventLoadReq) (*TestEventLoadResp, error)
@@ -589,6 +634,12 @@ func (UnimplementedDaemonServer) RestartTeamLab(*RestartTeamLabRequest, Daemon_R
 }
 func (UnimplementedDaemonServer) SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SolveChallenge not implemented")
+}
+func (UnimplementedDaemonServer) AddChallenge(*AddChallengeRequest, Daemon_AddChallengeServer) error {
+	return status.Errorf(codes.Unimplemented, "method AddChallenge not implemented")
+}
+func (UnimplementedDaemonServer) AddNotification(context.Context, *AddNotificationRequest) (*AddNotificationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddNotification not implemented")
 }
 func (UnimplementedDaemonServer) DeleteTeam(*DeleteTeamRequest, Daemon_DeleteTeamServer) error {
 	return status.Errorf(codes.Unimplemented, "method DeleteTeam not implemented")
@@ -942,6 +993,45 @@ func _Daemon_SolveChallenge_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Daemon_AddChallenge_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AddChallengeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServer).AddChallenge(m, &daemonAddChallengeServer{stream})
+}
+
+type Daemon_AddChallengeServer interface {
+	Send(*AddChallengeResponse) error
+	grpc.ServerStream
+}
+
+type daemonAddChallengeServer struct {
+	grpc.ServerStream
+}
+
+func (x *daemonAddChallengeServer) Send(m *AddChallengeResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Daemon_AddNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddNotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).AddNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/AddNotification",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).AddNotification(ctx, req.(*AddNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Daemon_DeleteTeam_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(DeleteTeamRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1244,6 +1334,10 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_SolveChallenge_Handler,
 		},
 		{
+			MethodName: "AddNotification",
+			Handler:    _Daemon_AddNotification_Handler,
+		},
+		{
 			MethodName: "GetTeamChals",
 			Handler:    _Daemon_GetTeamChals_Handler,
 		},
@@ -1299,6 +1393,11 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "RestartTeamLab",
 			Handler:       _Daemon_RestartTeamLab_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "AddChallenge",
+			Handler:       _Daemon_AddChallenge_Handler,
 			ServerStreams: true,
 		},
 		{

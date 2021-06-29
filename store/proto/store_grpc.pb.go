@@ -36,6 +36,7 @@ type StoreClient interface {
 	UpdateTeamSolvedChallenge(ctx context.Context, in *UpdateTeamSolvedChallengeRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	UpdateTeamLastAccess(ctx context.Context, in *UpdateTeamLastAccessRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	UpdateTeamPassword(ctx context.Context, in *UpdateTeamPassRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
+	UpdateExercises(ctx context.Context, in *UpdateExerciseRequest, opts ...grpc.CallOption) (*UpdateExerciseResponse, error)
 	// Delete
 	DeleteTeam(ctx context.Context, in *DelTeamRequest, opts ...grpc.CallOption) (*DelTeamResp, error)
 }
@@ -183,6 +184,15 @@ func (c *storeClient) UpdateTeamPassword(ctx context.Context, in *UpdateTeamPass
 	return out, nil
 }
 
+func (c *storeClient) UpdateExercises(ctx context.Context, in *UpdateExerciseRequest, opts ...grpc.CallOption) (*UpdateExerciseResponse, error) {
+	out := new(UpdateExerciseResponse)
+	err := c.cc.Invoke(ctx, "/store.Store/UpdateExercises", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *storeClient) DeleteTeam(ctx context.Context, in *DelTeamRequest, opts ...grpc.CallOption) (*DelTeamResp, error) {
 	out := new(DelTeamResp)
 	err := c.cc.Invoke(ctx, "/store.Store/DeleteTeam", in, out, opts...)
@@ -214,6 +224,7 @@ type StoreServer interface {
 	UpdateTeamSolvedChallenge(context.Context, *UpdateTeamSolvedChallengeRequest) (*UpdateResponse, error)
 	UpdateTeamLastAccess(context.Context, *UpdateTeamLastAccessRequest) (*UpdateResponse, error)
 	UpdateTeamPassword(context.Context, *UpdateTeamPassRequest) (*UpdateResponse, error)
+	UpdateExercises(context.Context, *UpdateExerciseRequest) (*UpdateExerciseResponse, error)
 	// Delete
 	DeleteTeam(context.Context, *DelTeamRequest) (*DelTeamResp, error)
 	mustEmbedUnimplementedStoreServer()
@@ -267,6 +278,9 @@ func (UnimplementedStoreServer) UpdateTeamLastAccess(context.Context, *UpdateTea
 }
 func (UnimplementedStoreServer) UpdateTeamPassword(context.Context, *UpdateTeamPassRequest) (*UpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateTeamPassword not implemented")
+}
+func (UnimplementedStoreServer) UpdateExercises(context.Context, *UpdateExerciseRequest) (*UpdateExerciseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateExercises not implemented")
 }
 func (UnimplementedStoreServer) DeleteTeam(context.Context, *DelTeamRequest) (*DelTeamResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTeam not implemented")
@@ -554,6 +568,24 @@ func _Store_UpdateTeamPassword_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Store_UpdateExercises_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateExerciseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).UpdateExercises(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/store.Store/UpdateExercises",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).UpdateExercises(ctx, req.(*UpdateExerciseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Store_DeleteTeam_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DelTeamRequest)
 	if err := dec(in); err != nil {
@@ -638,6 +670,10 @@ var Store_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateTeamPassword",
 			Handler:    _Store_UpdateTeamPassword_Handler,
+		},
+		{
+			MethodName: "UpdateExercises",
+			Handler:    _Store_UpdateExercises_Handler,
 		},
 		{
 			MethodName: "DeleteTeam",
