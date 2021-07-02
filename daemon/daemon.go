@@ -39,6 +39,7 @@ import (
 )
 
 var (
+	MyTestVar            = errors.New("Hallo this is a test")
 	DuplicateEventErr    = errors.New("Event with that tag already exists")
 	UnknownEventErr      = errors.New("Unable to find event by that tag")
 	MissingTokenErr      = errors.New("No security token provided")
@@ -119,7 +120,7 @@ func NewConfigFromFile(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println(MyTestVar)
 	var c Config
 	err = yaml.Unmarshal(f, &c)
 	if err != nil {
