@@ -487,6 +487,14 @@ table tr:last-child td:last-child {
 
 .chal-desc p, .dark-color{
     color: #444;
+
+}
+.chal-desc ul{
+    padding-left: 40px;
+}
+
+.chal-desc ol{
+    padding-left: 40px;
 }
 
 .text-black{
