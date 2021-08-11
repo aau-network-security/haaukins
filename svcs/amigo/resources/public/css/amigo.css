@@ -487,6 +487,14 @@ table tr:last-child td:last-child {
 
 .chal-desc p, .dark-color{
     color: #444;
+
+}
+.chal-desc ul{
+    padding-left: 40px;
+}
+
+.chal-desc ol{
+    padding-left: 40px;
 }
 
 .text-black{
@@ -549,7 +557,7 @@ table tr:last-child td:last-child {
 /*big screen*/
 @media (min-width: 992px) {
     #mainNav {
-        padding-top: 25px;
+        padding-top: 35px;
         padding-bottom: 25px;
         transition: padding-top 0.3s, padding-bottom 0.3s;
         border: none;

@@ -211,6 +211,7 @@ type Event interface {
 	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
 
+	AddNotification(message string, loggedInUsers bool) error
 	SetStatus(int32)
 	GetStatus() int32
 	GetConfig() store.EventConfig
@@ -219,6 +220,8 @@ type Event interface {
 	GetHub() lab.Hub
 	UpdateTeamPassword(id, pass, passRepeat string) (string, error)
 	GetLabByTeam(teamId string) (lab.Lab, bool)
+	GetAssignedLabs() map[string]lab.Lab
+	GetFrontendData() *amigo.FrontendData
 	DeleteTeam(id string) (bool, error)
 }
 
@@ -304,6 +307,22 @@ func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.Fla
 	}
 
 	return ev, nil
+}
+
+func (ev *event) AddNotification(message string, loggedInUsers bool) error {
+	notification := amigo.Notification{
+		Message:       message,
+		LoggedInUsers: loggedInUsers,
+	}
+	ev.amigo.SetNotification(notification)
+	return nil
+}
+
+func (ev *event) GetFrontendData() *amigo.FrontendData {
+	return ev.amigo.FrontEndData
+}
+func (ev *event) GetAssignedLabs() map[string]lab.Lab {
+	return ev.labs
 }
 
 // SetStatus sets status of event in cache

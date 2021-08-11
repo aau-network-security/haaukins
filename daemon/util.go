@@ -28,7 +28,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		ctx = withAuditLogger(ctx, logger)
 		stream = &contextStream{stream, ctx}
 
-		header := metadata.Pairs("daemon-version", version)
+		header := metadata.Pairs("daemon-version", Version)
 		stream.SendHeader(header)
 
 		for _, endpoint := range nonAuth {
@@ -48,7 +48,7 @@ func (d *daemon) GetServer(opts ...grpc.ServerOption) *grpc.Server {
 		ctx, authErr := d.auth.AuthenticateContext(ctx)
 		ctx = withAuditLogger(ctx, logger)
 
-		header := metadata.Pairs("daemon-version", version)
+		header := metadata.Pairs("daemon-version", Version)
 		grpc.SendHeader(ctx, header)
 
 		for _, endpoint := range nonAuth {

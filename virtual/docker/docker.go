@@ -526,7 +526,7 @@ func NewNetwork(isVPN bool) (Network, error) {
 		ipPool[uint(i)] = struct{}{}
 	}
 
-	return &network{net: netw, subnet: subnet, ipPool: ipPool}, nil
+	return &network{net: netw, subnet: subnet, isVPN: isVPN, ipPool: ipPool}, nil
 }
 
 func (n *network) SetIsVPN(isVPN bool) {
