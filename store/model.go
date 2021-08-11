@@ -9,12 +9,13 @@ type Category struct {
 
 //todo manage the status somehow
 type Exercise struct {
-	Tag      Tag                      `json:"tag,omitempty"`
-	Name     string                   `json:"name,omitempty"`
-	Category string                   `json:"category,omitempty"`
-	Secret   bool                     `json:"secret,omitempty"`
-	Instance []ExerciseInstanceConfig `json:"instance,omitempty"`
-	Status   int                      `json:"status,omitempty"`
+	Tag            Tag                      `json:"tag,omitempty"`
+	Name           string                   `json:"name,omitempty"`
+	Category       string                   `json:"category,omitempty"`
+	Secret         bool                     `json:"secret,omitempty"`
+	Instance       []ExerciseInstanceConfig `json:"instance,omitempty"`
+	Status         int                      `json:"status,omitempty"`
+	OrgDescription string                   `json:"organizerDescription,omitempty"`
 }
 
 type ExerciseInstanceConfig struct {
@@ -34,7 +35,6 @@ type FlagConfig struct {
 	Points          uint     `json:"points,omitempty"`
 	Category        string   `json:"category,omitempty"`
 	TeamDescription string   `json:"teamDescription,omitempty"`
-	OrgDescription  string   `json:"organizerDescription,omitempty"`
 	PreRequisites   []string `json:"prerequisite,omitempty"`
 	Outcomes        []string `json:"outcome,omitempty"`
 }

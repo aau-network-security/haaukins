@@ -281,6 +281,7 @@ message ListExercisesResponse {
     int32 vboxImageCount = 4;
     bool secret = 6;
     repeated ExerciseInfo exerciseinfo = 5;
+    string orgdescription = 7;
   }
   repeated Exercise exercises = 1;
 }

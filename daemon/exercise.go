@@ -15,6 +15,9 @@ import (
 	storeProto "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/parser"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/rs/zerolog/log"
 )
 
@@ -74,6 +77,17 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 
 		}
 
+		// Render markdown from orgdescription to html
+		extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.HardLineBreak
+		parser := parser.NewWithExtensions(extensions)
+
+		md := []byte(e.OrgDescription)
+		unsafeHtml := markdown.ToHTML(md, parser, nil)
+
+		//Sanitizing unsafe HTML with bluemonday
+		html := bluemonday.UGCPolicy().SanitizeBytes(unsafeHtml)
+		e.OrgDescription = string(html)
+
 		exercises = append(exercises, &pb.ListExercisesResponse_Exercise{
 			Name:             e.Name,
 			Tags:             tags,
@@ -81,6 +95,7 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 			DockerImageCount: int32(len(e.Instance)),
 			VboxImageCount:   vboxCount,
 			Exerciseinfo:     exercisesInfo,
+			Orgdescription:   e.OrgDescription,
 		})
 	}
 
