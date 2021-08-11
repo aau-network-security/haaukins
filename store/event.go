@@ -13,9 +13,9 @@ import (
 	"time"
 
 	wg "github.com/aau-network-security/haaukins/network/vpn"
+	jwt "github.com/golang-jwt/jwt/v4"
 
 	pbc "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/rs/zerolog/log"
 )
 

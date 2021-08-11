@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/grpc/status"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
