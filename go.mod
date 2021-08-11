@@ -7,11 +7,11 @@ replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.2019071716
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/coreos/go-semver v0.3.0
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/docker v1.4.2-0.20190927142053-ada3c14355ce
 	github.com/fsouza/go-dockerclient v1.5.0
 	github.com/giantswarm/semver-bump v0.0.0-20181008095244-e8413386a9b8
 	github.com/go-ole/go-ole v1.2.4 // indirect
+	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/websocket v1.4.1
