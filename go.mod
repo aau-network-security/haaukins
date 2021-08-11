@@ -13,11 +13,13 @@ require (
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/golang/protobuf v1.5.2
+	github.com/gomarkdown/markdown v0.0.0-20210514010506-3b9f47219fe7 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/websocket v1.4.1
 	github.com/juju/errgo v0.0.0-20140925100237-08cceb5d0b53 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
+	github.com/microcosm-cc/bluemonday v1.0.15 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/rs/zerolog v1.16.0
 	github.com/shirou/gopsutil v2.19.9+incompatible

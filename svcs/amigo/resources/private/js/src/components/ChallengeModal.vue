@@ -18,7 +18,7 @@
                         <h2 class="chal-name text-center pt-5 pb-1">{{challenge.name}}</h2>
                         <h4 class="chal-value text-center mb-5">{{challenge.points}}</h4>
                         <span class="chal-desc mb-5">
-                            <p>{{challenge.teamDescription}}</p>
+                            <p v-html="challenge.teamDescription"></p>
                         </span>
                         <FlagChecker :challengeTag="challenge.tag" v-on:challengeComplete="$emit('challengeCompleteReload')" class="mt-5"></FlagChecker>
                     </div>
