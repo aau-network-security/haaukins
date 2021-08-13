@@ -119,12 +119,6 @@ func TestVerifyFlag(t *testing.T) {
 			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
 		},
 		{
-			name:   "unknown flag",
-			cookie: validCookie,
-			input:  `{"flag": "whatever-flag"}`,
-			err:    "invalid flag",
-		},
-		{
 			name:   "already taken flag",
 			cookie: validCookie,
 			input:  fmt.Sprintf(`{"flag": "%s", "tag": "%s"}`, flagValue, chal.Tag),
