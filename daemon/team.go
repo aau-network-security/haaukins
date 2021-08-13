@@ -138,10 +138,7 @@ func (d *daemon) SolveChallenge(ctx context.Context, req *pb.SolveChallengeReque
 		}
 	}
 
-	flag, err := store.NewFlagFromString(strings.TrimSpace(challenge.Value))
-	if err != nil {
-		return &pb.SolveChallengeResponse{}, err
-	}
+	flag := strings.TrimSpace(challenge.Value)
 
 	for _, team := range event.GetTeams() {
 		if team.ID() == req.TeamID {
