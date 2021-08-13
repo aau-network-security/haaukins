@@ -63,12 +63,12 @@ func TestTeamSolveTask(t *testing.T) {
 		name string
 		team *store.Team
 		chal store.Challenge
-		flag store.Flag
+		flag string
 		err  string
 	}{
 		{name: "Normal", team: team, chal: chal, flag: flag, err: ""}, //correct example
 		{name: "Solved chal", team: team, chal: chal, flag: flag, err: "expected error when solving challenge already solved"},
-		{name: "Unknown flag", team: team, chal: chal, flag: store.NewFlag(), err: "expected error when solving challenge with wrong flag"},
+		{name: "Unknown flag", team: team, chal: chal, flag: store.NewFlag().String(), err: "expected error when solving challenge with wrong flag"},
 	}
 
 	for _, tc := range tt {
