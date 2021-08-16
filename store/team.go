@@ -222,7 +222,7 @@ type Team struct {
 	// used to suspend resources for that team
 	// this is last access time to environment of a team.
 	lastAccess         time.Time
-	challenges         map[Flag]TeamChallenge
+	challenges         map[string]TeamChallenge
 	solvedChalsDB      []TeamChallenge //json got from the DB containing list of solved Challenges
 	vpnKeys            map[int]string
 	vpnConf            []string
@@ -262,7 +262,7 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
 		email:              strings.TrimSpace(email),
 		name:               strings.TrimSpace(name),
 		hashedPassword:     string(hPass),
-		challenges:         map[Flag]TeamChallenge{},
+		challenges:         map[string]TeamChallenge{},
 		solvedChalsDB:      solvedChals,
 		lastAccess:         lastAccessedT,
 		vpnKeys:            map[int]string{},
@@ -436,20 +436,16 @@ func (t *Team) IsPasswordEqual(pass string) bool {
 	return err == nil
 }
 
-func (t *Team) AddChallenge(c Challenge) (Flag, error) {
+func (t *Team) AddChallenge(c Challenge) (string, error) {
 	t.m.Lock()
 	for _, chal := range t.challenges {
 		if chal.Tag == c.Tag {
 			t.m.Unlock()
-			return Flag{}, ErrChallengeDuplicate
+			return "", ErrChallengeDuplicate
 		}
 	}
 
-	f, err := NewFlagFromString(c.Value)
-	if err != nil {
-		log.Debug().Msgf("Error creating haaukins flag from given string %s", err)
-		return Flag{}, err
-	}
+	f := c.Value
 
 	//get the solved challenge if solved
 	var solvedOne TeamChallenge
@@ -474,7 +470,7 @@ func (t *Team) AddChallenge(c Challenge) (Flag, error) {
 	return f, nil
 }
 
-func (t *Team) VerifyFlag(tag Challenge, f Flag) error {
+func (t *Team) VerifyFlag(tag Challenge, f string) error {
 	t.m.Lock()
 	chal, ok := t.challenges[f]
 

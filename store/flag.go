@@ -5,7 +5,6 @@
 package store
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -103,17 +102,6 @@ func NewFlag() Flag {
 	copy(arr[:], s)
 	formattedFlag := formatFlag(arr)
 	return Flag(formattedFlag)
-}
-
-func NewFlagFromString(s string) (Flag, error) {
-	b := bytes.Replace([]byte(s), []byte("-"), []byte(""), 2)
-	if len(b) != flagNumCharsFormat {
-		return Flag{}, ErrInvalidFlagFormat
-	}
-	var arr [flagUniqueChars]byte
-	copy(arr[:], b)
-	formattedFlag := formatFlag(arr)
-	return Flag(formattedFlag), nil
 }
 
 func (f Flag) String() string {

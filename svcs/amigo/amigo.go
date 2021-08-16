@@ -523,11 +523,7 @@ func (am *Amigo) handleFlagVerify(stopExercise func(t *store.Team, challengeTag 
 			return
 		}
 
-		flag, err := store.NewFlagFromString(strings.TrimSpace(msg.Flag))
-		if err != nil {
-			replyJson(http.StatusOK, w, errReply{ErrInvalidFlag.Error()})
-			return
-		}
+		flag := strings.TrimSpace(msg.Flag)
 		parentTag := getParentChallengeTag(msg.Tag)
 		tag := store.Tag(msg.Tag)
 		if err := team.VerifyFlag(store.Challenge{Tag: tag}, flag); err != nil {
