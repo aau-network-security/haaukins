@@ -180,7 +180,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/manage/challenge", am.handleStartStopChallenge(hooks.StartStopExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
-	m.HandleFunc("/vpn/status", am.handleVPNStatus())
+	m.HandleFunc("/vpn/status", am.handleVPNStatus(hooks.AssignLab))
 	m.HandleFunc("/vpn/download", am.handleVPNFiles())
 	m.HandleFunc("/get/labsubnet", am.handleLabInfo())
 	if !am.TeamStore.OnlyVPN {
@@ -345,7 +345,7 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleVPNStatus() http.HandlerFunc {
+func (am *Amigo) handleVPNStatus(hook func(t *store.Team) error) http.HandlerFunc {
 	// data to be sent
 	type vpnStatus struct {
 		VPNConfID string `json:"vpnConnID"`
@@ -360,6 +360,15 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 			replyJsonRequestErr(w, err)
 			return
 		}
+
+		if !team.IsLabAssigned() {
+			if err := hook(team); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				return
+			}
+		}
+
 		vpnConfig := team.GetVPNConn()
 		teamVPNKeys := team.GetVPNKeys()
 
