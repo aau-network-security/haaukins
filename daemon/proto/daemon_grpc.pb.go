@@ -49,6 +49,7 @@ type DaemonClient interface {
 	GetTeamInfo(ctx context.Context, in *GetTeamInfoRequest, opts ...grpc.CallOption) (*GetTeamInfoResponse, error)
 	MonitorHost(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Daemon_MonitorHostClient, error)
 	Version(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*VersionResponse, error)
+	ListCategories(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListCategoriesResponse, error)
 }
 
 type daemonClient struct {
@@ -545,6 +546,15 @@ func (c *daemonClient) Version(ctx context.Context, in *Empty, opts ...grpc.Call
 	return out, nil
 }
 
+func (c *daemonClient) ListCategories(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListCategoriesResponse, error) {
+	out := new(ListCategoriesResponse)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/ListCategories", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DaemonServer is the server API for Daemon service.
 // All implementations must embed UnimplementedDaemonServer
 // for forward compatibility
@@ -580,6 +590,7 @@ type DaemonServer interface {
 	GetTeamInfo(context.Context, *GetTeamInfoRequest) (*GetTeamInfoResponse, error)
 	MonitorHost(*Empty, Daemon_MonitorHostServer) error
 	Version(context.Context, *Empty) (*VersionResponse, error)
+	ListCategories(context.Context, *Empty) (*ListCategoriesResponse, error)
 	mustEmbedUnimplementedDaemonServer()
 }
 
@@ -679,6 +690,9 @@ func (UnimplementedDaemonServer) MonitorHost(*Empty, Daemon_MonitorHostServer) e
 }
 func (UnimplementedDaemonServer) Version(context.Context, *Empty) (*VersionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
+}
+func (UnimplementedDaemonServer) ListCategories(context.Context, *Empty) (*ListCategoriesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCategories not implemented")
 }
 func (UnimplementedDaemonServer) mustEmbedUnimplementedDaemonServer() {}
 
@@ -1278,6 +1292,24 @@ func _Daemon_Version_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Daemon_ListCategories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).ListCategories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/ListCategories",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).ListCategories(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Daemon_ServiceDesc is the grpc.ServiceDesc for Daemon service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1372,6 +1404,10 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Version",
 			Handler:    _Daemon_Version_Handler,
+		},
+		{
+			MethodName: "ListCategories",
+			Handler:    _Daemon_ListCategories_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
