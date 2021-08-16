@@ -21,6 +21,50 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func (d *daemon) ListCategories(ctx context.Context, req *pb.Empty) (*pb.ListCategoriesResponse, error) {
+	var categories []*pb.ListCategoriesResponse_Category
+	_, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return &pb.ListCategoriesResponse{}, NoUserInformation
+	}
+
+	categs, err := d.exClient.GetCategories(ctx, &eproto.Empty{})
+	if err != nil {
+		return &pb.ListCategoriesResponse{}, fmt.Errorf("[exercise-service]: ERR getting categories %v", err)
+	}
+	var cats []store.Category
+
+	for _, c := range categs.Categories {
+		category, err := protobufToJson(c)
+		if err != nil {
+			return nil, err
+		}
+		cstruct := store.Category{}
+		json.Unmarshal([]byte(category), &cstruct)
+		cats = append(cats, cstruct)
+	}
+
+	for _, c := range cats {
+		// Render markdown from orgdescription to html
+		extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.HardLineBreak
+		parser := parser.NewWithExtensions(extensions)
+
+		md := []byte(c.CatDescription)
+		unsafeHtml := markdown.ToHTML(md, parser, nil)
+
+		//Sanitizing unsafe HTML with bluemonday
+		html := bluemonday.UGCPolicy().SanitizeBytes(unsafeHtml)
+		c.CatDescription = string(html)
+
+		categories = append(categories, &pb.ListCategoriesResponse_Category{
+			Tag: string(c.Tag),
+			Name: c.Name,
+			CatDescription: c.CatDescription,
+		})
+	}
+
+	return &pb.ListCategoriesResponse{Categories: categories}, nil
+}
 func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExercisesResponse, error) {
 	var vboxCount int32
 	var exercises []*pb.ListExercisesResponse_Exercise

@@ -5,6 +5,7 @@ type Tag string
 type Category struct {
 	Tag  Tag    `json:"tag,omitempty"`
 	Name string `json:"name,omitempty"`
+	CatDescription string `json:"catDesc,omitempty"`
 }
 
 //todo manage the status somehow
