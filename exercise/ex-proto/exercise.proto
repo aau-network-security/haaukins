@@ -74,6 +74,7 @@ message GetCategoriesResponse{
     message Category {
         string tag = 1;
         string name = 2;
+        string catDesc = 3;
     }
     repeated Category categories = 1;
 }
