@@ -69,7 +69,7 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 
 		for _, flag := range conf.Flags {
 			value := flag.StaticFlag
-			var static = false
+			var static = true
 			// static flag format in exercises file
 			//  should obey flag format HKN{*********}
 			if value == "" {
