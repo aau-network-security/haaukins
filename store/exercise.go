@@ -75,9 +75,8 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 			if value == "" {
 				// flag is not static
 				value = NewFlag().String()
-			} else {
-				static = true
-			}
+				static = false
+			} 
 
 			challenges = append(challenges, Challenge{
 				Name:  flag.Name,
