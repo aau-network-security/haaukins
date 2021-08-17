@@ -33,14 +33,26 @@
 				<ul class="navbar-nav text-uppercase ml-auto">
 					{{ if .Team}}
 						<span class="navbar-text my-auto mr-4">{{ .Team.Name }}</span>
-						<li class="nav-item my-auto">
-							{{ if .IsVPN}}
-								<div id="vpn-dropdown"></div>
-							{{ else }}
-								<div>
-									<a class="btn btn-login" href="/guaclogin" target="_blank">Connect</a>
-								</div>
+						<li class="nav-item my-auto" style="display: flex">
+
+					<!-- only browser based events will have ˜Connect˜  button -->
+							{{ if eq .IsVPN  0 }}
+							<div>
+								<a class="btn btn-login" href="/guaclogin" target="_blank">Connect</a>
+							</div>
 							{{ end }}
+							<!-- only VPN based events will have ˜VPN˜  button -->
+							{{ if eq .IsVPN 1 }}
+								<div id="vpn-dropdown-2"></div>
+							{{ end }}
+							<!-- Browser + VPN based events will have both `Connect` + `VPN`  buttons -->
+
+							{{ if eq .IsVPN 2 }}
+							<div id="vpn-dropdown"></div>
+							<div class= "ml-2" style="float:right">
+								<a class="btn btn-login" href="/guaclogin" target="_blank">Connect</a>
+							</div>
+							{{ end  }}
 						</li>
 						<li class="nav-item">
 							<a class="nav-link" href="/logout">Logout</a>

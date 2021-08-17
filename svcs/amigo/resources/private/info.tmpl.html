@@ -22,17 +22,18 @@
                     <div>
                         <div class=" mb-3">
                             <div class="nav nav-tabs nav-fill" id="info-tab" role="tablist">
-                              {{ if .IsVPN }}
+
+                              {{ if or (eq .IsVPN 1) (eq .IsVPN 2 ) }}
                                 <a class="nav-item nav-link active" id="vpn-conn-tab" data-toggle="tab" href="#vpn-conn" role="tab">VPN Connection</a>
                               {{ end }}
 
-                                {{ if not .IsVPN }}
-                                <a class="nav-item nav-link active" id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab">Copy / Paste</a>
+                                {{ if or (eq .IsVPN 0) (eq .IsVPN 2) }}
+                                <a {{ if eq .IsVPN 0 }} class="nav-item nav-link active" {{ else }}  class="nav-item nav-link" {{ end }} id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab">Copy / Paste</a>
                                 <a class="nav-item nav-link" id="conn-error-tab" data-toggle="tab" href="#conn-error" role="tab">Connection Error</a>
                                 {{ end }}
                             </div>
                             <div class="tab-content p-3" id="nav-tabContent">
-                                {{ if .IsVPN }}
+                                {{ if or (eq .IsVPN 1) (eq .IsVPN 2 ) }}
                                 <div class="tab-pane fade show active" id="vpn-conn" role="tabpanel" aria-labelledby="vpn-conn-tab">
 
                                     In order to have VPN connection into virtualized lab environment on Haaukins,
@@ -103,8 +104,8 @@
                                 </div>
                                 {{ end }}
 
-                                {{ if not .IsVPN }}
-                                <div class="tab-pane fade show active" id="copy-clipboard" role="tabpanel" aria-labelledby="copy-clipboard-tab">
+                                {{ if or (eq .IsVPN 0) (eq .IsVPN 2) }}
+                                <div {{ if eq .IsVPN 0 }}  class="tab-pane fade show active" {{ else }}  class="tab-pane fade" {{ end }} id="copy-clipboard" role="tabpanel" aria-labelledby="copy-clipboard-tab">
                                     <p class="dark-color">
                                         In order to copy from Host to VM on the browser and the way around, these are the following command:
                                         <br><br>
