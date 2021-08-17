@@ -205,7 +205,7 @@ message CreateEventRequest {
   int32 capacity = 6;
   string  startTime = 7;
   string finishTime = 8;
-  bool onlyVPN = 9;
+  int32 onlyVPN = 9;
   string secretEvent = 10;
   repeated string disableExercises = 11;
 }
