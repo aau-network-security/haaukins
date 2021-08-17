@@ -1,10 +1,18 @@
 <template>
   <div class="mt-toppage-reset pt-2 mb-2">
-    <form v-if="!isVpn" @submit.prevent="submit">
+    <form v-if="isVpn == 0 " @submit.prevent="submit">
       <input type="submit" class="btn btn-login" :disabled='isDisabled' value="RESET Kali Machine" style="width: auto;">
     </form>
-    <div v-else >
+    <div v-else-if="isVpn == 1" >
       <div class="labsubnet">
+        Lab Subnet: [ <b>{{labSubnet}} </b>]
+      </div>
+    </div>
+    <div v-else >
+      <form  @submit.prevent="submit">
+        <input type="submit" class="btn btn-login" :disabled='isDisabled' value="RESET Kali Machine" style="width: auto;">
+      </form>
+      <div class="labsubnet mt-2">
         Lab Subnet: [ <b>{{labSubnet}} </b>]
       </div>
     </div>
@@ -18,7 +26,7 @@ export default {
   data: () => {
     return {
       isDisabled: false,
-      isVpn: false,
+      isVpn: 0,
       labSubnet: '',
     }
   },
