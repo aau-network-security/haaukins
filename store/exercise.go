@@ -84,12 +84,9 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 				Tag:   flag.Tag,
 				Value: value,
 			})
-
-			if static {
-				//Do Nothing with flag env var
-			} else {
+			if !static {
 				envVars[flag.EnvVar] = value
-			}
+			} 
 
 		}
 
