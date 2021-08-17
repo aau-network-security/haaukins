@@ -56,7 +56,7 @@ func (conf Config) GetChildrenChallenges(parentTag string) []string {
 }
 
 type Creator interface {
-	NewLab(context.Context, bool) (Lab, error)
+	NewLab(context.Context, int32) (Lab, error)
 	UpdateExercises([]store.Exercise)
 }
 
@@ -70,7 +70,7 @@ func (lh *LabHost) UpdateExercises(newExercises []store.Exercise) {
 	lh.Conf.Exercises = newExercises
 }
 
-func (lh *LabHost) NewLab(ctx context.Context, isVPN bool) (Lab, error) {
+func (lh *LabHost) NewLab(ctx context.Context, isVPN int32) (Lab, error) {
 	env := newEnvironment(lh.Vlib)
 	if err := env.Create(ctx, isVPN); err != nil {
 		return nil, fmt.Errorf("new environment create err %v ", err)

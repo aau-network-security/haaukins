@@ -132,10 +132,14 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	if err != nil {
 		return nil, err
 	}
-	if conf.OnlyVPN {
+
+	if conf.OnlyVPN == docker.OnlyVPN || conf.OnlyVPN == docker.VPNBrowser {
 		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		es.OnlyVPN = conf.OnlyVPN
 		es.WireGuardConfig = eh.vpnConfig
+		if conf.OnlyVPN == docker.VPNBrowser {
+			labConf.Frontends = conf.Lab.Frontends
+		}
 	} else {
 		labConf.DisabledExercises = conf.Lab.DisabledExercises
 		labConf.Frontends = conf.Lab.Frontends
@@ -359,7 +363,7 @@ func (ev *event) DeleteTeam(id string) (bool, error) {
 }
 
 func (ev *event) Start(ctx context.Context) error {
-	if ev.store.OnlyVPN {
+	if ev.store.OnlyVPN == docker.OnlyVPN || ev.store.OnlyVPN == docker.VPNBrowser {
 		//randomly taken port for each VPN endpoint
 		port := rand.Intn(max-min) + min
 		for checkPort(port) {
@@ -375,6 +379,15 @@ func (ev *event) Start(ctx context.Context) error {
 			Eth:        "eth0",
 			IName:      string(ev.store.Tag),
 		})
+
+		if err := ev.guac.Start(ctx); err != nil {
+			log.
+				Error().
+				Err(err).
+				Msg("error starting guac")
+
+			return StartingGuacErr
+		}
 
 		if err != nil {
 			// handle error
@@ -418,6 +431,8 @@ func (ev *event) Start(ctx context.Context) error {
 //CreateVPNConn will generate VPN Connection configuration per team.
 func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, error) {
 	var teamConfigFiles []string
+	lowBound := 240
+	upperBound := 244
 	ctx := context.Background()
 	var vpnIPs []string
 	vpnInstructions := getContent(vpnInfo)
@@ -445,7 +460,7 @@ func (ev *event) CreateVPNConn(t *store.Team, labInfo *labNetInfo) ([]string, er
 	}
 
 	// create 4 different config file for 1 user
-	for i := 240; i < 244; i++ {
+	for i := lowBound; i < upperBound; i++ {
 
 		// generate client privatekey
 		ipAddr := pop(&ev.ipAddrs)
@@ -608,7 +623,7 @@ func (ev *event) Close() error {
 		}(closer)
 	}
 	waitGroup.Wait()
-	if ev.store.OnlyVPN {
+	if ev.store.OnlyVPN == docker.OnlyVPN || ev.store.OnlyVPN == docker.VPNBrowser {
 		ev.removeVPNConfs()
 		ev.removeIPTableRules()
 	}
@@ -733,13 +748,14 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 		subnet:     lab.Environment().LabSubnet(),
 		dnsrecords: lab.Environment().DNSRecords(),
 	}
-	if !ev.store.OnlyVPN {
+	hosts = getDNSRecords(labInfo.dnsrecords)
+
+	if ev.store.OnlyVPN == docker.NoVPN {
 		if err := ev.createGuacConn(t, lab); err != nil {
 			log.Error().Msgf("Error on creating guacamole connection !, err : %v", err)
 			return err
 		}
 
-		hosts = getDNSRecords(labInfo.dnsrecords)
 		t.SetHostsInfo(hosts)
 		log.Info().Str("Team DNS", labInfo.dns).
 			Str("Team Subnet", labInfo.subnet).
@@ -749,7 +765,13 @@ func (ev *event) AssignLab(t *store.Team, lab lab.Lab) error {
 		log.Info().Str("Team DNS", labInfo.dns).
 			Str("Team Subnet", labInfo.subnet).
 			Msgf("Creating VPN connection for team %s", t.ID())
-
+		if ev.store.OnlyVPN == docker.VPNBrowser {
+			log.Debug().Msg("Creating guacamole for VPN + Browser events ")
+			if err := ev.createGuacConn(t, lab); err != nil {
+				log.Error().Msgf("Error on creating guacamole connection !, err : %v", err)
+				return err
+			}
+		}
 		clientConf, err := ev.CreateVPNConn(t, labInfo)
 		if err != nil {
 			return err
