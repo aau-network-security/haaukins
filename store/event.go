@@ -43,7 +43,7 @@ type EventConfig struct {
 	FinishedAt         *time.Time
 	Status             int32
 	CreatedBy          string
-	OnlyVPN            bool
+	OnlyVPN            int32
 	VPNAddress         string
 	EndPointPort       int
 	DisabledChallenges map[string][]string // list of disabled children challenge tags to be used for amigo frontend ...

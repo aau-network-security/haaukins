@@ -70,7 +70,7 @@ func (c *Client) CmdEventCreate() *cobra.Command {
 				DisableExercises: disabledExercises,
 				Available:        int32(available),
 				Capacity:         int32(capacity),
-				OnlyVPN:          false,
+				OnlyVPN:          0,
 				StartTime:        time.Now().AddDate(0, 0, int(startTime)).Format("2006-01-02 15:04:05"),
 				FinishTime:       time.Now().AddDate(0, 0, int(finishTime)).Format("2006-01-02 15:04:05"),
 				SecretEvent:      secretKey,

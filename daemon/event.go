@@ -24,7 +24,10 @@ import (
 const (
 	charSet = "abcdefghijklmnopqrstuvwxyz" +
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	numSet = "0123456789"
+	numSet     = "0123456789"
+	NoVPN      = 0
+	VPN        = 1
+	VPNBrowser = 2
 )
 
 var (
@@ -40,7 +43,7 @@ var (
 func (d *daemon) startEvent(ev guacamole.Event) {
 	conf := ev.GetConfig()
 	var frontendNames []string
-	if !ev.GetConfig().OnlyVPN {
+	if ev.GetConfig().OnlyVPN != VPN {
 		for _, f := range conf.Lab.Frontends {
 			frontendNames = append(frontendNames, f.Image)
 		}
@@ -76,7 +79,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Str("startTime", req.StartTime).
 		Str("finishTime", req.FinishTime).
 		Str("SecretKey", req.SecretEvent).
-		Bool("VPN", req.OnlyVPN).
+		Int32("VPN", req.OnlyVPN).
 		Msg("create event")
 		// get random subnet for vpn connection
 	// check from database if subnet is already assigned to an event or not
@@ -86,7 +89,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
-	if req.OnlyVPN && req.Capacity > 253 {
+	if (req.OnlyVPN == VPN || req.OnlyVPN == VPNBrowser) && req.Capacity > 253 {
 		resp.Send(&pb.LabStatus{ErrorMessage: CapacityExceedsErr.Error()})
 		return CapacityExceedsErr
 	}
@@ -192,7 +195,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			},
 			Status:     Running,
 			CreatedBy:  user.Username,
-			OnlyVPN:    req.OnlyVPN,
+			OnlyVPN:    req.OnlyVPN, // 0 novpn 1 // vpn 2 // browser+vpn
 			VPNAddress: vpnAddress,
 			SecretKey:  secretKey,
 		}
@@ -625,7 +628,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Str("startTime", event.StartedAt).
 		Str("finishTime", event.ExpectedFinishTime).
 		Str("SecretKey", event.SecretKey).
-		Bool("VPN", event.OnlyVPN).Msgf("Generating event config from database !")
+		Int32("VPN", event.OnlyVPN).Msgf("Generating event config from database !")
 
 	eventConfig := store.EventConfig{
 		Name:      event.Name,

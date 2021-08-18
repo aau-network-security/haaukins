@@ -61,7 +61,7 @@ type siteInfo struct {
 	EventName     string
 	Team          *team
 	EventSecret   string // this will be the secret value which will be used on signup !
-	IsVPN         bool
+	IsVPN         int32
 	IsSecretEvent bool
 	Content       interface{}
 	Hosts         []Hosts
@@ -180,10 +180,10 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/reset/challenge", am.handleResetChallenge(hooks.ResetExercise))
 	m.HandleFunc("/manage/challenge", am.handleStartStopChallenge(hooks.StartStopExercise))
 	m.HandleFunc("/reset/frontend", am.handleResetFrontend(hooks.ResetFrontend))
-	m.HandleFunc("/vpn/status", am.handleVPNStatus())
+	m.HandleFunc("/vpn/status", am.handleVPNStatus(hooks.AssignLab))
 	m.HandleFunc("/vpn/download", am.handleVPNFiles())
 	m.HandleFunc("/get/labsubnet", am.handleLabInfo())
-	if !am.TeamStore.OnlyVPN {
+	if am.TeamStore.OnlyVPN == 0 || am.TeamStore.OnlyVPN == 2 {
 		m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
 		m.Handle("/guacamole", guacHandler)
 		m.Handle("/guacamole/", guacHandler)
@@ -345,7 +345,7 @@ func (am *Amigo) handleChallenges() http.HandlerFunc {
 	}
 }
 
-func (am *Amigo) handleVPNStatus() http.HandlerFunc {
+func (am *Amigo) handleVPNStatus(hook func(t *store.Team) error) http.HandlerFunc {
 	// data to be sent
 	type vpnStatus struct {
 		VPNConfID string `json:"vpnConnID"`
@@ -360,6 +360,15 @@ func (am *Amigo) handleVPNStatus() http.HandlerFunc {
 			replyJsonRequestErr(w, err)
 			return
 		}
+
+		if !team.IsLabAssigned() {
+			if err := hook(team); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				return
+			}
+		}
+
 		vpnConfig := team.GetVPNConn()
 		teamVPNKeys := team.GetVPNKeys()
 
@@ -523,11 +532,7 @@ func (am *Amigo) handleFlagVerify(stopExercise func(t *store.Team, challengeTag 
 			return
 		}
 
-		flag, err := store.NewFlagFromString(strings.TrimSpace(msg.Flag))
-		if err != nil {
-			replyJson(http.StatusOK, w, errReply{ErrInvalidFlag.Error()})
-			return
-		}
+		flag := strings.TrimSpace(msg.Flag)
 		parentTag := getParentChallengeTag(msg.Tag)
 		tag := store.Tag(msg.Tag)
 		if err := team.VerifyFlag(store.Challenge{Tag: tag}, flag); err != nil {
@@ -855,13 +860,13 @@ func (am *Amigo) handleLogin(resumeLabHook func(t *store.Team) error) http.Handl
 
 func (am *Amigo) handleLabInfo() http.HandlerFunc {
 	type labInfo struct {
-		IsVPN     bool   `json:"isVPN"`
+		IsVPN     int32  `json:"isVPN"`
 		LabSubnet string `json:"labSubnet"`
 	}
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
 
-		if !am.TeamStore.OnlyVPN {
-			replyJson(http.StatusOK, w, labInfo{IsVPN: false, LabSubnet: "VPN is not enabled !"})
+		if am.TeamStore.OnlyVPN == 0 {
+			replyJson(http.StatusOK, w, labInfo{IsVPN: 0, LabSubnet: "VPN is not enabled !"})
 		} else {
 			team, err := am.getTeamFromRequest(w, r)
 			if err != nil {
@@ -871,7 +876,7 @@ func (am *Amigo) handleLabInfo() http.HandlerFunc {
 			teamLabSubnet := team.GetLabInfo()
 			tLabInfo := labInfo{
 				LabSubnet: teamLabSubnet,
-				IsVPN:     true,
+				IsVPN:     am.TeamStore.OnlyVPN,
 			}
 			replyJson(http.StatusOK, w, tLabInfo)
 		}

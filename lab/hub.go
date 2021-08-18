@@ -36,7 +36,7 @@ type hub struct {
 	stop            chan struct{}
 }
 
-func NewHub(creator Creator, buffer int, cap int, isVPN bool) (*hub, error) {
+func NewHub(creator Creator, buffer int, cap int, isVPN int32) (*hub, error) {
 	workerAmount := 2
 	if buffer < workerAmount {
 		buffer = workerAmount

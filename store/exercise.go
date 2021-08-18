@@ -69,19 +69,22 @@ func (e Exercise) ContainerOpts() []ContainerOptions {
 
 		for _, flag := range conf.Flags {
 			value := flag.StaticFlag
+			
 			// static flag format in exercises file
 			//  should obey flag format HKN{*********}
 			if value == "" {
 				// flag is not static
 				value = NewFlag().String()
-			}
+				envVars[flag.EnvVar] = value
+			} 
 
 			challenges = append(challenges, Challenge{
 				Name:  flag.Name,
 				Tag:   flag.Tag,
 				Value: value,
 			})
-			envVars[flag.EnvVar] = value
+			
+
 		}
 
 		for _, env := range conf.Envs {
