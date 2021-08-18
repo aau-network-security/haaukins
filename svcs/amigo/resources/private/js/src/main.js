@@ -21,6 +21,12 @@ if (document.getElementById("vpn-dropdown")) {
     render: h => h(VPNDropdown),
   }).$mount('#vpn-dropdown')
 }
+if (document.getElementById("vpn-dropdown-2")) {
+  new Vue({
+    render: h => h(VPNDropdown),
+  }).$mount('#vpn-dropdown-2')
+}
+
 
 if (document.getElementById("reset-frontend")) {
   new Vue({

@@ -61,7 +61,7 @@ type siteInfo struct {
 	EventName     string
 	Team          *team
 	EventSecret   string // this will be the secret value which will be used on signup !
-	IsVPN         bool
+	IsVPN         int32
 	IsSecretEvent bool
 	Content       interface{}
 	Hosts         []Hosts
@@ -183,7 +183,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m.HandleFunc("/vpn/status", am.handleVPNStatus(hooks.AssignLab))
 	m.HandleFunc("/vpn/download", am.handleVPNFiles())
 	m.HandleFunc("/get/labsubnet", am.handleLabInfo())
-	if !am.TeamStore.OnlyVPN {
+	if am.TeamStore.OnlyVPN == 0 || am.TeamStore.OnlyVPN == 2 {
 		m.Handle("/guaclogin", am.handleGuacConnection(hooks.AssignLab, guacHandler))
 		m.Handle("/guacamole", guacHandler)
 		m.Handle("/guacamole/", guacHandler)
@@ -860,13 +860,13 @@ func (am *Amigo) handleLogin(resumeLabHook func(t *store.Team) error) http.Handl
 
 func (am *Amigo) handleLabInfo() http.HandlerFunc {
 	type labInfo struct {
-		IsVPN     bool   `json:"isVPN"`
+		IsVPN     int32  `json:"isVPN"`
 		LabSubnet string `json:"labSubnet"`
 	}
 	endpoint := func(w http.ResponseWriter, r *http.Request) {
 
-		if !am.TeamStore.OnlyVPN {
-			replyJson(http.StatusOK, w, labInfo{IsVPN: false, LabSubnet: "VPN is not enabled !"})
+		if am.TeamStore.OnlyVPN == 0 {
+			replyJson(http.StatusOK, w, labInfo{IsVPN: 0, LabSubnet: "VPN is not enabled !"})
 		} else {
 			team, err := am.getTeamFromRequest(w, r)
 			if err != nil {
@@ -876,7 +876,7 @@ func (am *Amigo) handleLabInfo() http.HandlerFunc {
 			teamLabSubnet := team.GetLabInfo()
 			tLabInfo := labInfo{
 				LabSubnet: teamLabSubnet,
-				IsVPN:     true,
+				IsVPN:     am.TeamStore.OnlyVPN,
 			}
 			replyJson(http.StatusOK, w, tLabInfo)
 		}

@@ -21,7 +21,7 @@ import (
 )
 
 type Environment interface {
-	Create(context.Context, bool) error
+	Create(context.Context, int32) error
 	Add(context.Context, ...store.Exercise) error
 	ResetByTag(context.Context, string) error
 	Reset(context.Context) error
@@ -70,7 +70,7 @@ func (ee *environment) SetDisabledExercises(disabledExs []store.Tag) {
 	ee.disabledExercises = disabledExs
 }
 
-func (ee *environment) Create(ctx context.Context, isVPN bool) error {
+func (ee *environment) Create(ctx context.Context, isVPN int32) error {
 	network, err := docker.NewNetwork(isVPN)
 	if err != nil {
 		return fmt.Errorf("docker new network err %v", err)

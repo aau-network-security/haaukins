@@ -82,7 +82,7 @@ type testCreator struct {
 	started int
 }
 
-func (c *testCreator) NewLab(context.Context, bool) (Lab, error) {
+func (c *testCreator) NewLab(context.Context, int32) (Lab, error) {
 	c.m.Lock()
 	c.started += 1
 	c.m.Unlock()
@@ -121,7 +121,7 @@ func TestHub(t *testing.T) {
 			suspended := make(chan bool, 1000)
 			closed := make(chan bool, 1000)
 			c := &testCreator{lab: &testLab{started, suspended, resumed, closed}}
-			h, err := NewHub(c, tc.buf, tc.cap, false)
+			h, err := NewHub(c, tc.buf, tc.cap, 0)
 			if err != nil {
 				t.Fatalf("unable to create hub: %s", err)
 			}
