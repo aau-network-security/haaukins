@@ -168,6 +168,11 @@ func (l *lab) AddChallenge(ctx context.Context, confs ...store.Exercise) error {
 	}
 
 	for _, ch := range confs {
+		if ch.Static {
+			// in case of no docker or vm given to start
+			// skip it
+			continue
+		}
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
