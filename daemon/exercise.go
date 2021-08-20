@@ -57,8 +57,8 @@ func (d *daemon) ListCategories(ctx context.Context, req *pb.Empty) (*pb.ListCat
 		c.CatDescription = string(html)
 
 		categories = append(categories, &pb.ListCategoriesResponse_Category{
-			Tag: string(c.Tag),
-			Name: c.Name,
+			Tag:            string(c.Tag),
+			Name:           c.Name,
 			CatDescription: c.CatDescription,
 		})
 	}
