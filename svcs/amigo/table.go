@@ -2,13 +2,13 @@ package amigo
 
 import (
 	"encoding/json"
-	"github.com/microcosm-cc/bluemonday"
 	"sort"
 	"time"
 
 	"github.com/aau-network-security/haaukins/store"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type Message struct {
@@ -184,8 +184,6 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 		//Sanitizing unsafe HTML with bluemonday
 		html := bluemonday.UGCPolicy().SanitizeBytes(unsafeHtml)
 		r.ChalInfo.TeamDescription = string(html)
-
-
 
 		//check which teams has solve a specif challenge
 		for _, t := range teams {

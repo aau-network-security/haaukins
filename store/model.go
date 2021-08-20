@@ -41,6 +41,7 @@ type FlagConfig struct {
 	TeamDescription string   `json:"teamDescription,omitempty"`
 	PreRequisites   []string `json:"prerequisite,omitempty"`
 	Outcomes        []string `json:"outcome,omitempty"`
+	StaticChallenge bool     `json:"staticChallenge,omitempty"`
 }
 
 type RecordConfig struct {

@@ -31,9 +31,12 @@ func (eee *ExerTagExistsErr) Error() string {
 
 func (e Exercise) Flags() []FlagConfig {
 	var res []FlagConfig
-
 	for _, conf := range e.Instance {
-		res = append(res, conf.Flags...)
+		isStatic := e.Static
+		for _, f := range conf.Flags {
+			f.StaticChallenge = isStatic
+			res = append(res, f)
+		}
 	}
 	return res
 }
