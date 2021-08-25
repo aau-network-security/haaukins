@@ -9,7 +9,6 @@ import (
 	"errors"
 	"regexp"
 	"strings"
-
 	"sync"
 
 	"github.com/aau-network-security/haaukins/store"
@@ -26,6 +25,7 @@ var (
 	RegistryLink    = "registry.gitlab.com"
 	tagRawRegexp    = `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
 	tagRegex        = regexp.MustCompile(tagRawRegexp)
+	OvaSuffix       = ".ova"
 )
 
 type DockerHost interface {
@@ -61,9 +61,9 @@ type exercise struct {
 func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net docker.Network, dnsAddr string) *exercise {
 	var containerOpts []store.ContainerOptions
 	var vboxOpts []store.ExerciseInstanceConfig
-
+	var ex *exercise
 	for _, c := range conf.Instance {
-		if !strings.Contains(c.Image, RegistryLink) {
+		if strings.Contains(c.Image, OvaSuffix) {
 			vboxOpts = append(vboxOpts, c)
 		} else {
 			containerOpts = conf.ContainerOpts()
@@ -71,15 +71,25 @@ func NewExercise(conf store.Exercise, dhost DockerHost, vlib vbox.Library, net d
 		}
 	}
 
-	return &exercise{
-		containerOpts: containerOpts,
-		vboxOpts:      vboxOpts,
-		tag:           conf.Tag,
-		dhost:         dhost,
-		vlib:          vlib,
-		net:           net,
-		dnsAddr:       dnsAddr,
+	if !conf.Static {
+		ex = &exercise{
+			containerOpts: containerOpts,
+			vboxOpts:      vboxOpts,
+			tag:           conf.Tag,
+			dhost:         dhost,
+			vlib:          vlib,
+			net:           net,
+			dnsAddr:       dnsAddr,
+		}
+	} else {
+		ex = &exercise{
+			containerOpts: containerOpts,
+			tag:           conf.Tag,
+			dhost:         dhost,
+		}
 	}
+	return ex
+
 }
 
 func (e *exercise) Create(ctx context.Context) error {
