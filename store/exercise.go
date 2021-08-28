@@ -29,8 +29,8 @@ func (eee *ExerTagExistsErr) Error() string {
 	return fmt.Sprintf("Tag already exists: %s", eee.tag)
 }
 
-func (e Exercise) Flags() []FlagConfig {
-	var res []FlagConfig
+func (e Exercise) Flags() []ChildrenChalConfig {
+	var res []ChildrenChalConfig
 	for _, conf := range e.Instance {
 		isStatic := e.Static
 		for _, f := range conf.Flags {
@@ -134,7 +134,7 @@ func (rc RecordConfig) Format(ip string) string {
 	return fmt.Sprintf("%s %s %s", rc.Name, rc.Type, ip)
 }
 
-func (fc FlagConfig) Validate() error {
+func (fc ChildrenChalConfig) Validate() error {
 	if err := fc.Tag.Validate(); err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func (vc VboxConfig) Validate() error {
 //	m            sync.Mutex
 //	tags         map[Tag]*Exercise
 //	exercises    []*Exercise
-//	exerciseInfo []FlagConfig
+//	exerciseInfo []ChildrenChalConfig
 //	hooks        []func([]Exercise) error
 //}
 //func (es *exercisestore) UpdateExercisesFile(path string) (ExerciseStore, error) {
@@ -210,7 +210,7 @@ func (vc VboxConfig) Validate() error {
 //}
 //type ExerciseStore interface {
 //	GetExercisesByTags(...Tag) ([]Exercise, error)
-//	GetExercisesInfo(Tag) []FlagConfig
+//	GetExercisesInfo(Tag) []ChildrenChalConfig
 //	IsSecretExercise(Tag) (bool, error)
 //	CreateExercise(Exercise) error
 //	DeleteExerciseByTag(Tag) error
@@ -221,7 +221,7 @@ func (vc VboxConfig) Validate() error {
 //func NewExerciseStore(exercises []Exercise, hooks ...func([]Exercise) error) (ExerciseStore, error) {
 //	s := exercisestore{
 //		tags:         map[Tag]*Exercise{},
-//		exerciseInfo: []FlagConfig{},
+//		exerciseInfo: []ChildrenChalConfig{},
 //	}
 //
 //	for _, e := range exercises {
@@ -251,10 +251,10 @@ func (vc VboxConfig) Validate() error {
 //	return ex.Secret, nil
 //}
 //
-//func (es *exercisestore) GetExercisesInfo(tag Tag) []FlagConfig {
+//func (es *exercisestore) GetExercisesInfo(tag Tag) []ChildrenChalConfig {
 //	es.m.Lock()
 //	defer es.m.Unlock()
-//	var exer []FlagConfig
+//	var exer []ChildrenChalConfig
 //
 //	for _, e := range es.exerciseInfo {
 //		if strings.Contains(string(e.Tag), string(tag)) {

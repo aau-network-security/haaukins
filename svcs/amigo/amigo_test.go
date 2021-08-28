@@ -56,7 +56,7 @@ func TestVerifyFlag(t *testing.T) {
 		},
 	}, tmp, client)
 
-	var chal = store.FlagConfig{
+	var chal = store.ChildrenChalConfig{
 		Tag:             "test",
 		Name:            "Test Challenge",
 		EnvVar:          "",
@@ -131,7 +131,7 @@ func TestVerifyFlag(t *testing.T) {
 		Status string `json:"status"`
 	}
 
-	var challenges []store.FlagConfig
+	var challenges []store.ChildrenChalConfig
 	challenges = append(challenges, chal)
 
 	for _, tc := range tt {
