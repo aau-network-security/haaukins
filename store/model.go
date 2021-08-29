@@ -23,15 +23,15 @@ type Exercise struct {
 }
 
 type ExerciseInstanceConfig struct {
-	Image    string         `json:"image,omitempty"`
-	MemoryMB uint           `json:"memory,omitempty"`
-	CPU      float64        `json:"cpu,omitempty"`
-	Envs     []EnvVarConfig `json:"envs,omitempty"`
-	Flags    []FlagConfig   `json:"children,omitempty"`
-	Records  []RecordConfig `json:"records,omitempty"`
+	Image    string               `json:"image,omitempty"`
+	MemoryMB uint                 `json:"memory,omitempty"`
+	CPU      float64              `json:"cpu,omitempty"`
+	Envs     []EnvVarConfig       `json:"envs,omitempty"`
+	Flags    []ChildrenChalConfig `json:"children,omitempty"`
+	Records  []RecordConfig       `json:"records,omitempty"`
 }
 
-type FlagConfig struct {
+type ChildrenChalConfig struct {
 	Tag             Tag      `json:"tag,omitempty"`
 	Name            string   `json:"name,omitempty"`
 	EnvVar          string   `json:"envFlag,omitempty"`

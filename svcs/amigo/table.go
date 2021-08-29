@@ -143,10 +143,10 @@ func TeamInfo(t *store.Team, chalCategories []Category) TeamRow {
 // Challenge for Challenges Page. It contains the challenge information, which team has solved that challenge and if
 // the current user has solve that challenge
 type ChallengeCP struct {
-	ChalInfo        store.FlagConfig `json:"challenge"`
-	IsUserCompleted bool             `json:"isUserCompleted"`
-	TeamsCompleted  []TeamsCompleted `json:"teamsCompleted"`
-	IsDisabledChal  bool             `json:"isChalDisabled"`
+	ChalInfo        store.ChildrenChalConfig `json:"challenge"`
+	IsUserCompleted bool                     `json:"isUserCompleted"`
+	TeamsCompleted  []TeamsCompleted         `json:"teamsCompleted"`
+	IsDisabledChal  bool                     `json:"isChalDisabled"`
 }
 
 type TeamsCompleted struct {
@@ -171,7 +171,16 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 
 	for i, c := range fd.challenges {
 		r := ChallengeCP{
-			ChalInfo: c,
+			ChalInfo: store.ChildrenChalConfig{
+				Tag:             c.Tag,
+				Name:            c.Name,
+				Points:          c.Points,
+				Category:        c.Category,
+				TeamDescription: c.TeamDescription,
+				PreRequisites:   c.PreRequisites,
+				Outcomes:        c.Outcomes,
+				StaticChallenge: c.StaticChallenge,
+			},
 		}
 
 		//Render markdown to HTML
