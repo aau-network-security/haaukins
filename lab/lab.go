@@ -30,8 +30,8 @@ type Config struct {
 	DisabledExercises []store.Tag
 }
 
-func (conf Config) Flags() []store.FlagConfig {
-	var res []store.FlagConfig
+func (conf Config) Flags() []store.ChildrenChalConfig {
+	var res []store.ChildrenChalConfig
 	for _, exercise := range conf.Exercises {
 		res = append(res, exercise.Flags()...)
 	}
@@ -41,7 +41,7 @@ func (conf Config) Flags() []store.FlagConfig {
 // GetChildrenChallenges returns list of children challenge tags to be used in amigo frontend
 func (conf Config) GetChildrenChallenges(parentTag string) []string {
 	var childrenTags []string
-	var flags []store.FlagConfig
+	var flags []store.ChildrenChalConfig
 	for _, i := range conf.Exercises {
 		if i.Tag == store.Tag(parentTag) {
 			for _, m := range i.Instance {
@@ -168,6 +168,11 @@ func (l *lab) AddChallenge(ctx context.Context, confs ...store.Exercise) error {
 	}
 
 	for _, ch := range confs {
+		if ch.Static {
+			// in case of no docker or vm given to start
+			// skip it
+			continue
+		}
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()

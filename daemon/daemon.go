@@ -280,11 +280,13 @@ func New(conf *Config) (*daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("[exercise-service]: error on creating gRPC communication %v ", err)
 	}
+	log.Debug().Msg("Exercise service connected !")
 
 	dbc, err := store.NewGRPClientDBConnection(dbConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error on creating GRPClient DB Connection %v", err)
 	}
+	log.Debug().Msg("Store service connected !")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

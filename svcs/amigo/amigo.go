@@ -84,7 +84,7 @@ type Amigo struct {
 	signingKey   []byte
 	cookieTTL    int
 	globalInfo   siteInfo
-	challenges   []store.FlagConfig
+	challenges   []store.ChildrenChalConfig
 	TeamStore    store.Event
 	recaptcha    Recaptcha
 	wgClient     wg.WireguardClient
@@ -106,7 +106,7 @@ func WithEventName(eventName string) AmigoOpt {
 	}
 }
 
-func NewAmigo(ts store.Event, chals []store.FlagConfig, reCaptchaKey string, wgClient wg.WireguardClient, opts ...AmigoOpt) *Amigo {
+func NewAmigo(ts store.Event, chals []store.ChildrenChalConfig, reCaptchaKey string, wgClient wg.WireguardClient, opts ...AmigoOpt) *Amigo {
 
 	am := &Amigo{
 		maxReadBytes: 1024 * 1024,

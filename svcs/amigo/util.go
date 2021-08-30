@@ -159,26 +159,26 @@ type Client struct {
 
 type FrontendData struct {
 	ts         store.TeamStore
-	challenges []store.FlagConfig
+	challenges []store.ChildrenChalConfig
 	clients    map[*Client]struct{}
-	update     chan []store.FlagConfig
+	update     chan []store.ChildrenChalConfig
 	register   chan *Client
 	unregister chan *Client
 }
 
-func NewFrontendData(ts store.TeamStore, chals ...store.FlagConfig) *FrontendData {
+func NewFrontendData(ts store.TeamStore, chals ...store.ChildrenChalConfig) *FrontendData {
 
 	return &FrontendData{
 		ts:         ts,
 		challenges: chals,
 		register:   make(chan *Client),
-		update:     make(chan []store.FlagConfig),
+		update:     make(chan []store.ChildrenChalConfig),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]struct{}),
 	}
 }
 
-func (fd *FrontendData) UpdateChallenges(chals []store.FlagConfig) {
+func (fd *FrontendData) UpdateChallenges(chals []store.ChildrenChalConfig) {
 	go func() {
 		fd.update <- chals
 	}()

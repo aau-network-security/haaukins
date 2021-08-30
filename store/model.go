@@ -3,32 +3,35 @@ package store
 type Tag string
 
 type Category struct {
-	Tag  Tag    `json:"tag,omitempty"`
-	Name string `json:"name,omitempty"`
+	Tag            Tag    `json:"tag,omitempty"`
+	Name           string `json:"name,omitempty"`
 	CatDescription string `json:"catDesc,omitempty"`
 }
 
 //todo manage the status somehow
 type Exercise struct {
-	Tag            Tag                      `json:"tag,omitempty"`
-	Name           string                   `json:"name,omitempty"`
-	Category       string                   `json:"category,omitempty"`
-	Secret         bool                     `json:"secret,omitempty"`
+	Tag      Tag    `json:"tag,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Category string `json:"category,omitempty"`
+	Secret   bool   `json:"secret,omitempty"`
+	// specifies whether challenge will be on docker/vm or none
+	// true: none , false: docker/vm
+	Static         bool                     `json:"static,omitempty"`
 	Instance       []ExerciseInstanceConfig `json:"instance,omitempty"`
 	Status         int                      `json:"status,omitempty"`
 	OrgDescription string                   `json:"organizerDescription,omitempty"`
 }
 
 type ExerciseInstanceConfig struct {
-	Image    string         `json:"image,omitempty"`
-	MemoryMB uint           `json:"memory,omitempty"`
-	CPU      float64        `json:"cpu,omitempty"`
-	Envs     []EnvVarConfig `json:"envs,omitempty"`
-	Flags    []FlagConfig   `json:"children,omitempty"`
-	Records  []RecordConfig `json:"records,omitempty"`
+	Image    string               `json:"image,omitempty"`
+	MemoryMB uint                 `json:"memory,omitempty"`
+	CPU      float64              `json:"cpu,omitempty"`
+	Envs     []EnvVarConfig       `json:"envs,omitempty"`
+	Flags    []ChildrenChalConfig `json:"children,omitempty"`
+	Records  []RecordConfig       `json:"records,omitempty"`
 }
 
-type FlagConfig struct {
+type ChildrenChalConfig struct {
 	Tag             Tag      `json:"tag,omitempty"`
 	Name            string   `json:"name,omitempty"`
 	EnvVar          string   `json:"envFlag,omitempty"`
@@ -38,6 +41,7 @@ type FlagConfig struct {
 	TeamDescription string   `json:"teamDescription,omitempty"`
 	PreRequisites   []string `json:"prerequisite,omitempty"`
 	Outcomes        []string `json:"outcome,omitempty"`
+	StaticChallenge bool     `json:"staticChallenge,omitempty"`
 }
 
 type RecordConfig struct {

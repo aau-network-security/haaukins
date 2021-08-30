@@ -84,6 +84,9 @@ func (ee *environment) Create(ctx context.Context, isVPN int32) error {
 
 func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 
+	var e *exercise
+	var aRecord string
+
 	for _, conf := range confs {
 		if conf.Tag == "" {
 			return MissingTagsErr
@@ -93,28 +96,35 @@ func (ee *environment) Add(ctx context.Context, confs ...store.Exercise) error {
 			return DuplicateTagErr
 		}
 
-		e := NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
-		if err := e.Create(ctx); err != nil {
-			return err
-		}
+		if conf.Static {
+			e = NewExercise(conf, dockerHost{}, nil, nil, "")
+			log.Debug().
+				Str("Challenge Name", conf.Name).
+				Str("Challenge Category", conf.Category).
+				Bool("Is Secret", conf.Secret).
+				Msgf("Configuring the static challenge")
+		} else {
+			e = NewExercise(conf, dockerHost{}, ee.lib, ee.network, ee.dnsAddr)
+			if err := e.Create(ctx); err != nil {
+				return err
+			}
+			ip := strings.Split(e.dnsAddr, ".")
 
-		ee.tags[conf.Tag] = e
-		var aRecord string
-		ip := strings.Split(e.dnsAddr, ".")
-
-		for i, c := range e.containerOpts {
-			for _, r := range c.Records {
-				if strings.Contains(c.DockerConf.Image, "client") {
-					continue
-				}
-				if r.Type == "A" {
-					aRecord = r.Name
-					ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
-						fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[i]): aRecord,
-					}})
+			for i, c := range e.containerOpts {
+				for _, r := range c.Records {
+					if strings.Contains(c.DockerConf.Image, "client") {
+						continue
+					}
+					if r.Type == "A" {
+						aRecord = r.Name
+						ee.dnsrecords = append(ee.dnsrecords, &DNSRecord{Record: map[string]string{
+							fmt.Sprintf("%s.%s.%s.%d", ip[0], ip[1], ip[2], e.ips[i]): aRecord,
+						}})
+					}
 				}
 			}
 		}
+		ee.tags[conf.Tag] = e
 		ee.exercises = append(ee.exercises, e)
 	}
 
@@ -353,6 +363,7 @@ func (ee *environment) refreshDNS(ctx context.Context) error {
 	}
 	var rrSet []dns.RR
 	for _, e := range ee.exercises {
+
 		for _, record := range e.dnsRecords {
 			rrSet = append(rrSet, dns.RR{Name: record.Name, Type: record.Type, RData: record.RData})
 		}

@@ -259,7 +259,7 @@ type labNetInfo struct {
 	wgInterfacePort int
 }
 
-func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.FlagConfig, reCaptchaKey string) (Event, error) {
+func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.ChildrenChalConfig, reCaptchaKey string) (Event, error) {
 	guac, err := New(ctx, Config{}, e.OnlyVPN)
 	if err != nil {
 		return nil, err

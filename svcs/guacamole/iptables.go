@@ -58,6 +58,7 @@ type Errori struct {
 	Err error
 }
 
+// iptables --insert DOCKER-USER -s 77.179.248.0/24 -j REJECT --reject-with icmp-port-unreachable
 func (ipTab *IPTables) createRejectRule(labSubnet string) error {
 	log.Debug().Msgf("Reject icmp connection on containers for lab %s", labSubnet)
 	cmds := []string{string(insertA), "DOCKER-USER", "-s", labSubnet, "-j", string(rejectP), "--reject-with", "icmp-port-unreachable"}
@@ -73,7 +74,7 @@ func (ipTab *IPTables) createStateRule(labSubnet string) error {
 	return err
 }
 
-// vpnIPs, as comma seperated ips
+// iptables --insert DOCKER-USER -s 77.179.248.0/24 -d 25.136.240.250/32,25.136.241.249/32,25.136.242.248/32,25.136.243.247/32,77.179.248.0/24 -j ACCEPT
 func (ipTab *IPTables) createAcceptRule(labSubnet string, vpnIPs string) error {
 	cmds := []string{string(insertA), "DOCKER-USER", "-s", labSubnet, "-d", vpnIPs, "-j", string(acceptP)}
 	_, err := ipTab.execute(cmds...)

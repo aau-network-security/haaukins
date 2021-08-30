@@ -52,10 +52,11 @@ message Exercise{
     string tag = 1;
     string name = 2;
     bool secret = 3;
-    string category = 4;
-    int32 status = 5;
-    repeated ExerciseInstance instance = 6;
-    string organizer_description = 7;
+    bool static = 4;
+    string category = 5;
+    int32 status = 6;
+    repeated ExerciseInstance instance =7;
+    string organizer_description = 8;
 }
 
 message GetExercisesResponse{
@@ -87,6 +88,7 @@ message AddExerciseRequest{
 message AddCategoryRequest{
     string tag = 1;
     string name = 2;
+    string catDescription = 3;
 }
 
 message ResponseStatus{}
