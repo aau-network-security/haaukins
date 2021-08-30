@@ -8,6 +8,16 @@ type Category struct {
 	CatDescription string `json:"catDesc,omitempty"`
 }
 
+type Profile struct {
+	Name       string       `json:"name,omitempty"`
+	Challenges []PChallenge `json:"challenges,omitempty"`
+}
+
+type PChallenge struct {
+	Tag  string `json:"tag,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
 //todo manage the status somehow
 type Exercise struct {
 	Tag      Tag    `json:"tag,omitempty"`
