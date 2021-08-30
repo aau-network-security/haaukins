@@ -910,14 +910,72 @@ func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfi
 		var chals []*pb.ListProfilesResponse_Profile_Challenge
 		for _, c := range p.Challenges {
 			chals = append(chals, &pb.ListProfilesResponse_Profile_Challenge{
-				Tag: c.Tag,
+				Tag:  c.Tag,
 				Name: c.Name,
 			})
 		}
 		profiles = append(profiles, &pb.ListProfilesResponse_Profile{
-			Name: p.Name,
+			Name:       p.Name,
 			Challenges: chals,
 		})
 	}
 	return &pb.ListProfilesResponse{Profiles: profiles}, nil
+}
+
+func (d *daemon) EditProfile(req *pb.SaveProfileRequest, resp pb.Daemon_EditProfileServer) error {
+	ctx := resp.Context()
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+	log.Ctx(ctx).
+		Info().
+		Str("name", req.Name).
+		Msg("Updating profile")
+	log.Info().Str("profileName", req.Name).Msg("Trying to update profile")
+	var challenges []*pbc.UpdateProfileRequest_Challenge
+	for _, c := range req.Challenges {
+		challenges = append(challenges, &pbc.UpdateProfileRequest_Challenge{
+			Tag:  c.Tag,
+			Name: c.Name,
+		})
+	}
+
+	if !user.NPUser {
+		_, err := d.dbClient.UpdateProfile(ctx, &pbc.UpdateProfileRequest{
+			Name:       req.Name,
+			Challenges: challenges,
+		})
+		if err != nil {
+			return fmt.Errorf("Error when updating profile: %e", err)
+		}
+
+	}
+
+	return nil
+}
+
+func (d *daemon) DeleteProfile(req *pb.DeleteProfileRequest, resp pb.Daemon_DeleteProfileServer) error {
+	ctx := resp.Context()
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+	log.Ctx(ctx).
+		Info().
+		Str("name", req.Name).
+		Msg("Deleting profile")
+	log.Info().Str("profileName", req.Name).Msg("Trying to delete profile")
+	if !user.NPUser {
+		_, err := d.dbClient.DeleteProfile(ctx, &pbc.DelProfileRequest{
+			Name:       req.Name,
+		})
+		if err != nil {
+			return fmt.Errorf("Error when updating profile: %e", err)
+		}
+	}
+
+	return nil
 }
