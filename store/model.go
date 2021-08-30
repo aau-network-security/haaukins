@@ -3,9 +3,19 @@ package store
 type Tag string
 
 type Category struct {
-	Tag  Tag    `json:"tag,omitempty"`
-	Name string `json:"name,omitempty"`
+	Tag            Tag    `json:"tag,omitempty"`
+	Name           string `json:"name,omitempty"`
 	CatDescription string `json:"catDesc,omitempty"`
+}
+
+type Profile struct {
+	Name       string       `json:"name,omitempty"`
+	Challenges []PChallenge `json:"challenges,omitempty"`
+}
+
+type PChallenge struct {
+	Tag  string `json:"tag,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 //todo manage the status somehow

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -81,7 +82,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Str("SecretKey", req.SecretEvent).
 		Int32("VPN", req.OnlyVPN).
 		Msg("create event")
-		// get random subnet for vpn connection
+	// get random subnet for vpn connection
 	// check from database if subnet is already assigned to an event or not
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
@@ -845,4 +846,78 @@ func getVPNIP() (string, error) {
 		return "", err
 	}
 	return ip, nil
+}
+
+func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProfileServer) error {
+	ctx := resp.Context()
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+	log.Ctx(ctx).
+		Info().
+		Str("name", req.Name).
+		Msg("Saving profile")
+	log.Info().Str("profileName", req.Name).Msg("Trying to save profile")
+	var challenges []*pbc.AddProfileRequest_Challenge
+	for _, c := range req.Challenges {
+		//log.Info().Str("tag", c.Tag).Str("name", c.Name).Msg("Appending challenge to profile")
+		challenges = append(challenges, &pbc.AddProfileRequest_Challenge{
+			Tag:  c.Tag,
+			Name: c.Name,
+		})
+	}
+
+	if !user.NPUser {
+		_, err := d.dbClient.AddProfile(ctx, &pbc.AddProfileRequest{
+			Name:       req.Name,
+			Challenges: challenges,
+		})
+		if err != nil {
+			return fmt.Errorf("Error when adding profile: %e", err)
+		}
+	}
+	//resp.Send(&pb.ProfileStatus{Profile: req.Name, Status: "Success"})
+	return nil //fmt.Errorf("received at haaukins: %s", user.Username)
+
+}
+
+func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfilesResponse, error) {
+	var profiles []*pb.ListProfilesResponse_Profile
+	_, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return &pb.ListProfilesResponse{}, NoUserInformation
+	}
+
+	profilesStore, err := d.dbClient.GetProfiles(ctx, &pbc.EmptyRequest{})
+	if err != nil {
+		return &pb.ListProfilesResponse{}, fmt.Errorf("[store-service]: ERR getting profiles %v", err)
+	}
+	var profs []store.Profile
+	for _, p := range profilesStore.Profiles {
+		profile, err := protobufToJson(p)
+		if err != nil {
+			//log.Info().Msgf("Error in protobufToJson")
+			return nil, err
+		}
+		pstruct := store.Profile{}
+		json.Unmarshal([]byte(profile), &pstruct)
+		profs = append(profs, pstruct)
+		//log.Info().Msgf("Got profile: %s", profile)
+	}
+	for _, p := range profs {
+		var chals []*pb.ListProfilesResponse_Profile_Challenge
+		for _, c := range p.Challenges {
+			chals = append(chals, &pb.ListProfilesResponse_Profile_Challenge{
+				Tag: c.Tag,
+				Name: c.Name,
+			})
+		}
+		profiles = append(profiles, &pb.ListProfilesResponse_Profile{
+			Name: p.Name,
+			Challenges: chals,
+		})
+	}
+	return &pb.ListProfilesResponse{Profiles: profiles}, nil
 }
