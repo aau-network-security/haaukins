@@ -682,6 +682,10 @@ func (ipp *IPPool) Get() (string, error) {
 	}
 
 	genIP := func() string {
+		lMin := 2
+		hMax := 237
+		hMin := 5
+		lMax := 16
 		ip := randomPickWeighted(ipp.weights)
 		switch ip {
 		case "172":
@@ -689,10 +693,12 @@ func (ipp *IPPool) Get() (string, error) {
 		case "192":
 			ip += ".168"
 		case "10":
-			ip += fmt.Sprintf(".%d", rand.Intn(255))
+			//excluding 10.0
+			ip += fmt.Sprintf(".%d", 1+rand.Intn(254))
 		}
-
-		ip += fmt.Sprintf(".%d", rand.Intn(255))
+		// excluding x.x.2, x.x.1 , x.x.0
+		// excluding x.x.240, x.x.241, x.x.242, x.x.243 due to VPN addressing
+		ip += fmt.Sprintf(".%d", (rand.Intn(lMax-hMin+1)+hMin)+(rand.Intn(hMax-lMin+1)+lMin))
 
 		return ip
 	}

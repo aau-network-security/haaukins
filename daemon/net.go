@@ -49,9 +49,10 @@ func (ipp *IPPool) Get() (string, error) {
 		ip := randomPickWeighted(ipp.weights)
 		switch ip {
 		case "192":
-			ip += fmt.Sprintf(".%d", rand.Intn(142)+25)
+			ip += ".168"
 		case "172":
-			ip += ".44"
+			// valid up to 172.25 | 172.26 | 172.27 | 172.28 | 172.29 | 172.30 |  172.31
+			ip += fmt.Sprintf(".%d", rand.Intn(6)+25)
 		}
 
 		return ip
