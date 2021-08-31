@@ -10,6 +10,7 @@ type Category struct {
 
 type Profile struct {
 	Name       string       `json:"name,omitempty"`
+	Secret     bool       `json:"secret,omitempty"`
 	Challenges []PChallenge `json:"challenges,omitempty"`
 }
 

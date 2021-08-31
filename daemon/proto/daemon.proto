@@ -298,7 +298,8 @@ message ListProfilesResponse {
       string name = 2;
     }
     string name = 1;
-    repeated Challenge challenges = 2;
+    bool secret = 2;
+    repeated Challenge challenges = 3;
   }
   repeated Profile profiles = 1;
 }
@@ -309,7 +310,8 @@ message SaveProfileRequest {
     string name = 2;
   }
   string name = 1;
-  repeated Challenge challenges = 2;
+  bool secret = 2;
+  repeated Challenge challenges = 3;
 }
 
 message DeleteProfileRequest {

@@ -40,7 +40,8 @@ message AddProfileRequest {
         string name = 2;
     }
     string name = 1;
-    repeated Challenge challenges = 2;
+    bool secret = 2;
+    repeated Challenge challenges = 3;
 }
 
 message UpdateProfileRequest {
@@ -49,7 +50,8 @@ message UpdateProfileRequest {
         string name = 2;
     }
     string name = 1;
-    repeated Challenge challenges = 2;
+    bool secret = 2;
+    repeated Challenge challenges = 3;
 }
 
 message DelProfileRequest {
@@ -68,7 +70,8 @@ message GetProfilesResp {
             string name = 2;
         }
         string name = 1;
-        repeated Challenge challenges = 2;
+        bool secret = 2;
+        repeated Challenge challenges = 3;
     }
     repeated Profile profiles = 1;
     string errorMessage = 2;

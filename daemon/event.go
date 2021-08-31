@@ -872,20 +872,22 @@ func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProf
 	if !user.NPUser {
 		_, err := d.dbClient.AddProfile(ctx, &pbc.AddProfileRequest{
 			Name:       req.Name,
+			Secret:     req.Secret,
 			Challenges: challenges,
 		})
 		if err != nil {
 			return fmt.Errorf("Error when adding profile: %e", err)
 		}
+		return nil
 	}
-	//resp.Send(&pb.ProfileStatus{Profile: req.Name, Status: "Success"})
-	return nil //fmt.Errorf("received at haaukins: %s", user.Username)
+
+	return errors.New("You don't have the privilege to create profiles")
 
 }
 
 func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfilesResponse, error) {
 	var profiles []*pb.ListProfilesResponse_Profile
-	_, err := getUserFromIncomingContext(ctx)
+	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		return &pb.ListProfilesResponse{}, NoUserInformation
 	}
@@ -908,6 +910,9 @@ func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfi
 	}
 	for _, p := range profs {
 		var chals []*pb.ListProfilesResponse_Profile_Challenge
+		if !user.SuperUser && p.Secret {
+			continue
+		}
 		for _, c := range p.Challenges {
 			chals = append(chals, &pb.ListProfilesResponse_Profile_Challenge{
 				Tag:  c.Tag,
@@ -916,6 +921,7 @@ func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfi
 		}
 		profiles = append(profiles, &pb.ListProfilesResponse_Profile{
 			Name:       p.Name,
+			Secret:     p.Secret,
 			Challenges: chals,
 		})
 	}
@@ -945,15 +951,16 @@ func (d *daemon) EditProfile(req *pb.SaveProfileRequest, resp pb.Daemon_EditProf
 	if !user.NPUser {
 		_, err := d.dbClient.UpdateProfile(ctx, &pbc.UpdateProfileRequest{
 			Name:       req.Name,
+			Secret:     req.Secret,
 			Challenges: challenges,
 		})
 		if err != nil {
 			return fmt.Errorf("Error when updating profile: %e", err)
 		}
-
+		return nil
 	}
 
-	return nil
+	return errors.New("You don't have the privilege to update profiles")
 }
 
 func (d *daemon) DeleteProfile(req *pb.DeleteProfileRequest, resp pb.Daemon_DeleteProfileServer) error {
@@ -970,12 +977,13 @@ func (d *daemon) DeleteProfile(req *pb.DeleteProfileRequest, resp pb.Daemon_Dele
 	log.Info().Str("profileName", req.Name).Msg("Trying to delete profile")
 	if !user.NPUser {
 		_, err := d.dbClient.DeleteProfile(ctx, &pbc.DelProfileRequest{
-			Name:       req.Name,
+			Name: req.Name,
 		})
 		if err != nil {
 			return fmt.Errorf("Error when updating profile: %e", err)
 		}
+		return nil
 	}
 
-	return nil
+	return errors.New("You don't have the privilege to delete profiles")
 }
