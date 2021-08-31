@@ -870,7 +870,7 @@ func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProf
 	}
 
 	if !user.NPUser {
-		_, err := d.dbClient.AddProfile(ctx, &pbc.AddProfileRequest{
+		resp, err := d.dbClient.AddProfile(ctx, &pbc.AddProfileRequest{
 			Name:       req.Name,
 			Secret:     req.Secret,
 			Challenges: challenges,
@@ -878,7 +878,7 @@ func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProf
 		if err != nil {
 			return fmt.Errorf("Error when adding profile: %e", err)
 		}
-		return nil
+		return errors.New(resp.ErrorMessage)
 	}
 
 	return errors.New("You don't have the privilege to create profiles")
