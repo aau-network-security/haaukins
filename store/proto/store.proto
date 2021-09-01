@@ -6,6 +6,7 @@ service Store {
     //Insert
     rpc AddEvent (AddEventRequest) returns (InsertResponse) {}
     rpc AddTeam (AddTeamRequest) returns (InsertResponse) {}
+    rpc AddProfile (AddProfileRequest) returns (InsertResponse) {}
 
     //Select
     rpc GetEvents (GetEventRequest) returns (GetEventResponse) {}
@@ -16,6 +17,7 @@ service Store {
     rpc GetTimeSeries(EmptyRequest) returns (GetTimeSeriesResponse) {}
     rpc DropEvent(DropEventReq) returns (DropEventResp){}
     rpc GetEventID(GetEventIDReq) returns (GetEventIDResp) {}
+    rpc GetProfiles(EmptyRequest) returns (GetProfilesResp) {}
 
     rpc SetEventStatus (SetEventStatusRequest) returns (EventStatusStore) {}
 
@@ -25,9 +27,54 @@ service Store {
     rpc UpdateTeamLastAccess (UpdateTeamLastAccessRequest) returns (UpdateResponse) {}
     rpc UpdateTeamPassword (UpdateTeamPassRequest) returns (UpdateResponse) {}
     rpc UpdateExercises(UpdateExerciseRequest) returns (UpdateExerciseResponse){}
+    rpc UpdateProfile(UpdateProfileRequest) returns (UpdateResponse) {}
 
     // Delete
     rpc DeleteTeam(DelTeamRequest) returns (DelTeamResp) {}
+    rpc DeleteProfile(DelProfileRequest) returns (DelProfileResp) {}
+}
+
+message AddProfileRequest {
+    message Challenge {
+        string tag = 1;
+        string name = 2;
+    }
+    string name = 1;
+    bool secret = 2;
+    repeated Challenge challenges = 3;
+}
+
+message UpdateProfileRequest {
+    message Challenge {
+        string tag = 1;
+        string name = 2;
+    }
+    string name = 1;
+    bool secret = 2;
+    repeated Challenge challenges = 3;
+}
+
+message DelProfileRequest {
+    string name = 1;
+}
+
+message DelProfileResp {
+    string message = 1;
+    string errorMessage = 2;
+}
+
+message GetProfilesResp {
+    message Profile {
+        message Challenge {
+            string tag = 1;
+            string name = 2;
+        }
+        string name = 1;
+        bool secret = 2;
+        repeated Challenge challenges = 3;
+    }
+    repeated Profile profiles = 1;
+    string errorMessage = 2;
 }
 
 message UpdateExerciseRequest {

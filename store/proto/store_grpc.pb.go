@@ -21,6 +21,7 @@ type StoreClient interface {
 	//Insert
 	AddEvent(ctx context.Context, in *AddEventRequest, opts ...grpc.CallOption) (*InsertResponse, error)
 	AddTeam(ctx context.Context, in *AddTeamRequest, opts ...grpc.CallOption) (*InsertResponse, error)
+	AddProfile(ctx context.Context, in *AddProfileRequest, opts ...grpc.CallOption) (*InsertResponse, error)
 	//Select
 	GetEvents(ctx context.Context, in *GetEventRequest, opts ...grpc.CallOption) (*GetEventResponse, error)
 	GetEventByUser(ctx context.Context, in *GetEventByUserReq, opts ...grpc.CallOption) (*GetEventResponse, error)
@@ -30,6 +31,7 @@ type StoreClient interface {
 	GetTimeSeries(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetTimeSeriesResponse, error)
 	DropEvent(ctx context.Context, in *DropEventReq, opts ...grpc.CallOption) (*DropEventResp, error)
 	GetEventID(ctx context.Context, in *GetEventIDReq, opts ...grpc.CallOption) (*GetEventIDResp, error)
+	GetProfiles(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetProfilesResp, error)
 	SetEventStatus(ctx context.Context, in *SetEventStatusRequest, opts ...grpc.CallOption) (*EventStatusStore, error)
 	//Update
 	UpdateCloseEvent(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
@@ -37,8 +39,10 @@ type StoreClient interface {
 	UpdateTeamLastAccess(ctx context.Context, in *UpdateTeamLastAccessRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	UpdateTeamPassword(ctx context.Context, in *UpdateTeamPassRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	UpdateExercises(ctx context.Context, in *UpdateExerciseRequest, opts ...grpc.CallOption) (*UpdateExerciseResponse, error)
+	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	// Delete
 	DeleteTeam(ctx context.Context, in *DelTeamRequest, opts ...grpc.CallOption) (*DelTeamResp, error)
+	DeleteProfile(ctx context.Context, in *DelProfileRequest, opts ...grpc.CallOption) (*DelProfileResp, error)
 }
 
 type storeClient struct {
@@ -61,6 +65,15 @@ func (c *storeClient) AddEvent(ctx context.Context, in *AddEventRequest, opts ..
 func (c *storeClient) AddTeam(ctx context.Context, in *AddTeamRequest, opts ...grpc.CallOption) (*InsertResponse, error) {
 	out := new(InsertResponse)
 	err := c.cc.Invoke(ctx, "/store.Store/AddTeam", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) AddProfile(ctx context.Context, in *AddProfileRequest, opts ...grpc.CallOption) (*InsertResponse, error) {
+	out := new(InsertResponse)
+	err := c.cc.Invoke(ctx, "/store.Store/AddProfile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +152,15 @@ func (c *storeClient) GetEventID(ctx context.Context, in *GetEventIDReq, opts ..
 	return out, nil
 }
 
+func (c *storeClient) GetProfiles(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetProfilesResp, error) {
+	out := new(GetProfilesResp)
+	err := c.cc.Invoke(ctx, "/store.Store/GetProfiles", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *storeClient) SetEventStatus(ctx context.Context, in *SetEventStatusRequest, opts ...grpc.CallOption) (*EventStatusStore, error) {
 	out := new(EventStatusStore)
 	err := c.cc.Invoke(ctx, "/store.Store/SetEventStatus", in, out, opts...)
@@ -193,9 +215,27 @@ func (c *storeClient) UpdateExercises(ctx context.Context, in *UpdateExerciseReq
 	return out, nil
 }
 
+func (c *storeClient) UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateResponse, error) {
+	out := new(UpdateResponse)
+	err := c.cc.Invoke(ctx, "/store.Store/UpdateProfile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *storeClient) DeleteTeam(ctx context.Context, in *DelTeamRequest, opts ...grpc.CallOption) (*DelTeamResp, error) {
 	out := new(DelTeamResp)
 	err := c.cc.Invoke(ctx, "/store.Store/DeleteTeam", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storeClient) DeleteProfile(ctx context.Context, in *DelProfileRequest, opts ...grpc.CallOption) (*DelProfileResp, error) {
+	out := new(DelProfileResp)
+	err := c.cc.Invoke(ctx, "/store.Store/DeleteProfile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +249,7 @@ type StoreServer interface {
 	//Insert
 	AddEvent(context.Context, *AddEventRequest) (*InsertResponse, error)
 	AddTeam(context.Context, *AddTeamRequest) (*InsertResponse, error)
+	AddProfile(context.Context, *AddProfileRequest) (*InsertResponse, error)
 	//Select
 	GetEvents(context.Context, *GetEventRequest) (*GetEventResponse, error)
 	GetEventByUser(context.Context, *GetEventByUserReq) (*GetEventResponse, error)
@@ -218,6 +259,7 @@ type StoreServer interface {
 	GetTimeSeries(context.Context, *EmptyRequest) (*GetTimeSeriesResponse, error)
 	DropEvent(context.Context, *DropEventReq) (*DropEventResp, error)
 	GetEventID(context.Context, *GetEventIDReq) (*GetEventIDResp, error)
+	GetProfiles(context.Context, *EmptyRequest) (*GetProfilesResp, error)
 	SetEventStatus(context.Context, *SetEventStatusRequest) (*EventStatusStore, error)
 	//Update
 	UpdateCloseEvent(context.Context, *UpdateEventRequest) (*UpdateResponse, error)
@@ -225,8 +267,10 @@ type StoreServer interface {
 	UpdateTeamLastAccess(context.Context, *UpdateTeamLastAccessRequest) (*UpdateResponse, error)
 	UpdateTeamPassword(context.Context, *UpdateTeamPassRequest) (*UpdateResponse, error)
 	UpdateExercises(context.Context, *UpdateExerciseRequest) (*UpdateExerciseResponse, error)
+	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateResponse, error)
 	// Delete
 	DeleteTeam(context.Context, *DelTeamRequest) (*DelTeamResp, error)
+	DeleteProfile(context.Context, *DelProfileRequest) (*DelProfileResp, error)
 	mustEmbedUnimplementedStoreServer()
 }
 
@@ -239,6 +283,9 @@ func (UnimplementedStoreServer) AddEvent(context.Context, *AddEventRequest) (*In
 }
 func (UnimplementedStoreServer) AddTeam(context.Context, *AddTeamRequest) (*InsertResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddTeam not implemented")
+}
+func (UnimplementedStoreServer) AddProfile(context.Context, *AddProfileRequest) (*InsertResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddProfile not implemented")
 }
 func (UnimplementedStoreServer) GetEvents(context.Context, *GetEventRequest) (*GetEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEvents not implemented")
@@ -264,6 +311,9 @@ func (UnimplementedStoreServer) DropEvent(context.Context, *DropEventReq) (*Drop
 func (UnimplementedStoreServer) GetEventID(context.Context, *GetEventIDReq) (*GetEventIDResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEventID not implemented")
 }
+func (UnimplementedStoreServer) GetProfiles(context.Context, *EmptyRequest) (*GetProfilesResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProfiles not implemented")
+}
 func (UnimplementedStoreServer) SetEventStatus(context.Context, *SetEventStatusRequest) (*EventStatusStore, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetEventStatus not implemented")
 }
@@ -282,8 +332,14 @@ func (UnimplementedStoreServer) UpdateTeamPassword(context.Context, *UpdateTeamP
 func (UnimplementedStoreServer) UpdateExercises(context.Context, *UpdateExerciseRequest) (*UpdateExerciseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateExercises not implemented")
 }
+func (UnimplementedStoreServer) UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateProfile not implemented")
+}
 func (UnimplementedStoreServer) DeleteTeam(context.Context, *DelTeamRequest) (*DelTeamResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTeam not implemented")
+}
+func (UnimplementedStoreServer) DeleteProfile(context.Context, *DelProfileRequest) (*DelProfileResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteProfile not implemented")
 }
 func (UnimplementedStoreServer) mustEmbedUnimplementedStoreServer() {}
 
@@ -330,6 +386,24 @@ func _Store_AddTeam_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(StoreServer).AddTeam(ctx, req.(*AddTeamRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Store_AddProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).AddProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/store.Store/AddProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).AddProfile(ctx, req.(*AddProfileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -478,6 +552,24 @@ func _Store_GetEventID_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Store_GetProfiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).GetProfiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/store.Store/GetProfiles",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).GetProfiles(ctx, req.(*EmptyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Store_SetEventStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetEventStatusRequest)
 	if err := dec(in); err != nil {
@@ -586,6 +678,24 @@ func _Store_UpdateExercises_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Store_UpdateProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).UpdateProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/store.Store/UpdateProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).UpdateProfile(ctx, req.(*UpdateProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Store_DeleteTeam_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DelTeamRequest)
 	if err := dec(in); err != nil {
@@ -604,6 +714,24 @@ func _Store_DeleteTeam_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Store_DeleteProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DelProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).DeleteProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/store.Store/DeleteProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).DeleteProfile(ctx, req.(*DelProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Store_ServiceDesc is the grpc.ServiceDesc for Store service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -618,6 +746,10 @@ var Store_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddTeam",
 			Handler:    _Store_AddTeam_Handler,
+		},
+		{
+			MethodName: "AddProfile",
+			Handler:    _Store_AddProfile_Handler,
 		},
 		{
 			MethodName: "GetEvents",
@@ -652,6 +784,10 @@ var Store_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Store_GetEventID_Handler,
 		},
 		{
+			MethodName: "GetProfiles",
+			Handler:    _Store_GetProfiles_Handler,
+		},
+		{
 			MethodName: "SetEventStatus",
 			Handler:    _Store_SetEventStatus_Handler,
 		},
@@ -676,8 +812,16 @@ var Store_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Store_UpdateExercises_Handler,
 		},
 		{
+			MethodName: "UpdateProfile",
+			Handler:    _Store_UpdateProfile_Handler,
+		},
+		{
 			MethodName: "DeleteTeam",
 			Handler:    _Store_DeleteTeam_Handler,
+		},
+		{
+			MethodName: "DeleteProfile",
+			Handler:    _Store_DeleteProfile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

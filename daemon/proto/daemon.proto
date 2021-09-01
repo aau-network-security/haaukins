@@ -40,6 +40,10 @@ service Daemon {
   rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
   rpc Version (Empty) returns (VersionResponse) {}
   rpc ListCategories (Empty) returns (ListCategoriesResponse) {}
+  rpc SaveProfile (SaveProfileRequest) returns (stream ProfileStatus) {}
+  rpc DeleteProfile (DeleteProfileRequest) returns (stream ProfileStatus) {}
+  rpc EditProfile (SaveProfileRequest) returns (stream ProfileStatus) {}
+  rpc ListProfiles (Empty) returns (ListProfilesResponse) {}
 }
 
 
@@ -285,6 +289,38 @@ message ListExercisesResponse {
     string orgdescription = 7;
   }
   repeated Exercise exercises = 1;
+}
+
+message ListProfilesResponse {
+  message Profile {
+    message Challenge {
+      string tag = 1;
+      string name = 2;
+    }
+    string name = 1;
+    bool secret = 2;
+    repeated Challenge challenges = 3;
+  }
+  repeated Profile profiles = 1;
+}
+
+message SaveProfileRequest {
+  message Challenge {
+    string tag = 1;
+    string name = 2;
+  }
+  string name = 1;
+  bool secret = 2;
+  repeated Challenge challenges = 3;
+}
+
+message DeleteProfileRequest {
+  string name = 1;
+}
+
+message ProfileStatus {
+  string profile = 1;
+  string status = 2;
 }
 
 message ListCategoriesResponse {
