@@ -980,7 +980,7 @@ func (d *daemon) DeleteProfile(req *pb.DeleteProfileRequest, resp pb.Daemon_Dele
 			Name: req.Name,
 		})
 		if err != nil {
-			return fmt.Errorf("Error when updating profile: %e", err)
+			return fmt.Errorf("Error when deleting profile: %e", err)
 		}
 		return nil
 	}
