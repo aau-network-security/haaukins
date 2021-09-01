@@ -862,7 +862,6 @@ func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProf
 	log.Info().Str("profileName", req.Name).Msg("Trying to save profile")
 	var challenges []*pbc.AddProfileRequest_Challenge
 	for _, c := range req.Challenges {
-		//log.Info().Str("tag", c.Tag).Str("name", c.Name).Msg("Appending challenge to profile")
 		challenges = append(challenges, &pbc.AddProfileRequest_Challenge{
 			Tag:  c.Tag,
 			Name: c.Name,
@@ -900,13 +899,11 @@ func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfi
 	for _, p := range profilesStore.Profiles {
 		profile, err := protobufToJson(p)
 		if err != nil {
-			//log.Info().Msgf("Error in protobufToJson")
 			return nil, err
 		}
 		pstruct := store.Profile{}
 		json.Unmarshal([]byte(profile), &pstruct)
 		profs = append(profs, pstruct)
-		//log.Info().Msgf("Got profile: %s", profile)
 	}
 	for _, p := range profs {
 		var chals []*pb.ListProfilesResponse_Profile_Challenge
