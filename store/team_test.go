@@ -25,6 +25,6 @@ func TestCopyMap(t *testing.T) {
 		"banana": {"b", "a", "n", "a", "n", "a"},
 	}
 	if !reflect.DeepEqual(m2, expected) {
-		t.Fatalf("Maps are not matching as expected, Expected: %v Actual: %v ", expected, m1)
+		t.Fatalf("Maps are not matching as expected, Expected: %v Actual: %v ", expected, m2)
 	}
 }
