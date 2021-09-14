@@ -242,7 +242,6 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
 	lastAccessedT time.Time, disabledExs, allChallenges map[string][]string, dbc pbc.StoreClient) *Team {
 	disabledChals := CopyMap(disabledExs)
 	allChals := CopyMap(allChallenges)
-	log.Debug().Interface("Disabled Exercises", disabledExs).Msg(" New Team disabled exercises !!")
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
