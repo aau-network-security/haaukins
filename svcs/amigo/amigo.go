@@ -687,10 +687,13 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 				return
 			}
 		}
+		disabledChals := store.CopyMap(am.TeamStore.DisabledChallenges)
+		allChals := store.CopyMap(am.TeamStore.AllChallenges)
+
 		// email removed  due to GDPR
 		t := store.NewTeam("", strings.TrimSpace(params.TeamName), params.Password,
 			"", "", "", time.Now().UTC(),
-			am.TeamStore.DisabledChallenges, am.TeamStore.AllChallenges, nil)
+			disabledChals, allChals, nil)
 
 		if err := am.TeamStore.SaveTeam(t); err != nil {
 			displayErr(w, params, err)
