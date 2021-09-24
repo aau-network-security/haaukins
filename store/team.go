@@ -240,6 +240,8 @@ type TeamChallenge struct {
 
 func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
 	lastAccessedT time.Time, disabledExs, allChallenges map[string][]string, dbc pbc.StoreClient) *Team {
+	disabledChals := CopyMap(disabledExs)
+	allChals := CopyMap(allChallenges)
 	var hPass []byte
 	if hashedPass == "" {
 		hPass, _ = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -267,8 +269,8 @@ func NewTeam(email, name, password, id, hashedPass, solvedChalsDB string,
 		lastAccess:         lastAccessedT,
 		vpnKeys:            map[int]string{},
 		isLabAssigned:      false,
-		disabledChallenges: disabledExs,
-		allChallenges:      allChallenges,
+		disabledChallenges: disabledChals,
+		allChallenges:      allChals,
 	}
 }
 
@@ -614,4 +616,15 @@ func (t *Team) CorrectedAssignedLab() {
 	t.m.Lock()
 	defer t.m.Unlock()
 	t.isLabAssigned = true
+}
+
+func CopyMap(m map[string][]string) map[string][]string {
+	nm := make(map[string][]string)
+	for k, v := range m {
+		_, ok := nm[k]
+		if !ok {
+			nm[k] = v
+		}
+	}
+	return nm
 }

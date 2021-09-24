@@ -50,6 +50,10 @@ type DaemonClient interface {
 	MonitorHost(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Daemon_MonitorHostClient, error)
 	Version(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*VersionResponse, error)
 	ListCategories(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListCategoriesResponse, error)
+	SaveProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_SaveProfileClient, error)
+	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (Daemon_DeleteProfileClient, error)
+	EditProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_EditProfileClient, error)
+	ListProfiles(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListProfilesResponse, error)
 }
 
 type daemonClient struct {
@@ -555,6 +559,111 @@ func (c *daemonClient) ListCategories(ctx context.Context, in *Empty, opts ...gr
 	return out, nil
 }
 
+func (c *daemonClient) SaveProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_SaveProfileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[9], "/daemon.Daemon/SaveProfile", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &daemonSaveProfileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Daemon_SaveProfileClient interface {
+	Recv() (*ProfileStatus, error)
+	grpc.ClientStream
+}
+
+type daemonSaveProfileClient struct {
+	grpc.ClientStream
+}
+
+func (x *daemonSaveProfileClient) Recv() (*ProfileStatus, error) {
+	m := new(ProfileStatus)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *daemonClient) DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (Daemon_DeleteProfileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[10], "/daemon.Daemon/DeleteProfile", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &daemonDeleteProfileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Daemon_DeleteProfileClient interface {
+	Recv() (*ProfileStatus, error)
+	grpc.ClientStream
+}
+
+type daemonDeleteProfileClient struct {
+	grpc.ClientStream
+}
+
+func (x *daemonDeleteProfileClient) Recv() (*ProfileStatus, error) {
+	m := new(ProfileStatus)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *daemonClient) EditProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_EditProfileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[11], "/daemon.Daemon/EditProfile", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &daemonEditProfileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Daemon_EditProfileClient interface {
+	Recv() (*ProfileStatus, error)
+	grpc.ClientStream
+}
+
+type daemonEditProfileClient struct {
+	grpc.ClientStream
+}
+
+func (x *daemonEditProfileClient) Recv() (*ProfileStatus, error) {
+	m := new(ProfileStatus)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *daemonClient) ListProfiles(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListProfilesResponse, error) {
+	out := new(ListProfilesResponse)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/ListProfiles", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DaemonServer is the server API for Daemon service.
 // All implementations must embed UnimplementedDaemonServer
 // for forward compatibility
@@ -591,6 +700,10 @@ type DaemonServer interface {
 	MonitorHost(*Empty, Daemon_MonitorHostServer) error
 	Version(context.Context, *Empty) (*VersionResponse, error)
 	ListCategories(context.Context, *Empty) (*ListCategoriesResponse, error)
+	SaveProfile(*SaveProfileRequest, Daemon_SaveProfileServer) error
+	DeleteProfile(*DeleteProfileRequest, Daemon_DeleteProfileServer) error
+	EditProfile(*SaveProfileRequest, Daemon_EditProfileServer) error
+	ListProfiles(context.Context, *Empty) (*ListProfilesResponse, error)
 	mustEmbedUnimplementedDaemonServer()
 }
 
@@ -693,6 +806,18 @@ func (UnimplementedDaemonServer) Version(context.Context, *Empty) (*VersionRespo
 }
 func (UnimplementedDaemonServer) ListCategories(context.Context, *Empty) (*ListCategoriesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListCategories not implemented")
+}
+func (UnimplementedDaemonServer) SaveProfile(*SaveProfileRequest, Daemon_SaveProfileServer) error {
+	return status.Errorf(codes.Unimplemented, "method SaveProfile not implemented")
+}
+func (UnimplementedDaemonServer) DeleteProfile(*DeleteProfileRequest, Daemon_DeleteProfileServer) error {
+	return status.Errorf(codes.Unimplemented, "method DeleteProfile not implemented")
+}
+func (UnimplementedDaemonServer) EditProfile(*SaveProfileRequest, Daemon_EditProfileServer) error {
+	return status.Errorf(codes.Unimplemented, "method EditProfile not implemented")
+}
+func (UnimplementedDaemonServer) ListProfiles(context.Context, *Empty) (*ListProfilesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListProfiles not implemented")
 }
 func (UnimplementedDaemonServer) mustEmbedUnimplementedDaemonServer() {}
 
@@ -1310,6 +1435,87 @@ func _Daemon_ListCategories_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Daemon_SaveProfile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SaveProfileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServer).SaveProfile(m, &daemonSaveProfileServer{stream})
+}
+
+type Daemon_SaveProfileServer interface {
+	Send(*ProfileStatus) error
+	grpc.ServerStream
+}
+
+type daemonSaveProfileServer struct {
+	grpc.ServerStream
+}
+
+func (x *daemonSaveProfileServer) Send(m *ProfileStatus) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Daemon_DeleteProfile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DeleteProfileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServer).DeleteProfile(m, &daemonDeleteProfileServer{stream})
+}
+
+type Daemon_DeleteProfileServer interface {
+	Send(*ProfileStatus) error
+	grpc.ServerStream
+}
+
+type daemonDeleteProfileServer struct {
+	grpc.ServerStream
+}
+
+func (x *daemonDeleteProfileServer) Send(m *ProfileStatus) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Daemon_EditProfile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SaveProfileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServer).EditProfile(m, &daemonEditProfileServer{stream})
+}
+
+type Daemon_EditProfileServer interface {
+	Send(*ProfileStatus) error
+	grpc.ServerStream
+}
+
+type daemonEditProfileServer struct {
+	grpc.ServerStream
+}
+
+func (x *daemonEditProfileServer) Send(m *ProfileStatus) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Daemon_ListProfiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).ListProfiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/ListProfiles",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).ListProfiles(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Daemon_ServiceDesc is the grpc.ServiceDesc for Daemon service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1409,6 +1615,10 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ListCategories",
 			Handler:    _Daemon_ListCategories_Handler,
 		},
+		{
+			MethodName: "ListProfiles",
+			Handler:    _Daemon_ListProfiles_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1454,6 +1664,21 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "MonitorHost",
 			Handler:       _Daemon_MonitorHost_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SaveProfile",
+			Handler:       _Daemon_SaveProfile_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "DeleteProfile",
+			Handler:       _Daemon_DeleteProfile_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "EditProfile",
+			Handler:       _Daemon_EditProfile_Handler,
 			ServerStreams: true,
 		},
 	},

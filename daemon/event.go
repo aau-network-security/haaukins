@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -81,7 +82,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Str("SecretKey", req.SecretEvent).
 		Int32("VPN", req.OnlyVPN).
 		Msg("create event")
-		// get random subnet for vpn connection
+	// get random subnet for vpn connection
 	// check from database if subnet is already assigned to an event or not
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
@@ -845,4 +846,141 @@ func getVPNIP() (string, error) {
 		return "", err
 	}
 	return ip, nil
+}
+
+func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProfileServer) error {
+	ctx := resp.Context()
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+	log.Ctx(ctx).
+		Info().
+		Str("name", req.Name).
+		Msg("Saving profile")
+	log.Info().Str("profileName", req.Name).Msg("Trying to save profile")
+	var challenges []*pbc.AddProfileRequest_Challenge
+	for _, c := range req.Challenges {
+		challenges = append(challenges, &pbc.AddProfileRequest_Challenge{
+			Tag:  c.Tag,
+			Name: c.Name,
+		})
+	}
+
+	if !user.NPUser {
+		resp, err := d.dbClient.AddProfile(ctx, &pbc.AddProfileRequest{
+			Name:       req.Name,
+			Secret:     req.Secret,
+			Challenges: challenges,
+		})
+		if err != nil {
+			return fmt.Errorf("Error when adding profile: %e", err)
+		}
+		return errors.New(resp.ErrorMessage)
+	}
+
+	return errors.New("You don't have the privilege to create profiles")
+
+}
+
+func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfilesResponse, error) {
+	var profiles []*pb.ListProfilesResponse_Profile
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		return &pb.ListProfilesResponse{}, NoUserInformation
+	}
+
+	profilesStore, err := d.dbClient.GetProfiles(ctx, &pbc.EmptyRequest{})
+	if err != nil {
+		return &pb.ListProfilesResponse{}, fmt.Errorf("[store-service]: ERR getting profiles %v", err)
+	}
+	var profs []store.Profile
+	for _, p := range profilesStore.Profiles {
+		profile, err := protobufToJson(p)
+		if err != nil {
+			return nil, err
+		}
+		pstruct := store.Profile{}
+		json.Unmarshal([]byte(profile), &pstruct)
+		profs = append(profs, pstruct)
+	}
+	for _, p := range profs {
+		var chals []*pb.ListProfilesResponse_Profile_Challenge
+		if !user.SuperUser && p.Secret {
+			continue
+		}
+		for _, c := range p.Challenges {
+			chals = append(chals, &pb.ListProfilesResponse_Profile_Challenge{
+				Tag:  c.Tag,
+				Name: c.Name,
+			})
+		}
+		profiles = append(profiles, &pb.ListProfilesResponse_Profile{
+			Name:       p.Name,
+			Secret:     p.Secret,
+			Challenges: chals,
+		})
+	}
+	return &pb.ListProfilesResponse{Profiles: profiles}, nil
+}
+
+func (d *daemon) EditProfile(req *pb.SaveProfileRequest, resp pb.Daemon_EditProfileServer) error {
+	ctx := resp.Context()
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+	log.Ctx(ctx).
+		Info().
+		Str("name", req.Name).
+		Msg("Updating profile")
+	log.Info().Str("profileName", req.Name).Msg("Trying to update profile")
+	var challenges []*pbc.UpdateProfileRequest_Challenge
+	for _, c := range req.Challenges {
+		challenges = append(challenges, &pbc.UpdateProfileRequest_Challenge{
+			Tag:  c.Tag,
+			Name: c.Name,
+		})
+	}
+
+	if !user.NPUser {
+		_, err := d.dbClient.UpdateProfile(ctx, &pbc.UpdateProfileRequest{
+			Name:       req.Name,
+			Secret:     req.Secret,
+			Challenges: challenges,
+		})
+		if err != nil {
+			return fmt.Errorf("Error when updating profile: %e", err)
+		}
+		return nil
+	}
+
+	return errors.New("You don't have the privilege to update profiles")
+}
+
+func (d *daemon) DeleteProfile(req *pb.DeleteProfileRequest, resp pb.Daemon_DeleteProfileServer) error {
+	ctx := resp.Context()
+	user, err := getUserFromIncomingContext(ctx)
+	if err != nil {
+		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		return fmt.Errorf("user credentials could not found on context %v", err)
+	}
+	log.Ctx(ctx).
+		Info().
+		Str("name", req.Name).
+		Msg("Deleting profile")
+	log.Info().Str("profileName", req.Name).Msg("Trying to delete profile")
+	if !user.NPUser {
+		_, err := d.dbClient.DeleteProfile(ctx, &pbc.DelProfileRequest{
+			Name: req.Name,
+		})
+		if err != nil {
+			return fmt.Errorf("Error when deleting profile: %e", err)
+		}
+		return nil
+	}
+
+	return errors.New("You don't have the privilege to delete profiles")
 }
