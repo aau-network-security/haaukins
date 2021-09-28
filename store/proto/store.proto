@@ -28,7 +28,7 @@ service Store {
     rpc UpdateTeamPassword (UpdateTeamPassRequest) returns (UpdateResponse) {}
     rpc UpdateExercises(UpdateExerciseRequest) returns (UpdateExerciseResponse){}
     rpc UpdateProfile(UpdateProfileRequest) returns (UpdateResponse) {}
-
+    rpc UpdateEvent(UpdateEventPropReq) returns (UpdateEventResponse){}
     // Delete
     rpc DeleteTeam(DelTeamRequest) returns (DelTeamResp) {}
     rpc DeleteProfile(DelProfileRequest) returns (DelProfileResp) {}
@@ -42,6 +42,16 @@ message AddProfileRequest {
     string name = 1;
     bool secret = 2;
     repeated Challenge challenges = 3;
+}
+
+message UpdateEventPropReq {
+    string eventTag = 1;
+    string finishTime = 2;
+    int32 capacity = 3;
+}
+
+message UpdateEventResponse {
+    string message = 1;
 }
 
 message UpdateProfileRequest {
