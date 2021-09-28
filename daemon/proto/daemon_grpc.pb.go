@@ -34,6 +34,7 @@ type DaemonClient interface {
 	ListEventTeams(ctx context.Context, in *ListEventTeamsRequest, opts ...grpc.CallOption) (*ListEventTeamsResponse, error)
 	RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (Daemon_RestartTeamLabClient, error)
 	SolveChallenge(ctx context.Context, in *SolveChallengeRequest, opts ...grpc.CallOption) (*SolveChallengeResponse, error)
+	ModifyEvent(ctx context.Context, in *ModifyEventRequest, opts ...grpc.CallOption) (*ModifyEventResponse, error)
 	AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (Daemon_AddChallengeClient, error)
 	AddNotification(ctx context.Context, in *AddNotificationRequest, opts ...grpc.CallOption) (*AddNotificationResponse, error)
 	DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (Daemon_DeleteTeamClient, error)
@@ -294,6 +295,15 @@ func (x *daemonRestartTeamLabClient) Recv() (*EventStatus, error) {
 func (c *daemonClient) SolveChallenge(ctx context.Context, in *SolveChallengeRequest, opts ...grpc.CallOption) (*SolveChallengeResponse, error) {
 	out := new(SolveChallengeResponse)
 	err := c.cc.Invoke(ctx, "/daemon.Daemon/SolveChallenge", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonClient) ModifyEvent(ctx context.Context, in *ModifyEventRequest, opts ...grpc.CallOption) (*ModifyEventResponse, error) {
+	out := new(ModifyEventResponse)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/ModifyEvent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -684,6 +694,7 @@ type DaemonServer interface {
 	ListEventTeams(context.Context, *ListEventTeamsRequest) (*ListEventTeamsResponse, error)
 	RestartTeamLab(*RestartTeamLabRequest, Daemon_RestartTeamLabServer) error
 	SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error)
+	ModifyEvent(context.Context, *ModifyEventRequest) (*ModifyEventResponse, error)
 	AddChallenge(*AddChallengeRequest, Daemon_AddChallengeServer) error
 	AddNotification(context.Context, *AddNotificationRequest) (*AddNotificationResponse, error)
 	DeleteTeam(*DeleteTeamRequest, Daemon_DeleteTeamServer) error
@@ -758,6 +769,9 @@ func (UnimplementedDaemonServer) RestartTeamLab(*RestartTeamLabRequest, Daemon_R
 }
 func (UnimplementedDaemonServer) SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SolveChallenge not implemented")
+}
+func (UnimplementedDaemonServer) ModifyEvent(context.Context, *ModifyEventRequest) (*ModifyEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ModifyEvent not implemented")
 }
 func (UnimplementedDaemonServer) AddChallenge(*AddChallengeRequest, Daemon_AddChallengeServer) error {
 	return status.Errorf(codes.Unimplemented, "method AddChallenge not implemented")
@@ -1128,6 +1142,24 @@ func _Daemon_SolveChallenge_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DaemonServer).SolveChallenge(ctx, req.(*SolveChallengeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Daemon_ModifyEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ModifyEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).ModifyEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/ModifyEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).ModifyEvent(ctx, req.(*ModifyEventRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1570,6 +1602,10 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SolveChallenge",
 			Handler:    _Daemon_SolveChallenge_Handler,
+		},
+		{
+			MethodName: "ModifyEvent",
+			Handler:    _Daemon_ModifyEvent_Handler,
 		},
 		{
 			MethodName: "AddNotification",
