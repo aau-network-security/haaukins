@@ -214,7 +214,7 @@ type Event interface {
 	Finish(string)
 	AssignLab(*store.Team, lab.Lab) error
 	Handler() http.Handler
-
+	PauseSignup(bool)
 	AddNotification(message string, loggedInUsers bool) error
 	SetStatus(int32)
 	GetStatus() int32
@@ -320,6 +320,10 @@ func (ev *event) AddNotification(message string, loggedInUsers bool) error {
 	}
 	ev.amigo.SetNotification(notification)
 	return nil
+}
+
+func (ev *event) PauseSignup(pause bool) {
+	ev.amigo.PauseSignup(pause)
 }
 
 func (ev *event) GetFrontendData() *amigo.FrontendData {

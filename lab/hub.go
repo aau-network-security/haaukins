@@ -24,6 +24,7 @@ type Hub interface {
 	Suspend(context.Context) error
 	Resume(context.Context) error
 	Update(labTag <-chan Lab)
+	Labs() map[string]Lab
 	UpdateExercises(exercises []store.Exercise)
 }
 
@@ -211,4 +212,8 @@ func (h *hub) Resume(ctx context.Context) error {
 	}
 
 	return resumeError
+}
+
+func (h *hub) Labs() map[string]Lab {
+	return h.labs
 }
