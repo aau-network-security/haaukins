@@ -327,24 +327,26 @@ func New(conf *Config) (*daemon, error) {
 		exClient:  exServiceClient,
 	}
 
+	var vpnAddress string
 	for _, ef := range dbEvents {
+
 		var eventConfig store.EventConfig
 		// check through status of event
 		// suspended is also included since at first start
 		// daemon should be aware of the event which is suspended
 		// and configuration should be loaded to daemon
 		if ef.Status == Running || ef.Status == Suspended {
-			vpnIP, err := getVPNIP()
-			if err != nil {
-				log.Error().Msgf("Getting VPN address error on New() in daemon %v", err)
+			if ef.OnlyVPN == int32(VPN) || ef.OnlyVPN == int32(VPNBrowser) {
+				vpnIP, err := getVPNIP()
+				if err != nil {
+					log.Error().Msgf("Getting VPN address error on New() in daemon %v", err)
+				}
+				vpnAddress = fmt.Sprintf("%s.240.1/22", vpnIP)
 			}
-			vpnAddress := fmt.Sprintf("%s.240.1/22", vpnIP)
-
 			if ef.Status == Suspended {
 				d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{Status: Running, EventTag: ef.Tag})
 				ef.Status = Running
 			}
-
 			eventConfig = d.generateEventConfig(ef, ef.Status, vpnAddress)
 			err = d.createEventFromEventDB(context.Background(), eventConfig)
 			if err != nil {
