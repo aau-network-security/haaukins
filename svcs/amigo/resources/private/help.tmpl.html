@@ -1,10 +1,10 @@
 {{ define "content" }}
-<img class="wave-bg-general" src="/assets/img/wave-general-bot.png" xmlns="http://www.w3.org/1999/html">
+<img class="wave-bg-general" src="/assets/img/background.png" xmlns="http://www.w3.org/1999/html">
 <div class="container" id="infopage">
     <div class="row mb-botpage">
         <div class="col-lg-4 col-md-0"></div>
         <div class="col-lg-12 col-md-0">
-            <h1 class="text-center mt-toppage mb-2"><i class="fa fa-info-circle " aria-hidden="true"></i>  Information Point</h1>
+            <h1 class="text-center mt-toppage mb-2"><i class="far fa-question-circle"></i>  Help</h1>
             </div>
            <div class= "col-lg-12 col-md-12" style="text-align: right">
                <a href="https://github.com/aau-network-security/haaukins/edit/master/svcs/amigo/resources/private/info.tmpl.html"><i class="fas fa-edit " aria-hidden="true"></i> Edit this page</a>
@@ -28,8 +28,8 @@
                               {{ end }}
 
                                 {{ if or (eq .IsVPN 0) (eq .IsVPN 2) }}
-                                <a {{ if eq .IsVPN 0 }} class="nav-item nav-link active" {{ else }}  class="nav-item nav-link" {{ end }} id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab">Copy / Paste</a>
-                                <a class="nav-item nav-link" id="conn-error-tab" data-toggle="tab" href="#conn-error" role="tab">Connection Error</a>
+                                <a  {{ if eq .IsVPN 0 }} class="nav-item nav-link active" {{ else }}  class="nav-item nav-link" {{ end }} id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab" style="z-index: 1;">Copy / Paste</a>
+                                <a class="nav-item nav-link" style="z-index: 1;"id="conn-error-tab" data-toggle="tab" href="#conn-error" role="tab">Connection Error</a>
                                 {{ end }}
                             </div>
                             <div class="tab-content p-3" id="nav-tabContent">

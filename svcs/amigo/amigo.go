@@ -171,7 +171,7 @@ func (am *Amigo) Handler(hooks Hooks, guacHandler http.Handler) http.Handler {
 	m := http.NewServeMux()
 
 	m.HandleFunc("/", am.handleIndex())
-	m.HandleFunc("/info", am.handleInfo())
+	m.HandleFunc("/help", am.handleHelp())
 	m.HandleFunc("/challenges", am.handleChallenges())
 	m.HandleFunc("/teams", am.handleTeams())
 	m.HandleFunc("/hosts", am.handleHostsInformation())
@@ -285,15 +285,15 @@ func (am *Amigo) handleGuacConnection(hook func(t *store.Team) error, next http.
 	}
 }
 
-func (am *Amigo) handleInfo() http.HandlerFunc {
-	infoTemplate := wd + "/svcs/amigo/resources/private/info.tmpl.html"
+func (am *Amigo) handleHelp() http.HandlerFunc {
+	infoTemplate := wd + "/svcs/amigo/resources/private/help.tmpl.html"
 	tmpl, err := parseTemplates(infoTemplate)
 	if err != nil {
 		log.Println("error info tmpl: ", err)
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		if r.URL.Path != "/info" {
+		if r.URL.Path != "/help" {
 			http.NotFound(w, r)
 			return
 		}
