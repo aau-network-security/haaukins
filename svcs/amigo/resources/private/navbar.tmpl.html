@@ -25,7 +25,8 @@
 						</li>
 						{{ if .Team }}
 							<li class="nav-item">
-								<a class="nav-link" href="/hosts"><i class="fas fa-file-alt"></i> Hosts</a>
+
+								<a class="nav-link" href="/hosts"><i class="fas fa-globe"></i> DNS</a>
 							</li>
 						{{ end }}
 					</ul>
@@ -38,7 +39,7 @@
 					<!-- only browser based events will have ˜Connect˜  button -->
 							{{ if eq .IsVPN  0 }}
 							<div>
-								<a class="btn btn-login" href="/guaclogin" target="_blank">Connect</a>
+								<a class="btn btn-login" href="/guaclogin" target="_blank"><i class="fas fa-laptop-code"></i> Connect</a>
 							</div>
 							{{ end }}
 							<!-- only VPN based events will have ˜VPN˜  button -->

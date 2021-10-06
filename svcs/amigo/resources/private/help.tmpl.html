@@ -28,8 +28,8 @@
                               {{ end }}
 
                                 {{ if or (eq .IsVPN 0) (eq .IsVPN 2) }}
-                                <a  {{ if eq .IsVPN 0 }} class="nav-item nav-link active" {{ else }}  class="nav-item nav-link" {{ end }} id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab" style="z-index: 1;">Copy / Paste</a>
-                                <a class="nav-item nav-link" style="z-index: 1;"id="conn-error-tab" data-toggle="tab" href="#conn-error" role="tab">Connection Error</a>
+                                <a  {{ if eq .IsVPN 0 }} class="nav-item nav-link active" {{ else }}  class="nav-item nav-link" {{ end }} id="copy-clipboard-tab" data-toggle="tab" href="#copy-clipboard" role="tab" style="z-index: 1;"><i class="fas fa-clipboard"></i> Copy / Paste</a>
+                                <a class="nav-item nav-link" style="z-index: 1;"id="conn-error-tab" data-toggle="tab" href="#conn-error" role="tab"><i class="fas fa-exclamation-circle"></i> Connection Error</a>
                                 {{ end }}
                             </div>
                             <div class="tab-content p-3" id="nav-tabContent">
@@ -37,7 +37,7 @@
                                 <div class="tab-pane fade show active" id="vpn-conn" role="tabpanel" aria-labelledby="vpn-conn-tab">
 
                                     In order to have VPN connection into virtualized lab environment on Haaukins,
-                                    you need to install Wireguard client for your computer. <br><br>
+                                    you need to install Wireguard client for your computer. <br>
 
                                     <b>Installation guideline for variety of clients are available on official website of Wireguard.</b>
 
@@ -100,7 +100,7 @@
 
                                         <li> Download application from <a href="https://www.wireguard.com/install/">installation page</a></li>
                                         <li> Import configuration file as shown for MacOS</li>
-                                        <li> Make sure handshake is successfully done.</li><br>
+                                        <li> Make sure handshake is successfully done.</li>
                                 </div>
                                 {{ end }}
 
@@ -108,10 +108,10 @@
                                 <div {{ if eq .IsVPN 0 }}  class="tab-pane fade show active" {{ else }}  class="tab-pane fade" {{ end }} id="copy-clipboard" role="tabpanel" aria-labelledby="copy-clipboard-tab">
                                     <p class="dark-color">
                                         In order to copy from Host to VM on the browser and the way around, these are the following command:
-                                        <br><br>
+                                        <br>
                                           <li> On Windows & Linux: <strong class="text-black">Ctrl+Alt+Shift</strong></li>
                                           <li> On MacOS: <strong class="text-black">Ctrl+Command+Shift</strong></li>
-                                        <br><br>
+                                        <br>
                                         You might need to logout and login to VM cause sometimes keyboard combination is getting broken.
                                         For example, when you type A it writes E.
                                     </p>
@@ -126,18 +126,18 @@
                                     </div>
                                     <p class="p-2 mt-2 dark-color mb-0">
                                         There are multiple reasons behind this error for example:
-                                        <br><br>
+                                        <br>
                                             <li> The VM crashed and you can not connect it </li>
                                             <li> There might be multiple open tabs with same VM instance</li>
                                             <li> After a while without any activity the VM goes into sleep mode</li>
                                             <li> There might be poor internet connection</li>
-                                        <br><br>
+                                        <br>
                                         In order to solve this error try out those steps:
-                                        <br><br>
-                                            1. Close all the VM Tabs<br>
-                                            2. Log out and login on event page<br>
-                                            3. Click <strong>RESET Kali Machine</strong> button from challenges page<br>
-                                            4. In case you still get the error create a new team
+                                        <br>
+                                           <li> Close all the VM Tabs</li>
+                                           <li> Log out and login on event page</li>
+                                           <li> Click <strong>RESET Kali Machine</strong> button from challenges page</li>
+                                           <li> In case you still get the error create a new team</li>
                                     </p>
                                 </div>
                                 {{ end }}
