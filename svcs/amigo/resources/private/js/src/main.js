@@ -11,10 +11,29 @@ import ChallegesPage from "./components/ChallegesPage";
 import TeamsPage from "./components/TeamsPage";
 import ResetFrontend from "@/components/ResetFrontend";
 import VPNDropdown from "./components/VPNDropdown";
+import IndexPage from "@/components/IndexPage";
 
 Vue.use(BootstrapVue)
 
 Vue.config.productionTip = false;
+
+Vue.prototype.$theme = null
+
+window.console.log("Getting theme")
+if (localStorage.getItem("theme") === null) {
+  Vue.prototype.$theme = "light"
+  localStorage.setItem("theme", Vue.prototype.$theme)
+}
+Vue.prototype.$theme = localStorage.getItem("theme")
+if (Vue.prototype.$theme === "dark") {
+  document.body.classList.add("hkn-dark")
+}
+
+if (document.getElementById("indexpage")) {
+  new Vue({
+    render: h => h(IndexPage)
+  }).$mount("#indexpage")
+}
 
 if (document.getElementById("vpn-dropdown")) {
   new Vue({

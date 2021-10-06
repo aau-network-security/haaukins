@@ -25,6 +25,14 @@ body {
     font-size: x-large!important;
     margin-bottom: 60px; /* Margin bottom by footer height */
     font-family: PixelarRegularW01-Regular !important;
+    background-image: url("../img/background.png");
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center;
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;
+    background-size: cover;
 }
 .btn {
     font-size: x-large!important;
@@ -121,6 +129,8 @@ div#vpn-conn li {
 .btn-haaukins{
     background: #211A52;
 }
+
+
 
 #info-team{
     position: absolute;
@@ -220,60 +230,27 @@ nav ul li .nav-link:before,
 nav.stroke ul li .nav-link, .aau-developer a {
     position: relative;
 }
-nav.stroke ul li .nav-link:after, .aau-developer a:after {
+nav.stroke ul li .nav-link:after{
     position: absolute;
     bottom: 0;
-    left: 0;
+    left: 0%;
     right: 0;
     margin: auto;
-    width: 0%;
     content: '.';
+    width: 0%;
     color: transparent;
-    background: #211A52;
+    background: #00e6cc;
     height: 3px;
 }
-nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
+nav.stroke ul li .nav-link:hover:after{
     width: 100%;
 }
 
 /************************ LOGIN - SIGNUP PAGE **********************/
 
-.wave-bg{
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    height: 100%;
-    z-index: -1;
-    min-width: 100%;
-
-}
-
-.wave-bg-signup{
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    height: 100%;
-    z-index: -1;
-    min-width: 100%;
-}
-
-.wave-bg-footer{
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    max-width: 100%;
-    z-index: -1;
-    display: none;
-}
-
-.svg-login{
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-}
 
 .btn-login{
-    color: #fff!important;
+    color: #323232!important;
     background-color: #00e6cc!important;
     width: 100%;
     box-shadow: 5px 7px #211a52
@@ -408,15 +385,6 @@ h4.text-center {
 
 /******** INDEX **************/
 
-.wave-bg-index {
-    position: fixed;
-    top:0;
-    bottom: 0;
-    left: 0;
-    width: 150%;
-    z-index: -1;
-}
-
 #indexpage p, h4{
     color: #444;
 }
@@ -478,6 +446,7 @@ h4.text-center {
     background-color: #00e6cc;
     color: #ffffff;
     border-color: #00e6cc;
+    box-shadow: 5px 7px #211a52;
 }
 
 #indexpage .card-footer a{
@@ -489,14 +458,6 @@ h4.text-center {
 }
 
 /*************** General Pages ***************/
-.wave-bg-general{
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    z-index: auto;
-    max-width: max-content;
-}
-
 .table th, .table td {
      border-top: 0px!important;
 }
@@ -536,7 +497,7 @@ table tr:last-child td:last-child {
 
 .challenge-button{
     font-family: PixelarRegularW01-Regular !important;
-    box-shadow: 5px 7px #00e6cc
+    box-shadow: 4px 4px #00e6cc
 }
 
 
@@ -614,9 +575,17 @@ table tr:last-child td:last-child {
     left:230px;
     border-right: none!important;
 }
-
+@media (max-width: 1350px) {
+    #mainNav .navbar-nav .nav-item .nav-link {
+        font-size: 90%!important;
+    }
+    #mainNav .navbar-brand {
+        font-size: 1.25em;
+        padding: 12px 0;
+    }
+}
 /*big screen*/
-@media (min-width: 992px) {
+@media (min-width: 1200px) {
     #mainNav {
         padding-top: 35px;
         padding-bottom: 25px;
@@ -657,7 +626,7 @@ table tr:last-child td:last-child {
 }
 
 /*small screen*/
-@media screen and (max-width: 992px){
+@media screen and (max-width: 1200px){
 
     .mb-botpage{
         margin-bot: 140px;
@@ -669,21 +638,6 @@ table tr:last-child td:last-child {
         font-size: 14px;
     }
     .myd-none{
-        display: none;
-    }
-    .wave-bg{
-        display: none;
-    }
-    .wave-bg-footer{
-        display: block;
-    }
-    .wave-bg-signup{
-        display: none;
-    }
-    .wave-bg-index{
-        display: none;
-    }
-    .wave-bg-general{
         display: none;
     }
     .footer{
@@ -749,4 +703,92 @@ table tr:last-child td:last-child {
 .modal .modal-lg {
     max-width: 600px!important;
     width: 600px!important;
+}
+
+/* Dark theme CSS */
+body.hkn-dark {
+    background-image: url("../img/background_dark.png");
+    color: #fffc00;
+}
+
+.hkn-dark .glow {
+    color: #00ff41;
+    text-shadow: 0 0 3px #0f0;
+}
+
+.hkn-dark .aau-developer a{
+    color: #fff;
+    font-weight: bold;
+    padding-bottom: 3px;
+}
+.hkn-dark .aau-developer a:hover, .facebook-aau a:hover{
+    text-decoration: none!important;
+    color: #fff!important;
+}
+
+.hkn-dark nav.stroke ul li .nav-link:after{
+    background: #00ff41;
+}
+
+.hkn-dark .navbar-text {
+    color: #fffc00!important;
+}
+
+.hkn-dark .btn-login {
+    color: #000!important;
+    background-color: #00e6cc!important;
+    box-shadow: 5px 7px #707070;
+}
+
+.hkn-dark #mainNav .navbar-brand {
+    color: #00ff41;
+    text-shadow:
+            0 0 10px #00ff41;
+    font-size: 1.5em;
+}
+
+.hkn-dark #mainNav {
+    background-color: #181818;
+}
+
+.hkn-dark #mainNav .navbar-toggler {
+    color: #000;
+}
+
+.hkn-dark #challengespage h1 {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
+}
+
+.hkn-dark .fa-flag-checkered {
+    filter:drop-shadow(0 0 10px #00ff41)
+}
+
+.hkn-dark .facebook-aau a {
+    color: #00e6cc;
+}
+
+@media (min-width: 1200px) {
+    .hkn-dark #mainNav {
+        background-color: transparent;
+    }
+    .hkn-dark #mainNav .navbar-brand {
+        font-size: xxx-large;
+        color: #00ff41;
+        text-shadow:
+                0 0 15px #00ff41;
+    }
+    .hkn-dark #mainNav.navbar-shrink .navbar-brand {
+        font-size: 1.25em;
+        padding: 12px 0;
+    }
+    .hkn-dark #mainNav.navbar-shrink {
+        background-color: #181818;
+    }
+    .hkn-dark #mainNav .navbar-nav .nav-item .nav-link {
+        color: #fff;
+    }
+    .hkn-dark #mainNav.navbar-shrink .navbar-nav .nav-item .nav-link {
+        color: #fff;
+    }
 }

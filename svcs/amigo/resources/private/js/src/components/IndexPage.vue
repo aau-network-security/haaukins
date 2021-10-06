@@ -27,7 +27,7 @@
         <div class="dev-container row" style="margin: auto; width: 600px;">
           <div class="col text-center">
             <img v-if="$theme == 'light'" src="/assets/img/haaukins-login.png" class="spin">
-            <img v-if="$theme == 'dark'" src="/assets/img/haaukins-login_white.png" class="spin">
+            <img v-if="$theme == 'dark'" src="/assets/img/haaukins-logo_white.png" class="spin">
           </div>
           <div class="col mt-3 mt-sm-4" style="margin-left: 50px;">
             <p><a class="color-sec-aau" href="https://mrturkmen.com" target="_blank">Ahmet Turkmen</a></p>
