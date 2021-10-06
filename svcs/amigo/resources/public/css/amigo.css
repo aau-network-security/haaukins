@@ -4,6 +4,17 @@
     box-sizing: border-box;
 }
 
+@font-face {font-family: "PixelarRegularW01-Regular";
+    src: url("font/b2e75c336df191233b3096682c9ee6be.eot"); /* IE9*/
+    src: url("font/b2e75c336df191233b3096682c9ee6be.eot?#iefix") format("embedded-opentype"), /* IE6-IE8 */
+    url("font/b2e75c336df191233b3096682c9ee6be.woff2") format("woff2"), /* chrome、firefox */
+    url("font/b2e75c336df191233b3096682c9ee6be.woff") format("woff"), /* chrome、firefox */
+    url("font/b2e75c336df191233b3096682c9ee6be.ttf") format("truetype"), /* chrome、firefox、opera、Safari, Android, iOS 4.2+*/
+    url("font/b2e75c336df191233b3096682c9ee6be.svg#Pixelar Regular W01 Regular") format("svg"); /* iOS 4.1- */
+}
+
+/*Credits should be somewhere as: <a href="http://www.onlinewebfonts.com">oNline Web Fonts</a> */
+
 
 html {
     position: relative;
@@ -11,9 +22,47 @@ html {
 }
 
 body {
+    font-size: x-large!important;
     margin-bottom: 60px; /* Margin bottom by footer height */
-    font-family: 'Ubuntu', sans-serif!important;
+    font-family: PixelarRegularW01-Regular !important;
 }
+.btn {
+    font-size: x-large!important;
+}
+
+.card-deck .card {
+    background: none!important;
+}
+
+
+/* INFORMATION PAGE LI SETTINGS*/
+div#conn-error li {
+    margin-left: 30px;
+}
+
+div#copy-clipboard li {
+    margin-left: 30px;
+}
+
+div#vpn-conn li {
+    margin-left: 30px;
+}
+/******************************/
+
+
+/* Spinning Logo */
+@keyframes spinning {
+    from { transform: rotate(0deg) }
+    to { transform: rotate(360deg) }
+}
+.spin {
+    animation-name: spinning;
+    animation-duration: 20s;
+    animation-iteration-count: infinite;
+    /* linear | ease | ease-in | ease-out | ease-in-out */
+    animation-timing-function: linear;
+}
+/*********************/
 
 #navbarAmigo{
     position: absolute;
@@ -24,7 +73,7 @@ body {
 }
 
 .mt-toppage{
-    margin-top: 110px;
+    margin-top: 150px;
 }
 .mt-toppage-reset{
     margin-top: 0px;
@@ -61,11 +110,12 @@ body {
 
 .footer a{
     text-decoration: none;
-    color: #f76c6c;
+    font-size: xx-large;
+    color: #00e6cc;
 }
 .footer a:hover{
     text-decoration: none;
-    color: #f76c6c;
+    color: #00e6cc;
 }
 
 .btn-haaukins{
@@ -76,7 +126,7 @@ body {
     position: absolute;
     top: 17%;
     right: 0;
-    background-color: #f76c6c;
+    background-color: #00e6cc;
     border-top-left-radius: 5px!important;
     border-bottom-left-radius: 5px!important;
     z-index: 1;
@@ -135,11 +185,11 @@ body {
     text-transform: uppercase;
     color: white;
     border: 0;
-    background-color: #f76c6c;
+    background-color: #00e6cc;
 }
 
 #mainNav .navbar-brand {
-    color: #f76c6c;
+    color: #00e6cc;
     font-size: 1.5em;
 }
 
@@ -152,7 +202,7 @@ body {
 }
 
 .navbar-text{
-    color: #777!important;
+    color: #211a52 !important;
     font-weight: bold;
     letter-spacing: 1px;
     text-transform: none!important;
@@ -224,14 +274,13 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
 
 .btn-login{
     color: #fff!important;
-    background-color: #f76c6c!important;
-    border-color: #f76c6c!important;
+    background-color: #00e6cc!important;
     width: 100%;
+    box-shadow: 5px 7px #211a52
 }
 .btn-login:focus, btn-login.focus {
     outline: none!important;
     box-shadow: none!important;
-
 }
 
 .login-content{
@@ -258,6 +307,9 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
     text-transform: uppercase;
     font-size: 2rem;
     font-weight: bold;
+}
+h4.text-center {
+    font-size: 2.5rem;
 }
 
 .login-content h4{
@@ -301,6 +353,10 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
     color: #777;
     font-size: 18px;
     transition: .3s;
+}
+
+.card-title {
+    font-size: 2em!important;
 }
 
 .input-div:before, .input-div:after{
@@ -353,10 +409,11 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
 /******** INDEX **************/
 
 .wave-bg-index {
-    position: absolute;
+    position: fixed;
+    top:0;
     bottom: 0;
     left: 0;
-    width: 100%;
+    width: 150%;
     z-index: -1;
 }
 
@@ -365,14 +422,16 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
 }
 
 #indexpage h1, #scoreboardpage h1, #challengespage h1, #teamspage h1{
-    font-size: 3rem;
+    font-size: 5rem;
     font-weight: bold;
     color: #444;
+}
+.card-body {
+    background: none!important;
 }
 
 .aau-developer img{
     max-width: 200px;
-    background-color: #fff;
     border-radius: 100%;
 }
 .aau-developer a{
@@ -389,11 +448,11 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
 }
 
 .color-sec-aau{
-    color: #f76c6c;
+    color: #00e6cc;
 }
 .color-sec-aau:hover{
     text-decoration: none;
-    color: #f76c6c;
+    color: #00e6cc;
 }
 .sponsor{
     width: 100%;
@@ -416,9 +475,9 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
     padding: 0.3rem;
 }
 #indexpage .card-footer{
-    background-color: #f76c6c;
+    background-color: #00e6cc;
     color: #ffffff;
-    border-color: #f76c6c;
+    border-color: #00e6cc;
 }
 
 #indexpage .card-footer a{
@@ -431,11 +490,11 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
 
 /*************** General Pages ***************/
 .wave-bg-general{
-    position: absolute;
+    position: fixed;
     bottom: 0;
     right: 0;
-    z-index: -1;
-    max-width: 100%;
+    z-index: auto;
+    max-width: max-content;
 }
 
 .table th, .table td {
@@ -444,7 +503,7 @@ nav.stroke ul li .nav-link:hover:after, .aau-developer a:hover:after {
 
 table tbody tr{
     background-color: #fff;
-    font-family: 'Orbitron', sans-serif!important;
+    font-family: PixelarRegularW01-Regular!important;
     letter-spacing: 1px;
 }
 .table-striped tbody tr:nth-of-type(odd) {
@@ -471,17 +530,19 @@ table tr:last-child td:last-child {
 }
 
 .category-header h3{
-    font-size: 2rem;
+    font-size: 3rem;
     color: #444;
 }
 
 .challenge-button{
-    font-family: 'Audiowide', cursive;
+    font-family: PixelarRegularW01-Regular !important;
+    box-shadow: 5px 7px #00e6cc
 }
 
+
 .chal-name, .chal-value{
-    font-family: 'Audiowide', cursive;
-    font-size: 1.8rem;
+    font-family: PixelarRegularW01-Regular !important;
+    font-size: 2.5rem;
     color: #444;
 }
 
@@ -564,14 +625,14 @@ table tr:last-child td:last-child {
         background-color: transparent;
     }
     #mainNav .navbar-brand {
-        font-size: 2em;
+        font-size: xxx-large;
         transition: all 0.3s;
         font-weight: bold;
-        color: #f76c6c;
+        color: #00e6cc ;
     }
     #mainNav .navbar-nav .nav-item .nav-link {
         padding: 1.1em 1em !important;
-        font-size: 1em;
+        font-size: x-large;
         font-weight: bold;
     }
     #mainNav.navbar-shrink .navbar-nav .nav-item .nav-link {
@@ -683,4 +744,9 @@ table tr:last-child td:last-child {
     .my-container {
         max-width: 1840px;
     }
+}
+
+.modal .modal-lg {
+    max-width: 600px!important;
+    width: 600px!important;
 }
