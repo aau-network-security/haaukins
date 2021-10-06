@@ -1,7 +1,7 @@
 <template>
   <div class="pl-3">
     <form @submit.prevent="submit" >
-        <input type="submit" class="btn btn-haaukins"  :disabled='isDisabled' v-bind:class="{ 'btn-danger': isError, 'btn-success': isSuccess }" value="Start/Stop" style="width: auto;">
+        <input type="submit" class="btn btn-haaukins"  :disabled='isDisabled' v-bind:class="{ 'btn-danger': isError, 'btn-success': isSuccess }" value="Start/Stop" style="width: auto; box-shadow: none!important">
     </form>
   </div>
 </template>
