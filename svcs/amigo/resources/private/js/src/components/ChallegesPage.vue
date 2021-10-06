@@ -104,6 +104,7 @@ export default {
   color: #fff;
   background-color: #211A52;
   border-color: #211A52;
+  box-shadow: 5px 7px #00e6cc
 }
 .btn-haaukins:hover{
   color: #fff;
@@ -125,12 +126,15 @@ export default {
 .btn-success{
   background-color: #6ab55f;
   border-color: #6ab55f;
+  box-shadow: 5px 7px #00ff41;
 }
 .btn-success:hover{
   background-color: #55a04a;
   border-color: #55a04a;
 }
 .chal-name-font{
-  font-size: 14px;
+  font-size: 1.12em;
+
 }
+
 </style>

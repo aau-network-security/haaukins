@@ -1,7 +1,7 @@
 <template>
   <div class="mt-toppage-reset pt-2 mb-2">
     <form v-if="isVpn == 0 " @submit.prevent="submit">
-      <input type="submit" class="btn btn-login" :disabled='isDisabled' value="RESET Kali Machine" style="width: auto;">
+        <input type="submit" class="btn btn-login" :disabled='isDisabled' value="RESET Kali Machine" style="width: auto; box-shadow: 5px 7px #211a52">
     </form>
     <div v-else-if="isVpn == 1" >
       <div class="labsubnet">

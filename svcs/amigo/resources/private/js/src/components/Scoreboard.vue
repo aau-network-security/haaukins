@@ -122,7 +122,7 @@
         color:inherit;
     }
     .chal-points-font{
-        font-family: 'Orbitron', sans-serif !important;
+        font-family: PixelarRegularW01-Regular !important;
         letter-spacing: 1px;
     }
 </style>
