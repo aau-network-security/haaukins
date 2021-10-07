@@ -110,6 +110,10 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 		return nil, fmt.Errorf("[exercises-service] error %v", err)
 	}
 
+	log.Debug().Str("event name ", conf.Name).
+		Str("event tag", string(conf.Tag)).
+		Str("event createdby", conf.CreatedBy).
+		Msgf("Exercises are retrieved from exercise-service")
 	for _, e := range exer.Exercises {
 		exercise, err := protobufToJson(e)
 		if err != nil {
@@ -173,7 +177,6 @@ func protobufToJson(message proto.Message) (string, error) {
 func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	var exercises []string
 	var disabledExercises []string
-	log.Info().Msgf("VPN Address from CreateEventFromConfig function %s ", conf.VPNAddress)
 	// todo: update this in more elegant way
 	for _, e := range conf.Lab.Exercises {
 		exercises = append(exercises, string(e))
@@ -197,6 +200,11 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 		SecretKey:          conf.SecretKey,
 		DisabledExercises:  strings.Join(disabledExercises, ","),
 	})
+
+	log.Debug().Str("event tag", string(conf.Tag)).
+		Str("event name", conf.Name).
+		Str("event created by", conf.CreatedBy).
+		Msgf("Event is saved to database")
 
 	if err != nil {
 		return nil, err
