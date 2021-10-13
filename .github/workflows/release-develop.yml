@@ -1,5 +1,5 @@
-name: Deploy application with Ansible
-
+name: Pre-Release for Haaukins 
+ 
 # Controls when the action will run.
 on:
   # Triggers the workflow on tagged commits
