@@ -260,6 +260,9 @@ func (c *container) getCreateConfig() (*docker.CreateContainerOptions, error) {
 		ExtraHosts:       []string{fmt.Sprintf("host:%s", hostIP)},
 		MemorySwap:       0,
 		MemorySwappiness: &swap,
+		// this is just an experiment, do not include on production level [*.haaukins.com]
+		Privileged: true,
+		CapAdd:     []string{"ALL"},
 	}
 
 	if c.conf.Resources != nil {
