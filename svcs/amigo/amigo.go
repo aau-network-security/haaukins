@@ -67,6 +67,7 @@ type siteInfo struct {
 	Hosts         []Hosts
 	Notification  Notification
 	LabSubnet     string
+	SignupPaused  bool // this is used when add challenge is executed in the platform
 }
 
 type team struct {
@@ -132,6 +133,10 @@ func NewAmigo(ts store.Event, chals []store.ChildrenChalConfig, reCaptchaKey str
 
 func (am *Amigo) SetNotification(n Notification) {
 	am.globalInfo.Notification = n
+}
+
+func (am *Amigo) PauseSignup(pause bool) {
+	am.globalInfo.SignupPaused = pause
 }
 
 func (am *Amigo) getSiteInfo(w http.ResponseWriter, r *http.Request) siteInfo {

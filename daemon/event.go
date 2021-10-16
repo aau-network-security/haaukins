@@ -67,6 +67,7 @@ func (d *daemon) startEvent(ev guacamole.Event) {
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
 
 	loggerInstance := &GrpcLogger{resp: resp}
+	vpnAddress := ""
 	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	log.Ctx(ctx).
 		Info().
@@ -161,7 +162,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			resp.Send(&pb.LabStatus{ErrorMessage: NotAvailableTag})
 			return fmt.Errorf(NotAvailableTag)
 		}
-
+		log.Debug().Msgf("Checked existing events through database.")
 		// difference  in days
 		// if there is no difference in days it means event  will be
 		// started immediately
@@ -174,13 +175,16 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			return nil
 		}
 		// 25.43
-		vpnIp, err := getVPNIP()
-		if err != nil {
-			log.Error().Msgf("Get VPN IP error %v, from CreateEvent function", err)
+		if req.OnlyVPN == int32(VPN) || req.OnlyVPN == int32(VPNBrowser) {
+			vpnIP, err := getVPNIP()
+			if err != nil {
+				log.Error().Msgf("Error on getting IP for VPN connection error: %v", err)
+			}
+			vpnAddress = fmt.Sprintf("%s.240.1/22", vpnIP)
 		}
 
 		secretKey := strings.TrimSpace(req.SecretEvent)
-		vpnAddress := fmt.Sprintf("%s.240.1/22", vpnIp)
+
 		conf := store.EventConfig{
 			Name:           req.Name,
 			Tag:            evtag,
@@ -204,7 +208,8 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		if err := conf.Validate(); err != nil {
 			return err
 		}
-
+		log.Debug().Str("event", string(conf.Tag)).
+			Msgf("Event configuration is validated")
 		_, err = d.eventPool.GetEvent(evtag)
 
 		if err == nil {
@@ -361,7 +366,13 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		if err != nil {
 			return err
 		}
-		createdBy := ev.GetConfig().CreatedBy
+		eventConfig := ev.GetConfig()
+		createdBy := eventConfig.CreatedBy
+		if eventConfig.OnlyVPN == VPN || eventConfig.OnlyVPN == VPNBrowser {
+			vpnIP := strings.ReplaceAll(eventConfig.VPNAddress, ".240.1/22", "")
+			vpnIPPools.ReleaseIP(vpnIP)
+			log.Debug().Str("VPN IP", vpnIP).Msgf("VPN IP is released from allocated pool!")
+		}
 
 		if (user.NPUser && user.Username == createdBy) || !user.NPUser {
 			_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
@@ -570,6 +581,7 @@ func removeDuplicates(exercises []string) []string {
 func (d *daemon) visitBookedEvents() error {
 	ctx := context.Background()
 	now := time.Now()
+	vpnAddress := ""
 	eventResponse, err := d.dbClient.GetEvents(context.Background(), &pbc.GetEventRequest{Status: Booked})
 	if err != nil {
 		log.Warn().Msgf("checking booked events error %v", err)
@@ -579,11 +591,14 @@ func (d *daemon) visitBookedEvents() error {
 		requestedStartTime, _ := time.Parse(displayTimeFormat, event.StartedAt)
 		if requestedStartTime.Before(now) || requestedStartTime.Equal(now) {
 			// set status to running if booked event startTime passed.
-			vpnIP, err := getVPNIP()
-			if err != nil {
-				log.Error().Msgf("Error on getting IP for VPN connection error: %v", err)
+
+			if event.OnlyVPN == int32(VPN) || event.OnlyVPN == int32(VPNBrowser) {
+				vpnIP, err := getVPNIP()
+				if err != nil {
+					log.Error().Msgf("Error on getting IP for VPN connection error: %v", err)
+				}
+				vpnAddress = fmt.Sprintf("%s.240.1/22", vpnIP)
 			}
-			vpnAddress := fmt.Sprintf("%s.240.1/22", vpnIP)
 
 			eventConfig := d.generateEventConfig(event, Running, vpnAddress)
 			if err := d.createEventFromEventDB(ctx, eventConfig); err != nil {
@@ -648,7 +663,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 		Status:         status,
 		CreatedBy:      event.CreatedBy,
 		VPNAddress:     vpnAddress,
-		OnlyVPN:        event.OnlyVPN,
+		OnlyVPN:        event.OnlyVPN, // 0 NoVPN 1 VPN 2 Browser+VPN
 		SecretKey:      event.SecretKey,
 	}
 
@@ -677,25 +692,29 @@ func (d *daemon) closeEvent(ch chan guacamole.Event, wg *sync.WaitGroup) error {
 	closer := func(ev guacamole.Event) {
 		e := ev.GetConfig()
 		log.Info().Msgf("Running close events, checking %s", e.Tag)
+		if e.OnlyVPN == VPN || e.OnlyVPN == VPNBrowser {
+			vpnIP := strings.ReplaceAll(e.VPNAddress, ".240.1/22", "")
+			vpnIPPools.ReleaseIP(vpnIP)
+			log.Debug().Str("VPN IP", vpnIP).Msgf("VPNIP is released from allocated pool!")
+		}
 
-		eTag := store.Tag(e.Tag)
 		if isDelayed(e.FinishExpected.Format(displayTimeFormat)) {
 			currentTime := strconv.Itoa(int(time.Now().Unix()))
 			newEventTag := fmt.Sprintf("%s-%s", e.Tag, currentTime)
-			event, err := d.eventPool.GetEvent(eTag)
+			event, err := d.eventPool.GetEvent(e.Tag)
 			if err != nil {
 				log.Warn().Msgf("event pool get event error %v ", err)
 				closeErr = err
 			}
 			_, err = d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{
-				EventTag: string(eTag),
+				EventTag: string(e.Tag),
 				Status:   Closed})
 			if err != nil {
-				log.Warn().Msgf("Error in setting up status of event in database side event: %s", string(eTag))
+				log.Warn().Msgf("Error in setting up status of event in database side event: %s", string(e.Tag))
 				closeErr = err
 			}
-			log.Debug().Msgf("Status is set to %d for event:  %s", Closed, string(eTag))
-			if err := d.eventPool.RemoveEvent(eTag); err != nil {
+			log.Debug().Msgf("Status is set to %d for event:  %s", Closed, string(e.Tag))
+			if err := d.eventPool.RemoveEvent(e.Tag); err != nil {
 				closeErr = err
 			}
 			if err := event.Close(); err != nil {

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	NoAvailableIPsErr = errors.New("no available IPs")
+	NoAvailableIPsErr = errors.New("no available VPN IPs")
 )
 
 type IPPool struct {
@@ -48,11 +48,10 @@ func (ipp *IPPool) Get() (string, error) {
 	genIP := func() string {
 		ip := randomPickWeighted(ipp.weights)
 		switch ip {
-		case "192":
-			ip += ".168"
-		case "172":
-			// valid up to 172.25 | 172.26 | 172.27 | 172.28 | 172.29 | 172.30 |  172.31
-			ip += fmt.Sprintf(".%d", rand.Intn(6)+25)
+		case "25":
+			ip += fmt.Sprintf(".%d", rand.Intn(255))
+		case "35":
+			ip += fmt.Sprintf(".%d", rand.Intn(255))
 		}
 
 		return ip
@@ -70,12 +69,17 @@ func (ipp *IPPool) Get() (string, error) {
 	return ip, nil
 }
 
+func (ipp *IPPool) ReleaseIP(ip string) {
+	ipp.m.Lock()
+	defer ipp.m.Unlock()
+	delete(ipp.ips, ip)
+}
+
 func newIPPoolFromHost() *IPPool {
 	ips := map[string]struct{}{}
 	weights := map[string]int{
-		"172": 255 * 255, // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
-
-		"192": 1 * 255, // 10.{2nd}.{0-255}.{0-255} => 2nd => 0-254 => 254 + 1 => 255
+		"35": 1 * 255, // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
+		"25": 255 * 255,
 	}
 
 	ifaces, err := net.Interfaces()

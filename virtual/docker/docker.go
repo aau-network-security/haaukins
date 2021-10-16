@@ -628,9 +628,9 @@ type IPPool struct {
 func newIPPoolFromHost() *IPPool {
 	ips := map[string]struct{}{}
 	weights := map[string]int{
-		"172": 7 * 255,   // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
-		"10":  255 * 255, // 10.{2nd}.{0-255}.{0-255} => 2nd => 0-254 => 254 + 1 => 255
-		"192": 1 * 255,
+		"34": 7 * 255,   // 172.{2nd}.{0-255}.{0-255} => 2nd => 25-31 => 6 + 1 => 7
+		"77": 255 * 255, // 10.{2nd}.{0-255}.{0-255} => 2nd => 0-254 => 254 + 1 => 255
+		"22": 1 * 255,
 	}
 
 	ifaces, err := net.Interfaces()
@@ -682,23 +682,17 @@ func (ipp *IPPool) Get() (string, error) {
 	}
 
 	genIP := func() string {
-		lMin := 2
-		hMax := 237
-		hMin := 5
-		lMax := 16
 		ip := randomPickWeighted(ipp.weights)
 		switch ip {
-		case "172":
+		case "34":
 			ip += fmt.Sprintf(".%d", rand.Intn(6)+25)
-		case "192":
+		case "22":
 			ip += ".168"
-		case "10":
-			//excluding 10.0
-			ip += fmt.Sprintf(".%d", 1+rand.Intn(254))
+		case "77":
+			ip += fmt.Sprintf(".%d", rand.Intn(255))
 		}
-		// excluding x.x.2, x.x.1 , x.x.0
-		// excluding x.x.240, x.x.241, x.x.242, x.x.243 due to VPN addressing
-		ip += fmt.Sprintf(".%d", (rand.Intn(lMax-hMin+1)+hMin)+(rand.Intn(hMax-lMin+1)+lMin))
+
+		ip += fmt.Sprintf(".%d", rand.Intn(255))
 
 		return ip
 	}

@@ -1,0 +1,188 @@
+# .goreleaser.yml
+before:
+  hooks:
+    - go mod tidy
+builds:
+  # You can have multiple builds defined as a yaml list
+  - # ID of the build.
+    # Defaults to the project name.
+    id: "hkn"
+
+    # Path to main.go file or main package.
+    # Default is `.`.
+    main: ./client/main.go
+
+    # Binary name.
+    # Can be a path (e.g. `bin/app`) to wrap the binary in a directory.
+    # Default is the name of the project directory.
+    binary: hkn
+
+    # Custom flags templates.
+    # Default is empty.
+    flags:
+      - -tags=netgo
+
+    # Custom ldflags templates.
+    # Default is `-s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}} -X main.builtBy=goreleaser`.
+    ldflags:
+      - -s -w -X github.com/aau-network-security/haaukins/client/cli.Version={{ .Version }}
+
+    # Custom environment variables to be set during the builds.
+    # Default is empty.
+    env:
+      - CGO_ENABLED=0
+
+    # GOOS list to build for.
+    # For more info refer to: https://golang.org/doc/install/source#environment
+    # Defaults are darwin and linux.
+    goos:
+      - windows
+      - darwin
+      - linux
+
+    # GOARCH to build for.
+    # For more info refer to: https://golang.org/doc/install/source#environment
+    # Defaults are 386 and amd64.
+    goarch:
+      - amd64
+      - 386
+
+  - id: "hknd"
+    env:
+      - CGO_ENABLED=0
+    main: ./main.go
+    binary: hknd
+    flags:
+      - -tags=netgo
+    ldflags:
+      - -s -w -X github.com/aau-network-security/haaukins/daemon.Version={{ .Version }}
+    goos:
+      - linux
+    goarch:
+      - 386
+      - amd64
+
+archives:
+  - # ID of this archive.
+    # Defaults to `default`.
+    id: haaukins
+
+    # Builds reference which build instances should be archived in this archive.
+    builds:
+      - hknd
+
+    # Archive name template.
+    # Defaults:
+    # - if format is `tar.gz`, `gz` or `zip`:
+    #   - `{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}`
+    # - if format is `binary`:
+    #   - `{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}`
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+
+    # Replacements for GOOS and GOARCH in the archive name.
+    # Keys should be valid GOOSs or GOARCHs.
+    # Values are the respective replacements.
+    # Default is empty.
+    replacements:
+      amd64: 64-bit
+
+
+    # Set to true, if you want all files in the archive to be in a single directory.
+    # If set to true and you extract the archive 'goreleaser_Linux_arm64.tar.gz',
+    # you get a folder 'goreleaser_Linux_arm64'.
+    # If set to false, all files are extracted separately.
+    # You can also set it to a custom folder name (templating is supported).
+    # Default is false.
+    wrap_in_directory: true
+
+    # Archive format. Valid options are `tar.gz`, `gz`, `zip` and `binary`.
+    # If format is `binary`, no archives are created and the binaries are instead
+    # uploaded directly.
+    # Default is `tar.gz`.
+    format: zip
+
+    # Additional files/globs you want to add to the archive.
+    # Defaults are any files matching `LICENCE*`, `LICENSE*`,
+    # `README*` and `CHANGELOG*` (case-insensitive).
+    files:
+      - LICENSE
+      - readme.md
+      - dist/CHANGELOG.md
+
+
+  - # ID of this archive.
+    id: haaukins_client
+
+    # Builds reference which build instances should be archived in this archive.
+    builds:
+      - hkn
+
+    # Archive name template.
+    # Defaults:
+    # - if format is `tar.gz`, `gz` or `zip`:
+    #   - `{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}`
+    # - if format is `binary`:
+    #   - `{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}`
+
+    name_template: "{{ .ProjectName }}_cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+
+    # Replacements for GOOS and GOARCH in the archive name.
+    # Keys should be valid GOOSs or GOARCHs.
+    # Values are the respective replacements.
+    # Default is empty.
+    replacements:
+      amd64: 64-bit
+      386: 32-bit
+      darwin: macOS
+
+    # Set to true, if you want all files in the archive to be in a single directory.
+    # If set to true and you extract the archive 'goreleaser_Linux_arm64.tar.gz',
+    # you get a folder 'goreleaser_Linux_arm64'.
+    # If set to false, all files are extracted separately.
+    # You can also set it to a custom folder name (templating is supported).
+    # Default is false.
+    wrap_in_directory: true
+
+    # Archive format. Valid options are `tar.gz`, `gz`, `zip` and `binary`.
+    # If format is `binary`, no archives are created and the binaries are instead
+    # uploaded directly.
+    # Default is `tar.gz`.
+    format: zip
+
+    # Additional files/globs you want to add to the archive.
+    # Defaults are any files matching `LICENCE*`, `LICENSE*`,
+    # `README*` and `CHANGELOG*` (case-insensitive).
+    files:
+      - LICENSE
+      - readme.md
+      - dist/CHANGELOG.md
+
+checksum:
+  # You can change the name of the checksums file.
+  # Default is `{{ .ProjectName }}_{{ .Version }}_checksums.txt`.
+  name_template: "v_{{ .Version }}_{{ .ProjectName }}_checksums.txt"
+
+  # Algorithm to be used.
+  # Accepted options are sha256, sha512, sha1, crc32, md5, sha224 and sha384.
+  # Default is sha256.
+  algorithm: sha256
+
+release:
+  prerelease: true
+# it will be enabled later
+# brews:
+#   -
+#     ids:
+#       - haaukins_client
+#     tap:
+#       owner: aau-network-security
+#       name: homebrew-haaukins
+#     folder: Formula
+#     homepage: https://github.com/aau-network-security/haaukins/
+#     description: Haaukins CLI
+#     install: |
+#       bin.install "hkn"
+#     test: |
+#       system "#{bin}/hkn --help"

@@ -10,7 +10,6 @@ import (
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
-	"github.com/aau-network-security/haaukins/lab"
 	"github.com/aau-network-security/haaukins/store"
 	storeProto "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/golang/protobuf/jsonpb"
@@ -280,17 +279,20 @@ func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChal
 		}
 	}
 
+	ev.PauseSignup(true)
 	var addChalError error
-	var lb interface{}
-	sendBackLab := make(chan lab.Lab)
-	go func() {
-		lb = <-ev.GetHub().Queue()
-		if err := lb.(lab.Lab).AddChallenge(ctx, exers...); err != nil {
-			addChalError = err
-		}
-		sendBackLab <- lb.(lab.Lab)
-		ev.GetHub().Update(sendBackLab)
-	}()
+
+	for _, lb := range ev.GetHub().Labs() {
+		waitGroup.Add(1)
+		go func() {
+			if err := lb.AddChallenge(ctx, exers...); err != nil {
+				addChalError = err
+			}
+			waitGroup.Done()
+		}()
+		waitGroup.Wait()
+	}
+	ev.PauseSignup(false)
 
 	frontendData := ev.GetFrontendData()
 	for tid, l := range ev.GetAssignedLabs() {
