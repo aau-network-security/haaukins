@@ -11,22 +11,22 @@
 					<ul class="navbar-nav text-uppercase mr-auto">
 						{{ if .Team }}
 							<li class="nav-item">
-								<a class="nav-link" href="/help"><i class="far fa-question-circle"></i> Help</a>
+								<a class="nav-link" href="/help"><span class="material-icons-outlined" style="font-size: xx-large;vertical-align: top">help_outline</span> Help</a>
 							</li>
 						{{ end }}
 						<li class="nav-item active">
-							<a class="nav-link" href="/teams"><i class="fas fa-users"></i> Teams</a>
+							<a class="nav-link" href="/teams"><span class="material-icons-outlined" style="font-size: xx-large; vertical-align: top">groups</span> Teams</a>
 						</li>
 						<li class="nav-item">
-							<a class="nav-link" href="/challenges"><i class="fas fa-flag-checkered"></i> Challenges</a>
+							<a class="nav-link" href="/challenges"><span class="material-icons-outlined" style="font-size: xx-large; vertical-align: top">flag</span> Challenges</a>
 						</li>
 						<li class="nav-item">
-							<a class="nav-link" href="/scoreboard"><i class="fas fa-trophy"></i> Scoreboard</a>
+							<a class="nav-link" href="/scoreboard"><span class="material-icons-outlined " style="font-size: xx-large; vertical-align: top">emoji_events</span> Scoreboard</a>
 						</li>
 						{{ if .Team }}
 							<li class="nav-item">
 
-								<a class="nav-link" href="/hosts"><i class="fas fa-globe"></i> DNS</a>
+								<a class="nav-link" href="/hosts"><span class="material-icons-outlined" style="font-size: xx-large; vertical-align: top">dns</span> DNS</a>
 							</li>
 						{{ end }}
 					</ul>
@@ -39,7 +39,7 @@
 					<!-- only browser based events will have ˜Connect˜  button -->
 							{{ if eq .IsVPN  0 }}
 							<div>
-								<a class="btn btn-login" href="/guaclogin" target="_blank"><i class="fas fa-laptop-code"></i> Connect</a>
+								<a class="btn btn-login" href="/guaclogin" target="_blank"><span class="material-icons-outlined " style="font-size: xx-large; vertical-align: top" >laptop</span> Connect</a>
 							</div>
 							{{ end }}
 							<!-- only VPN based events will have ˜VPN˜  button -->
@@ -66,6 +66,7 @@
 							<a class="nav-link" href="/login">Login</a>
 						</li>
 					{{ end }}
+					<div id="switch"></div>
 				</ul>
 			</div>
 		</div>
