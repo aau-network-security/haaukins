@@ -12,6 +12,8 @@ import TeamsPage from "./components/TeamsPage";
 import ResetFrontend from "@/components/ResetFrontend";
 import VPNDropdown from "./components/VPNDropdown";
 import IndexPage from "@/components/IndexPage";
+import Login from "@/components/Logo"
+import SwitchTheme from "@/components/SwitchTheme";
 
 Vue.use(BootstrapVue)
 
@@ -34,6 +36,19 @@ if (document.getElementById("indexpage")) {
     render: h => h(IndexPage)
   }).$mount("#indexpage")
 }
+
+if (document.getElementById("logo")) {
+  new Vue({
+    render: h => h(Login)
+  }).$mount("#logo")
+}
+
+if (document.getElementById("switch")) {
+  new Vue({
+    render: h => h(SwitchTheme)
+  }).$mount("#switch")
+}
+
 
 if (document.getElementById("vpn-dropdown")) {
   new Vue({
