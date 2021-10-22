@@ -3,7 +3,7 @@
     margin: 0;
     box-sizing: border-box;
 }
-
+/*<div>Font made from <a href="http://www.onlinewebfonts.com">oNline Web Fonts</a>is licensed by CC BY 3.0</div>*/
 @font-face {font-family: "PixelarRegularW01-Regular";
     src: url("font/b2e75c336df191233b3096682c9ee6be.eot"); /* IE9*/
     src: url("font/b2e75c336df191233b3096682c9ee6be.eot?#iefix") format("embedded-opentype"), /* IE6-IE8 */
@@ -13,8 +13,10 @@
     url("font/b2e75c336df191233b3096682c9ee6be.svg#Pixelar Regular W01 Regular") format("svg"); /* iOS 4.1- */
 }
 
-/*Credits should be somewhere as: <a href="http://www.onlinewebfonts.com">oNline Web Fonts</a> */
-
+@font-face {
+    font-family: "UbuntuMono-Regular";
+    src: url("font/UbuntuMono-Regular.ttf") format("truetype");
+}
 
 html {
     position: relative;
@@ -210,7 +212,6 @@ div#vpn-conn li {
     color: #fff;
     font-weight: bold;
 }
-
 .navbar-text{
     color: #211a52 !important;
     font-weight: bold;
@@ -434,7 +435,7 @@ h4.text-center {
 
 .sponsor li a img{
     width:90px;
-    height:75px;
+    /*height:75px;*/
 }
 #indexpage .card{
     border: 0px !important;
@@ -509,7 +510,7 @@ table tr:last-child td:last-child {
 
 .chal-desc p, .dark-color{
     color: #444;
-
+    font-family: 'UbuntuMono-Regular';
 }
 .chal-desc ul{
     padding-left: 40px;
@@ -551,6 +552,23 @@ table tr:last-child td:last-child {
     border-style: solid;
     border-width: 2px;
     border-color: #a5b1d4;
+    border-top: none;
+    border-bottom: none;
+    border-right: none!important;
+}
+
+.hkn-dark .scoreboard-border{
+    border-style: solid;
+    border-width: 2px;
+    border-color: #707070;
+    border-top: none;
+    border-bottom: none;
+}
+
+.hkn-dark .scoreboard-border:last-child{
+    border-style: solid;
+    border-width: 2px;
+    border-color: #707070;
     border-top: none;
     border-bottom: none;
     border-right: none!important;
@@ -708,7 +726,7 @@ table tr:last-child td:last-child {
 /* Dark theme CSS */
 body.hkn-dark {
     background-image: url("../img/background_dark.png");
-    color: #fffc00;
+    color: #fff;
 }
 
 .hkn-dark .glow {
@@ -731,7 +749,7 @@ body.hkn-dark {
 }
 
 .hkn-dark .navbar-text {
-    color: #fffc00!important;
+    color: #fff!important;
 }
 
 .hkn-dark .btn-login {
@@ -755,13 +773,66 @@ body.hkn-dark {
     color: #000;
 }
 
-.hkn-dark #challengespage h1 {
+.hkn-dark . #infopage h1 {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
+}
+.hkn-dark .category-header  h3 {
     color: #00ff41;
     text-shadow: 0 0 30px #00ff41;
 }
 
+.hkn-dark #scoreboardpage h1 {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
+}
+
+.hkn-dark #hostspage h1 {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
+}
+
+.hkn-dark #teamspage h1 {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
+}
+.hkn-dark #challengespage h1 {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
+}
+.hkn-dark #infopage h1 {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
+}
+
+.alert-warning {
+    font-family: 'UbuntuMono-Regular'!important;
+}
+
+.alert-primary {
+    font-family: 'UbuntuMono-Regular'!important;
+}
+
+.hkn-dark .alert-warning {
+    color: #fff;
+    background-color: #707070;
+    border-color: #707070;
+    font-family: 'UbuntuMono-Regular';
+}
+.hkn-dark .alert-primary {
+    color: #fff;
+    background-color: #181818;
+    border-color: #000;
+    font-family: 'UbuntuMono-Regular';
+}
 .hkn-dark .fa-flag-checkered {
     filter:drop-shadow(0 0 10px #00ff41)
+}
+
+
+.hkn-dark .btn .btn-login {
+    color: #00ff41;
+    text-shadow: 0 0 30px #00ff41;
 }
 
 .hkn-dark .facebook-aau a {
