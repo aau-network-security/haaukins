@@ -1,12 +1,12 @@
 <template>
     <div class="table-responsive">
         <table class="table table-striped" id="scoreboardtable">
-            <thead class="thead-dark-custom text-center">
+          <thead :class="this.dark_mode ? 'thead-dark-custom text-center':'thead-light-custom text-center' ">
                 <tr>
                     <th class="text-center rank-col">#</th>
                     <th class="team-col">Team</th>
                     <th class="score-col">Score</th>
-                    <th v-for="c in challenges" v-bind:colspan="c.chals.length" class="scoreboard-border" v-bind:key="c.category" v-bind:id="c.category">
+                    <th v-for="c in challenges" v-bind:colspan="c.chals.length" v-bind:class="{ 'scoreboard-border-light':dark_mode, 'scoreboard-border-dark': !dark_mode }" v-bind:key="c.category" v-bind:id="c.category">
                         {{category_name(c.category, c.chals.length)}}
                         <b-tooltip v-bind:target="c.category" triggers="hover" placement="top">
                             {{c.category}}
@@ -17,7 +17,7 @@
                     <th class="rank-col"></th>
                     <th class="team-col"></th>
                     <th class="score-col"></th>
-                    <th v-for="chal in get_challenges(challenges)" v-bind:key="chal.name" v-bind:id="chal.name" class="scoreboard-border">
+                    <th v-for="chal in get_challenges(challenges)" v-bind:key="chal.name" v-bind:id="chal.name" v-bind:class="{ 'scoreboard-border-light':dark_mode, 'scoreboard-border-dark': !dark_mode }">
                         <span class="chal-points-font">{{chal.points}}</span>
                         <b-tooltip v-bind:target="chal.name" triggers="hover" placement="bottom">
                             {{chal.name}}
@@ -45,7 +45,20 @@
             return {
                 teams: [],
                 challenges: [],
+                theme: '',
+                dark_mode : false,
+
             }
+        },
+        mounted() {
+          let theme = localStorage.getItem("theme");
+          if (theme === 'dark') {
+            this.theme= 'dark'
+            this.dark_mode = true
+          } else {
+            this.theme='light'
+            this.dark_mode = false
+          }
         },
         created: function() {
             let url = new URL('/scores', window.location.href);
@@ -115,14 +128,24 @@
         min-width: 1800px!important;
     }
 
-    .table .thead-dark-custom th{
+    .table .thead-light-custom th{
         color:#fff!important;
         background-color:#211A52;
         border-bottom: none;
         color:inherit;
     }
+     .table .thead-dark-custom th {
+      color:#fff!important;
+      background-color:#181818;
+      border-bottom: none;
+      color:inherit;
+    }
     .chal-points-font{
-        font-family: PixelarRegularW01-Regular !important;
+        font-family: PressStart2P-Regular !important;
         letter-spacing: 1px;
     }
+
+
+
+
 </style>

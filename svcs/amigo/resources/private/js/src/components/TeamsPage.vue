@@ -1,16 +1,16 @@
 <template>
     <div id="teams">
         <Plotly :data="traces" :layout="layout"></Plotly>
-        <table class="table table-striped mt-5">
-            <thead class="thead-dark-custom">
+        <table  class="table table-striped mt-5">
+           <thead :class="this.$theme=='dark' ? 'thead-dark-custom':'thead-light-custom' ">
                 <tr>
                     <th class="text-center">#</th>
                     <th>Team</th>
                     <th>Score</th>
                 </tr>
             </thead>
-            <tbody v-if="teams.length > 0">
-                <tr v-for="(team, index) in teams" v-bind:key="team.id">
+            <tbody  v-if="teams.length > 0">
+                <tr   v-for="(team, index) in teams" v-bind:key="team.id">
                     <td class="text-center">{{index + 1}}</td>
                     <td>{{team.name}}</td>
                     <td>{{team.tpoints}}</td>
@@ -32,8 +32,9 @@
             Plotly
         },
         data: function () {
-            return {
+          return {
                 teams: [],
+                line_color: '',
                 data: [{
                     x: [1, 2, 3, 4],
                     y: [10, 15, 13, 17],
@@ -48,8 +49,11 @@
                     xaxis: {
                         showgrid: false,
                         showspikes: true,
+                        showline:true,
+
                     },
                     yaxis: {
+                        showline: true,
                         showgrid: false,
                         showspikes: true,
                     },
@@ -59,7 +63,7 @@
                 }
             }
         },
-        created() {
+      created() {
             let url = new URL('/challengesFrontend', window.location.href);
             url.protocol = url.protocol.replace('http', 'ws');
             this.connectToWS(url.href);
@@ -102,6 +106,14 @@
                 this.scoreGraph()
             },
             scoreGraph: function () {
+
+                if (this.$theme == 'light') {
+                  this.layout.yaxis.linecolor = '#000000'
+                  this.layout.xaxis.linecolor = '#000000'
+                }else{
+                  this.layout.yaxis.linecolor = '#ffffff'
+                  this.layout.xaxis.linecolor = '#ffffff'
+                }
 
                 for (let i=0; i < this.teams.length; i++){
                     let team_score = [];
@@ -162,5 +174,17 @@
 </script>
 
 <style scoped>
+  .table .thead-light-custom th{
+    color:#fff!important;
+    background-color:#211A52;
+    border-bottom: none;
+    color:inherit;
+  }
+  .table .thead-dark-custom th {
+    color:#fff!important;
+    background-color:#181818;
+    border-bottom: none;
+    color:inherit;
+  }
 
 </style>

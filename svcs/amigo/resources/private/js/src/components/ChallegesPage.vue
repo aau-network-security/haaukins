@@ -1,6 +1,5 @@
 <template>
   <div id="challenges-board" v-bind:style= "[this.isLabAssigned  ? {}: { 'pointer-events': 'none', 'opacity': '0.5' }]">
-    <b-button @click="toggleTheme()">Toggle theme</b-button>
     <div class="row mt-2" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.category">
       <div class="category-header col-md-12 mb-3">
         <h3>{{category[0].challenge.category}}</h3>
@@ -35,17 +34,6 @@ export default {
     this.connectToWS();
   },
   methods: {
-    toggleTheme: function() {
-      if (this.$theme === "light") {
-        this.$theme = "dark"
-        localStorage.setItem("theme", this.$theme)
-        document.body.classList.add("hkn-dark")
-      } else {
-        this.$theme = "light"
-        localStorage.setItem("theme", this.$theme)
-        document.body.classList.remove("hkn-dark")
-      }
-    },
     sortChallenges: function(){
 
       let challenges = {};
