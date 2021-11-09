@@ -694,6 +694,9 @@ func removeVPNConfigs(confFile string) error {
 
 func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	enableWallPaper := true
+	enableDrive := true
+	createDrivePath := true
+	drivePath := "/home/" + t.ID()
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.
@@ -717,7 +720,6 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	}
 
 	ev.guacUserStore.CreateUserForTeam(t.ID(), u)
-
 	hostIp, err := ev.dockerHost.GetDockerHostIP()
 	if err != nil {
 		return err
@@ -736,9 +738,21 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 			Username:        &u.Username,
 			Password:        &u.Password,
 			EnableWallPaper: &enableWallPaper,
+			EnableDrive:     &enableDrive,
+			CreateDrivePath: &createDrivePath,
+			DrivePath:       &drivePath,
 		}); err != nil {
 			return err
 		}
+	}
+
+	instanceinfo := lab.InstanceInfo()
+	log.Debug().Msgf("Vbox id: v%", instanceinfo[0].Id)
+	log.Debug().Msgf("Trying to create shared folder for vm: %d", instanceinfo[0].Id)
+	//todo Figure out a way to add the new folder and general setup of filetransfer folder and how to manage its content.
+	_, err = vbox.VBoxCmdContext(context.Background(), "sharedfolder", "add", instanceinfo[0].Id, "--name", "filetransfer", "-hostpath", "/home/mikkel/Desktop/arbejde/Haaukinsdev/haaukins/data/"+t.ID(), "-transient", "-automount")
+	if err != nil {
+		log.Warn().Msgf("Error creating shared folder: %s", err)
 	}
 	return nil
 }

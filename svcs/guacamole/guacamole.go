@@ -142,6 +142,7 @@ func (guac *guacamole) GetAdminPass() string {
 	return guac.conf.AdminPass
 }
 
+//TODO choose another path for mount
 func (guac *guacamole) create(ctx context.Context) error {
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
@@ -149,6 +150,9 @@ func (guac *guacamole) create(ctx context.Context) error {
 		UseBridge: true,
 		Labels: map[string]string{
 			"hkn": "guacamole_guacd",
+		},
+		Mounts: []string{
+			"/home/mikkel/Desktop/arbejde/Haaukinsdev/haaukins/data/:/home/",
 		},
 	})
 
@@ -565,6 +569,7 @@ type createRDPConnConf struct {
 	SFTPAliveInterval        *uint   `json:"sftp-server-alive-interval"`
 	SwapRedBlue              *bool   `json:"swap-red-blue"`
 	CreateDrivePath          *bool   `json:"create-drive-path"`
+	DrivePath                *string `json:"drive-path"`
 	Username                 *string `json:"username,omitempty"`
 	Password                 *string `json:"password,omitempty"`
 }
@@ -581,6 +586,9 @@ type CreateRDPConnOpts struct {
 	ResolutionHeight uint
 	MaxConn          uint
 	ColorDepth       uint
+	EnableDrive      *bool
+	CreateDrivePath  *bool
+	DrivePath        *string
 }
 
 func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
@@ -622,6 +630,9 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 		Username:        opts.Username,
 		Password:        opts.Password,
 		EnableWallpaper: opts.EnableWallPaper,
+		EnableDrive:     opts.EnableDrive,
+		CreateDrivePath: opts.CreateDrivePath,
+		DrivePath:       opts.DrivePath,
 	}
 
 	data := struct {
@@ -645,7 +656,7 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 
 	action := func(t string) (*http.Response, error) {
 		endpoint := guac.baseUrl() + "/guacamole/api/session/data/mysql/connections?token=" + t
-
+		log.Debug().Msgf("Message send to guacendpoint: %s", jsonData)
 		req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err
