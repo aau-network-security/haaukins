@@ -696,6 +696,7 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	enableWallPaper := true
 	enableDrive := true
 	createDrivePath := true
+	//todo get drivepath from event tag path
 	drivePath := "/home/" + t.ID()
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {

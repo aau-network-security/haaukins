@@ -41,6 +41,8 @@ const (
 	vboxShowVMInfo   = "showvminfo"
 )
 
+var FileTransferRoot string
+
 func init() {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
 }
@@ -502,4 +504,38 @@ func VBoxCmdContext(ctx context.Context, cmd string, cmds ...string) ([]byte, er
 	}
 
 	return out, nil
+}
+
+func CreateFileTransferRoot(path string) error {
+	FileTransferRoot = path
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("transfer-root", path).Msg("File transfer root already exists... Continuing.")
+		return nil
+	}
+	log.Info().Str("transfer-root", path).Msg("File transfer root does not exists... Creating folder")
+	err := os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error creating file transfer root: %s", err)
+		return err
+	}
+	log.Info().Msg("File transfer root succesfully created!")
+	return nil
+}
+
+func CreateEventFolder(tag store.Tag) (string, error) {
+	path := FileTransferRoot + "/" + string(tag)
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("event-root", path).Msg("Event root already exists... Continuing.")
+		return path, nil
+	}
+	log.Info().Str("event-root", path).Msg("Event root does not exists... Creating folder")
+	err := os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error creating event root: %s", err)
+		return "", err
+	}
+	log.Info().Msg("Event root succesfully created!")
+	return path, nil
 }

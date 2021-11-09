@@ -142,7 +142,7 @@ func (guac *guacamole) GetAdminPass() string {
 	return guac.conf.AdminPass
 }
 
-//TODO choose another path for mount
+//TODO choose another path for mount, Create new path when making a new event.
 func (guac *guacamole) create(ctx context.Context) error {
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
