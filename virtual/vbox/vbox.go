@@ -259,6 +259,11 @@ func SetLocalRDP(ip string, port uint) VMOpt {
 			return err
 		}
 
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdemulticon", "on")
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 }
