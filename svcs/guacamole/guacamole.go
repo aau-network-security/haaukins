@@ -16,6 +16,8 @@ import (
 	"net/http/cookiejar"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -150,6 +152,11 @@ func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 	if err != nil {
 		return err
 	}
+
+	uid := strconv.Itoa(os.Getuid())
+	gid := strconv.Itoa(os.Getgid())
+	log.Debug().Msgf("Starting guacd as: %s:%s", uid, gid)
+
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd:1.2.0",
@@ -160,6 +167,7 @@ func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 		Mounts: []string{
 			vbox.FileTransferRoot + "/" + eventTag + "/:/home/",
 		},
+		User: uid + ":" + gid,
 	})
 
 	mysqlPass := uuid.New().String()

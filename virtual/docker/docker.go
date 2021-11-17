@@ -136,6 +136,7 @@ type ContainerConfig struct {
 	PortBindings map[string]string
 	Labels       map[string]string
 	Mounts       []string
+	User         string
 	Resources    *Resources
 	Cmd          []string
 	DNS          []string
@@ -312,6 +313,7 @@ func (c *container) getCreateConfig() (*docker.CreateContainerOptions, error) {
 	return &docker.CreateContainerOptions{
 		Name: uuid.New().String(),
 		Config: &docker.Config{
+			User:         c.conf.User,
 			Image:        c.conf.Image,
 			Env:          env,
 			Cmd:          c.conf.Cmd,
