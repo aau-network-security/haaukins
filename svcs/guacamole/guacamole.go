@@ -662,7 +662,6 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 
 	action := func(t string) (*http.Response, error) {
 		endpoint := guac.baseUrl() + "/guacamole/api/session/data/mysql/connections?token=" + t
-		log.Debug().Msgf("Message send to guacendpoint: %s", jsonData)
 		req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err

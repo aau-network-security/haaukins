@@ -926,7 +926,7 @@ func (ev *event) Handler() http.Handler {
 		if !ok {
 			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
 		}
-		if err := teamLab.ResetFrontends(context.Background()); err != nil {
+		if err := teamLab.ResetFrontends(context.Background(), string(ev.store.Tag), t.ID()); err != nil {
 			return fmt.Errorf("Reset frontends hook error %v", err)
 		}
 		return nil

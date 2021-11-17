@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"math"
 	"math/rand"
 	"net/http"
@@ -375,6 +376,10 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		}
 
 		if (user.NPUser && user.Username == createdBy) || !user.NPUser {
+			// remove the corrosponding event folder
+			if err := vbox.RemoveEventFolder(string(evtag)); err != nil {
+				//do nothing
+			}
 			_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
 			if err != nil {
 				return fmt.Errorf("error happened on setting up status of event, err: %v", err)

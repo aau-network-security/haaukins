@@ -555,6 +555,23 @@ func CreateEventFolder(tag string) error {
 	return nil
 }
 
+func RemoveEventFolder(eventTag string) error {
+	path := FileTransferRoot + "/" + eventTag
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("Event-folder", path).Msg("Event-folder exists... Deleting.")
+		err := os.RemoveAll(path)
+		if err != nil {
+			log.Warn().Msgf("Error deleting event folder: %s with error: %s", path, err)
+			return err
+		}
+		return nil
+	} else {
+		log.Info().Str("Event-folder", path).Msg("Event-folder does not exists... Continueing")
+		return nil
+	}
+}
+
 func CreateUserFolder(teamId string, eventTag string) error {
 	path := FileTransferRoot + "/" + eventTag + "/" + teamId
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -578,8 +595,7 @@ func CreateUserFolder(teamId string, eventTag string) error {
 }
 
 func CreateFolderLink(vm string, eventTag string, teamId string) error {
-	log.Debug().Msgf("Vbox id: v%", vm)
-	log.Debug().Msgf("Trying to create shared folder for vm: %d", vm)
+	log.Debug().Msgf("Trying to link shared folder to vm: %s", vm)
 	//todo Figure out a way to add the new folder and general setup of filetransfer folder and how to manage its content.
 	_, err := VBoxCmdContext(context.Background(), "sharedfolder", "add", vm, "--name", "filetransfer", "-hostpath", FileTransferRoot+"/"+eventTag+"/"+teamId, "-transient", "-automount")
 	if err != nil {
