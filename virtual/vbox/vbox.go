@@ -41,6 +41,8 @@ const (
 	vboxShowVMInfo   = "showvminfo"
 )
 
+var FileTransferRoot string
+
 func init() {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
 }
@@ -253,6 +255,11 @@ func SetLocalRDP(ip string, port uint) VMOpt {
 		}
 
 		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--clipboard", "bidirectional")
+		if err != nil {
+			return err
+		}
+
+		_, err = VBoxCmdContext(ctx, vboxModVM, vm.id, "--vrdemulticon", "on")
 		if err != nil {
 			return err
 		}
@@ -502,4 +509,98 @@ func VBoxCmdContext(ctx context.Context, cmd string, cmds ...string) ([]byte, er
 	}
 
 	return out, nil
+}
+
+func CreateFileTransferRoot(path string) error {
+	FileTransferRoot = path
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("transfer-root", path).Msg("File transfer root already exists... Continuing.")
+		return nil
+	}
+	log.Info().Str("transfer-root", path).Msg("File transfer root does not exists... Creating folder")
+	err := os.MkdirAll(path, 0777)
+	if err != nil {
+		log.Warn().Msgf("Error creating file transfer root: %s", err)
+		return err
+	}
+	err = os.Chmod(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error setting folder perms on: %s error: %s", path, err)
+		return err
+	}
+	log.Info().Msg("File transfer root succesfully created!")
+	return nil
+}
+
+func CreateEventFolder(tag string) error {
+	path := FileTransferRoot + "/" + tag
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("event-root", path).Msg("Event root already exists... Continuing.")
+		return nil
+	}
+	log.Info().Str("event-root", path).Msg("Event root does not exists... Creating folder")
+	err := os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error creating event root: %s", err)
+		return err
+	}
+	err = os.Chmod(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error setting folder perms on: %s error: %s", path, err)
+		return err
+	}
+	log.Info().Msg("Event root succesfully created!")
+	return nil
+}
+
+func RemoveEventFolder(eventTag string) error {
+	path := FileTransferRoot + "/" + eventTag
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("Event-folder", path).Msg("Event-folder exists... Deleting.")
+		err := os.RemoveAll(path)
+		if err != nil {
+			log.Warn().Msgf("Error deleting event folder: %s with error: %s", path, err)
+			return err
+		}
+		return nil
+	} else {
+		log.Info().Str("Event-folder", path).Msg("Event-folder does not exists... Continueing")
+		return nil
+	}
+}
+
+func CreateUserFolder(teamId string, eventTag string) error {
+	path := FileTransferRoot + "/" + eventTag + "/" + teamId
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("User-folder", path).Msg("User-folder already exists... Continuing.")
+		return nil
+	}
+	log.Info().Str("User-folder", path).Msg("User-folder does not exists... Creating folder")
+	err := os.MkdirAll(path, 0777)
+	if err != nil {
+		log.Warn().Msgf("Error creating User-folder: %s", err)
+		return err
+	}
+	err = os.Chmod(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error setting folder perms on: %s error: %s", path, err)
+		return err
+	}
+	log.Info().Msg("User-folder succesfully created!")
+	return nil
+}
+
+func CreateFolderLink(vm string, eventTag string, teamId string) error {
+	log.Debug().Msgf("Trying to link shared folder to vm: %s", vm)
+	//todo Figure out a way to add the new folder and general setup of filetransfer folder and how to manage its content.
+	_, err := VBoxCmdContext(context.Background(), "sharedfolder", "add", vm, "--name", "filetransfer", "-hostpath", FileTransferRoot+"/"+eventTag+"/"+teamId, "-transient", "-automount")
+	if err != nil {
+		log.Warn().Msgf("Error creating shared folder link: %s", err)
+		return err
+	}
+	return nil
 }

@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aau-network-security/haaukins/virtual/vbox"
+
 	"github.com/aau-network-security/haaukins/store"
 
 	"github.com/aau-network-security/haaukins/svcs"
@@ -100,7 +102,7 @@ type Guacamole interface {
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo, event Event) svcs.ProxyConnector
 }
 
-func New(ctx context.Context, conf Config, onlyVPN int32) (Guacamole, error) {
+func New(ctx context.Context, conf Config, onlyVPN int32, eventTag string) (Guacamole, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -124,7 +126,7 @@ func New(ctx context.Context, conf Config, onlyVPN int32) (Guacamole, error) {
 		conf:   conf,
 	}
 	if onlyVPN != docker.OnlyVPN {
-		if err := guac.create(ctx); err != nil {
+		if err := guac.create(ctx, eventTag); err != nil {
 			return nil, err
 		}
 	}
@@ -142,13 +144,21 @@ func (guac *guacamole) GetAdminPass() string {
 	return guac.conf.AdminPass
 }
 
-func (guac *guacamole) create(ctx context.Context) error {
+//TODO choose another path for mount, Create new path when making a new event.
+func (guac *guacamole) create(ctx context.Context, eventTag string) error {
+	err := vbox.CreateEventFolder(eventTag)
+	if err != nil {
+		return err
+	}
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd:1.2.0",
 		UseBridge: true,
 		Labels: map[string]string{
 			"hkn": "guacamole_guacd",
+		},
+		Mounts: []string{
+			vbox.FileTransferRoot + "/" + eventTag + "/:/home/",
 		},
 	})
 
@@ -565,6 +575,7 @@ type createRDPConnConf struct {
 	SFTPAliveInterval        *uint   `json:"sftp-server-alive-interval"`
 	SwapRedBlue              *bool   `json:"swap-red-blue"`
 	CreateDrivePath          *bool   `json:"create-drive-path"`
+	DrivePath                *string `json:"drive-path"`
 	Username                 *string `json:"username,omitempty"`
 	Password                 *string `json:"password,omitempty"`
 }
@@ -581,6 +592,9 @@ type CreateRDPConnOpts struct {
 	ResolutionHeight uint
 	MaxConn          uint
 	ColorDepth       uint
+	EnableDrive      *bool
+	CreateDrivePath  *bool
+	DrivePath        *string
 }
 
 func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
@@ -612,7 +626,7 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 	if opts.ColorDepth == 0 {
 		opts.ColorDepth = 16
 	}
-
+	log.Debug().Str("drive-path", *opts.DrivePath).Msg("Drivepath for user is")
 	conf := createRDPConnConf{
 		Hostname:        &opts.Host,
 		Width:           &opts.ResolutionWidth,
@@ -622,6 +636,9 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 		Username:        opts.Username,
 		Password:        opts.Password,
 		EnableWallpaper: opts.EnableWallPaper,
+		EnableDrive:     opts.EnableDrive,
+		CreateDrivePath: opts.CreateDrivePath,
+		DrivePath:       opts.DrivePath,
 	}
 
 	data := struct {
@@ -645,7 +662,6 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 
 	action := func(t string) (*http.Response, error) {
 		endpoint := guac.baseUrl() + "/guacamole/api/session/data/mysql/connections?token=" + t
-
 		req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err

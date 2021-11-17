@@ -27,6 +27,7 @@ type Config struct {
 	Rechaptcha         string                           `yaml:"recaptcha-key,omitempty"`
 	APICreds           APICreds                         `yaml:"api-creds,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
+	FileTransferRoot   FileTransferConf                 `yaml:"file-transfer-root,omitempty"`
 }
 
 type APICreds struct {
@@ -67,4 +68,8 @@ type Files struct {
 	UsersFile     string `yaml:"users-file,omitempty"`
 	ExercisesFile string `yaml:"exercises-file,omitempty"`
 	FrontendsFile string `yaml:"frontends-file,omitempty"`
+}
+
+type FileTransferConf struct {
+	Path string `yaml:"path"`
 }

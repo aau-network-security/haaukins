@@ -45,7 +45,7 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 				continue
 			}
 
-			if err := lab.ResetFrontends(stream.Context()); err != nil {
+			if err := lab.ResetFrontends(stream.Context(), string(evtag), reqTeam.Id); err != nil {
 				return err
 			}
 			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
@@ -61,7 +61,7 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 			continue
 		}
 
-		if err := lab.ResetFrontends(stream.Context()); err != nil {
+		if err := lab.ResetFrontends(stream.Context(), string(evtag), t.ID()); err != nil {
 			return err
 		}
 		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})
