@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -19,6 +18,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 
 	"github.com/aau-network-security/haaukins/store"
 
@@ -157,7 +158,7 @@ func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 			"hkn": "guacamole_guacd",
 		},
 		Mounts: []string{
-			vbox.FileTransferRoot + "/" + eventTag + ":/home/",
+			vbox.FileTransferRoot + "/" + eventTag + "/:/home/",
 		},
 	})
 

@@ -696,8 +696,8 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	enableWallPaper := true
 	enableDrive := true
 	createDrivePath := true
-	//todo get drivepath from event tag path
-	drivePath := vbox.FileTransferRoot + "/" + string(ev.store.Tag) + "/" + t.ID()
+	// Drive path is the home folder inside the docker guacamole
+	drivePath := "/home/" + t.ID()
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.

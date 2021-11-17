@@ -519,9 +519,14 @@ func CreateFileTransferRoot(path string) error {
 		return nil
 	}
 	log.Info().Str("transfer-root", path).Msg("File transfer root does not exists... Creating folder")
-	err := os.MkdirAll(path, os.ModePerm)
+	err := os.MkdirAll(path, 0777)
 	if err != nil {
 		log.Warn().Msgf("Error creating file transfer root: %s", err)
+		return err
+	}
+	err = os.Chmod(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error setting folder perms on: %s error: %s", path, err)
 		return err
 	}
 	log.Info().Msg("File transfer root succesfully created!")
@@ -541,6 +546,11 @@ func CreateEventFolder(tag string) error {
 		log.Warn().Msgf("Error creating event root: %s", err)
 		return err
 	}
+	err = os.Chmod(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error setting folder perms on: %s error: %s", path, err)
+		return err
+	}
 	log.Info().Msg("Event root succesfully created!")
 	return nil
 }
@@ -553,9 +563,14 @@ func CreateUserFolder(teamId string, eventTag string) error {
 		return nil
 	}
 	log.Info().Str("User-folder", path).Msg("User-folder does not exists... Creating folder")
-	err := os.MkdirAll(path, os.ModePerm)
+	err := os.MkdirAll(path, 0777)
 	if err != nil {
 		log.Warn().Msgf("Error creating User-folder: %s", err)
+		return err
+	}
+	err = os.Chmod(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error setting folder perms on: %s error: %s", path, err)
 		return err
 	}
 	log.Info().Msg("User-folder succesfully created!")
