@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -100,7 +101,7 @@ type Guacamole interface {
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo, event Event) svcs.ProxyConnector
 }
 
-func New(ctx context.Context, conf Config, onlyVPN int32) (Guacamole, error) {
+func New(ctx context.Context, conf Config, onlyVPN int32, eventTag string) (Guacamole, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -124,7 +125,7 @@ func New(ctx context.Context, conf Config, onlyVPN int32) (Guacamole, error) {
 		conf:   conf,
 	}
 	if onlyVPN != docker.OnlyVPN {
-		if err := guac.create(ctx); err != nil {
+		if err := guac.create(ctx, eventTag); err != nil {
 			return nil, err
 		}
 	}
@@ -143,7 +144,11 @@ func (guac *guacamole) GetAdminPass() string {
 }
 
 //TODO choose another path for mount, Create new path when making a new event.
-func (guac *guacamole) create(ctx context.Context) error {
+func (guac *guacamole) create(ctx context.Context, eventTag string) error {
+	err := vbox.CreateEventFolder(eventTag)
+	if err != nil {
+		return err
+	}
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd:1.2.0",
@@ -152,7 +157,7 @@ func (guac *guacamole) create(ctx context.Context) error {
 			"hkn": "guacamole_guacd",
 		},
 		Mounts: []string{
-			"/home/mikkel/Desktop/arbejde/Haaukinsdev/haaukins/data/:/home/",
+			vbox.FileTransferRoot + "/" + eventTag + ":/home/",
 		},
 	})
 
@@ -620,7 +625,7 @@ func (guac *guacamole) CreateRDPConn(opts CreateRDPConnOpts) error {
 	if opts.ColorDepth == 0 {
 		opts.ColorDepth = 16
 	}
-
+	log.Debug().Str("drive-path", *opts.DrivePath).Msg("Drivepath for user is")
 	conf := createRDPConnConf{
 		Hostname:        &opts.Host,
 		Width:           &opts.ResolutionWidth,

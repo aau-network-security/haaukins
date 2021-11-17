@@ -528,19 +528,48 @@ func CreateFileTransferRoot(path string) error {
 	return nil
 }
 
-func CreateEventFolder(tag store.Tag) (string, error) {
-	path := FileTransferRoot + "/" + string(tag)
+func CreateEventFolder(tag string) error {
+	path := FileTransferRoot + "/" + tag
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		//If path exists
 		log.Info().Str("event-root", path).Msg("Event root already exists... Continuing.")
-		return path, nil
+		return nil
 	}
 	log.Info().Str("event-root", path).Msg("Event root does not exists... Creating folder")
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		log.Warn().Msgf("Error creating event root: %s", err)
-		return "", err
+		return err
 	}
 	log.Info().Msg("Event root succesfully created!")
-	return path, nil
+	return nil
+}
+
+func CreateUserFolder(teamId string, eventTag string) error {
+	path := FileTransferRoot + "/" + eventTag + "/" + teamId
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		//If path exists
+		log.Info().Str("User-folder", path).Msg("User-folder already exists... Continuing.")
+		return nil
+	}
+	log.Info().Str("User-folder", path).Msg("User-folder does not exists... Creating folder")
+	err := os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		log.Warn().Msgf("Error creating User-folder: %s", err)
+		return err
+	}
+	log.Info().Msg("User-folder succesfully created!")
+	return nil
+}
+
+func CreateFolderLink(vm string, eventTag string, teamId string) error {
+	log.Debug().Msgf("Vbox id: v%", vm)
+	log.Debug().Msgf("Trying to create shared folder for vm: %d", vm)
+	//todo Figure out a way to add the new folder and general setup of filetransfer folder and how to manage its content.
+	_, err := VBoxCmdContext(context.Background(), "sharedfolder", "add", vm, "--name", "filetransfer", "-hostpath", FileTransferRoot+"/"+eventTag+"/"+teamId, "-transient", "-automount")
+	if err != nil {
+		log.Warn().Msgf("Error creating shared folder: %s", err)
+		return err
+	}
+	return nil
 }

@@ -268,7 +268,7 @@ type labNetInfo struct {
 }
 
 func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.ChildrenChalConfig, reCaptchaKey string) (Event, error) {
-	guac, err := New(ctx, Config{}, e.OnlyVPN)
+	guac, err := New(ctx, Config{}, e.OnlyVPN, string(e.Tag))
 	if err != nil {
 		return nil, err
 	}
@@ -697,7 +697,7 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	enableDrive := true
 	createDrivePath := true
 	//todo get drivepath from event tag path
-	drivePath := "/home/" + t.ID()
+	drivePath := vbox.FileTransferRoot + "/" + string(ev.store.Tag) + "/" + t.ID()
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.
@@ -747,14 +747,16 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 		}
 	}
 
-	instanceinfo := lab.InstanceInfo()
-	log.Debug().Msgf("Vbox id: v%", instanceinfo[0].Id)
-	log.Debug().Msgf("Trying to create shared folder for vm: %d", instanceinfo[0].Id)
-	//todo Figure out a way to add the new folder and general setup of filetransfer folder and how to manage its content.
-	_, err = vbox.VBoxCmdContext(context.Background(), "sharedfolder", "add", instanceinfo[0].Id, "--name", "filetransfer", "-hostpath", "/home/mikkel/Desktop/arbejde/Haaukinsdev/haaukins/data/"+t.ID(), "-transient", "-automount")
+	instanceInfo := lab.InstanceInfo()
+	err = vbox.CreateUserFolder(t.ID(), string(ev.store.Tag))
 	if err != nil {
-		log.Warn().Msgf("Error creating shared folder: %s", err)
+		return err
 	}
+	err = vbox.CreateFolderLink(instanceInfo[0].Id, string(ev.store.Tag), t.ID())
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
