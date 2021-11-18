@@ -749,10 +749,9 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 
 	instanceInfo := lab.InstanceInfo()
 	// Will not handle error below since this is not a critical function
-	vbox.CreateUserFolder(t.ID(), string(ev.store.Tag))
+	_ = vbox.CreateUserFolder(t.ID(), string(ev.store.Tag))
 
-	vbox.CreateFolderLink(instanceInfo[0].Id, string(ev.store.Tag), t.ID())
-
+	_ = vbox.CreateFolderLink(instanceInfo[0].Id, string(ev.store.Tag), t.ID())
 
 	return nil
 }
