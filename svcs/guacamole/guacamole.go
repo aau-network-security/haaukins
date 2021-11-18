@@ -165,7 +165,7 @@ func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 		Mounts: []string{
 			vbox.FileTransferRoot + "/" + eventTag + "/:/home/",
 		},
-		User: uid + ":" + gid,
+		User: user
 	})
 
 	mysqlPass := uuid.New().String()
