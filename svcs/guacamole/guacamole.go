@@ -150,7 +150,7 @@ func (guac *guacamole) GetAdminPass() string {
 func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 	err := vbox.CreateEventFolder(eventTag)
 	if err != nil {
-		return err
+		// Do nothing
 	}
 
 	uid := strconv.Itoa(os.Getuid())
