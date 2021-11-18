@@ -152,9 +152,8 @@ func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 		// Do nothing
 	}
 
-	uid := strconv.Itoa(os.Getuid())
-	gid := strconv.Itoa(os.Getgid())
-	log.Debug().Msgf("Starting guacd as: %s:%s", uid, gid)
+        user := fmt.Sprintf("%d:%d", os.Getuid(),os.Getgid())
+	log.Debug().Str("user", user).Msg("starting guacd")
 
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
