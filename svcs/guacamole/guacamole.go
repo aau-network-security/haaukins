@@ -150,7 +150,7 @@ func (guac *guacamole) GetAdminPass() string {
 func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 	_ := vbox.CreateEventFolder(eventTag)
 		// Do nothing
-	}
+	
 
         user := fmt.Sprintf("%d:%d", os.Getuid(),os.Getgid())
 	log.Debug().Str("user", user).Msg("starting guacd")
