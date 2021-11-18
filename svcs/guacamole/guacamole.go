@@ -148,8 +148,7 @@ func (guac *guacamole) GetAdminPass() string {
 
 //TODO choose another path for mount, Create new path when making a new event.
 func (guac *guacamole) create(ctx context.Context, eventTag string) error {
-	err := vbox.CreateEventFolder(eventTag)
-	if err != nil {
+	_ := vbox.CreateEventFolder(eventTag)
 		// Do nothing
 	}
 
