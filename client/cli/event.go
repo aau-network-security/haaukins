@@ -35,6 +35,7 @@ func (c *Client) CmdEvent() *cobra.Command {
 		c.CmdEventTeams(),
 		c.CmdEventLoadTest(),
 		c.CmdEventTeamRestart(),
+		c.CmdEventModify(),
 		c.CmdAddNotification())
 
 	return cmd
@@ -347,6 +348,42 @@ func (c *Client) CmdAddNotification() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&message, "message", "m", "", "announcement message")
 	cmd.Flags().BoolVarP(&loggedInUsers, "onlyloggedin", "l", false, "only logged users ")
+	return cmd
+}
+
+func (c *Client) CmdEventModify() *cobra.Command {
+	var (
+		eventTag   string
+		finishTime string
+		capacity   int
+	)
+
+	cmd := &cobra.Command{
+		Use:     "modify",
+		Short:   "Modify an event",
+		Example: `hkn event modify -t test -f "2021-10-29 00:12:00" -c 15 `,
+		Run: func(cmd *cobra.Command, args []string) {
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			r, err := c.rpcClient.ModifyEvent(ctx, &pb.ModifyEventRequest{
+				EventTag:   eventTag,
+				FinishTime: finishTime,
+				Capacity:   int32(capacity),
+			})
+			if err != nil {
+				PrintError(err)
+				return
+			}
+
+			fmt.Println(r.Message)
+
+		},
+	}
+	cmd.Flags().StringVarP(&eventTag, "eventTag", "t", "", "apply on given event tag")
+	cmd.Flags().StringVarP(&finishTime, "finishTime", "f", "", "finish time to be extended")
+	cmd.Flags().IntVarP(&capacity, "capacity", "c", 0, "capacity to be updated")
 	return cmd
 }
 

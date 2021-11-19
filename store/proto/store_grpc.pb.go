@@ -40,6 +40,7 @@ type StoreClient interface {
 	UpdateTeamPassword(ctx context.Context, in *UpdateTeamPassRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	UpdateExercises(ctx context.Context, in *UpdateExerciseRequest, opts ...grpc.CallOption) (*UpdateExerciseResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
+	UpdateEvent(ctx context.Context, in *UpdateEventPropReq, opts ...grpc.CallOption) (*UpdateEventResponse, error)
 	// Delete
 	DeleteTeam(ctx context.Context, in *DelTeamRequest, opts ...grpc.CallOption) (*DelTeamResp, error)
 	DeleteProfile(ctx context.Context, in *DelProfileRequest, opts ...grpc.CallOption) (*DelProfileResp, error)
@@ -224,6 +225,15 @@ func (c *storeClient) UpdateProfile(ctx context.Context, in *UpdateProfileReques
 	return out, nil
 }
 
+func (c *storeClient) UpdateEvent(ctx context.Context, in *UpdateEventPropReq, opts ...grpc.CallOption) (*UpdateEventResponse, error) {
+	out := new(UpdateEventResponse)
+	err := c.cc.Invoke(ctx, "/store.Store/UpdateEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *storeClient) DeleteTeam(ctx context.Context, in *DelTeamRequest, opts ...grpc.CallOption) (*DelTeamResp, error) {
 	out := new(DelTeamResp)
 	err := c.cc.Invoke(ctx, "/store.Store/DeleteTeam", in, out, opts...)
@@ -268,6 +278,7 @@ type StoreServer interface {
 	UpdateTeamPassword(context.Context, *UpdateTeamPassRequest) (*UpdateResponse, error)
 	UpdateExercises(context.Context, *UpdateExerciseRequest) (*UpdateExerciseResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateResponse, error)
+	UpdateEvent(context.Context, *UpdateEventPropReq) (*UpdateEventResponse, error)
 	// Delete
 	DeleteTeam(context.Context, *DelTeamRequest) (*DelTeamResp, error)
 	DeleteProfile(context.Context, *DelProfileRequest) (*DelProfileResp, error)
@@ -334,6 +345,9 @@ func (UnimplementedStoreServer) UpdateExercises(context.Context, *UpdateExercise
 }
 func (UnimplementedStoreServer) UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateProfile not implemented")
+}
+func (UnimplementedStoreServer) UpdateEvent(context.Context, *UpdateEventPropReq) (*UpdateEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateEvent not implemented")
 }
 func (UnimplementedStoreServer) DeleteTeam(context.Context, *DelTeamRequest) (*DelTeamResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTeam not implemented")
@@ -696,6 +710,24 @@ func _Store_UpdateProfile_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Store_UpdateEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEventPropReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).UpdateEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/store.Store/UpdateEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).UpdateEvent(ctx, req.(*UpdateEventPropReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Store_DeleteTeam_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DelTeamRequest)
 	if err := dec(in); err != nil {
@@ -814,6 +846,10 @@ var Store_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateProfile",
 			Handler:    _Store_UpdateProfile_Handler,
+		},
+		{
+			MethodName: "UpdateEvent",
+			Handler:    _Store_UpdateEvent_Handler,
 		},
 		{
 			MethodName: "DeleteTeam",
