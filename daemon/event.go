@@ -707,6 +707,7 @@ func (d *daemon) closeEvent(ch chan guacamole.Event, wg *sync.WaitGroup) error {
 			currentTime := strconv.Itoa(int(time.Now().Unix()))
 			newEventTag := fmt.Sprintf("%s-%s", e.Tag, currentTime)
 			event, err := d.eventPool.GetEvent(e.Tag)
+			_ = vbox.RemoveEventFolder(string(e.Tag))
 			if err != nil {
 				log.Warn().Msgf("event pool get event error %v ", err)
 				closeErr = err
