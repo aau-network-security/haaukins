@@ -211,6 +211,10 @@ func NewConfigFromFile(path string) (*Config, error) {
 }
 
 func New(conf *Config) (*daemon, error) {
+	err := vbox.CreateFileTransferRoot(conf.FileTransferRoot.Path)
+	if err != nil {
+		log.Fatal().Msgf("Error while creating file transfer root: %s", err)
+	}
 	uf, err := store.NewUserFile(conf.ConfFiles.UsersFile)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to read users file: %s", conf.ConfFiles.UsersFile))

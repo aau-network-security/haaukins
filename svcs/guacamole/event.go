@@ -268,7 +268,7 @@ type labNetInfo struct {
 }
 
 func NewEvent(ctx context.Context, e store.Event, hub lab.Hub, flags []store.ChildrenChalConfig, reCaptchaKey string) (Event, error) {
-	guac, err := New(ctx, Config{}, e.OnlyVPN)
+	guac, err := New(ctx, Config{}, e.OnlyVPN, string(e.Tag))
 	if err != nil {
 		return nil, err
 	}
@@ -694,6 +694,10 @@ func removeVPNConfigs(confFile string) error {
 
 func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	enableWallPaper := true
+	enableDrive := true
+	createDrivePath := true
+	// Drive path is the home folder inside the docker guacamole
+	drivePath := "/home/" + t.ID()
 	rdpPorts := lab.RdpConnPorts()
 	if n := len(rdpPorts); n == 0 {
 		log.
@@ -717,7 +721,6 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 	}
 
 	ev.guacUserStore.CreateUserForTeam(t.ID(), u)
-
 	hostIp, err := ev.dockerHost.GetDockerHostIP()
 	if err != nil {
 		return err
@@ -736,10 +739,20 @@ func (ev *event) createGuacConn(t *store.Team, lab lab.Lab) error {
 			Username:        &u.Username,
 			Password:        &u.Password,
 			EnableWallPaper: &enableWallPaper,
+			EnableDrive:     &enableDrive,
+			CreateDrivePath: &createDrivePath,
+			DrivePath:       &drivePath,
 		}); err != nil {
 			return err
 		}
 	}
+
+	instanceInfo := lab.InstanceInfo()
+	// Will not handle error below since this is not a critical function
+	_ = vbox.CreateUserFolder(t.ID(), string(ev.store.Tag))
+
+	_ = vbox.CreateFolderLink(instanceInfo[0].Id, string(ev.store.Tag), t.ID())
+
 	return nil
 }
 
@@ -909,7 +922,7 @@ func (ev *event) Handler() http.Handler {
 		if !ok {
 			return fmt.Errorf("Not found suitable team for given id: %s", t.ID())
 		}
-		if err := teamLab.ResetFrontends(context.Background()); err != nil {
+		if err := teamLab.ResetFrontends(context.Background(), string(ev.store.Tag), t.ID()); err != nil {
 			return fmt.Errorf("Reset frontends hook error %v", err)
 		}
 		return nil

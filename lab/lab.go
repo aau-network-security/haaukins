@@ -112,7 +112,7 @@ type Lab interface {
 	Suspend(context.Context) error
 	Resume(context.Context) error
 	Environment() exercise.Environment
-	ResetFrontends(ctx context.Context) error
+	ResetFrontends(ctx context.Context, eventTag, teamId string) error
 	RdpConnPorts() []uint
 	Tag() string
 	AddChallenge(ctx context.Context, confs ...store.Exercise) error
@@ -190,7 +190,7 @@ func (l *lab) Environment() exercise.Environment {
 	return l.environment
 }
 
-func (l *lab) ResetFrontends(ctx context.Context) error {
+func (l *lab) ResetFrontends(ctx context.Context, eventTag, teamId string) error {
 	var errs []error
 	for p, vmConf := range l.frontends {
 		err := vmConf.vm.Close()
@@ -209,6 +209,11 @@ func (l *lab) ResetFrontends(ctx context.Context) error {
 		if err != nil {
 			errs = append(errs, err)
 			continue
+		}
+
+		err = vbox.CreateFolderLink(vm.Info().Id, eventTag, teamId)
+		if err != nil {
+			log.Logger.Debug().Msgf("Error creating shared folder link after vm reset: %s", err)
 		}
 	}
 
