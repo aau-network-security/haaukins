@@ -16,6 +16,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -146,10 +147,11 @@ func (guac *guacamole) GetAdminPass() string {
 
 //TODO choose another path for mount, Create new path when making a new event.
 func (guac *guacamole) create(ctx context.Context, eventTag string) error {
-	err := vbox.CreateEventFolder(eventTag)
-	if err != nil {
-		return err
-	}
+	_ = vbox.CreateEventFolder(eventTag)
+
+	user := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+	log.Debug().Str("user", user).Msg("starting guacd")
+
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd:1.2.0",
@@ -160,6 +162,7 @@ func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 		Mounts: []string{
 			vbox.FileTransferRoot + "/" + eventTag + "/:/home/",
 		},
+		User: user,
 	})
 
 	mysqlPass := uuid.New().String()
