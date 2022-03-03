@@ -99,6 +99,7 @@ type Guacamole interface {
 	CreateUser(username, password string) error
 	CreateRDPConn(opts CreateRDPConnOpts) error
 	GetAdminPass() string
+	GetPort() uint
 	RawLogin(username, password string) ([]byte, error)
 	ProxyHandler(us *GuacUserStore, klp KeyLoggerPool, am *amigo.Amigo, event Event) svcs.ProxyConnector
 }
@@ -145,13 +146,16 @@ func (guac *guacamole) GetAdminPass() string {
 	return guac.conf.AdminPass
 }
 
-//TODO choose another path for mount, Create new path when making a new event.
+func (guac *guacamole) GetPort() uint {
+	return guac.webPort
+}
+
 func (guac *guacamole) create(ctx context.Context, eventTag string) error {
 	_ = vbox.CreateEventFolder(eventTag)
 
 	user := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
 	log.Debug().Str("user", user).Msg("starting guacd")
-
+  
 	containers := map[string]docker.Container{}
 	containers["guacd"] = docker.NewContainer(docker.ContainerConfig{
 		Image:     "guacamole/guacd:1.2.0",
