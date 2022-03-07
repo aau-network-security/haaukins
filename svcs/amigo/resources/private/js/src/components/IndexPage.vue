@@ -102,6 +102,7 @@ export default {
   name: "IndexPage",
   data: function(){
     return {
+      theme: null,
       haaukins_logo: 'haaukins-login.png',
       cyberskills_logo: 'cyberskills-community.png',
       if_logo: 'if_logo_black.png',
@@ -110,29 +111,36 @@ export default {
     }
   },
   mounted() {
+    this.theme = localStorage.getItem("theme")
     this.setImages()
+    window.setInterval(() => {
+      if (this.theme !== localStorage.getItem("theme")) {
+        this.setImages()
+        this.theme = localStorage.getItem("theme")
+      }
+    }, 250)
   },
 
   methods: {
     setImages : function() {
       window.console.log("SET IMAGES CALLED !! ")
-      if (this.$theme === 'dark') {
+      if (localStorage.getItem("theme") === 'dark') {
+        window.console.log("dark")
         this.haaukins_logo = 'haaukins-logo_white.png'
         this.aau_logo = 'aau_white_logo_left.png'
         this.happy_logo = 'happy-90_white.png'
         this.if_logo = 'if_logo_white.png'
         this.cyberskills_logo = 'cyberskills_logo_white.png'
-      }else {
-        this.haaukins_logo ='haaukins-login.png'
+      } else {
+        window.console.log("light")
+        this.haaukins_logo = 'haaukins-login.png'
         this.aau_logo = 'aau_dark_logo_left.png'
         this.happy_logo = 'happy-90.png'
         this.if_logo = 'if_logo_black.png'
         this.cyberskills_logo = 'cyberskills-community.png'
       }
     }
-
   }
-
 }
 </script>
 
