@@ -641,6 +641,10 @@ table tr:last-child td:last-child {
     #mainNav.navbar-shrink .navbar-nav .nav-item .nav-link {
         color: #fff;
     }
+
+    .navbar-shrink .theme-selector{
+        color: white;
+    }
 }
 
 /*small screen*/

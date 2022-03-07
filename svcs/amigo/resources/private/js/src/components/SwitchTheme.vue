@@ -8,8 +8,8 @@
         v-model="darkMode"
     />
     <label for="checkbox" >
-      <span v-if="!darkMode"  class="material-icons-outlined">dark_mode</span>
-      <span v-if="darkMode" class="material-icons-outlined">light_mode</span>️
+      <span v-if="!darkMode"  class="theme-selector material-icons-outlined">dark_mode</span>
+      <span v-if="darkMode" class="theme-selector material-icons-outlined">light_mode</span>️
       <div
           :class="{ 'switch-toggle-checked': darkMode === true }"
       ></div>
