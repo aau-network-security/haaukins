@@ -129,6 +129,14 @@ func (vm *vm) Start(ctx context.Context) error {
 		Str("ID", vm.id).
 		Msg("Started VM")
 
+	log.Debug().
+		Str("ID", vm.id).
+		Msg("Setting resolution for VM")
+	_, err = VBoxCmdContext(ctx, vboxCtrlVM, vm.id, "setvideomodehint", "1920", "1080", "16")
+	if err != nil {
+		log.Error().Str("ID", vm.id).Msgf("Error setting resolution, VM may require reset on after connecting: %s", err.Error())
+	}
+
 	return nil
 }
 
