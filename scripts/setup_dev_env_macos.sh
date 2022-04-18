@@ -2,11 +2,6 @@
 # This file is particularly written for macOS operating system
 # Tested on Intel based macOS
 
-# todo: check Golang installation  and its version
-# todo: check Vagrant installation
-# todo: check Packer
-# todo: get sec0x from aau-network-security and install it
-# todo: install gawk to use that command on macos truly: brew install gawk
 
 HAAUKINS_REPO="git@github.com:aau-network-security/haaukins.git"
 HAAUKINS_STORE_REPO="git@github.com:aau-network-security/haaukins-store.git"
@@ -94,20 +89,37 @@ INSTALL_PACKER() {
 }
 
 BUILD_VM_ENV() {
+    echo "Building VM environment"
     cd $PROJECT_DIR/sec0x/hkn-base
     ./build.sh
     cd $PROJECT_DIR/sec0x
     # make sure plugins are installed
+    echo "Installing plugin: vagrant-disksize"
     vagrant plugin install vagrant-disksize
+    echo "Installing plugin: vagrant-vbguest"
     vagrant plugin install vagrant-env
+    echo "Starting machine with vagrant up"
     vagrant up
+}
+
+INSTALL_GAWK {
+    which -s gawk
+    if [[ $? != 0 ]] ; then
+       # Install Gawk
+        echo "Installing gawk through brew"
+        brew install gawk
+    else
+        echo "gawk is already installed"
+    fi
 }
 
 # call functions to check
 
 INSTALL_HOMEBREW
+INSTALL_GAWK
 INSTALL_PACKER
 INSTALL_VAGRANT
+BUILD_VM_ENV
 
 
 
