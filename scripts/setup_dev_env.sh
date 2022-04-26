@@ -124,6 +124,20 @@ INSTALL_VIRTUALBOX_DEBIAN() {
 
 }
 
+# install docker engine 
+INSTALL_DOCKER() {
+    if which docker > /dev/null; then
+        echo "Docker is already installed !"
+    else
+        echo "Installing docker engine ... "
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh ./get-docker.sh
+        sudo usermod -aG docker $USER
+        sudo apt install docker-compose -y 
+        rm ./get-docker.sh 
+    fi 
+}
+
 
 # install packer
 INSTALL_PACKER_DEBIAN() {
@@ -171,6 +185,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     INSTALL_PACKER_DEBIAN
     INSTALL_VIRTUALBOX_DEBIAN
     INSTALL_VAGRANT_DEBIAN
+    INSTALL_DOCKER
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     INSTALL_HOMEBREW
     INSTALL_GAWK
