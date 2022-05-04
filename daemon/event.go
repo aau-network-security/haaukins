@@ -114,7 +114,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 
 	// preliminary check for provided frontend
 	// no need to check for VPN access
-	if req.OnlyVPN != int32(VPN) || req.OnlyVPN != int32(VPNBrowser) {
+	if req.OnlyVPN == int32(NoVPN) || req.OnlyVPN == int32(VPNBrowser) {
 		availableFrontendsMap := d.frontends.GetAllAvailableFrontends()
 		_, ok := availableFrontendsMap[req.Frontends[0]]
 		if !ok {
