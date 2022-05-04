@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
@@ -92,6 +94,34 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
+	// checking through eventPool is not good enough since booked events are not added to eventpool
+	isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
+		EventTag: req.Tag,
+		// it will take INVERT condition which means that query from
+		//Running, Suspended and Booked events
+		Status: Closed,
+	})
+	if err != nil {
+		noEventExist := fmt.Errorf("event does not exist or something is wrong: %v", err)
+		resp.Send(&pb.LabStatus{ErrorMessage: noEventExist.Error()})
+		return noEventExist
+	}
+	if isEventExist.IsExist {
+		resp.Send(&pb.LabStatus{ErrorMessage: NotAvailableTag})
+		return fmt.Errorf(NotAvailableTag)
+	}
+	log.Debug().Msgf("Checked existing events through database.")
+
+	// preliminary check for provided frontend
+	// no need to check for VPN access
+	if req.OnlyVPN != int32(VPN) || req.OnlyVPN != int32(VPNBrowser) {
+		availableFrontendsMap := d.frontends.GetAllAvailableFrontends()
+		_, ok := availableFrontendsMap[req.Frontends[0]]
+		if !ok {
+			return fmt.Errorf("\nProvided frontend [ %s ] cannot be found ! \nAvailable frontends are:  %v ", req.Frontends[0], reflect.ValueOf(availableFrontendsMap).MapKeys())
+		}
+	}
+
 	if (req.OnlyVPN == VPN || req.OnlyVPN == VPNBrowser) && req.Capacity > 253 {
 		resp.Send(&pb.LabStatus{ErrorMessage: CapacityExceedsErr.Error()})
 		return CapacityExceedsErr
@@ -147,23 +177,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			return invalidDateErr
 		}
 
-		// checking through eventPool is not good enough since booked events are not added to eventpool
-		isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
-			EventTag: req.Tag,
-			// it will take INVERT condition which means that query from
-			//Running, Suspended and Booked events
-			Status: Closed,
-		})
-		if err != nil {
-			noEventExist := fmt.Errorf("event does not exist or something is wrong: %v", err)
-			resp.Send(&pb.LabStatus{ErrorMessage: noEventExist.Error()})
-			return noEventExist
-		}
-		if isEventExist.IsExist {
-			resp.Send(&pb.LabStatus{ErrorMessage: NotAvailableTag})
-			return fmt.Errorf(NotAvailableTag)
-		}
-		log.Debug().Msgf("Checked existing events through database.")
 		// difference  in days
 		// if there is no difference in days it means event  will be
 		// started immediately
@@ -237,7 +250,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
 			return err
 		}
-
+		if err := d.ehost.SaveEventToDB(ctx, conf); err != nil {
+			ev.Close()
+			return err
+		}
 		d.startEvent(ev)
 	}
 	return nil
@@ -483,13 +499,15 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	return &pb.ListEventsResponse{Events: events}, nil
 }
 
+// does not call SaveToDB function
+// creates event from config
+// where config retrieved from DB
 func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventConfig) error {
 
 	if err := conf.Validate(); err != nil {
 		return err
 	}
-
-	ev, err := d.ehost.CreateEventFromEventDB(ctx, conf, d.conf.Rechaptcha)
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf, d.conf.Rechaptcha)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from database event")
 		return err
