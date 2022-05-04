@@ -2,34 +2,38 @@ module github.com/aau-network-security/haaukins
 
 go 1.15
 
-replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20190717161051-705d9623b7c1
-
 require (
-	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
+	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/coreos/go-semver v0.3.0
-	github.com/docker/docker v1.4.2-0.20190927142053-ada3c14355ce
-	github.com/fsouza/go-dockerclient v1.5.0
+	github.com/docker/docker v20.10.14+incompatible
+	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/fsouza/go-dockerclient v1.7.11
 	github.com/giantswarm/semver-bump v0.0.0-20181008095244-e8413386a9b8
-	github.com/go-ole/go-ole v1.2.4 // indirect
-	github.com/golang-jwt/jwt/v4 v4.0.0
+	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/golang/protobuf v1.5.2
-	github.com/gomarkdown/markdown v0.0.0-20210514010506-3b9f47219fe7
-	github.com/google/uuid v1.1.2
-	github.com/gorilla/websocket v1.4.1
+	github.com/gomarkdown/markdown v0.0.0-20220419181919-412bcf14cd2e
+	github.com/google/uuid v1.3.0
+	github.com/gorilla/websocket v1.5.0
 	github.com/juju/errgo v0.0.0-20140925100237-08cceb5d0b53 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
-	github.com/microcosm-cc/bluemonday v1.0.16
-	github.com/pkg/errors v0.8.1
-	github.com/rs/zerolog v1.16.0
-	github.com/shirou/gopsutil v2.19.9+incompatible
-	github.com/sirupsen/logrus v1.4.2 // indirect
-	github.com/spf13/cobra v0.0.5
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
-	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
-	google.golang.org/grpc v1.38.0
-	google.golang.org/protobuf v1.27.0
+	github.com/kevinburke/ssh_config v1.2.0 // indirect
+	github.com/logrusorgru/aurora v2.0.3+incompatible
+	github.com/microcosm-cc/bluemonday v1.0.18
+	github.com/opencontainers/runc v1.1.1 // indirect
+	github.com/pkg/errors v0.9.1
+	github.com/rs/zerolog v1.26.1
+	github.com/sergi/go-diff v1.2.0 // indirect
+	github.com/shirou/gopsutil v3.21.11+incompatible
+	github.com/spf13/cobra v1.4.0
+	github.com/tklauser/go-sysconf v0.3.10 // indirect
+	github.com/xanzy/ssh-agent v0.3.1 // indirect
+	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
+	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 // indirect
+	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
+	golang.org/x/term v0.0.0-20220411215600-e5f449aeb171 // indirect
+	google.golang.org/genproto v0.0.0-20220504150022-98cd25cafc72 // indirect
+	google.golang.org/grpc v1.46.0
+	google.golang.org/protobuf v1.28.0
 	gopkg.in/src-d/go-git.v4 v4.13.1
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.4.0
 )
