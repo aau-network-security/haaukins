@@ -24,6 +24,8 @@ var (
 	newEnvironment = exercise.NewEnvironment
 )
 
+const defaultImageMEMMB = 4096
+
 type Config struct {
 	Frontends         []store.InstanceConfig
 	Exercises         []store.Exercise
@@ -138,13 +140,20 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPor
 	if err != nil {
 		return nil, err
 	}
-
+	var mem uint
+	if conf.MemoryMB <= 0 || conf.MemoryMB < defaultImageMEMMB/2 {
+		log.Debug().Msgf("Memory cannot be smaller or equal to zero or less than [ %d ], setting it to default value [ %d ] ", defaultImageMEMMB/2, defaultImageMEMMB)
+		mem = defaultImageMEMMB
+		log.Warn().Msgf("Check frontends configuration file to update memory value of image [ %s ] ", conf.Image)
+	} else {
+		mem = conf.MemoryMB
+	}
 	vm, err := l.lib.GetCopy(
 		ctx,
 		conf,
 		vbox.SetBridge(l.environment.NetworkInterface()),
 		vbox.SetLocalRDP(hostIp, rdpPort),
-		vbox.SetRAM(conf.MemoryMB),
+		vbox.SetRAM(mem),
 	)
 	if err != nil {
 		return nil, err

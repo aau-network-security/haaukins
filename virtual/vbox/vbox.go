@@ -8,9 +8,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"math"
 	"regexp"
 
 	"github.com/aau-network-security/haaukins/store"
@@ -39,6 +40,7 @@ const (
 	vboxCtrlVM       = "controlvm"
 	vboxUnregisterVM = "unregistervm"
 	vboxShowVMInfo   = "showvminfo"
+	defaultImage     = "kali.ova"
 )
 
 var FileTransferRoot string
@@ -392,6 +394,13 @@ func (lib *vBoxLibrary) getPathFromFile(file string) string {
 
 func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, vmOpts ...VMOpt) (VM, error) {
 	path := lib.getPathFromFile(conf.Image)
+	// check whether provided image exists or not
+	// if not exits use default image kali.ova
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		// image does not exists, continue with default image
+		log.Debug().Msgf("Requested image [ %s ] cannot be found, continuing with default image [ %s ] ", conf.Image, defaultImage)
+		path = lib.getPathFromFile(defaultImage)
+	}
 
 	lib.m.Lock()
 
