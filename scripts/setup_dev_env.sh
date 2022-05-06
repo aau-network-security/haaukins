@@ -1,6 +1,9 @@
 #!/bin/bash
-# This file is particularly written for macOS operating system
-# Tested on Intel based macOS
+################################################################################################################
+# This script prepares an development environment on macOS and Debian based computers
+# Tested on Debian and macOS environment however check the script before using it
+# USE IT WITH YOUR OWN RISKS !!!
+####################################################################################################################
 
 
 HAAUKINS_REPO="git@github.com:aau-network-security/haaukins.git"
@@ -8,6 +11,10 @@ HAAUKINS_STORE_REPO="git@github.com:aau-network-security/haaukins-store.git"
 HAAUKINS_WEBCLIENT_REPO="git@github.com:aau-network-security/haaukins-webclient.git"
 HAAUKINS_EXERCISES_REPO="git@github.com:aau-network-security/haaukins-exercises.git"
 VIRTUAL_DEV_ENV="git@github.com:aau-network-security/sec0x.git"
+
+LEAST_GO_VERSION=1.15
+VBOX_VERSION=6.1.18
+GO_VERSION=1.18.1
 
 PROGRAMS=(go vagrant packer)
 REPOS=($HAAUKINS_REPO $HAAUKINS_STORE_REPO $HAAUKINS_EXERCISES_REPO $HAAUKINS_WEBCLIENT_REPO)
@@ -25,19 +32,32 @@ cd $PROJECT_DIR
  done
 
 
+CHECK_GOLANG_VERSION() {
+  v=`go version | { read _ _ v _; echo ${v#go}; }`
+  if (( $(echo "$v >= $LEAST_GO_VERSION" |bc -l) )); then
+      echo " Your Go version $v is suitable for Haaukins"
+  else
+      echo "Your Go version $v does not support Haaukins to run."
+      echo "Please consider your Go environment before starting."
+      echo "Exiting..."
+      exit 1
+  fi
+}
 
-# install golang 
+
+# Install golang
+# No need to call for macOS
+# Since macOS uses Vagrant environment
 INSTALL_GOLANG_MACOS() {
     which -s go
     if [[ $? != 0 ]] ; then
        # Install golang
         echo "Installing GoLang..."
-        wget https://go.dev/dl/go1.18.1.darwin-amd64.pkg
-        sudo installer -pkg go1.18.1.darwin-amd64.pkg -target ~/Applications/
-
+        wget https://go.dev/dl/go$GO_VERSION.darwin-amd64.pkg
+        sudo installer -pkg go$GO_VERSION.darwin-amd64.pkg -target ~/Applications/
     else
       echo "Go is already installed !!"
-      exit 1 
+      CHECK_GOLANG_VERSION
     fi
 }
 
@@ -117,8 +137,8 @@ INSTALL_VIRTUALBOX_DEBIAN() {
     else
         echo "Installing vboxmanage ... "
         sudo apt update 
-        curl https://download.virtualbox.org/virtualbox/6.1.8/Oracle_VM_VirtualBox_Extension_Pack-6.1.8.vbox-extpack --output Oracle_VM_VirtualBox_Extension_Pack-6.1.8.vbox-extpack 
-        sudo VBoxManage extpack install Oracle_VM_VirtualBox_Extension_Pack-6.1.8.vbox-extpack  
+        curl https://download.virtualbox.org/virtualbox/$VBOX_VERSION/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack --output Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
+        sudo VBoxManage extpack install Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
         sudo apt install virtualbox -y
     fi
 
@@ -168,11 +188,12 @@ INSTALL_VAGRANT_DEBIAN(){
 INSTALL_GOLANG_DEBIAN() {
     if which go >/dev/null; then
         echo "Go is already installed !!"
+        CHECK_GOLANG_VERSION
     else
        # Install golang
         echo "Installing GoLang..."
-        wget https://go.dev/dl/go1.18.1.linux-amd64.tar.gz
-        sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.18.1.linux-amd64.tar.gz
+        wget https://go.dev/dl/go$GO_VERSION.linux-amd64.tar.gz
+        sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz
         echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc
     fi
 }
