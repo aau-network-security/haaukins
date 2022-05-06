@@ -13,7 +13,7 @@ HAAUKINS_EXERCISES_REPO="git@github.com:aau-network-security/haaukins-exercises.
 VIRTUAL_DEV_ENV="git@github.com:aau-network-security/sec0x.git"
 
 LEAST_GO_VERSION=1.15
-VBOX_VERSION=6.1.18
+VBOX_VERSION=6.1.34
 GO_VERSION=1.18.1
 
 PROGRAMS=(go vagrant packer)
