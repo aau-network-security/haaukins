@@ -136,10 +136,12 @@ INSTALL_VIRTUALBOX_DEBIAN() {
         echo "vbox is already installed"
     else
         echo "Installing vboxmanage ... "
-        sudo apt update 
+        sudo apt update
         curl https://download.virtualbox.org/virtualbox/$VBOX_VERSION/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack --output Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
+        curl -fsSL https://download.virtualbox.org/virtualbox/$VBOX_VERSION/virtualbox-6.1_6.1.34-150636.1~Ubuntu~bionic_amd64.deb -o /tmp/virtualbox.deb
+        sudo dpkg -i /tmp/virtualbox.deb
+        rm /tmp/virtualbox.deb
         sudo VBoxManage extpack install Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
-        sudo apt install virtualbox -y
     fi
 
 }
