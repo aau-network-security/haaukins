@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -111,16 +110,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return fmt.Errorf(NotAvailableTag)
 	}
 	log.Debug().Msgf("Checked existing events through database.")
-
-	// preliminary check for provided frontend
-	// no need to check for VPN access
-	if req.OnlyVPN == int32(NoVPN) || req.OnlyVPN == int32(VPNBrowser) {
-		availableFrontendsMap := d.frontends.GetAllAvailableFrontends()
-		_, ok := availableFrontendsMap[req.Frontends[0]]
-		if !ok {
-			return fmt.Errorf("\nProvided frontend [ %s ] cannot be found ! \nAvailable frontends are:  %v ", req.Frontends[0], reflect.ValueOf(availableFrontendsMap).MapKeys())
-		}
-	}
 
 	if (req.OnlyVPN == VPN || req.OnlyVPN == VPNBrowser) && req.Capacity > 253 {
 		resp.Send(&pb.LabStatus{ErrorMessage: CapacityExceedsErr.Error()})

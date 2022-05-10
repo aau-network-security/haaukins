@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -34,13 +35,13 @@ const (
 	stateRegex = `State:\s*(.*)`
 	nicRegex   = "\\bNIC\\b"
 
-	vboxBin          = "VBoxManage"
-	vboxModVM        = "modifyvm"
-	vboxStartVM      = "startvm"
-	vboxCtrlVM       = "controlvm"
-	vboxUnregisterVM = "unregistervm"
-	vboxShowVMInfo   = "showvminfo"
-	defaultImage     = "kali.ova"
+	vboxBin             = "VBoxManage"
+	vboxModVM           = "modifyvm"
+	vboxStartVM         = "startvm"
+	vboxCtrlVM          = "controlvm"
+	vboxUnregisterVM    = "unregistervm"
+	vboxShowVMInfo      = "showvminfo"
+	NOAVAILABLEFRONTEND = "No available frontends found on your setup, please add at least one ova file !"
 )
 
 var FileTransferRoot string
@@ -394,12 +395,28 @@ func (lib *vBoxLibrary) getPathFromFile(file string) string {
 
 func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, vmOpts ...VMOpt) (VM, error) {
 	path := lib.getPathFromFile(conf.Image)
-	// check whether provided image exists or not
-	// if not exits use default image kali.ova
+	// if provided image does not exit, go first available image on user side
+	// otherwise return error
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		// image does not exists, continue with default image
-		log.Debug().Msgf("Requested image [ %s ] cannot be found, continuing with default image [ %s ] ", conf.Image, defaultImage)
-		path = lib.getPathFromFile(defaultImage)
+
+		var availableFrontends []string
+		items, _ := ioutil.ReadDir(lib.pwd)
+		for _, item := range items {
+			if strings.HasSuffix(item.Name(), ".ova") {
+				availableFrontends = append(availableFrontends, item.Name())
+			}
+		}
+		log.Warn().
+			Str("requested image", conf.Image).
+			Str("image path ", path).
+			Strs("available images", availableFrontends).
+			Msg("Requested image cannot be found going for first available frontend")
+
+		if len(availableFrontends) == 0 {
+			log.Error().Msg(NOAVAILABLEFRONTEND)
+			return &vm{}, errors.New(NOAVAILABLEFRONTEND)
+		}
+		path = lib.getPathFromFile(availableFrontends[0])
 	}
 
 	lib.m.Lock()
