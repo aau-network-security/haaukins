@@ -94,7 +94,7 @@ func NewVMWithSum(path, image string, checksum string, vmOpts ...VMOpt) VM {
 
 // Creating VM
 func (vm *vm) Create(ctx context.Context) error {
-	_, err := VBoxCmdContext(ctx, "import", vm.path, "--vsys", "0", "--vmname", vm.id)
+	_, err := VBoxCmdContext(ctx, "import", vm.path, "--vsys", "0", "--eula", "accept", "--vmname", vm.id)
 	if err != nil {
 		return err
 	}
