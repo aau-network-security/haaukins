@@ -16,24 +16,24 @@ LEAST_GO_VERSION=1.15
 VBOX_VERSION=6.1.34
 GO_VERSION=1.18.1
 
-PROGRAMS=(go vagrant packer)
-REPOS=($HAAUKINS_REPO $HAAUKINS_STORE_REPO $HAAUKINS_EXERCISES_REPO $HAAUKINS_WEBCLIENT_REPO)
+
+REPOS=( "$HAAUKINS_REPO" "$HAAUKINS_STORE_REPO" "$HAAUKINS_EXERCISES_REPO" "$HAAUKINS_WEBCLIENT_REPO" "$VIRTUAL_DEV_ENV" )
 
 PROJECT_DIR=$HOME/Documents/project
 
-mkdir -p $PROJECT_DIR
+mkdir -p "$PROJECT_DIR"
 
-cd $PROJECT_DIR
+cd "$PROJECT_DIR" || exit
 
  # clone repositories
- for i in ${REPOS[@]}; do
+ for i in "${REPOS[@]}"; do
      echo "Cloning repository $i"
-     git clone $i
+     git clone "$i"
  done
 
 
 CHECK_GOLANG_VERSION() {
-  v=`go version | { read _ _ v _; echo ${v#go}; }`
+  v=$(go version | { read _ _ v _; echo "${v#go}"; })
   if (( $(echo "$v >= $LEAST_GO_VERSION" |bc -l) )); then
       echo " Your Go version $v is suitable for Haaukins"
   else
@@ -106,9 +106,9 @@ INSTALL_PACKER_MACOS() {
 
 BUILD_VM_ENV() {
     echo "Building VM environment"
-    cd $PROJECT_DIR/sec0x/hkn-base
+    cd "$PROJECT_DIR"/sec0x/hkn-base || exit
     ./build.sh
-    cd $PROJECT_DIR/sec0x
+    cd "$PROJECT_DIR"/sec0x || exit
     # make sure plugins are installed
     echo "Installing plugin: vagrant-disksize"
     vagrant plugin install vagrant-disksize
@@ -167,7 +167,7 @@ INSTALL_VIRTUALBOX_DEBIAN() {
 
 }
 
-# install docker engine 
+# install docker engine
 INSTALL_DOCKER() {
     if which docker > /dev/null; then
         echo "Docker is already installed !"
@@ -175,7 +175,7 @@ INSTALL_DOCKER() {
         echo "Installing docker engine ... "
         curl -fsSL https://get.docker.com -o get-docker.sh
         sh ./get-docker.sh
-        sudo usermod -aG docker $USER
+        sudo usermod -aG docker "$USER"
         sudo apt install docker-compose -y 
         rm ./get-docker.sh 
     fi 
@@ -239,6 +239,3 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 else 
     echo "Setup script does not support your environment yes"
 fi 
-
-
-
