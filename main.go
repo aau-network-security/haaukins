@@ -62,6 +62,10 @@ func main() {
 
 	// ensure that gRPC port is free to allocate
 	conn, err := net.DialTimeout("tcp", daemon.MngtPort, time.Second)
+	if err != nil {
+		fmt.Printf("Error on DialTimeout %v\n", err)
+		return
+	}
 	if conn != nil {
 		_ = conn.Close()
 		fmt.Printf("Checking gRPC port %s report: %v\n", daemon.MngtPort, daemon.PortIsAllocatedError)

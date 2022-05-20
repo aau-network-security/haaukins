@@ -220,7 +220,6 @@ func downloadCerts(certMap map[string]string) error {
 }
 
 func setCertConfig(isProd bool, certPool *x509.CertPool) credentials.TransportCredentials {
-	var certificates []tls.Certificate
 	creds := credentials.NewTLS(&tls.Config{
 		RootCAs:    certPool,
 		MinVersion: tls.VersionTLS12, // disable TLS 1.0 and 1.1
@@ -248,7 +247,6 @@ func setCertConfig(isProd bool, certPool *x509.CertPool) credentials.TransportCr
 		if ok := certPool.AppendCertsFromPEM(ca); !ok {
 			log.Println("failed to append ca certs")
 		}
-		certificates = append(certificates, certificate)
 		creds = credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{certificate},
 			RootCAs:      certPool,

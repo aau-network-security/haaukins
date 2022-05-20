@@ -179,7 +179,7 @@ func (h *hub) Suspend(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			if err := l.Suspend(ctx); err != nil {
-				err = suspendError
+				suspendError = err
 			}
 			wg.Done()
 		}()
@@ -203,7 +203,7 @@ func (h *hub) Resume(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			if err := l.Resume(ctx); err != nil {
-				err = resumeError
+				resumeError = err
 			}
 			wg.Done()
 		}()
