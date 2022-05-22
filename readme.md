@@ -1,6 +1,8 @@
-
 <p align="center"> 
-<img src=".github/logo/blue240px.png"  />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/aau-network-security/haaukins/develop/.github/logo/white240px.png">
+  <img alt="Haaukins: Highly accessible and automated virtualization platform for security education." src="https://raw.githubusercontent.com/aau-network-security/haaukins/develop/.github/logo/blue240px.png">
+</picture>
 <div align="center">
 <a href="https://alpha.haaukins.com">
   <img src=https://img.shields.io/badge/platform-try%20haaukins-brightgreen>
