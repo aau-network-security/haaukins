@@ -1,6 +1,15 @@
 name: Formalities
 
 on:
+  pull_request:
+    branches:
+      - master
+      - develop
+    paths-ignore:
+      - 'README.md'
+      - 'LICENCE'
+    tags-ignore:
+      - '*.*.*'
   push:
     paths-ignore:
       - 'README.md'
