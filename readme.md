@@ -6,7 +6,7 @@
   <img src=https://img.shields.io/badge/platform-try%20haaukins-brightgreen>
   </a>
   <a href="https://www.blackhat.com/eu-19/arsenal/schedule/#haaukins-a-highly-accessible-and-automated-virtualization-platform-for-security-education-18208">
-    <img src=https://img.shields.io/badge/BlackHat%20EU%202019%20-Arsenal-%2323211a52
+    <img src=https://img.shields.io/badge/BlackHat%20EU%202019%20-Arsenal-%2323211a52>
    </a>
   <a href="https://travis-ci.com/aau-network-security/haaukins">
     <img src="https://travis-ci.com/aau-network-security/haaukins.svg?branch=master" alt="Build Status">
@@ -62,7 +62,11 @@ The following dependencies are required and must be installed separately in orde
 
 * Linux 
 * Docker
-* Go 1.13+
+* Go 1.17+
+
+> Working state of this platform is tested on following go versions : [1.17, 1.18].  
+  The platform may or may not work for other Go versions. Please take care it at your own risks
+
 
 There is no prerequisites for installing client to your environment. 
 
