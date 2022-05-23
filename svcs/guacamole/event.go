@@ -583,7 +583,6 @@ PersistentKeepalive = 25
 
 //Suspend function suspends event by using from event hub.
 func (ev *event) Suspend(ctx context.Context) error {
-	var teamLabSuspendError error
 	if err := ev.labhub.Suspend(ctx); err != nil {
 		return err
 	}
@@ -591,7 +590,7 @@ func (ev *event) Suspend(ctx context.Context) error {
 	if err := ev.store.SetStatus(string(ev.store.Tag), int32(Suspended)); err != nil {
 		return err
 	}
-	return teamLabSuspendError
+	return nil
 }
 
 func checkPort(port int) bool {
