@@ -10,12 +10,6 @@ on:
       - 'LICENCE'
     tags-ignore:
       - '*.*.*'
-  push:
-    paths-ignore:
-      - 'README.md'
-      - 'LICENCE'
-    tags-ignore:
-      - '*.*.*'
 jobs:
   formalities:
     runs-on: ubuntu-latest
@@ -32,6 +26,8 @@ jobs:
 
       - name: Check branch name
         run: |
-          echo "Checking ${{ env.BRANCH_NAME }}..."
+          echo "Checking ${BRANCH_NAME}..."
           curl --silent -o check-branch-name.py https://raw.githubusercontent.com/aau-network-security/richkit/develop/.githooks/check-branch-name.py
-          python3 check-branch-name.py "${{ env.BRANCH_NAME }}"
+          python3 check-branch-name.py "${BRANCH_NAME}"
+        env:
+          BRANCH_NAME: ${{ github.base_ref }}
