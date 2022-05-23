@@ -170,8 +170,7 @@ func (ic InstanceConfig) Validate() error {
 	if ic.Image == "" {
 		return &EmptyVarErr{Var: "Image", Type: "Instance ServiceConfig"}
 	}
-	// memoryMB is UINT, UINT cannot be negative,
-	// in case memoryMB is empty, it will be automatically handled
+
 	if ic.CPU < 0 {
 		return errors.New("cpu cannot be negative")
 	}
