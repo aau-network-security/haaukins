@@ -5,6 +5,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -63,24 +64,24 @@ func main() {
 	// ensure that gRPC port is free to allocate
 	conn, err := net.DialTimeout("tcp", daemon.MngtPort, time.Second)
 	if err != nil {
-		fmt.Printf("Error on DialTimeout %v\n", err)
+		log.Fatal().Err(errors.New(fmt.Sprintf("Error on DialTimeout %v\n", err)))
 		return
 	}
 	if conn != nil {
 		_ = conn.Close()
-		fmt.Printf("Checking gRPC port %s report: %v\n", daemon.MngtPort, daemon.PortIsAllocatedError)
+		log.Fatal().Err(errors.New(fmt.Sprintf("Checking gRPC port %s report: %v\n", daemon.MngtPort, daemon.PortIsAllocatedError)))
 		return
 	}
 
 	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
-		fmt.Printf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)
+		log.Fatal().Err(errors.New(fmt.Sprintf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)))
 		return
 	}
 
 	d, err := daemon.New(c)
 	if err != nil {
-		fmt.Printf("unable to create daemon: %s\n", err)
+		log.Fatal().Err(errors.New(fmt.Sprintf("unable to create daemon: %s\n", err)))
 		return
 	}
 
