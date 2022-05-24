@@ -5,9 +5,7 @@
 package main
 
 import (
-	"errors"
 	"flag"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -29,7 +27,7 @@ func handleCancel(clean func() error) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		log.Info().Msgf("Shutting down gracefully...")
+		log.Info().Msg("Shutting down gracefully...")
 		if err := clean(); err != nil {
 			log.Error().Msgf("Error while shutting down: %s", err)
 			os.Exit(1)
@@ -64,24 +62,24 @@ func main() {
 	// ensure that gRPC port is free to allocate
 	conn, err := net.DialTimeout("tcp", daemon.MngtPort, time.Second)
 	if err != nil {
-		log.Fatal().Err(errors.New(fmt.Sprintf("Error on DialTimeout %v\n", err)))
+		log.Fatal().Err(err).Msg("Dial Timeout")
 		return
 	}
 	if conn != nil {
 		_ = conn.Close()
-		log.Fatal().Err(errors.New(fmt.Sprintf("Checking gRPC port %s report: %v\n", daemon.MngtPort, daemon.PortIsAllocatedError)))
+		log.Fatal().Err(daemon.PortIsAllocatedError).Msgf("Checking gRPC port %s \n", daemon.MngtPort)
 		return
 	}
 
 	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
-		log.Fatal().Err(errors.New(fmt.Sprintf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)))
+		log.Fatal().Err(err).Msgf("unable to read configuration file: %s", *confFilePtr)
 		return
 	}
 
 	d, err := daemon.New(c)
 	if err != nil {
-		log.Fatal().Err(errors.New(fmt.Sprintf("unable to create daemon: %s\n", err)))
+		log.Fatal().Err(err).Msg("unable to create daemon")
 		return
 	}
 
