@@ -6,6 +6,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -37,6 +38,24 @@ func handleCancel(clean func() error) {
 	}()
 }
 
+func isPortAllocated(host string, port int) bool {
+
+	timeout := 5 * time.Second
+	target := fmt.Sprintf("%s:%d", host, port)
+
+	conn, err := net.DialTimeout("tcp", target, timeout)
+	if err != nil {
+		return false
+	}
+
+	if conn != nil {
+		conn.Close()
+		return true
+	}
+
+	return false
+}
+
 func handleHotConfigReload(confFile *string, reload func(confFile *string) error) {
 
 	c := make(chan os.Signal, 1)
@@ -59,21 +78,15 @@ func main() {
 	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
 	flag.Parse()
 
-	// ensure that gRPC port is free to allocate
-	conn, err := net.DialTimeout("tcp", daemon.MngtPort, time.Second)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Dial Timeout")
-		return
-	}
-	if conn != nil {
-		_ = conn.Close()
-		log.Fatal().Err(daemon.PortIsAllocatedError).Msgf("Checking gRPC port %s \n", daemon.MngtPort)
-		return
-	}
-
 	c, err := daemon.NewConfigFromFile(*confFilePtr)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("unable to read configuration file: %s", *confFilePtr)
+		return
+	}
+
+	// ensure that gRPC port is free to allocate
+	if isPortAllocated(c.Host.Grpc, 5454) {
+		log.Fatal().Err(daemon.PortIsAllocatedError).Msgf("%s", daemon.MngtPort)
 		return
 	}
 
