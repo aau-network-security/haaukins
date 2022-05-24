@@ -1,9 +1,12 @@
 name: Formalities
 
 on:
-  push:
+  pull_request:
+    branches:
+      - master
+      - develop
     paths-ignore:
-      - 'README.md'
+      - 'readme.md'
       - 'LICENCE'
     tags-ignore:
       - '*.*.*'
@@ -11,17 +14,20 @@ jobs:
   formalities:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
       - name: Set up Python 3.7
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v3
         with:
           python-version: 3.7
+
       - name: Extract branch name
-        shell: bash
-        run: echo "::set-env name=BRANCH_NAME::$(echo ${GITHUB_REF#refs/heads/})"
+        run: |
+          echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
 
       - name: Check branch name
         run: |
           echo "Checking ${BRANCH_NAME}..."
           curl --silent -o check-branch-name.py https://raw.githubusercontent.com/aau-network-security/richkit/develop/.githooks/check-branch-name.py
-          python3 check-branch-name.py "$BRANCH_NAME"
+          python3 check-branch-name.py "${BRANCH_NAME}"
+        env:
+          BRANCH_NAME: ${{ github.base_ref }}
