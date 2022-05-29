@@ -173,9 +173,8 @@ func constructAuthCreds(authKey, signKey string) (Creds, error) {
 func enableClientCertificates() credentials.TransportCredentials {
 	// Load the client certificates from disk
 	pool, _ := x509.SystemCertPool()
-	creds := credentials.NewClientTLSFromCert(pool, "")
 
-	creds = credentials.NewTLS(&tls.Config{
+	creds := credentials.NewTLS(&tls.Config{
 		RootCAs:    pool,
 		MinVersion: tls.VersionTLS12, // disable TLS 1.0 and 1.1
 		CipherSuites: []uint16{ // only enable secure algorithms for TLS 1.2

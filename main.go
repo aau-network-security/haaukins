@@ -28,7 +28,7 @@ func handleCancel(clean func() error) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		log.Info().Msgf("Shutting down gracefully...")
+		log.Info().Msg("Shutting down gracefully...")
 		if err := clean(); err != nil {
 			log.Error().Msgf("Error while shutting down: %s", err)
 			os.Exit(1)
@@ -36,6 +36,24 @@ func handleCancel(clean func() error) {
 		log.Info().Msgf("Closed daemon")
 		os.Exit(0)
 	}()
+}
+
+func isPortAllocated(host string, port int) bool {
+
+	timeout := 5 * time.Second
+	target := fmt.Sprintf("%s:%d", host, port)
+
+	conn, err := net.DialTimeout("tcp", target, timeout)
+	if err != nil {
+		return false
+	}
+
+	if conn != nil {
+		conn.Close()
+		return true
+	}
+
+	return false
 }
 
 func handleHotConfigReload(confFile *string, reload func(confFile *string) error) {
@@ -60,23 +78,21 @@ func main() {
 	confFilePtr := flag.String("config", defaultConfigFile, "configuration file")
 	flag.Parse()
 
-	// ensure that gRPC port is free to allocate
-	conn, err := net.DialTimeout("tcp", daemon.MngtPort, time.Second)
-	if conn != nil {
-		_ = conn.Close()
-		fmt.Printf("Checking gRPC port %s report: %v\n", daemon.MngtPort, daemon.PortIsAllocatedError)
+	c, err := daemon.NewConfigFromFile(*confFilePtr)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("unable to read configuration file: %s", *confFilePtr)
 		return
 	}
 
-	c, err := daemon.NewConfigFromFile(*confFilePtr)
-	if err != nil {
-		fmt.Printf("unable to read configuration file \"%s\": %s\n", *confFilePtr, err)
+	// ensure that gRPC port is free to allocate
+	if isPortAllocated(c.Host.Grpc, 5454) {
+		log.Fatal().Err(daemon.PortIsAllocatedError).Msgf("%s", daemon.MngtPort)
 		return
 	}
 
 	d, err := daemon.New(c)
 	if err != nil {
-		fmt.Printf("unable to create daemon: %s\n", err)
+		log.Fatal().Err(err).Msg("unable to create daemon")
 		return
 	}
 
