@@ -111,7 +111,7 @@ func (m *MissingConfigErr) Error() string {
 }
 
 func (m *MngtPortErr) Error() string {
-	return fmt.Sprintf("failed to listen on management port %s", m.port)
+	return fmt.Sprintf("failed to listen on management port %d", m.port)
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
