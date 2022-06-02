@@ -75,7 +75,7 @@ type MissingConfigErr struct {
 }
 
 type MngtPortErr struct {
-	port string
+	port uint
 }
 
 type contextStream struct {
@@ -137,20 +137,20 @@ func NewConfigFromFile(path string) (*Config, error) {
 		return nil, &MissingConfigErr{"Management signing key"}
 	}
 
-	if c.Host.Http == "" {
-		c.Host.Http = "localhost"
+	if c.Host.Http.Endpoint == "" {
+		c.Host.Http.Endpoint = "localhost"
 	}
 
-	if c.Host.Grpc == "" {
-		c.Host.Grpc = "localhost"
+	if c.Host.Grpc.Endpoint == "" {
+		c.Host.Grpc.Endpoint = "localhost"
 	}
 
-	if c.Port.InSecure == 0 {
-		c.Port.InSecure = 80
+	if c.Host.Http.Port.InSecure == 0 {
+		c.Host.Http.Port.InSecure = 80
 	}
 
-	if c.Port.Secure == 0 {
-		c.Port.Secure = 443
+	if c.Host.Http.Port.Secure == 0 {
+		c.Host.Http.Port.Secure = 443
 	}
 
 	if c.ConfFiles.OvaDir == "" {
@@ -226,7 +226,7 @@ func New(conf *Config) (*daemon, error) {
 	}
 
 	vlib := vbox.NewLibrary(conf.ConfFiles.OvaDir)
-	eventPool := NewEventPool(conf.Host.Http)
+	eventPool := NewEventPool(conf.Host.Http.Endpoint)
 
 	if len(uf.ListUsers()) == 0 && len(uf.ListSignupKeys()) == 0 {
 		k := store.NewSignupKey()
@@ -454,7 +454,7 @@ func (d *daemon) Run() error {
 	// start frontend
 	go func() {
 		srv := &http.Server{
-			Addr:    fmt.Sprintf(":%d", d.conf.Port.Secure),
+			Addr:    fmt.Sprintf(":%d", d.conf.Host.Http.Port.Secure),
 			Handler: d.eventPool,
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12, // disable TLS 1.0 and 1.1
@@ -473,7 +473,7 @@ func (d *daemon) Run() error {
 			}
 			return
 		}
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), d.eventPool); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.InSecure), d.eventPool); err != nil {
 			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
@@ -484,11 +484,11 @@ func (d *daemon) Run() error {
 		}))
 	}
 	// start gRPC daemon
-	lis, err := net.Listen("tcp", MngtPort)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", d.conf.Host.Grpc.Port))
 	if err != nil {
-		return &MngtPortErr{MngtPort}
+		return &MngtPortErr{d.conf.Host.Grpc.Port}
 	}
-	log.Info().Msg("gRPC daemon has been started  ! on port :5454")
+	log.Info().Msgf("gRPC daemon has been started  ! on port %d", d.conf.Host.Grpc.Port)
 
 	opts, err := d.grpcOpts()
 	if err != nil {
