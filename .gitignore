@@ -33,3 +33,4 @@ node_modules/
 
 # no need to push local certificates
 localcerts/
+daemon/proto/buf.lock
