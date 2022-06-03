@@ -1,49 +1,226 @@
 syntax = "proto3";
 package daemon;
 option go_package = "github.com/aau-network-security/haaukins/daemon/proto";
+
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+
 service Daemon {
-  rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {}
-  rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {}
-  rpc InviteUser (InviteUserRequest) returns (InviteUserResponse) {}
-  rpc ListUsers (Empty) returns (ListUsersResponse) {}
-  rpc ChangeUserPasswd (UpdatePasswdRequest) returns (UpdatePasswdResponse) {}
-  rpc DestroyUser (DestroyUserRequest) returns (DestroyUserResponse) {}
-  rpc SetTeamSuspend (SetTeamSuspendRequest) returns (Empty) {}
-  rpc UpdateTeamPassword(UpdateTeamPassRequest) returns (UpdateTeamPassResponse) {}
+  rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {
+    option (google.api.http) = {
+      post: "/admin/login"
+      body: "*"
+    };
+  }
 
-  rpc GetAPICreds(Empty) returns (CredsResponse) {}
-  rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {}
-  rpc StopEvent (StopEventRequest) returns (stream EventStatus) {}
-  rpc SuspendEvent(SuspendEventRequest) returns (stream EventStatus) {}
-  rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {}
-  rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {}
-  rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {}
-  rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {}
+  rpc SignupUser (SignupUserRequest) returns (LoginUserResponse) {
+    option (google.api.http) = {
+      post: "/admin/signup"
+      body: "*"
+    };
+  }
+  rpc InviteUser (InviteUserRequest) returns (InviteUserResponse) {
+    option (google.api.http) = {
+      post: "/admin/invite"
+      body: "*"
+    };
+  }
+  rpc ListUsers (Empty) returns (ListUsersResponse) {
+    option (google.api.http) = {
+      post: "/admin/user/list"
+      body: "*"
+    };
+  }
+  rpc ChangeUserPasswd (UpdatePasswdRequest) returns (UpdatePasswdResponse) {
+    option (google.api.http) = {
+      post: "/admin/user/update"
+      body: "*"
+    };
+  }
 
-  rpc AddChallenge(AddChallengeRequest) returns (stream AddChallengeResponse) {}
-  rpc AddNotification(AddNotificationRequest) returns (AddNotificationResponse) {}
+  rpc DestroyUser (DestroyUserRequest) returns (DestroyUserResponse) {
+    option (google.api.http) = {
+      post: "/admin/user/delete"
+      body: "*"
+    };
+  }
+  rpc SetTeamSuspend (SetTeamSuspendRequest) returns (Empty) {
+    option (google.api.http) = {
+      post: "/admin/team/suspend"
+      body: "*"
+    };
+  }
+  rpc UpdateTeamPassword(UpdateTeamPassRequest) returns (UpdateTeamPassResponse) {
+    option (google.api.http) = {
+      post: "/admin/team/update"
+      body: "*"
+    };
+  }
 
-  rpc DeleteTeam(DeleteTeamRequest) returns (stream DeleteTeamResponse) {}
+  rpc GetAPICreds(Empty) returns (CredsResponse) {
+    option (google.api.http) = {
+      get: "/admin/get/api/creds"
+    };
+  }
+  rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {
+    option (google.api.http) = {
+      post: "/admin/event/create"
+      body: "*"
+    };
+  }
+  rpc StopEvent (StopEventRequest) returns (stream EventStatus) {
+    option (google.api.http) = {
+      post: "/admin/event/stop"
+      body: "*"
+    };
+  }
+  rpc SuspendEvent(SuspendEventRequest) returns (stream EventStatus) {
+    option (google.api.http) = {
+      post: "/admin/event/suspend"
+      body: "*"
+    };
+  }
+  rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {
+    option (google.api.http) = {
+      get: "/admin/event/list"
+    };
+  }
+  rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {
+    option (google.api.http) = {
+      get: "/admin/event/{tag}/list/teams"
+    };
+  }
+  rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {
+    option (google.api.http) = {
+      post: "/admin/lab/restart"
+      body: "*"
+    };
+  }
+  rpc SolveChallenge (SolveChallengeRequest) returns (SolveChallengeResponse) {
+    option (google.api.http) = {
+      post: "/admin/challenge/solve"
+      body: "*"
+    };
+  }
 
-  rpc GetTeamChals(GetTeamInfoRequest) returns (TeamChalsInfo) {}
+  rpc AddChallenge(AddChallengeRequest) returns (stream AddChallengeResponse) {
+    option (google.api.http) = {
+      post: "/admin/challenge/add"
+      body: "*"
+    };
+  }
+  rpc AddNotification(AddNotificationRequest) returns (AddNotificationResponse) {
+    option (google.api.http) = {
+      post: "/admin/manage/notification"
+      body: "*"
+    };
+  }
 
-  rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {}
+  rpc DeleteTeam(DeleteTeamRequest) returns (stream DeleteTeamResponse) {
+    option (google.api.http) = {
+      post: "/admin/team/delete"
+      body: "*"
+    };
+  }
 
-  rpc ListExercises (Empty) returns (ListExercisesResponse) {}
-  rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {}
-  rpc GetExercisesByTags (GetExsByTagsReq) returns (GetExsByTagsResp) {}
-  rpc ListFrontends (Empty) returns (ListFrontendsResponse) {}
-  rpc ResetFrontends (ResetFrontendsRequest) returns (stream ResetTeamStatus) {}
-  rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Empty) {}
-  rpc SetFrontendCpu (SetFrontendCpuRequest) returns (Empty) {}
-  rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {}
-  rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {}
-  rpc Version (Empty) returns (VersionResponse) {}
-  rpc ListCategories (Empty) returns (ListCategoriesResponse) {}
-  rpc SaveProfile (SaveProfileRequest) returns (stream ProfileStatus) {}
-  rpc DeleteProfile (DeleteProfileRequest) returns (stream ProfileStatus) {}
-  rpc EditProfile (SaveProfileRequest) returns (stream ProfileStatus) {}
-  rpc ListProfiles (Empty) returns (ListProfilesResponse) {}
+  rpc GetTeamChals(GetTeamInfoRequest) returns (TeamChalsInfo) {
+    option (google.api.http) = {
+      get: "/admin/team/{eventTag}/{teamId}/challenges"
+    };
+  }
+
+  rpc StressEvent(TestEventLoadReq) returns (TestEventLoadResp) {
+    option (google.api.http) = {
+      post: "/admin/stress/event"
+      body: "*"
+    };
+  }
+
+  rpc ListExercises (Empty) returns (ListExercisesResponse) {
+    option (google.api.http) = {
+      get: "/admin/exercise/list"
+    };
+  }
+  rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {
+    option (google.api.http) = {
+      post: "/admin/event/reset/exercise"
+      body: "*"
+    };
+  }
+  rpc GetExercisesByTags (GetExsByTagsReq) returns (GetExsByTagsResp) {
+    option (google.api.http) = {
+      post: "/admin/event/get/exercises"
+      body: "*"
+    };
+  }
+  rpc ListFrontends (Empty) returns (ListFrontendsResponse) {
+    option (google.api.http) = {
+      get: "/admin/frontends/list"
+    };
+  }
+  rpc ResetFrontends (ResetFrontendsRequest) returns (stream ResetTeamStatus) {
+    option (google.api.http) = {
+      post: "/admin/frontend/reset"
+      body: "*"
+    };
+  }
+  rpc SetFrontendMemory (SetFrontendMemoryRequest) returns (Empty) {
+    option (google.api.http) = {
+      post: "/admin/frontend/set/memory"
+      body: "*"
+    };
+  }
+  rpc SetFrontendCpu (SetFrontendCpuRequest) returns (Empty) {
+    option (google.api.http) = {
+      post: "/admin/frontend/set/cpu"
+      body: "*"
+    };
+  }
+  rpc GetTeamInfo (GetTeamInfoRequest) returns (GetTeamInfoResponse) {
+    option (google.api.http) = {
+      get: "/admin/team/{eventTag}/{teamId}/info"
+    };
+  }
+  rpc MonitorHost (Empty) returns (stream MonitorHostResponse) {
+    option (google.api.http) = {
+      get: "/admin/host/monitor"
+    };
+  }
+  rpc Version (Empty) returns (VersionResponse) {
+    option (google.api.http) = {
+      get: "/version"
+    };
+  }
+  rpc ListCategories (Empty) returns (ListCategoriesResponse) {
+    option (google.api.http) = {
+      get: "/admin/categories/list"
+    };
+  }
+  rpc SaveProfile (SaveProfileRequest) returns (stream ProfileStatus) {
+    option (google.api.http) = {
+      post: "/admin/event/save/profile"
+      body: "*"
+    };
+  }
+  rpc DeleteProfile (DeleteProfileRequest) returns (stream ProfileStatus) {
+    option (google.api.http) = {
+      post: "/admin/event/delete/profile"
+      body: "*"
+    };
+  }
+  rpc EditProfile (SaveProfileRequest) returns (stream ProfileStatus) {
+    option (google.api.http) = {
+      post: "/admin/event/edit/profile"
+      body: "*"
+    };
+  }
+  rpc ListProfiles (Empty) returns (ListProfilesResponse) {
+    option (google.api.http) = {
+      get: "/admin/profiles/list"
+    };
+  }
 }
 
 
