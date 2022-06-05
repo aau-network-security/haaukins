@@ -9,6 +9,23 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	pb "github.com/aau-network-security/haaukins/daemon/proto"
+	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
+	"github.com/aau-network-security/haaukins/logging"
+	wg "github.com/aau-network-security/haaukins/network/vpn"
+	"github.com/aau-network-security/haaukins/store"
+	pbc "github.com/aau-network-security/haaukins/store/proto"
+	"github.com/aau-network-security/haaukins/svcs/guacamole"
+	"github.com/aau-network-security/haaukins/virtual/docker"
+	"github.com/aau-network-security/haaukins/virtual/vbox"
+
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"math"
@@ -19,23 +36,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
-	wg "github.com/aau-network-security/haaukins/network/vpn"
-
-	"github.com/aau-network-security/haaukins/svcs/guacamole"
-
-	pb "github.com/aau-network-security/haaukins/daemon/proto"
-	"github.com/aau-network-security/haaukins/logging"
-	"github.com/aau-network-security/haaukins/store"
-	pbc "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/aau-network-security/haaukins/virtual/docker"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -504,7 +504,36 @@ func (d *daemon) Run() error {
 		return err
 	}
 
-	return s.Serve(lis)
+	go s.Serve(lis)
+
+	// Create a client connection to the gRPC server we just started
+	// This is where the gRPC-Gateway proxies the requests
+
+	conn, err := grpc.DialContext(
+		context.Background(),
+		"0.0.0.0:5454",
+		grpc.WithBlock(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Fatal().Msgf("Failed to dial server: %v", err)
+	}
+
+	gwmux := runtime.NewServeMux()
+	err = pb.RegisterDaemonHandler(context.Background(), gwmux, conn)
+	if err != nil {
+		log.Fatal().Msgf("Failed to register gateway: %v", err)
+	}
+
+	gwServer := &http.Server{
+		Addr:    ":8090",
+		Handler: gwmux,
+	}
+
+	log.Debug().Msgf("Serving gRPC-Gateway on port :8090")
+	
+	return gwServer.ListenAndServe()
+
 }
 
 // calculateTotalConsumption will add up all running events resources
