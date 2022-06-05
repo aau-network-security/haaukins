@@ -12,8 +12,8 @@ import (
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/store"
 	storeProto "github.com/aau-network-security/haaukins/store/proto"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/microcosm-cc/bluemonday"
@@ -225,13 +225,8 @@ func (d *daemon) GetExercisesByTags(ctx context.Context, req *pb.GetExsByTagsReq
 }
 
 func protobufToJson(message proto.Message) (string, error) {
-	marshaler := jsonpb.Marshaler{
-		EnumsAsInts:  false,
-		EmitDefaults: false,
-		Indent:       "  ",
-	}
-
-	return marshaler.MarshalToString(message)
+	d, err := protojson.Marshal(message)
+    return string(d), err
 }
 
 // todo: contains too much functions and for loop, requires some optimization

@@ -17,8 +17,8 @@ import (
 	"strings"
 
 	"github.com/aau-network-security/haaukins/exercise"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	wg "github.com/aau-network-security/haaukins/network/vpn"
@@ -164,13 +164,8 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 }
 
 func protobufToJson(message proto.Message) (string, error) {
-	marshaler := jsonpb.Marshaler{
-		EnumsAsInts:  false,
-		EmitDefaults: false,
-		Indent:       "  ",
-	}
-
-	return marshaler.MarshalToString(message)
+	d, err := protojson.Marshal(message)
+    return string(d), err
 }
 
 //Save the event in the DB and create the event configuration
