@@ -490,7 +490,7 @@ func (d *daemon) Run() error {
 	}()
 	// redirect if TLS enabled only...
 	if d.conf.Certs.Enabled {
-		go http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		go http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
 		}))
 	}
@@ -522,7 +522,7 @@ func (d *daemon) Run() error {
 
 	conn, err := grpc.DialContext(
 		context.Background(),
-		":5454",
+		MngtPort,
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -534,7 +534,7 @@ func (d *daemon) Run() error {
 		}
 		conn, err = grpc.DialContext(
 			context.Background(),
-			":5454",
+			MngtPort,
 			grpc.WithBlock(),
 			grpc.WithTransportCredentials(creds),
 		)
@@ -549,7 +549,7 @@ func (d *daemon) Run() error {
 	if err != nil {
 		log.Fatal().Msgf("Failed to register gateway: %v", err)
 	}
-
+	// todo: update config file to get following port number
 	gwServer := &http.Server{
 		Addr:    ":8090",
 		Handler: gwmux,
