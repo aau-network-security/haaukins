@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/logging"
@@ -19,6 +20,10 @@ import (
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
 
+	"io"
+	"io/ioutil"
+	"math"
+
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -26,9 +31,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
-	"io"
-	"io/ioutil"
-	"math"
+
 	"net"
 	"net/http"
 	"os"
@@ -388,39 +391,47 @@ func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error
 	return &pb.VersionResponse{Version: Version}, nil
 }
 
+func (d *daemon) enableCertificates() (credentials.TransportCredentials, error) {
+	certificate, err := tls.LoadX509KeyPair(d.conf.Certs.CertFile, d.conf.Certs.CertKey)
+	if err != nil {
+		return nil, fmt.Errorf("could not load server key pair: %s", err)
+	}
+
+	// Create a certificate pool from the certificate authority
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(d.conf.Certs.CAFile)
+	if err != nil {
+		return nil, fmt.Errorf("HAAUKINS Grpc could not read ca certificate: %s", err)
+	}
+	// CA file for let's encrypt is located under domain conf as `chain.pem`
+	// pass chain.pem location
+	// Append the client certificates from the CA
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		return nil, errors.New("failed to append client certs")
+	}
+
+	// Create the TLS credentials
+	creds := credentials.NewTLS(&tls.Config{
+		// no need to RequireAndVerifyClientCert
+		Certificates: []tls.Certificate{certificate},
+		ClientCAs:    certPool,
+		MinVersion:   tls.VersionTLS12, // disable TLS 1.0 and 1.1
+		CipherSuites: []uint16{ // only enable secure algorithms for TLS 1.2
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		},
+	})
+	return creds, nil
+}
+
 func (d *daemon) grpcOpts() ([]grpc.ServerOption, error) {
 	if d.conf.Certs.Enabled {
-		// Load cert pairs
-		certificate, err := tls.LoadX509KeyPair(d.conf.Certs.CertFile, d.conf.Certs.CertKey)
-		if err != nil {
-			return nil, fmt.Errorf("could not load server key pair: %s", err)
-		}
 
-		// Create a certificate pool from the certificate authority
-		certPool := x509.NewCertPool()
-		ca, err := ioutil.ReadFile(d.conf.Certs.CAFile)
+		creds, err := d.enableCertificates()
 		if err != nil {
-			return nil, fmt.Errorf("HAAUKINS Grpc could not read ca certificate: %s", err)
+			return []grpc.ServerOption{}, err
 		}
-		// CA file for let's encrypt is located under domain conf as `chain.pem`
-		// pass chain.pem location
-		// Append the client certificates from the CA
-		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, errors.New("failed to append client certs")
-		}
-
-		// Create the TLS credentials
-		creds := credentials.NewTLS(&tls.Config{
-			// no need to RequireAndVerifyClientCert
-			Certificates: []tls.Certificate{certificate},
-			ClientCAs:    certPool,
-			MinVersion:   tls.VersionTLS12, // disable TLS 1.0 and 1.1
-			CipherSuites: []uint16{ // only enable secure algorithms for TLS 1.2
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			},
-		})
 
 		return []grpc.ServerOption{grpc.Creds(creds)}, nil
 	}
@@ -511,10 +522,24 @@ func (d *daemon) Run() error {
 
 	conn, err := grpc.DialContext(
 		context.Background(),
-		"0.0.0.0:5454",
+		":5454",
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+
+	if d.conf.Certs.Enabled {
+		creds, err := d.enableCertificates()
+		if err != nil {
+			return err
+		}
+		conn, err = grpc.DialContext(
+			context.Background(),
+			":5454",
+			grpc.WithBlock(),
+			grpc.WithTransportCredentials(creds),
+		)
+	}
+
 	if err != nil {
 		log.Fatal().Msgf("Failed to dial server: %v", err)
 	}
@@ -530,8 +555,7 @@ func (d *daemon) Run() error {
 		Handler: gwmux,
 	}
 
-	log.Debug().Msgf("Serving gRPC-Gateway on port :8090")
-	
+	log.Info().Msgf("Serving gRPC-Gateway on port :8090")
 	return gwServer.ListenAndServe()
 
 }
