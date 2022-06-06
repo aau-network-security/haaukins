@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"math"
 	"math/rand"
 	"net/http"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
@@ -191,7 +192,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			Tag:            evtag,
 			Available:      int(req.Available),
 			Capacity:       int(req.Capacity),
-			Host:           d.conf.Host.Http,
+			Host:           d.conf.Host.Http.Endpoint,
 			StartedAt:      &startTime,
 			FinishExpected: &finishTime,
 			Lab: store.Lab{
@@ -653,7 +654,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
-		Host:      d.conf.Host.Http,
+		Host:      d.conf.Host.Http.Endpoint,
 		Tag:       store.Tag(event.Tag),
 		Available: int(event.Available),
 		Capacity:  int(event.Capacity),
@@ -757,13 +758,13 @@ func (d *daemon) StressEvent(ctx context.Context, req *pb.TestEventLoadReq) (*pb
 	}
 	var port, protocol string
 	if d.conf.Certs.Enabled {
-		port = strconv.FormatUint(uint64(d.conf.Port.Secure), 10)
+		port = strconv.FormatUint(uint64(d.conf.Host.Http.Port.Secure), 10)
 		protocol = "https://"
 	} else {
-		port = strconv.FormatUint(uint64(d.conf.Port.InSecure), 10)
+		port = strconv.FormatUint(uint64(d.conf.Host.Http.Port.InSecure), 10)
 		protocol = "http://"
 	}
-	endPoint := fmt.Sprintf(protocol + req.EventName + "." + d.conf.Host.Http + ":" + port + "/signup")
+	endPoint := fmt.Sprintf(protocol + req.EventName + "." + d.conf.Host.Http.Endpoint + ":" + port + "/signup")
 	resp := make(chan string)
 	for i := 0; i < int(req.NumberOfTeams); i++ {
 		go func() {

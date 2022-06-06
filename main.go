@@ -85,7 +85,7 @@ func main() {
 	}
 
 	// ensure that gRPC port is free to allocate
-	if isPortAllocated(c.Host.Grpc, 5454) {
+	if isPortAllocated(c.Host.Grpc.Endpoint, int(c.Host.Grpc.Port)) {
 		log.Fatal().Err(daemon.PortIsAllocatedError).Msgf("%s", daemon.MngtPort)
 		return
 	}
