@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,16 +9,17 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/yuin/goldmark/renderer/html"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/store"
 	storeProto "github.com/aau-network-security/haaukins/store/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/gomarkdown/markdown"
-	"github.com/gomarkdown/markdown/parser"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/rs/zerolog/log"
+	"github.com/yuin/goldmark"
 )
 
 func (d *daemon) ListCategories(ctx context.Context, req *pb.Empty) (*pb.ListCategoriesResponse, error) {
@@ -45,11 +47,16 @@ func (d *daemon) ListCategories(ctx context.Context, req *pb.Empty) (*pb.ListCat
 
 	for _, c := range cats {
 		// Render markdown from orgdescription to html
-		extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.HardLineBreak
-		parser := parser.NewWithExtensions(extensions)
 
 		md := []byte(c.CatDescription)
-		unsafeHtml := markdown.ToHTML(md, parser, nil)
+		var buf bytes.Buffer
+		renderer := goldmark.New(
+			goldmark.WithRendererOptions(html.WithUnsafe()),
+		)
+		if err := renderer.Convert(md, &buf); err != nil {
+			log.Error().Msgf("Error converting to commonmark: %s", err)
+		}
+		unsafeHtml := buf.Bytes()
 
 		//Sanitizing unsafe HTML with bluemonday
 		html := bluemonday.UGCPolicy().SanitizeBytes(unsafeHtml)
@@ -121,11 +128,15 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 		}
 
 		// Render markdown from orgdescription to html
-		extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.HardLineBreak
-		parser := parser.NewWithExtensions(extensions)
-
 		md := []byte(e.OrgDescription)
-		unsafeHtml := markdown.ToHTML(md, parser, nil)
+		var buf bytes.Buffer
+		renderer := goldmark.New(
+			goldmark.WithRendererOptions(html.WithUnsafe()),
+		)
+		if err := renderer.Convert(md, &buf); err != nil {
+			log.Error().Msgf("Error converting to commonmark: %s", err)
+		}
+		unsafeHtml := buf.Bytes()
 
 		//Sanitizing unsafe HTML with bluemonday
 		html := bluemonday.UGCPolicy().SanitizeBytes(unsafeHtml)

@@ -1,13 +1,16 @@
 package amigo
 
 import (
+	"bytes"
 	"encoding/json"
 	"sort"
 	"time"
 
+	"github.com/rs/zerolog/log"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/renderer/html"
+
 	"github.com/aau-network-security/haaukins/store"
-	"github.com/gomarkdown/markdown"
-	"github.com/gomarkdown/markdown/parser"
 	"github.com/microcosm-cc/bluemonday"
 )
 
@@ -184,11 +187,15 @@ func (fd *FrontendData) initChallenges(teamId string) []byte {
 		}
 
 		//Render markdown to HTML
-		extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.HardLineBreak
-		parser := parser.NewWithExtensions(extensions)
-
 		md := []byte(r.ChalInfo.TeamDescription)
-		unsafeHtml := markdown.ToHTML(md, parser, nil)
+		var buf bytes.Buffer
+		renderer := goldmark.New(
+			goldmark.WithRendererOptions(html.WithUnsafe()),
+		)
+		if err := renderer.Convert(md, &buf); err != nil {
+			log.Error().Msgf("Error converting to commonmark: %s", err)
+		}
+		unsafeHtml := buf.Bytes()
 
 		//Sanitizing unsafe HTML with bluemonday
 		html := bluemonday.UGCPolicy().SanitizeBytes(unsafeHtml)

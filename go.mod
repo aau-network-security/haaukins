@@ -11,7 +11,6 @@ require (
 	github.com/giantswarm/semver-bump v0.0.0-20181008095244-e8413386a9b8
 	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/golang/protobuf v1.5.2
-	github.com/gomarkdown/markdown v0.0.0-20220419181919-412bcf14cd2e
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/juju/errgo v0.0.0-20140925100237-08cceb5d0b53 // indirect
@@ -21,11 +20,13 @@ require (
 	github.com/opencontainers/runc v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.26.1
+	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/cobra v1.4.0
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/xanzy/ssh-agent v0.3.1 // indirect
+	github.com/yuin/goldmark v1.4.0
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 // indirect
