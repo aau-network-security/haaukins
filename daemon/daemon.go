@@ -10,6 +10,8 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	"google.golang.org/grpc/metadata"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/logging"
@@ -460,6 +462,12 @@ func (d *daemon) RunScheduler(job jobSpecs) error {
 	return schedulerError
 }
 
+// helper function for gRPC-gateway functionality
+func authGateway(ctx context.Context, req *http.Request) metadata.MD {
+	token := req.Header.Get("token")
+	return metadata.New(map[string]string{"token": token})
+}
+
 func (d *daemon) Run() error {
 
 	// start frontend
@@ -544,7 +552,9 @@ func (d *daemon) Run() error {
 		log.Fatal().Msgf("Failed to dial server: %v", err)
 	}
 
-	gwmux := runtime.NewServeMux()
+	gwmux := runtime.NewServeMux(
+		runtime.WithMetadata(authGateway),
+	)
 	err = pb.RegisterDaemonHandler(context.Background(), gwmux, conn)
 	if err != nil {
 		log.Fatal().Msgf("Failed to register gateway: %v", err)
