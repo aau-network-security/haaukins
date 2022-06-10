@@ -144,7 +144,10 @@ func (l *lab) addFrontend(ctx context.Context, conf store.InstanceConfig, rdpPor
 	if conf.MemoryMB <= 0 || conf.MemoryMB < defaultImageMEMMB/2 {
 		log.Debug().Msgf("Memory cannot be smaller or equal to zero or less than [ %d ], setting it to default value [ %d ] ", defaultImageMEMMB/2, defaultImageMEMMB)
 		mem = defaultImageMEMMB
-		log.Warn().Msgf("Check frontends configuration file to update memory value of image [ %s ] ", conf.Image)
+		log.Warn().
+			Uint("memory", conf.MemoryMB).
+			Str("image", conf.Image).
+			Msgf(" Image does not have proper memory value setting it to %d  ", defaultImageMEMMB)
 	} else {
 		mem = conf.MemoryMB
 	}

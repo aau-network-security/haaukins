@@ -149,6 +149,15 @@ func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.Event
 	var exercises []string
 	disabledChals := make(map[string][]string, len(exers))
 	allChals := make(map[string][]string, len(exers))
+
+	imageName := conf.Lab.Frontends[0].Image
+	imagePath := eh.vlib.GetImagePath(imageName)
+
+	if _, err := os.Stat(imagePath); errors.Is(err, os.ErrNotExist) {
+		return &event{}, errors.New(
+			fmt.Sprintf("requested image %s cannot be found, err: %v ", imageName, err))
+	}
+
 	for _, d := range conf.Lab.Exercises {
 		exercises = append(exercises, string(d))
 	}

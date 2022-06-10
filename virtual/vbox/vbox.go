@@ -8,11 +8,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -68,6 +66,7 @@ type VM interface {
 type Library interface {
 	GetCopy(context.Context, store.InstanceConfig, ...VMOpt) (VM, error)
 	IsAvailable(string) bool
+	GetImagePath(string) string
 }
 
 type vBoxLibrary struct {
@@ -381,7 +380,7 @@ func NewLibrary(pwd string) Library {
 	}
 }
 
-func (lib *vBoxLibrary) getPathFromFile(file string) string {
+func (lib *vBoxLibrary) GetImagePath(file string) string {
 	if !strings.HasPrefix(file, lib.pwd) {
 		file = filepath.Join(lib.pwd, file)
 	}
@@ -394,30 +393,7 @@ func (lib *vBoxLibrary) getPathFromFile(file string) string {
 }
 
 func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, vmOpts ...VMOpt) (VM, error) {
-	path := lib.getPathFromFile(conf.Image)
-	// if provided image does not exit, go first available image on user side
-	// otherwise return error
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-
-		var availableFrontends []string
-		items, _ := ioutil.ReadDir(lib.pwd)
-		for _, item := range items {
-			if strings.HasSuffix(item.Name(), ".ova") {
-				availableFrontends = append(availableFrontends, item.Name())
-			}
-		}
-		log.Warn().
-			Str("requested image", conf.Image).
-			Str("image path ", path).
-			Strs("available images", availableFrontends).
-			Msg("Requested image cannot be found going for first available frontend")
-
-		if len(availableFrontends) == 0 {
-			log.Error().Msg(NOAVAILABLEFRONTEND)
-			return &vm{}, errors.New(NOAVAILABLEFRONTEND)
-		}
-		path = lib.getPathFromFile(availableFrontends[0])
-	}
+	path := lib.GetImagePath(conf.Image)
 
 	lib.m.Lock()
 
@@ -484,7 +460,7 @@ func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, 
 }
 
 func (lib *vBoxLibrary) IsAvailable(file string) bool {
-	path := lib.getPathFromFile(file)
+	path := lib.GetImagePath(file)
 	if _, err := os.Stat(path); err == nil {
 		return true
 	}
