@@ -29,8 +29,7 @@ service Daemon {
   }
   rpc ListUsers (Empty) returns (ListUsersResponse) {
     option (google.api.http) = {
-      post: "/admin/user/list"
-      body: "*"
+      get: "/admin/user/list"
     };
   }
   rpc ChangeUserPasswd (UpdatePasswdRequest) returns (UpdatePasswdResponse) {
