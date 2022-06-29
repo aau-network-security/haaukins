@@ -498,7 +498,7 @@ func (d *daemon) Run() error {
 	}()
 	// redirect if TLS enabled only...
 	if d.conf.Certs.Enabled {
-		go http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Port.InSecure), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		go http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.InSecure), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
 		}))
 	}
