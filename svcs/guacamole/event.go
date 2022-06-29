@@ -71,8 +71,8 @@ const (
 )
 
 type Host interface {
-	CreateEventFromEventDB(context.Context, store.EventConfig, string) (Event, error)
 	CreateEventFromConfig(context.Context, store.EventConfig, string) (Event, error)
+	SaveEventToDB(context.Context, store.EventConfig) error
 }
 
 func NewHost(vlib vbox.Library, elib eproto.ExerciseStoreClient, eDir string, dbc pbc.StoreClient, config wg.WireGuardConfig) Host {
@@ -95,13 +95,69 @@ type eventHost struct {
 	dir       string
 }
 
-//Create the event configuration for the event got from the DB
-func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
+func protobufToJson(message proto.Message) (string, error) {
+	marshaler := jsonpb.Marshaler{
+		EnumsAsInts:  false,
+		EmitDefaults: false,
+		Indent:       "  ",
+	}
+
+	return marshaler.MarshalToString(message)
+}
+
+func (eh *eventHost) SaveEventToDB(ctx context.Context, e store.EventConfig) error {
+	var exercises []string
+	var disabledExercises []string
+	for _, e := range e.Lab.Exercises {
+		exercises = append(exercises, string(e))
+	}
+	for _, e := range e.Lab.DisabledExercises {
+		disabledExercises = append(disabledExercises, string(e))
+	}
+
+	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
+		Name:               e.Name,
+		Tag:                string(e.Tag),
+		Frontends:          e.Lab.Frontends[0].Image,
+		Exercises:          strings.Join(exercises, ","),
+		Available:          int32(e.Available),
+		Capacity:           int32(e.Capacity),
+		Status:             int32(e.Status),
+		StartTime:          e.StartedAt.Format(displayTimeFormat),
+		ExpectedFinishTime: e.FinishExpected.Format(displayTimeFormat),
+		CreatedBy:          e.CreatedBy,
+		OnlyVPN:            e.OnlyVPN,
+		SecretKey:          e.SecretKey,
+		DisabledExercises:  strings.Join(disabledExercises, ","),
+	})
+
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Str("event tag", string(e.Tag)).
+		Str("event name", e.Name).
+		Str("event created by", e.CreatedBy).
+		Msgf("Event is saved to database")
+	return err
+}
+
+//Save the event in the DB and create the event configuration
+func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
 	var labConf lab.Config
 	var exers []store.Exercise
 	var exercises []string
 	disabledChals := make(map[string][]string, len(exers))
 	allChals := make(map[string][]string, len(exers))
+
+	imageName := conf.Lab.Frontends[0].Image
+	imagePath := eh.vlib.GetImagePath(imageName)
+
+	if _, err := os.Stat(imagePath); errors.Is(err, os.ErrNotExist) {
+		return &event{}, errors.New(
+			fmt.Sprintf("requested image %s cannot be found, err: %v ", imageName, err))
+	}
+
 	for _, d := range conf.Lab.Exercises {
 		exercises = append(exercises, string(d))
 	}
@@ -161,56 +217,6 @@ func (eh *eventHost) CreateEventFromEventDB(ctx context.Context, conf store.Even
 	}
 
 	return NewEvent(eh.ctx, es, hub, flags, reCaptchaKey)
-}
-
-func protobufToJson(message proto.Message) (string, error) {
-	marshaler := jsonpb.Marshaler{
-		EnumsAsInts:  false,
-		EmitDefaults: false,
-		Indent:       "  ",
-	}
-
-	return marshaler.MarshalToString(message)
-}
-
-//Save the event in the DB and create the event configuration
-func (eh *eventHost) CreateEventFromConfig(ctx context.Context, conf store.EventConfig, reCaptchaKey string) (Event, error) {
-	var exercises []string
-	var disabledExercises []string
-	// todo: update this in more elegant way
-	for _, e := range conf.Lab.Exercises {
-		exercises = append(exercises, string(e))
-	}
-	for _, e := range conf.Lab.DisabledExercises {
-		disabledExercises = append(disabledExercises, string(e))
-	}
-
-	_, err := eh.dbc.AddEvent(ctx, &pbc.AddEventRequest{
-		Name:               conf.Name,
-		Tag:                string(conf.Tag),
-		Frontends:          conf.Lab.Frontends[0].Image,
-		Exercises:          strings.Join(exercises, ","),
-		Available:          int32(conf.Available),
-		Capacity:           int32(conf.Capacity),
-		Status:             int32(conf.Status),
-		StartTime:          conf.StartedAt.Format(displayTimeFormat),
-		ExpectedFinishTime: conf.FinishExpected.Format(displayTimeFormat),
-		CreatedBy:          conf.CreatedBy,
-		OnlyVPN:            conf.OnlyVPN,
-		SecretKey:          conf.SecretKey,
-		DisabledExercises:  strings.Join(disabledExercises, ","),
-	})
-
-	log.Debug().Str("event tag", string(conf.Tag)).
-		Str("event name", conf.Name).
-		Str("event created by", conf.CreatedBy).
-		Msgf("Event is saved to database")
-
-	if err != nil {
-		return nil, err
-	}
-
-	return eh.CreateEventFromEventDB(ctx, conf, reCaptchaKey)
 }
 
 type Event interface {

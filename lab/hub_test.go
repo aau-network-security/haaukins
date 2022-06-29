@@ -60,7 +60,7 @@ func (tl *testLab) Environment() exercise.Environment {
 	return nil
 }
 
-func (tl *testLab) ResetFrontends(context.Context) error {
+func (tl *testLab) ResetFrontends(context.Context, string, string) error {
 	return nil
 }
 
