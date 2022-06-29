@@ -1,0 +1,28 @@
+# This workflow file executes functions inside scripts/setup_dev_env.sh file
+# To make sure that installation process works for dependencies and creating env.
+
+
+name: Test Create Dev Environment Script
+
+on:
+  push:
+    paths:
+      - 'scripts/setup_dev_env.sh'
+
+  workflow_dispatch:
+
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+      strategy:
+        matrix:
+          os: [ ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Test all functions
+        run: |
+          sudo chmod +x ./scripts/setup_dev_env.sh
+          sudo bash ./scripts/setup_dev_env.sh

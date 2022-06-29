@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aau-network-security/haaukins/virtual/vbox"
 	"math"
 	"math/rand"
 	"net/http"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aau-network-security/haaukins/virtual/vbox"
 
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
@@ -92,6 +93,24 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		return fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
+	// checking through eventPool is not good enough since booked events are not added to eventpool
+	isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
+		EventTag: req.Tag,
+		// it will take INVERT condition which means that query from
+		//Running, Suspended and Booked events
+		Status: Closed,
+	})
+	if err != nil {
+		noEventExist := fmt.Errorf("event does not exist or something is wrong: %v", err)
+		resp.Send(&pb.LabStatus{ErrorMessage: noEventExist.Error()})
+		return noEventExist
+	}
+	if isEventExist.IsExist {
+		resp.Send(&pb.LabStatus{ErrorMessage: NotAvailableTag})
+		return fmt.Errorf(NotAvailableTag)
+	}
+	log.Debug().Msgf("Checked existing events through database.")
+
 	if (req.OnlyVPN == VPN || req.OnlyVPN == VPNBrowser) && req.Capacity > 253 {
 		resp.Send(&pb.LabStatus{ErrorMessage: CapacityExceedsErr.Error()})
 		return CapacityExceedsErr
@@ -147,23 +166,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			return invalidDateErr
 		}
 
-		// checking through eventPool is not good enough since booked events are not added to eventpool
-		isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
-			EventTag: req.Tag,
-			// it will take INVERT condition which means that query from
-			//Running, Suspended and Booked events
-			Status: Closed,
-		})
-		if err != nil {
-			noEventExist := fmt.Errorf("event does not exist or something is wrong: %v", err)
-			resp.Send(&pb.LabStatus{ErrorMessage: noEventExist.Error()})
-			return noEventExist
-		}
-		if isEventExist.IsExist {
-			resp.Send(&pb.LabStatus{ErrorMessage: NotAvailableTag})
-			return fmt.Errorf(NotAvailableTag)
-		}
-		log.Debug().Msgf("Checked existing events through database.")
 		// difference  in days
 		// if there is no difference in days it means event  will be
 		// started immediately
@@ -191,7 +193,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			Tag:            evtag,
 			Available:      int(req.Available),
 			Capacity:       int(req.Capacity),
-			Host:           d.conf.Host.Http,
+			Host:           d.conf.Host.Http.Endpoint,
 			StartedAt:      &startTime,
 			FinishExpected: &finishTime,
 			Lab: store.Lab{
@@ -237,7 +239,10 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
 			return err
 		}
-
+		if err := d.ehost.SaveEventToDB(ctx, conf); err != nil {
+			ev.Close()
+			return err
+		}
 		d.startEvent(ev)
 	}
 	return nil
@@ -483,13 +488,15 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	return &pb.ListEventsResponse{Events: events}, nil
 }
 
+// does not call SaveToDB function
+// creates event from config
+// where config retrieved from DB
 func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventConfig) error {
 
 	if err := conf.Validate(); err != nil {
 		return err
 	}
-
-	ev, err := d.ehost.CreateEventFromEventDB(ctx, conf, d.conf.Rechaptcha)
+	ev, err := d.ehost.CreateEventFromConfig(ctx, conf, d.conf.Rechaptcha)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating event from database event")
 		return err
@@ -653,7 +660,7 @@ func (d *daemon) generateEventConfig(event *pbc.GetEventResponse_Events, status 
 
 	eventConfig := store.EventConfig{
 		Name:      event.Name,
-		Host:      d.conf.Host.Http,
+		Host:      d.conf.Host.Http.Endpoint,
 		Tag:       store.Tag(event.Tag),
 		Available: int(event.Available),
 		Capacity:  int(event.Capacity),
@@ -757,13 +764,13 @@ func (d *daemon) StressEvent(ctx context.Context, req *pb.TestEventLoadReq) (*pb
 	}
 	var port, protocol string
 	if d.conf.Certs.Enabled {
-		port = strconv.FormatUint(uint64(d.conf.Port.Secure), 10)
+		port = strconv.FormatUint(uint64(d.conf.Host.Http.Port.Secure), 10)
 		protocol = "https://"
 	} else {
-		port = strconv.FormatUint(uint64(d.conf.Port.InSecure), 10)
+		port = strconv.FormatUint(uint64(d.conf.Host.Http.Port.InSecure), 10)
 		protocol = "http://"
 	}
-	endPoint := fmt.Sprintf(protocol + req.EventName + "." + d.conf.Host.Http + ":" + port + "/signup")
+	endPoint := fmt.Sprintf(protocol + req.EventName + "." + d.conf.Host.Http.Endpoint + ":" + port + "/signup")
 	resp := make(chan string)
 	for i := 0; i < int(req.NumberOfTeams); i++ {
 		go func() {

@@ -4,7 +4,7 @@
   <img alt="Haaukins: Highly accessible and automated virtualization platform for security education." src="https://raw.githubusercontent.com/aau-network-security/haaukins/develop/.github/logo/blue240px.png">
 </picture>
 <div align="center">
-<a href="https://alpha.haaukins.com">
+<a href="https://general.haaukins.com">
   <img src=https://img.shields.io/badge/platform-try%20haaukins-brightgreen>
   </a>
   <a href="https://www.blackhat.com/eu-19/arsenal/schedule/#haaukins-a-highly-accessible-and-automated-virtualization-platform-for-security-education-18208">

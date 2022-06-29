@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"math"
 	"regexp"
 
 	"github.com/aau-network-security/haaukins/store"
@@ -33,12 +33,13 @@ const (
 	stateRegex = `State:\s*(.*)`
 	nicRegex   = "\\bNIC\\b"
 
-	vboxBin          = "VBoxManage"
-	vboxModVM        = "modifyvm"
-	vboxStartVM      = "startvm"
-	vboxCtrlVM       = "controlvm"
-	vboxUnregisterVM = "unregistervm"
-	vboxShowVMInfo   = "showvminfo"
+	vboxBin             = "VBoxManage"
+	vboxModVM           = "modifyvm"
+	vboxStartVM         = "startvm"
+	vboxCtrlVM          = "controlvm"
+	vboxUnregisterVM    = "unregistervm"
+	vboxShowVMInfo      = "showvminfo"
+	NOAVAILABLEFRONTEND = "No available frontends found on your setup, please add at least one ova file !"
 )
 
 var FileTransferRoot string
@@ -65,6 +66,7 @@ type VM interface {
 type Library interface {
 	GetCopy(context.Context, store.InstanceConfig, ...VMOpt) (VM, error)
 	IsAvailable(string) bool
+	GetImagePath(string) string
 }
 
 type vBoxLibrary struct {
@@ -378,7 +380,7 @@ func NewLibrary(pwd string) Library {
 	}
 }
 
-func (lib *vBoxLibrary) getPathFromFile(file string) string {
+func (lib *vBoxLibrary) GetImagePath(file string) string {
 	if !strings.HasPrefix(file, lib.pwd) {
 		file = filepath.Join(lib.pwd, file)
 	}
@@ -391,7 +393,7 @@ func (lib *vBoxLibrary) getPathFromFile(file string) string {
 }
 
 func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, vmOpts ...VMOpt) (VM, error) {
-	path := lib.getPathFromFile(conf.Image)
+	path := lib.GetImagePath(conf.Image)
 
 	lib.m.Lock()
 
@@ -458,7 +460,7 @@ func (lib *vBoxLibrary) GetCopy(ctx context.Context, conf store.InstanceConfig, 
 }
 
 func (lib *vBoxLibrary) IsAvailable(file string) bool {
-	path := lib.getPathFromFile(file)
+	path := lib.GetImagePath(file)
 	if _, err := os.Stat(path); err == nil {
 		return true
 	}

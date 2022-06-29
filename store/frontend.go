@@ -5,14 +5,16 @@
 package store
 
 import (
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"sync"
+
+	"gopkg.in/yaml.v2"
 )
 
 type FrontendStore interface {
 	GetFrontends(...string) []InstanceConfig
+	GetAllAvailableFrontends() map[string]InstanceConfig
 	SetMemoryMB(string, uint) error
 	SetCpu(string, float64) error
 	runHooks() error
@@ -83,6 +85,10 @@ func (fs *frontendstore) GetFrontends(names ...string) []InstanceConfig {
 		res = append(res, ic)
 	}
 	return res
+}
+
+func (fs *frontendstore) GetAllAvailableFrontends() map[string]InstanceConfig {
+	return fs.frontends
 }
 
 func (fs *frontendstore) SetMemoryMB(f string, memoryMB uint) error {

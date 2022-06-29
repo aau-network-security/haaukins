@@ -10,13 +10,16 @@ import (
 
 type Config struct {
 	Host struct {
-		Http string `yaml:"http,omitempty"`
-		Grpc string `yaml:"grpc,omitempty"`
+		Http struct {
+			Endpoint string `yaml:"endpoint,omitempty"`
+			Port     Port   `yaml:"port,omitempty"`
+		} `yaml:"http,omitempty"`
+		Grpc struct {
+			Endpoint string `yaml:"endpoint,omitempty"`
+			Port     uint   `yaml:"port,omitempty"`
+		} `yaml:"grpc,omitempty"`
 	} `yaml:"host,omitempty"`
-	Port struct {
-		Secure   uint `yaml:"secure,omitempty"`
-		InSecure uint `yaml:"insecure,omitempty"`
-	}
+
 	Certs              CertificateConfig                `yaml:"tls,omitempty"`
 	Database           ServiceConfig                    `yaml:"db-config,omitempty"`
 	ExerciseService    ServiceConfig                    `yaml:"exercise-service,omitempty"`
@@ -28,6 +31,11 @@ type Config struct {
 	APICreds           APICreds                         `yaml:"api-creds,omitempty"`
 	DockerRepositories []dockerclient.AuthConfiguration `yaml:"docker-repositories,omitempty"`
 	FileTransferRoot   FileTransferConf                 `yaml:"file-transfer-root,omitempty"`
+}
+
+type Port struct {
+	Secure   uint `yaml:"secure,omitempty"`
+	InSecure uint `yaml:"insecure,omitempty"`
 }
 
 type APICreds struct {
