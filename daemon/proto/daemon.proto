@@ -83,7 +83,7 @@ service Daemon {
   }
   rpc ListEvents (ListEventsRequest) returns (ListEventsResponse) {
     option (google.api.http) = {
-      get: "/admin/event/list"
+      get: "/admin/event/list/{status}"
     };
   }
   rpc ListEventTeams (ListEventTeamsRequest) returns (ListEventTeamsResponse) {
