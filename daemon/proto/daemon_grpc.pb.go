@@ -31,16 +31,16 @@ type DaemonClient interface {
 	SetTeamSuspend(ctx context.Context, in *SetTeamSuspendRequest, opts ...grpc.CallOption) (*Empty, error)
 	UpdateTeamPassword(ctx context.Context, in *UpdateTeamPassRequest, opts ...grpc.CallOption) (*UpdateTeamPassResponse, error)
 	GetAPICreds(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CredsResponse, error)
-	CreateEvent(ctx context.Context, in *CreateEventRequest, opts ...grpc.CallOption) (Daemon_CreateEventClient, error)
-	StopEvent(ctx context.Context, in *StopEventRequest, opts ...grpc.CallOption) (Daemon_StopEventClient, error)
-	SuspendEvent(ctx context.Context, in *SuspendEventRequest, opts ...grpc.CallOption) (Daemon_SuspendEventClient, error)
+	CreateEvent(ctx context.Context, in *CreateEventRequest, opts ...grpc.CallOption) (*LabStatus, error)
+	StopEvent(ctx context.Context, in *StopEventRequest, opts ...grpc.CallOption) (*EventStatus, error)
+	SuspendEvent(ctx context.Context, in *SuspendEventRequest, opts ...grpc.CallOption) (*EventStatus, error)
 	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*ListEventsResponse, error)
 	ListEventTeams(ctx context.Context, in *ListEventTeamsRequest, opts ...grpc.CallOption) (*ListEventTeamsResponse, error)
-	RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (Daemon_RestartTeamLabClient, error)
+	RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (*EventStatus, error)
 	SolveChallenge(ctx context.Context, in *SolveChallengeRequest, opts ...grpc.CallOption) (*SolveChallengeResponse, error)
 	AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (Daemon_AddChallengeClient, error)
 	AddNotification(ctx context.Context, in *AddNotificationRequest, opts ...grpc.CallOption) (*AddNotificationResponse, error)
-	DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (Daemon_DeleteTeamClient, error)
+	DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (*DeleteTeamResponse, error)
 	GetTeamChals(ctx context.Context, in *GetTeamInfoRequest, opts ...grpc.CallOption) (*TeamChalsInfo, error)
 	StressEvent(ctx context.Context, in *TestEventLoadReq, opts ...grpc.CallOption) (*TestEventLoadResp, error)
 	ListExercises(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListExercisesResponse, error)
@@ -54,9 +54,9 @@ type DaemonClient interface {
 	MonitorHost(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Daemon_MonitorHostClient, error)
 	Version(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*VersionResponse, error)
 	ListCategories(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListCategoriesResponse, error)
-	SaveProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_SaveProfileClient, error)
-	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (Daemon_DeleteProfileClient, error)
-	EditProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_EditProfileClient, error)
+	SaveProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (*ProfileStatus, error)
+	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*ProfileStatus, error)
+	EditProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (*ProfileStatus, error)
 	ListProfiles(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListProfilesResponse, error)
 }
 
@@ -149,100 +149,31 @@ func (c *daemonClient) GetAPICreds(ctx context.Context, in *Empty, opts ...grpc.
 	return out, nil
 }
 
-func (c *daemonClient) CreateEvent(ctx context.Context, in *CreateEventRequest, opts ...grpc.CallOption) (Daemon_CreateEventClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[0], "/daemon.Daemon/CreateEvent", opts...)
+func (c *daemonClient) CreateEvent(ctx context.Context, in *CreateEventRequest, opts ...grpc.CallOption) (*LabStatus, error) {
+	out := new(LabStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/CreateEvent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonCreateEventClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type Daemon_CreateEventClient interface {
-	Recv() (*LabStatus, error)
-	grpc.ClientStream
-}
-
-type daemonCreateEventClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonCreateEventClient) Recv() (*LabStatus, error) {
-	m := new(LabStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *daemonClient) StopEvent(ctx context.Context, in *StopEventRequest, opts ...grpc.CallOption) (Daemon_StopEventClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[1], "/daemon.Daemon/StopEvent", opts...)
+func (c *daemonClient) StopEvent(ctx context.Context, in *StopEventRequest, opts ...grpc.CallOption) (*EventStatus, error) {
+	out := new(EventStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/StopEvent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonStopEventClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type Daemon_StopEventClient interface {
-	Recv() (*EventStatus, error)
-	grpc.ClientStream
-}
-
-type daemonStopEventClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonStopEventClient) Recv() (*EventStatus, error) {
-	m := new(EventStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *daemonClient) SuspendEvent(ctx context.Context, in *SuspendEventRequest, opts ...grpc.CallOption) (Daemon_SuspendEventClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[2], "/daemon.Daemon/SuspendEvent", opts...)
+func (c *daemonClient) SuspendEvent(ctx context.Context, in *SuspendEventRequest, opts ...grpc.CallOption) (*EventStatus, error) {
+	out := new(EventStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/SuspendEvent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonSuspendEventClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Daemon_SuspendEventClient interface {
-	Recv() (*EventStatus, error)
-	grpc.ClientStream
-}
-
-type daemonSuspendEventClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonSuspendEventClient) Recv() (*EventStatus, error) {
-	m := new(EventStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *daemonClient) ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*ListEventsResponse, error) {
@@ -263,36 +194,13 @@ func (c *daemonClient) ListEventTeams(ctx context.Context, in *ListEventTeamsReq
 	return out, nil
 }
 
-func (c *daemonClient) RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (Daemon_RestartTeamLabClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[3], "/daemon.Daemon/RestartTeamLab", opts...)
+func (c *daemonClient) RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (*EventStatus, error) {
+	out := new(EventStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/RestartTeamLab", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonRestartTeamLabClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Daemon_RestartTeamLabClient interface {
-	Recv() (*EventStatus, error)
-	grpc.ClientStream
-}
-
-type daemonRestartTeamLabClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonRestartTeamLabClient) Recv() (*EventStatus, error) {
-	m := new(EventStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *daemonClient) SolveChallenge(ctx context.Context, in *SolveChallengeRequest, opts ...grpc.CallOption) (*SolveChallengeResponse, error) {
@@ -305,7 +213,7 @@ func (c *daemonClient) SolveChallenge(ctx context.Context, in *SolveChallengeReq
 }
 
 func (c *daemonClient) AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (Daemon_AddChallengeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[4], "/daemon.Daemon/AddChallenge", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[0], "/daemon.Daemon/AddChallenge", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -345,36 +253,13 @@ func (c *daemonClient) AddNotification(ctx context.Context, in *AddNotificationR
 	return out, nil
 }
 
-func (c *daemonClient) DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (Daemon_DeleteTeamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[5], "/daemon.Daemon/DeleteTeam", opts...)
+func (c *daemonClient) DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (*DeleteTeamResponse, error) {
+	out := new(DeleteTeamResponse)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/DeleteTeam", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonDeleteTeamClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Daemon_DeleteTeamClient interface {
-	Recv() (*DeleteTeamResponse, error)
-	grpc.ClientStream
-}
-
-type daemonDeleteTeamClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonDeleteTeamClient) Recv() (*DeleteTeamResponse, error) {
-	m := new(DeleteTeamResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *daemonClient) GetTeamChals(ctx context.Context, in *GetTeamInfoRequest, opts ...grpc.CallOption) (*TeamChalsInfo, error) {
@@ -405,7 +290,7 @@ func (c *daemonClient) ListExercises(ctx context.Context, in *Empty, opts ...grp
 }
 
 func (c *daemonClient) ResetExercise(ctx context.Context, in *ResetExerciseRequest, opts ...grpc.CallOption) (Daemon_ResetExerciseClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[6], "/daemon.Daemon/ResetExercise", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[1], "/daemon.Daemon/ResetExercise", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +340,7 @@ func (c *daemonClient) ListFrontends(ctx context.Context, in *Empty, opts ...grp
 }
 
 func (c *daemonClient) ResetFrontends(ctx context.Context, in *ResetFrontendsRequest, opts ...grpc.CallOption) (Daemon_ResetFrontendsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[7], "/daemon.Daemon/ResetFrontends", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[2], "/daemon.Daemon/ResetFrontends", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -514,7 +399,7 @@ func (c *daemonClient) GetTeamInfo(ctx context.Context, in *GetTeamInfoRequest, 
 }
 
 func (c *daemonClient) MonitorHost(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Daemon_MonitorHostClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[8], "/daemon.Daemon/MonitorHost", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[3], "/daemon.Daemon/MonitorHost", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -563,100 +448,31 @@ func (c *daemonClient) ListCategories(ctx context.Context, in *Empty, opts ...gr
 	return out, nil
 }
 
-func (c *daemonClient) SaveProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_SaveProfileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[9], "/daemon.Daemon/SaveProfile", opts...)
+func (c *daemonClient) SaveProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (*ProfileStatus, error) {
+	out := new(ProfileStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/SaveProfile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonSaveProfileClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type Daemon_SaveProfileClient interface {
-	Recv() (*ProfileStatus, error)
-	grpc.ClientStream
-}
-
-type daemonSaveProfileClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonSaveProfileClient) Recv() (*ProfileStatus, error) {
-	m := new(ProfileStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *daemonClient) DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (Daemon_DeleteProfileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[10], "/daemon.Daemon/DeleteProfile", opts...)
+func (c *daemonClient) DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*ProfileStatus, error) {
+	out := new(ProfileStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/DeleteProfile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonDeleteProfileClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type Daemon_DeleteProfileClient interface {
-	Recv() (*ProfileStatus, error)
-	grpc.ClientStream
-}
-
-type daemonDeleteProfileClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonDeleteProfileClient) Recv() (*ProfileStatus, error) {
-	m := new(ProfileStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *daemonClient) EditProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (Daemon_EditProfileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[11], "/daemon.Daemon/EditProfile", opts...)
+func (c *daemonClient) EditProfile(ctx context.Context, in *SaveProfileRequest, opts ...grpc.CallOption) (*ProfileStatus, error) {
+	out := new(ProfileStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/EditProfile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonEditProfileClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Daemon_EditProfileClient interface {
-	Recv() (*ProfileStatus, error)
-	grpc.ClientStream
-}
-
-type daemonEditProfileClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonEditProfileClient) Recv() (*ProfileStatus, error) {
-	m := new(ProfileStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *daemonClient) ListProfiles(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListProfilesResponse, error) {
@@ -681,16 +497,16 @@ type DaemonServer interface {
 	SetTeamSuspend(context.Context, *SetTeamSuspendRequest) (*Empty, error)
 	UpdateTeamPassword(context.Context, *UpdateTeamPassRequest) (*UpdateTeamPassResponse, error)
 	GetAPICreds(context.Context, *Empty) (*CredsResponse, error)
-	CreateEvent(*CreateEventRequest, Daemon_CreateEventServer) error
-	StopEvent(*StopEventRequest, Daemon_StopEventServer) error
-	SuspendEvent(*SuspendEventRequest, Daemon_SuspendEventServer) error
+	CreateEvent(context.Context, *CreateEventRequest) (*LabStatus, error)
+	StopEvent(context.Context, *StopEventRequest) (*EventStatus, error)
+	SuspendEvent(context.Context, *SuspendEventRequest) (*EventStatus, error)
 	ListEvents(context.Context, *ListEventsRequest) (*ListEventsResponse, error)
 	ListEventTeams(context.Context, *ListEventTeamsRequest) (*ListEventTeamsResponse, error)
-	RestartTeamLab(*RestartTeamLabRequest, Daemon_RestartTeamLabServer) error
+	RestartTeamLab(context.Context, *RestartTeamLabRequest) (*EventStatus, error)
 	SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error)
 	AddChallenge(*AddChallengeRequest, Daemon_AddChallengeServer) error
 	AddNotification(context.Context, *AddNotificationRequest) (*AddNotificationResponse, error)
-	DeleteTeam(*DeleteTeamRequest, Daemon_DeleteTeamServer) error
+	DeleteTeam(context.Context, *DeleteTeamRequest) (*DeleteTeamResponse, error)
 	GetTeamChals(context.Context, *GetTeamInfoRequest) (*TeamChalsInfo, error)
 	StressEvent(context.Context, *TestEventLoadReq) (*TestEventLoadResp, error)
 	ListExercises(context.Context, *Empty) (*ListExercisesResponse, error)
@@ -704,9 +520,9 @@ type DaemonServer interface {
 	MonitorHost(*Empty, Daemon_MonitorHostServer) error
 	Version(context.Context, *Empty) (*VersionResponse, error)
 	ListCategories(context.Context, *Empty) (*ListCategoriesResponse, error)
-	SaveProfile(*SaveProfileRequest, Daemon_SaveProfileServer) error
-	DeleteProfile(*DeleteProfileRequest, Daemon_DeleteProfileServer) error
-	EditProfile(*SaveProfileRequest, Daemon_EditProfileServer) error
+	SaveProfile(context.Context, *SaveProfileRequest) (*ProfileStatus, error)
+	DeleteProfile(context.Context, *DeleteProfileRequest) (*ProfileStatus, error)
+	EditProfile(context.Context, *SaveProfileRequest) (*ProfileStatus, error)
 	ListProfiles(context.Context, *Empty) (*ListProfilesResponse, error)
 }
 
@@ -741,14 +557,14 @@ func (UnimplementedDaemonServer) UpdateTeamPassword(context.Context, *UpdateTeam
 func (UnimplementedDaemonServer) GetAPICreds(context.Context, *Empty) (*CredsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAPICreds not implemented")
 }
-func (UnimplementedDaemonServer) CreateEvent(*CreateEventRequest, Daemon_CreateEventServer) error {
-	return status.Errorf(codes.Unimplemented, "method CreateEvent not implemented")
+func (UnimplementedDaemonServer) CreateEvent(context.Context, *CreateEventRequest) (*LabStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateEvent not implemented")
 }
-func (UnimplementedDaemonServer) StopEvent(*StopEventRequest, Daemon_StopEventServer) error {
-	return status.Errorf(codes.Unimplemented, "method StopEvent not implemented")
+func (UnimplementedDaemonServer) StopEvent(context.Context, *StopEventRequest) (*EventStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopEvent not implemented")
 }
-func (UnimplementedDaemonServer) SuspendEvent(*SuspendEventRequest, Daemon_SuspendEventServer) error {
-	return status.Errorf(codes.Unimplemented, "method SuspendEvent not implemented")
+func (UnimplementedDaemonServer) SuspendEvent(context.Context, *SuspendEventRequest) (*EventStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SuspendEvent not implemented")
 }
 func (UnimplementedDaemonServer) ListEvents(context.Context, *ListEventsRequest) (*ListEventsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEvents not implemented")
@@ -756,8 +572,8 @@ func (UnimplementedDaemonServer) ListEvents(context.Context, *ListEventsRequest)
 func (UnimplementedDaemonServer) ListEventTeams(context.Context, *ListEventTeamsRequest) (*ListEventTeamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEventTeams not implemented")
 }
-func (UnimplementedDaemonServer) RestartTeamLab(*RestartTeamLabRequest, Daemon_RestartTeamLabServer) error {
-	return status.Errorf(codes.Unimplemented, "method RestartTeamLab not implemented")
+func (UnimplementedDaemonServer) RestartTeamLab(context.Context, *RestartTeamLabRequest) (*EventStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestartTeamLab not implemented")
 }
 func (UnimplementedDaemonServer) SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SolveChallenge not implemented")
@@ -768,8 +584,8 @@ func (UnimplementedDaemonServer) AddChallenge(*AddChallengeRequest, Daemon_AddCh
 func (UnimplementedDaemonServer) AddNotification(context.Context, *AddNotificationRequest) (*AddNotificationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddNotification not implemented")
 }
-func (UnimplementedDaemonServer) DeleteTeam(*DeleteTeamRequest, Daemon_DeleteTeamServer) error {
-	return status.Errorf(codes.Unimplemented, "method DeleteTeam not implemented")
+func (UnimplementedDaemonServer) DeleteTeam(context.Context, *DeleteTeamRequest) (*DeleteTeamResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteTeam not implemented")
 }
 func (UnimplementedDaemonServer) GetTeamChals(context.Context, *GetTeamInfoRequest) (*TeamChalsInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTeamChals not implemented")
@@ -810,14 +626,14 @@ func (UnimplementedDaemonServer) Version(context.Context, *Empty) (*VersionRespo
 func (UnimplementedDaemonServer) ListCategories(context.Context, *Empty) (*ListCategoriesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListCategories not implemented")
 }
-func (UnimplementedDaemonServer) SaveProfile(*SaveProfileRequest, Daemon_SaveProfileServer) error {
-	return status.Errorf(codes.Unimplemented, "method SaveProfile not implemented")
+func (UnimplementedDaemonServer) SaveProfile(context.Context, *SaveProfileRequest) (*ProfileStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveProfile not implemented")
 }
-func (UnimplementedDaemonServer) DeleteProfile(*DeleteProfileRequest, Daemon_DeleteProfileServer) error {
-	return status.Errorf(codes.Unimplemented, "method DeleteProfile not implemented")
+func (UnimplementedDaemonServer) DeleteProfile(context.Context, *DeleteProfileRequest) (*ProfileStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteProfile not implemented")
 }
-func (UnimplementedDaemonServer) EditProfile(*SaveProfileRequest, Daemon_EditProfileServer) error {
-	return status.Errorf(codes.Unimplemented, "method EditProfile not implemented")
+func (UnimplementedDaemonServer) EditProfile(context.Context, *SaveProfileRequest) (*ProfileStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EditProfile not implemented")
 }
 func (UnimplementedDaemonServer) ListProfiles(context.Context, *Empty) (*ListProfilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListProfiles not implemented")
@@ -996,67 +812,58 @@ func _Daemon_GetAPICreds_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_CreateEvent_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(CreateEventRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Daemon_CreateEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(DaemonServer).CreateEvent(m, &daemonCreateEventServer{stream})
-}
-
-type Daemon_CreateEventServer interface {
-	Send(*LabStatus) error
-	grpc.ServerStream
-}
-
-type daemonCreateEventServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonCreateEventServer) Send(m *LabStatus) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _Daemon_StopEvent_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(StopEventRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+	if interceptor == nil {
+		return srv.(DaemonServer).CreateEvent(ctx, in)
 	}
-	return srv.(DaemonServer).StopEvent(m, &daemonStopEventServer{stream})
-}
-
-type Daemon_StopEventServer interface {
-	Send(*EventStatus) error
-	grpc.ServerStream
-}
-
-type daemonStopEventServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonStopEventServer) Send(m *EventStatus) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _Daemon_SuspendEvent_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(SuspendEventRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/CreateEvent",
 	}
-	return srv.(DaemonServer).SuspendEvent(m, &daemonSuspendEventServer{stream})
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).CreateEvent(ctx, req.(*CreateEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type Daemon_SuspendEventServer interface {
-	Send(*EventStatus) error
-	grpc.ServerStream
+func _Daemon_StopEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).StopEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/StopEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).StopEvent(ctx, req.(*StopEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type daemonSuspendEventServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonSuspendEventServer) Send(m *EventStatus) error {
-	return x.ServerStream.SendMsg(m)
+func _Daemon_SuspendEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SuspendEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).SuspendEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/SuspendEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).SuspendEvent(ctx, req.(*SuspendEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_ListEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1095,25 +902,22 @@ func _Daemon_ListEventTeams_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_RestartTeamLab_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(RestartTeamLabRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Daemon_RestartTeamLab_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestartTeamLabRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(DaemonServer).RestartTeamLab(m, &daemonRestartTeamLabServer{stream})
-}
-
-type Daemon_RestartTeamLabServer interface {
-	Send(*EventStatus) error
-	grpc.ServerStream
-}
-
-type daemonRestartTeamLabServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonRestartTeamLabServer) Send(m *EventStatus) error {
-	return x.ServerStream.SendMsg(m)
+	if interceptor == nil {
+		return srv.(DaemonServer).RestartTeamLab(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/RestartTeamLab",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).RestartTeamLab(ctx, req.(*RestartTeamLabRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_SolveChallenge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1173,25 +977,22 @@ func _Daemon_AddNotification_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_DeleteTeam_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(DeleteTeamRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Daemon_DeleteTeam_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTeamRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(DaemonServer).DeleteTeam(m, &daemonDeleteTeamServer{stream})
-}
-
-type Daemon_DeleteTeamServer interface {
-	Send(*DeleteTeamResponse) error
-	grpc.ServerStream
-}
-
-type daemonDeleteTeamServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonDeleteTeamServer) Send(m *DeleteTeamResponse) error {
-	return x.ServerStream.SendMsg(m)
+	if interceptor == nil {
+		return srv.(DaemonServer).DeleteTeam(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/DeleteTeam",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).DeleteTeam(ctx, req.(*DeleteTeamRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_GetTeamChals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1437,67 +1238,58 @@ func _Daemon_ListCategories_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_SaveProfile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(SaveProfileRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Daemon_SaveProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(DaemonServer).SaveProfile(m, &daemonSaveProfileServer{stream})
-}
-
-type Daemon_SaveProfileServer interface {
-	Send(*ProfileStatus) error
-	grpc.ServerStream
-}
-
-type daemonSaveProfileServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonSaveProfileServer) Send(m *ProfileStatus) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _Daemon_DeleteProfile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(DeleteProfileRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+	if interceptor == nil {
+		return srv.(DaemonServer).SaveProfile(ctx, in)
 	}
-	return srv.(DaemonServer).DeleteProfile(m, &daemonDeleteProfileServer{stream})
-}
-
-type Daemon_DeleteProfileServer interface {
-	Send(*ProfileStatus) error
-	grpc.ServerStream
-}
-
-type daemonDeleteProfileServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonDeleteProfileServer) Send(m *ProfileStatus) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _Daemon_EditProfile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(SaveProfileRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/SaveProfile",
 	}
-	return srv.(DaemonServer).EditProfile(m, &daemonEditProfileServer{stream})
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).SaveProfile(ctx, req.(*SaveProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type Daemon_EditProfileServer interface {
-	Send(*ProfileStatus) error
-	grpc.ServerStream
+func _Daemon_DeleteProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).DeleteProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/DeleteProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).DeleteProfile(ctx, req.(*DeleteProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type daemonEditProfileServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonEditProfileServer) Send(m *ProfileStatus) error {
-	return x.ServerStream.SendMsg(m)
+func _Daemon_EditProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).EditProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/EditProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).EditProfile(ctx, req.(*SaveProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_ListProfiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1562,6 +1354,18 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_GetAPICreds_Handler,
 		},
 		{
+			MethodName: "CreateEvent",
+			Handler:    _Daemon_CreateEvent_Handler,
+		},
+		{
+			MethodName: "StopEvent",
+			Handler:    _Daemon_StopEvent_Handler,
+		},
+		{
+			MethodName: "SuspendEvent",
+			Handler:    _Daemon_SuspendEvent_Handler,
+		},
+		{
 			MethodName: "ListEvents",
 			Handler:    _Daemon_ListEvents_Handler,
 		},
@@ -1570,12 +1374,20 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_ListEventTeams_Handler,
 		},
 		{
+			MethodName: "RestartTeamLab",
+			Handler:    _Daemon_RestartTeamLab_Handler,
+		},
+		{
 			MethodName: "SolveChallenge",
 			Handler:    _Daemon_SolveChallenge_Handler,
 		},
 		{
 			MethodName: "AddNotification",
 			Handler:    _Daemon_AddNotification_Handler,
+		},
+		{
+			MethodName: "DeleteTeam",
+			Handler:    _Daemon_DeleteTeam_Handler,
 		},
 		{
 			MethodName: "GetTeamChals",
@@ -1618,39 +1430,26 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_ListCategories_Handler,
 		},
 		{
+			MethodName: "SaveProfile",
+			Handler:    _Daemon_SaveProfile_Handler,
+		},
+		{
+			MethodName: "DeleteProfile",
+			Handler:    _Daemon_DeleteProfile_Handler,
+		},
+		{
+			MethodName: "EditProfile",
+			Handler:    _Daemon_EditProfile_Handler,
+		},
+		{
 			MethodName: "ListProfiles",
 			Handler:    _Daemon_ListProfiles_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "CreateEvent",
-			Handler:       _Daemon_CreateEvent_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "StopEvent",
-			Handler:       _Daemon_StopEvent_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "SuspendEvent",
-			Handler:       _Daemon_SuspendEvent_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "RestartTeamLab",
-			Handler:       _Daemon_RestartTeamLab_Handler,
-			ServerStreams: true,
-		},
-		{
 			StreamName:    "AddChallenge",
 			Handler:       _Daemon_AddChallenge_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "DeleteTeam",
-			Handler:       _Daemon_DeleteTeam_Handler,
 			ServerStreams: true,
 		},
 		{
@@ -1666,21 +1465,6 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "MonitorHost",
 			Handler:       _Daemon_MonitorHost_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "SaveProfile",
-			Handler:       _Daemon_SaveProfile_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "DeleteProfile",
-			Handler:       _Daemon_DeleteProfile_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "EditProfile",
-			Handler:       _Daemon_EditProfile_Handler,
 			ServerStreams: true,
 		},
 	},

@@ -63,19 +63,19 @@ service Daemon {
       get: "/admin/get/api/creds"
     };
   }
-  rpc CreateEvent (CreateEventRequest) returns (stream LabStatus) {
+  rpc CreateEvent (CreateEventRequest) returns (LabStatus) {
     option (google.api.http) = {
       post: "/admin/event/create"
       body: "*"
     };
   }
-  rpc StopEvent (StopEventRequest) returns (stream EventStatus) {
+  rpc StopEvent (StopEventRequest) returns (EventStatus) {
     option (google.api.http) = {
       post: "/admin/event/stop"
       body: "*"
     };
   }
-  rpc SuspendEvent(SuspendEventRequest) returns (stream EventStatus) {
+  rpc SuspendEvent(SuspendEventRequest) returns (EventStatus) {
     option (google.api.http) = {
       post: "/admin/event/suspend"
       body: "*"
@@ -91,7 +91,7 @@ service Daemon {
       get: "/admin/event/{tag}/list/teams"
     };
   }
-  rpc RestartTeamLab (RestartTeamLabRequest) returns (stream EventStatus) {
+  rpc RestartTeamLab (RestartTeamLabRequest) returns (EventStatus) {
     option (google.api.http) = {
       post: "/admin/lab/restart"
       body: "*"
@@ -117,7 +117,7 @@ service Daemon {
     };
   }
 
-  rpc DeleteTeam(DeleteTeamRequest) returns (stream DeleteTeamResponse) {
+  rpc DeleteTeam(DeleteTeamRequest) returns (DeleteTeamResponse) {
     option (google.api.http) = {
       post: "/admin/team/delete"
       body: "*"
@@ -197,19 +197,19 @@ service Daemon {
       get: "/admin/categories/list"
     };
   }
-  rpc SaveProfile (SaveProfileRequest) returns (stream ProfileStatus) {
+  rpc SaveProfile (SaveProfileRequest) returns ( ProfileStatus) {
     option (google.api.http) = {
       post: "/admin/event/save/profile"
       body: "*"
     };
   }
-  rpc DeleteProfile (DeleteProfileRequest) returns (stream ProfileStatus) {
+  rpc DeleteProfile (DeleteProfileRequest) returns ( ProfileStatus) {
     option (google.api.http) = {
       post: "/admin/event/delete/profile"
       body: "*"
     };
   }
-  rpc EditProfile (SaveProfileRequest) returns (stream ProfileStatus) {
+  rpc EditProfile (SaveProfileRequest) returns ( ProfileStatus) {
     option (google.api.http) = {
       post: "/admin/event/edit/profile"
       body: "*"
