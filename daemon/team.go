@@ -81,8 +81,8 @@ func (d *daemon) SetTeamSuspend(ctx context.Context, in *pb.SetTeamSuspendReques
 	return &pb.Empty{}, err
 }
 
-func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_RestartTeamLabServer) error {
-	log.Ctx(resp.Context()).
+func (d *daemon) RestartTeamLab(ctx context.Context, req *pb.RestartTeamLabRequest) (*pb.EventStatus, error) {
+	log.Ctx(ctx).
 		Info().
 		Str("event", req.EventTag).
 		Str("lab", req.TeamId).
@@ -90,26 +90,25 @@ func (d *daemon) RestartTeamLab(req *pb.RestartTeamLabRequest, resp pb.Daemon_Re
 
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ev, err := d.eventPool.GetEvent(evtag)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	lab, ok := ev.GetLabByTeam(req.TeamId)
 	if !ok {
 		log.Warn().Msgf("Lab could not retrieved for team id %s ", req.TeamId)
-		return NoLabByTeamIdErr
-	}
-	resp.Send(&pb.EventStatus{Status: fmt.Sprintf("Lab restarting for team [ %s ] is under process... ", req.TeamId)})
-
-	if err := lab.Restart(resp.Context()); err != nil {
-		return err
+		return nil, NoLabByTeamIdErr
 	}
 
-	return nil
+	if err := lab.Restart(ctx); err != nil {
+		return nil, err
+	}
+
+	return &pb.EventStatus{Status: fmt.Sprintf("Lab restarting for team [ %s ] is done ", req.TeamId)}, nil
 }
 
 func (d *daemon) SolveChallenge(ctx context.Context, req *pb.SolveChallengeRequest) (*pb.SolveChallengeResponse, error) {
@@ -199,31 +198,30 @@ func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassR
 	return &pb.UpdateTeamPassResponse{Status: status}, nil
 }
 
-func (d *daemon) DeleteTeam(req *pb.DeleteTeamRequest, srv pb.Daemon_DeleteTeamServer) error {
+func (d *daemon) DeleteTeam(ctx context.Context, req *pb.DeleteTeamRequest) (*pb.DeleteTeamResponse, error) {
 
 	var waitGroup sync.WaitGroup
-	usr, err := getUserFromIncomingContext(srv.Context())
+	usr, err := getUserFromIncomingContext(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ev, ok := d.eventPool.events[store.Tag(req.EvTag)]
 	if !ok {
-		return fmt.Errorf("Event [ %s ] could not be found ", req.EvTag)
+		return nil, fmt.Errorf("Event [ %s ] could not be found ", req.EvTag)
 	}
 	if !usr.SuperUser && ev.GetConfig().CreatedBy != usr.Username {
-		return fmt.Errorf("No privileges to delete team ")
+		return nil, fmt.Errorf("No privileges to delete team ")
 	}
-	srv.Send(&pb.DeleteTeamResponse{Message: fmt.Sprintf("Team deletion / Lab release and restart for team [ %s ] is under process... ", req.TeamId)})
 	lh := ev.GetHub()
 	tLab, ok := ev.GetLabByTeam(req.TeamId)
 	if !ok {
-		return fmt.Errorf("lab could not be found for team: [ %s ] on event [ %s ]", req.TeamId, req.EvTag)
+		return nil, fmt.Errorf("lab could not be found for team: [ %s ] on event [ %s ]", req.TeamId, req.EvTag)
 	}
 	var restartErr error
 	waitGroup.Add(1)
 	go func() {
 		defer waitGroup.Done()
-		if err := tLab.Restart(srv.Context()); err != nil {
+		if err := tLab.Restart(ctx); err != nil {
 			log.Debug().Msgf("Error on lab restart on de-assigning for team [ %s ] on event [ %s ]", req.TeamId, req.EvTag)
 			restartErr = err
 		}
@@ -231,7 +229,7 @@ func (d *daemon) DeleteTeam(req *pb.DeleteTeamRequest, srv pb.Daemon_DeleteTeamS
 	waitGroup.Wait()
 
 	if restartErr != nil {
-		return restartErr
+		return nil, restartErr
 	}
 
 	lb := make(chan lab.Lab)
@@ -244,10 +242,10 @@ func (d *daemon) DeleteTeam(req *pb.DeleteTeamRequest, srv pb.Daemon_DeleteTeamS
 
 	_, err = ev.DeleteTeam(req.TeamId)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &pb.DeleteTeamResponse{Message: fmt.Sprintf("Team deletion / Lab release and restart for team [ %s ] is processed ", req.TeamId)}, nil
 }
 
 func checkTeamLab(ch chan guacamole.Event, wg *sync.WaitGroup) {

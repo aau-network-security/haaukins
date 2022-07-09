@@ -12,12 +12,12 @@ import (
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/store"
 	storeProto "github.com/aau-network-security/haaukins/store/proto"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func (d *daemon) ListCategories(ctx context.Context, req *pb.Empty) (*pb.ListCategoriesResponse, error) {
@@ -226,7 +226,7 @@ func (d *daemon) GetExercisesByTags(ctx context.Context, req *pb.GetExsByTagsReq
 
 func protobufToJson(message proto.Message) (string, error) {
 	d, err := protojson.Marshal(message)
-    return string(d), err
+	return string(d), err
 }
 
 // todo: contains too much functions and for loop, requires some optimization

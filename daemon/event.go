@@ -66,11 +66,9 @@ func (d *daemon) startEvent(ev guacamole.Event) {
 	d.eventPool.AddEvent(ev)
 }
 
-func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
+func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*pb.LabStatus, error) {
 
-	loggerInstance := &GrpcLogger{resp: resp}
 	vpnAddress := ""
-	ctx := context.WithValue(resp.Context(), "grpc_logger", loggerInstance)
 	log.Ctx(ctx).
 		Info().
 		Str("tag", req.Tag).
@@ -90,7 +88,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return fmt.Errorf("user credentials could not found on context %v", err)
+		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
 	// checking through eventPool is not good enough since booked events are not added to eventpool
@@ -101,38 +99,47 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		Status: Closed,
 	})
 	if err != nil {
-		noEventExist := fmt.Errorf("event does not exist or something is wrong: %v", err)
-		resp.Send(&pb.LabStatus{ErrorMessage: noEventExist.Error()})
-		return noEventExist
+		return nil, fmt.Errorf("event does not exist or something is wrong: %v", err)
 	}
 	if isEventExist.IsExist {
-		resp.Send(&pb.LabStatus{ErrorMessage: NotAvailableTag})
-		return fmt.Errorf(NotAvailableTag)
+		return nil, fmt.Errorf(NotAvailableTag)
 	}
 	log.Debug().Msgf("Checked existing events through database.")
 
 	if (req.OnlyVPN == VPN || req.OnlyVPN == VPNBrowser) && req.Capacity > 253 {
-		resp.Send(&pb.LabStatus{ErrorMessage: CapacityExceedsErr.Error()})
-		return CapacityExceedsErr
+		log.Error().
+			Str("tag", req.Tag).
+			Str("name", req.Name).
+			Msgf("Capacity Error: %v", CapacityExceedsErr)
+		return nil, CapacityExceedsErr
 	}
 
 	if user.NPUser && req.Capacity > int32(NPUserMaxLabs) {
-		resp.Send(&pb.LabStatus{ErrorMessage: OutOfQuota.Error()})
-		return OutOfQuota
+		log.Error().
+			Str("tag", req.Tag).
+			Str("name", req.Name).
+			Str("createdBy", user.Username).
+			Msgf("Out of Quota Error: %v", OutOfQuota)
+		return nil, OutOfQuota
 	}
 
 	isEligible, err := d.checkUserQuota(ctx, user.Username)
 	if err != nil {
-		resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
-		return err
+		log.Error().
+			Str("username", user.Username).
+			Str("event name", req.Name).
+			Str("event tag", req.Tag).
+			Msgf("user quota error: %v", err)
+		return nil, err
 	}
 
 	if (user.NPUser && isEligible) || !user.NPUser {
 
 		now := time.Now()
 		if ReservedSubDomains[strings.ToLower(req.Tag)] {
-			resp.Send(&pb.LabStatus{ErrorMessage: ReservedDomainErr.Error()})
-			return ReservedDomainErr
+			log.Error().
+				Str("key", req.Tag).Msg("on reserved domains")
+			return nil, ReservedDomainErr
 		}
 
 		uniqueExercisesList := removeDuplicates(req.Exercises)
@@ -142,17 +149,16 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		tags := make([]store.Tag, len(uniqueExercisesList))
 		exs, tagErr := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: uniqueExercisesList})
 		if tagErr != nil {
-			resp.Send(&pb.LabStatus{ErrorMessage: tagErr.Error()})
-			return tagErr
+			return nil, tagErr
 		}
 
 		for i, s := range exs.Exercises {
 			if s.Secret && !user.SuperUser {
-				return fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", s.Tag)
+				return nil, fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", s.Tag)
 			}
 			t, err := store.NewTag(s.Tag)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			tags[i] = t
 		}
@@ -161,9 +167,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		startTime, _ := time.Parse(dbTimeFormat, req.StartTime)
 
 		if isInvalidDate(startTime) {
-			invalidDateErr := fmt.Errorf("invalid startTime format %v", startTime)
-			resp.Send(&pb.LabStatus{ErrorMessage: invalidDateErr.Error()})
-			return invalidDateErr
+			return nil, fmt.Errorf("invalid startTime format %v", startTime)
 		}
 
 		// difference  in days
@@ -172,10 +176,9 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		difference := math.Round(startTime.Sub(now).Hours() / 24)
 		if difference >= 1 {
 			if err := d.bookEvent(ctx, req); err != nil {
-				resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
-				return err
+				return nil, err
 			}
-			return nil
+			return nil, fmt.Errorf("difference cannot be minus")
 		}
 		// 25.43
 		if req.OnlyVPN == int32(VPN) || req.OnlyVPN == int32(VPNBrowser) {
@@ -209,15 +212,14 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 
 		if err := conf.Validate(); err != nil {
-			return err
+			return nil, err
 		}
 		log.Debug().Str("event", string(conf.Tag)).
 			Msgf("Event configuration is validated")
 		_, err = d.eventPool.GetEvent(evtag)
 
 		if err == nil {
-			resp.Send(&pb.LabStatus{ErrorMessage: DuplicateEventErr.Error()})
-			return DuplicateEventErr
+			return nil, DuplicateEventErr
 		}
 
 		if conf.Available == 0 {
@@ -236,16 +238,15 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		ev, err := d.ehost.CreateEventFromConfig(ctx, conf, d.conf.Rechaptcha)
 		if err != nil {
 			log.Error().Err(err).Msg("Error creating event from database event")
-			resp.Send(&pb.LabStatus{ErrorMessage: err.Error()})
-			return err
+			return nil, err
 		}
 		if err := d.ehost.SaveEventToDB(ctx, conf); err != nil {
 			ev.Close()
-			return err
+			return nil, err
 		}
 		d.startEvent(ev)
 	}
-	return nil
+	return &pb.LabStatus{Message: fmt.Sprintf("%s event is started successfully", req.Tag)}, nil
 }
 
 func (d *daemon) bookEvent(ctx context.Context, req *pb.CreateEventRequest) error {
@@ -336,8 +337,7 @@ func (d *daemon) ListEventTeams(ctx context.Context, req *pb.ListEventTeamsReque
 	return &pb.ListEventTeamsResponse{Teams: eventTeams}, nil
 }
 
-func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventServer) error {
-	ctx := resp.Context()
+func (d *daemon) StopEvent(ctx context.Context, req *pb.StopEventRequest) (*pb.EventStatus, error) {
 	var ev guacamole.Event
 	log.Ctx(ctx).
 		Info().
@@ -347,12 +347,12 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return fmt.Errorf("user credentials could not found on context %v", err)
+		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
 	evtag, err := store.NewTag(req.Tag)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// unix time will be unique
@@ -362,7 +362,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 	// based on status take necessary action
 	status, err := d.dbClient.GetEventStatus(ctx, &pbc.GetEventStatusRequest{EventTag: string(evtag)})
 	if err != nil {
-		return fmt.Errorf("error happened on getting status of event, err: %v", err)
+		return nil, fmt.Errorf("error happened on getting status of event, err: %v", err)
 	}
 
 	if status.Status == Running || status.Status == Suspended {
@@ -370,7 +370,7 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		// retrieve tag of event from event pool
 		ev, err = d.eventPool.GetEvent(evtag)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		eventConfig := ev.GetConfig()
 		createdBy := eventConfig.CreatedBy
@@ -387,20 +387,23 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 			}
 			_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
 			if err != nil {
-				return fmt.Errorf("error happened on setting up status of event, err: %v", err)
+				return nil, fmt.Errorf("error happened on setting up status of event, err: %v", err)
 			}
 
 			// tag of the event is removed from eventPool
 			if err := d.eventPool.RemoveEvent(evtag); err != nil {
-				return err
+				return nil, err
 			}
 			if err := ev.Close(); err != nil {
-				return err
+				return nil, err
 			}
 			ev.Finish(newEventTag) // Finishing and archiving event....
-			return nil
+			return &pb.EventStatus{
+				Status: fmt.Sprintf("%s is stopped/archived", req.Tag),
+				Entity: fmt.Sprintf("Event Tag:%s, Event Name:%s", req.Tag, ev.GetConfig().Name),
+			}, nil
 		} else {
-			return fmt.Errorf("no priviledge to stop event %s", evtag)
+			return nil, fmt.Errorf("no priviledge to stop event %s", evtag)
 		}
 	}
 	if status.Status == Booked {
@@ -409,22 +412,25 @@ func (d *daemon) StopEvent(req *pb.StopEventRequest, resp pb.Daemon_StopEventSer
 		if user.NPUser {
 			eventResp, err := d.dbClient.GetEventByUser(ctx, &pbc.GetEventByUserReq{User: user.Username, Status: Booked})
 			if err != nil {
-				return fmt.Errorf("error on getting booked events for user %s, err : %v", user.Username, err)
+				return nil, fmt.Errorf("error on getting booked events for user %s, err : %v", user.Username, err)
 			}
 			for _, e := range eventResp.Events {
 				if e.CreatedBy == user.Username {
 					if err := d.dropEvent(ctx, req.Tag); err != nil {
-						return fmt.Errorf("err : %v username : %s", err, user.Username)
+						return nil, fmt.Errorf("err : %v username : %s", err, user.Username)
 					}
 				}
 			}
-			return nil
+			return &pb.EventStatus{
+				Status: fmt.Sprintf("Booked event %s is deleted", req.Tag),
+				Entity: fmt.Sprintf("Event Tag:%s, Event Name:%s", req.Tag, ev.GetConfig().Name),
+			}, nil
 		}
 		if err := d.dropEvent(ctx, req.Tag); err != nil {
-			return fmt.Errorf("err : %v username : %s", err, user.Username)
+			return nil, fmt.Errorf("err : %v username : %s", err, user.Username)
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("event %s is not running", req.Tag)
 }
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
@@ -509,20 +515,19 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventCon
 
 // SuspendEvent manages suspension and resuming of given event
 // according to isSuspend value from request, resume or suspend function will be called
-func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, resp pb.Daemon_SuspendEventServer) error {
-	ctx := resp.Context()
+func (d *daemon) SuspendEvent(ctx context.Context, req *pb.SuspendEventRequest) (*pb.EventStatus, error) {
+
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return fmt.Errorf("user credentials could not found on context %v", err)
+		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
 	eventTag := store.Tag(req.EventTag)
 	isSuspend := req.Suspend
 	event, err := d.eventPool.GetEvent(eventTag)
 	if err != nil {
-		//return nil, err
-		return err
+		return nil, err
 	}
 	createdBy := event.GetConfig().CreatedBy
 
@@ -530,21 +535,24 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, resp pb.Daemon_Suspen
 		if isSuspend {
 			if err := event.Suspend(ctx); err != nil {
 				//return &pb.EventStatus{Status: "error", Entity: err.Error()}, err
-				return err
+				return nil, err
 			}
 			event.SetStatus(Suspended)
 			d.eventPool.handlers[eventTag] = suspendEventHandler()
-			return nil
+			return &pb.EventStatus{
+				Status: fmt.Sprintf("Event %s is suspended", req.EventTag),
+				Entity: fmt.Sprintf("Event Tag:%s, Event Name:%s", req.EventTag, event.GetConfig().Name),
+			}, nil
 		}
 		// it is important to get context from resp.Context
 		// otherwise it cannot let it resume or suspend
 		if err := event.Resume(ctx); err != nil {
-			return err
+			return nil, err
 		}
 		d.eventPool.handlers[eventTag] = event.Handler()
 		event.SetStatus(Running)
 	}
-	return nil
+	return nil, fmt.Errorf("user %s is not authorized to suspend event %s", user.Username, req.EventTag)
 }
 
 func (d *daemon) AddNotification(ctx context.Context, req *pb.AddNotificationRequest) (*pb.AddNotificationResponse, error) {
@@ -880,12 +888,11 @@ func getVPNIP() (string, error) {
 	return ip, nil
 }
 
-func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProfileServer) error {
-	ctx := resp.Context()
+func (d *daemon) SaveProfile(ctx context.Context, req *pb.SaveProfileRequest) (*pb.ProfileStatus, error) {
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return fmt.Errorf("user credentials could not found on context %v", err)
+		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 	log.Ctx(ctx).
 		Info().
@@ -907,12 +914,14 @@ func (d *daemon) SaveProfile(req *pb.SaveProfileRequest, resp pb.Daemon_SaveProf
 			Challenges: challenges,
 		})
 		if err != nil {
-			return fmt.Errorf("Error when adding profile: %e", err)
+			return nil, fmt.Errorf("Error when adding profile: %e", err)
 		}
-		return errors.New(resp.ErrorMessage)
+		return &pb.ProfileStatus{
+			Status: resp.Message,
+		}, nil
 	}
 
-	return errors.New("You don't have the privilege to create profiles")
+	return nil, errors.New("You don't have the privilege to create profiles")
 
 }
 
@@ -957,12 +966,11 @@ func (d *daemon) ListProfiles(ctx context.Context, req *pb.Empty) (*pb.ListProfi
 	return &pb.ListProfilesResponse{Profiles: profiles}, nil
 }
 
-func (d *daemon) EditProfile(req *pb.SaveProfileRequest, resp pb.Daemon_EditProfileServer) error {
-	ctx := resp.Context()
+func (d *daemon) EditProfile(ctx context.Context, req *pb.SaveProfileRequest) (*pb.ProfileStatus, error) {
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return fmt.Errorf("user credentials could not found on context %v", err)
+		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 	log.Ctx(ctx).
 		Info().
@@ -984,20 +992,21 @@ func (d *daemon) EditProfile(req *pb.SaveProfileRequest, resp pb.Daemon_EditProf
 			Challenges: challenges,
 		})
 		if err != nil {
-			return fmt.Errorf("Error when updating profile: %e", err)
+			return nil, fmt.Errorf("Error when updating profile: %e", err)
 		}
-		return nil
+		return &pb.ProfileStatus{
+			Status: fmt.Sprintf("Profile %s updated", req.Name),
+		}, nil
 	}
-
-	return errors.New("You don't have the privilege to update profiles")
+	return nil, errors.New("You don't have the privilege to update profiles")
 }
 
-func (d *daemon) DeleteProfile(req *pb.DeleteProfileRequest, resp pb.Daemon_DeleteProfileServer) error {
-	ctx := resp.Context()
+func (d *daemon) DeleteProfile(ctx context.Context, req *pb.DeleteProfileRequest) (*pb.ProfileStatus, error) {
+
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		log.Warn().Msgf("User credentials not found ! %v  ", err)
-		return fmt.Errorf("user credentials could not found on context %v", err)
+		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 	log.Ctx(ctx).
 		Info().
@@ -1009,10 +1018,12 @@ func (d *daemon) DeleteProfile(req *pb.DeleteProfileRequest, resp pb.Daemon_Dele
 			Name: req.Name,
 		})
 		if err != nil {
-			return fmt.Errorf("Error when deleting profile: %e", err)
+			return nil, fmt.Errorf("Error when deleting profile: %e", err)
 		}
-		return nil
+		return &pb.ProfileStatus{
+			Status: fmt.Sprintf("Profile %s deleted", req.Name),
+		}, nil
 	}
 
-	return errors.New("You don't have the privilege to delete profiles")
+	return nil, errors.New("You don't have the privilege to delete profiles")
 }
