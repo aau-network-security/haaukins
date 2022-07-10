@@ -551,6 +551,10 @@ func (d *daemon) SuspendEvent(ctx context.Context, req *pb.SuspendEventRequest) 
 		}
 		d.eventPool.handlers[eventTag] = event.Handler()
 		event.SetStatus(Running)
+		return &pb.EventStatus{
+			Status: fmt.Sprintf("Event %s is resumed", req.EventTag),
+			Entity: fmt.Sprintf("Event Tag:%s, Event Name:%s", req.EventTag, event.GetConfig().Name),
+		}, nil
 	}
 	return nil, fmt.Errorf("user %s is not authorized to suspend event %s", user.Username, req.EventTag)
 }
