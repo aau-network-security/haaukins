@@ -145,41 +145,39 @@ func (d *daemon) ListExercises(ctx context.Context, req *pb.Empty) (*pb.ListExer
 	return &pb.ListExercisesResponse{Exercises: exercises}, nil
 }
 
-func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_ResetExerciseServer) error {
-	log.Ctx(stream.Context()).Info().
+func (d *daemon) ResetExercise(ctx context.Context, req *pb.ResetExerciseRequest) (*pb.ResetTeamStatus, error) {
+	log.Ctx(ctx).Info().
 		Str("evtag", req.EventTag).
 		Str("extag", req.ExerciseTag).
 		Msg("reset exercise")
 
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ev, err := d.eventPool.GetEvent(evtag)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if req.Teams != nil {
 		for _, reqTeam := range req.Teams {
 			lab, ok := ev.GetLabByTeam(reqTeam.Id)
 			if !ok {
-				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
-				continue
+				log.Debug().Msgf("team's lab %s not found", reqTeam.Id)
+				return nil, err
 			}
 
-			if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
-				return err
+			if err := lab.Environment().ResetByTag(ctx, req.ExerciseTag); err != nil {
+				return nil, err
 			}
-
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
 
 			t, err := ev.GetTeamById(reqTeam.Id)
 			teamDisabledMap := t.GetDisabledChalMap()
 			if err != nil {
-				log.Printf("GetTeamById error no team found %v", err)
-				continue
+				log.Debug().Msgf("GetTeamById error no team found %v", err)
+				return nil, err
 			}
 
 			if teamDisabledMap != nil {
@@ -191,24 +189,22 @@ func (d *daemon) ResetExercise(req *pb.ResetExerciseRequest, stream pb.Daemon_Re
 				}
 			}
 		}
-		return nil
+		return &pb.ResetTeamStatus{Status: "Labs are restarted for requested teams"}, nil
 	}
 
 	for _, t := range ev.GetTeams() {
 		lab, ok := ev.GetLabByTeam(t.ID())
 		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "?"})
-			continue
+			return nil, errors.New(fmt.Sprintf("team's lab %s not found", t.ID()))
 		}
 
-		if err := lab.Environment().ResetByTag(stream.Context(), req.ExerciseTag); err != nil {
-			return err
+		if err := lab.Environment().ResetByTag(ctx, req.ExerciseTag); err != nil {
+			return nil, err
 		}
 
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})
 	}
 
-	return nil
+	return &pb.ResetTeamStatus{Status: fmt.Sprintf("Labs are restarted for all teams on event %s ", req.EventTag)}, nil
 }
 
 func (d *daemon) GetExercisesByTags(ctx context.Context, req *pb.GetExsByTagsReq) (*pb.GetExsByTagsResp, error) {
@@ -230,10 +226,9 @@ func protobufToJson(message proto.Message) (string, error) {
 }
 
 // todo: contains too much functions and for loop, requires some optimization
-func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChallengeServer) error {
+func (d *daemon) AddChallenge(ctx context.Context, req *pb.AddChallengeRequest) (*pb.AddChallengeResponse, error) {
 	eventTag := req.EventTag
 	challengeTags := req.ChallengeTag
-	ctx := context.TODO()
 	var exers []store.Exercise
 	var waitGroup sync.WaitGroup
 	var once sync.Once
@@ -241,25 +236,25 @@ func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChal
 
 	ev, err := d.eventPool.GetEvent(store.Tag(eventTag))
 	if err != nil {
-		return err
+		return &pb.AddChallengeResponse{}, err
 	}
 	allChals := ev.GetConfig().AllChallenges
 	for _, i := range challengeTags {
 		_, ok := allChals[i]
 		if ok {
-			return errors.New(fmt.Sprintf("Requested challenge(s) %v is/are already exists on event", challengeTags))
+			return &pb.AddChallengeResponse{}, errors.New(fmt.Sprintf("Requested challenge(s) %v is/are already exists on event", challengeTags))
 		}
 	}
 
 	exer, err := d.exClient.GetExerciseByTags(ctx, &eproto.GetExerciseByTagsRequest{Tag: challengeTags})
 	if err != nil {
-		return fmt.Errorf("[exercises-service] error %v", err)
+		return &pb.AddChallengeResponse{}, fmt.Errorf("[exercises-service] error %v", err)
 	}
 
 	for _, e := range exer.Exercises {
 		exercise, err := protobufToJson(e)
 		if err != nil {
-			return err
+			return &pb.AddChallengeResponse{}, err
 		}
 		estruct := store.Exercise{}
 		json.Unmarshal([]byte(exercise), &estruct)
@@ -275,14 +270,12 @@ func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChal
 	}
 
 	ev.PauseSignup(true)
-	var addChalError error
 
 	for _, lb := range ev.GetHub().Labs() {
 		waitGroup.Add(1)
 		go func() {
-			if err := lb.AddChallenge(ctx, exers...); err != nil {
-				addChalError = err
-			}
+			lb.AddChallenge(ctx, exers...)
+
 			waitGroup.Done()
 		}()
 		waitGroup.Wait()
@@ -291,12 +284,10 @@ func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChal
 
 	frontendData := ev.GetFrontendData()
 	for tid, l := range ev.GetAssignedLabs() {
-		if err := l.AddChallenge(ctx, exers...); err != nil {
-			addChalError = err
-		}
+		l.AddChallenge(ctx, exers...)
 		t, err := ev.GetTeamById(tid)
 		if err != nil {
-			addChalError = err
+			return &pb.AddChallengeResponse{}, err
 		}
 
 		chals := l.Environment().Challenges()
@@ -314,14 +305,13 @@ func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChal
 		t.UpdateAllChallenges(childrenChalTags)
 	}
 
-	srv.Send(&pb.AddChallengeResponse{Message: "Assigned labs are processing to add challenge(s) ..."})
 	delimeter := ","
 	resp, err := d.dbClient.UpdateExercises(ctx, &storeProto.UpdateExerciseRequest{
 		EventTag:   req.EventTag,
 		Challenges: delimeter + strings.Join(req.ChallengeTag, delimeter),
 	})
 	if err != nil {
-		return err
+		return &pb.AddChallengeResponse{}, err
 	}
 	log.Printf(resp.Message)
 
@@ -340,10 +330,5 @@ func (d *daemon) AddChallenge(req *pb.AddChallengeRequest, srv pb.Daemon_AddChal
 	}
 	once.Do(updateChallenges)
 
-	if addChalError != nil {
-		return addChalError
-	}
-
-	srv.Send(&pb.AddChallengeResponse{Message: fmt.Sprintf("Challenge(s) %v is/(are) processing for event %s ", challengeTags, eventTag)})
-	return nil
+	return &pb.AddChallengeResponse{Message: fmt.Sprintf("Challenge(s) %v is/(are) processing for event %s ", challengeTags, eventTag)}, nil
 }
