@@ -88,10 +88,6 @@ type contextStream struct {
 	ctx context.Context
 }
 
-type GrpcLogger struct {
-	resp pb.Daemon_CreateEventServer
-}
-
 type jobSpecs struct {
 	function      func() error
 	checkInterval time.Duration
@@ -380,13 +376,6 @@ func New(conf *Config) (*daemon, error) {
 	waitGroup.Wait()
 
 	return d, nil
-}
-
-func (l *GrpcLogger) Msg(msg string) error {
-	s := pb.LabStatus{
-		ErrorMessage: msg,
-	}
-	return l.resp.Send(&s)
 }
 
 func (d *daemon) Version(context.Context, *pb.Empty) (*pb.VersionResponse, error) {
