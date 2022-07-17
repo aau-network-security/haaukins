@@ -188,7 +188,7 @@ func (d *daemon) UpdateTeamPassword(ctx context.Context, req *pb.UpdateTeamPassR
 		return &pb.UpdateTeamPassResponse{}, fmt.Errorf("Event [ %s ] could not be found ", req.EventTag)
 	}
 	if usr.NPUser && ev.GetConfig().CreatedBy != usr.Username {
-		return &pb.UpdateTeamPassResponse{}, NoFlagMngtPrivErr
+		return &pb.UpdateTeamPassResponse{}, fmt.Errorf("User [ %s ] is not authorized to update team password ", usr.Username)
 	}
 	status, err := ev.UpdateTeamPassword(req.TeamID, req.Password, req.PasswordRepeat)
 	if err != nil {
