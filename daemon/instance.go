@@ -2,6 +2,8 @@ package daemon
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,19 +23,19 @@ func (d *daemon) SetFrontendCpu(ctx context.Context, in *pb.SetFrontendCpuReques
 	return &pb.Empty{}, err
 }
 
-func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_ResetFrontendsServer) error {
-	log.Ctx(stream.Context()).Info().
+func (d *daemon) ResetFrontends(ctx context.Context, req *pb.ResetFrontendsRequest) (*pb.ResetTeamStatus, error) {
+	log.Ctx(ctx).Info().
 		Int("n-teams", len(req.Teams)).
 		Msg("reset frontends")
 
 	evtag, err := store.NewTag(req.EventTag)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ev, err := d.eventPool.GetEvent(evtag)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if req.Teams != nil {
@@ -41,33 +43,30 @@ func (d *daemon) ResetFrontends(req *pb.ResetFrontendsRequest, stream pb.Daemon_
 		for _, reqTeam := range req.Teams {
 			lab, ok := ev.GetLabByTeam(reqTeam.Id)
 			if !ok {
-				stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "?"})
-				continue
+				return nil, errors.New(fmt.Sprint("team's %s lab not found", reqTeam.Id))
 			}
 
-			if err := lab.ResetFrontends(stream.Context(), string(evtag), reqTeam.Id); err != nil {
-				return err
+			if err := lab.ResetFrontends(ctx, string(evtag), reqTeam.Id); err != nil {
+				return nil, err
 			}
-			stream.Send(&pb.ResetTeamStatus{TeamId: reqTeam.Id, Status: "ok"})
 		}
 
-		return nil
+		return &pb.ResetTeamStatus{Status: fmt.Sprintf("Frontends are restarted for requested teams.")}, nil
 	}
 
 	for _, t := range ev.GetTeams() {
 		lab, ok := ev.GetLabByTeam(t.ID())
 		if !ok {
-			stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "?"})
-			continue
+			return nil, errors.New(fmt.Sprint("team's %s lab not found", t.ID()))
 		}
 
-		if err := lab.ResetFrontends(stream.Context(), string(evtag), t.ID()); err != nil {
-			return err
+		if err := lab.ResetFrontends(ctx, string(evtag), t.ID()); err != nil {
+			return nil, err
 		}
-		stream.Send(&pb.ResetTeamStatus{TeamId: t.ID(), Status: "ok"})
 	}
 
-	return nil
+	return &pb.ResetTeamStatus{Status: fmt.Sprintf("Frontends are restarted on event %s", string(evtag))}, nil
+
 }
 
 func (d *daemon) ListFrontends(ctx context.Context, req *pb.Empty) (*pb.ListFrontendsResponse, error) {
