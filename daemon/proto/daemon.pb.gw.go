@@ -579,7 +579,7 @@ func local_request_Daemon_SolveChallenge_0(ctx context.Context, marshaler runtim
 
 }
 
-func request_Daemon_AddChallenge_0(ctx context.Context, marshaler runtime.Marshaler, client DaemonClient, req *http.Request, pathParams map[string]string) (Daemon_AddChallengeClient, runtime.ServerMetadata, error) {
+func request_Daemon_AddChallenge_0(ctx context.Context, marshaler runtime.Marshaler, client DaemonClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq AddChallengeRequest
 	var metadata runtime.ServerMetadata
 
@@ -591,16 +591,25 @@ func request_Daemon_AddChallenge_0(ctx context.Context, marshaler runtime.Marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	stream, err := client.AddChallenge(ctx, &protoReq)
-	if err != nil {
-		return nil, metadata, err
+	msg, err := client.AddChallenge(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_Daemon_AddChallenge_0(ctx context.Context, marshaler runtime.Marshaler, server DaemonServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq AddChallengeRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
 	}
-	header, err := stream.Header()
-	if err != nil {
-		return nil, metadata, err
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	metadata.HeaderMD = header
-	return stream, metadata, nil
+
+	msg, err := server.AddChallenge(ctx, &protoReq)
+	return msg, metadata, err
 
 }
 
@@ -796,7 +805,7 @@ func local_request_Daemon_ListExercises_0(ctx context.Context, marshaler runtime
 
 }
 
-func request_Daemon_ResetExercise_0(ctx context.Context, marshaler runtime.Marshaler, client DaemonClient, req *http.Request, pathParams map[string]string) (Daemon_ResetExerciseClient, runtime.ServerMetadata, error) {
+func request_Daemon_ResetExercise_0(ctx context.Context, marshaler runtime.Marshaler, client DaemonClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq ResetExerciseRequest
 	var metadata runtime.ServerMetadata
 
@@ -808,16 +817,25 @@ func request_Daemon_ResetExercise_0(ctx context.Context, marshaler runtime.Marsh
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	stream, err := client.ResetExercise(ctx, &protoReq)
-	if err != nil {
-		return nil, metadata, err
+	msg, err := client.ResetExercise(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_Daemon_ResetExercise_0(ctx context.Context, marshaler runtime.Marshaler, server DaemonServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ResetExerciseRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
 	}
-	header, err := stream.Header()
-	if err != nil {
-		return nil, metadata, err
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	metadata.HeaderMD = header
-	return stream, metadata, nil
+
+	msg, err := server.ResetExercise(ctx, &protoReq)
+	return msg, metadata, err
 
 }
 
@@ -873,7 +891,7 @@ func local_request_Daemon_ListFrontends_0(ctx context.Context, marshaler runtime
 
 }
 
-func request_Daemon_ResetFrontends_0(ctx context.Context, marshaler runtime.Marshaler, client DaemonClient, req *http.Request, pathParams map[string]string) (Daemon_ResetFrontendsClient, runtime.ServerMetadata, error) {
+func request_Daemon_ResetFrontends_0(ctx context.Context, marshaler runtime.Marshaler, client DaemonClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq ResetFrontendsRequest
 	var metadata runtime.ServerMetadata
 
@@ -885,16 +903,25 @@ func request_Daemon_ResetFrontends_0(ctx context.Context, marshaler runtime.Mars
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	stream, err := client.ResetFrontends(ctx, &protoReq)
-	if err != nil {
-		return nil, metadata, err
+	msg, err := client.ResetFrontends(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_Daemon_ResetFrontends_0(ctx context.Context, marshaler runtime.Marshaler, server DaemonServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ResetFrontendsRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
 	}
-	header, err := stream.Header()
-	if err != nil {
-		return nil, metadata, err
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	metadata.HeaderMD = header
-	return stream, metadata, nil
+
+	msg, err := server.ResetFrontends(ctx, &protoReq)
+	return msg, metadata, err
 
 }
 
@@ -1602,10 +1629,27 @@ func RegisterDaemonHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 	})
 
 	mux.Handle("POST", pattern_Daemon_AddChallenge_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
-		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-		return
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/AddChallenge", runtime.WithHTTPPathPattern("/admin/challenge/add"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_Daemon_AddChallenge_0(ctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Daemon_AddChallenge_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
 	mux.Handle("POST", pattern_Daemon_AddNotification_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -1729,10 +1773,27 @@ func RegisterDaemonHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 	})
 
 	mux.Handle("POST", pattern_Daemon_ResetExercise_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
-		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-		return
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/ResetExercise", runtime.WithHTTPPathPattern("/admin/event/reset/exercise"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_Daemon_ResetExercise_0(ctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Daemon_ResetExercise_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
 	mux.Handle("POST", pattern_Daemon_GetExercisesByTags_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -1784,10 +1845,27 @@ func RegisterDaemonHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 	})
 
 	mux.Handle("POST", pattern_Daemon_ResetFrontends_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
-		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-		return
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/ResetFrontends", runtime.WithHTTPPathPattern("/admin/frontend/reset"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_Daemon_ResetFrontends_0(ctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Daemon_ResetFrontends_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
 	mux.Handle("POST", pattern_Daemon_SetFrontendMemory_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -1924,7 +2002,7 @@ func RegisterDaemonHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/SaveProfile", runtime.WithHTTPPathPattern("/admin/event/save/profile"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/SaveProfile", runtime.WithHTTPPathPattern("/admin/profile/save"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1948,7 +2026,7 @@ func RegisterDaemonHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/DeleteProfile", runtime.WithHTTPPathPattern("/admin/event/delete/profile"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/DeleteProfile", runtime.WithHTTPPathPattern("/admin/profile/delete"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1972,7 +2050,7 @@ func RegisterDaemonHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/EditProfile", runtime.WithHTTPPathPattern("/admin/event/edit/profile"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/daemon.Daemon/EditProfile", runtime.WithHTTPPathPattern("/admin/profile/edit"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -2407,7 +2485,7 @@ func RegisterDaemonHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			return
 		}
 
-		forward_Daemon_AddChallenge_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_Daemon_AddChallenge_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -2533,7 +2611,7 @@ func RegisterDaemonHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			return
 		}
 
-		forward_Daemon_ResetExercise_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_Daemon_ResetExercise_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -2596,7 +2674,7 @@ func RegisterDaemonHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			return
 		}
 
-		forward_Daemon_ResetFrontends_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_Daemon_ResetFrontends_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -2731,7 +2809,7 @@ func RegisterDaemonHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/daemon.Daemon/SaveProfile", runtime.WithHTTPPathPattern("/admin/event/save/profile"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/daemon.Daemon/SaveProfile", runtime.WithHTTPPathPattern("/admin/profile/save"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -2752,7 +2830,7 @@ func RegisterDaemonHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/daemon.Daemon/DeleteProfile", runtime.WithHTTPPathPattern("/admin/event/delete/profile"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/daemon.Daemon/DeleteProfile", runtime.WithHTTPPathPattern("/admin/profile/delete"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -2773,7 +2851,7 @@ func RegisterDaemonHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/daemon.Daemon/EditProfile", runtime.WithHTTPPathPattern("/admin/event/edit/profile"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/daemon.Daemon/EditProfile", runtime.WithHTTPPathPattern("/admin/profile/edit"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -2878,11 +2956,11 @@ var (
 
 	pattern_Daemon_ListCategories_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"admin", "categories", "list"}, ""))
 
-	pattern_Daemon_SaveProfile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"admin", "event", "save", "profile"}, ""))
+	pattern_Daemon_SaveProfile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"admin", "profile", "save"}, ""))
 
-	pattern_Daemon_DeleteProfile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"admin", "event", "delete", "profile"}, ""))
+	pattern_Daemon_DeleteProfile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"admin", "profile", "delete"}, ""))
 
-	pattern_Daemon_EditProfile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"admin", "event", "edit", "profile"}, ""))
+	pattern_Daemon_EditProfile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"admin", "profile", "edit"}, ""))
 
 	pattern_Daemon_ListProfiles_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"admin", "profiles", "list"}, ""))
 )
@@ -2920,7 +2998,7 @@ var (
 
 	forward_Daemon_SolveChallenge_0 = runtime.ForwardResponseMessage
 
-	forward_Daemon_AddChallenge_0 = runtime.ForwardResponseStream
+	forward_Daemon_AddChallenge_0 = runtime.ForwardResponseMessage
 
 	forward_Daemon_AddNotification_0 = runtime.ForwardResponseMessage
 
@@ -2932,13 +3010,13 @@ var (
 
 	forward_Daemon_ListExercises_0 = runtime.ForwardResponseMessage
 
-	forward_Daemon_ResetExercise_0 = runtime.ForwardResponseStream
+	forward_Daemon_ResetExercise_0 = runtime.ForwardResponseMessage
 
 	forward_Daemon_GetExercisesByTags_0 = runtime.ForwardResponseMessage
 
 	forward_Daemon_ListFrontends_0 = runtime.ForwardResponseMessage
 
-	forward_Daemon_ResetFrontends_0 = runtime.ForwardResponseStream
+	forward_Daemon_ResetFrontends_0 = runtime.ForwardResponseMessage
 
 	forward_Daemon_SetFrontendMemory_0 = runtime.ForwardResponseMessage
 

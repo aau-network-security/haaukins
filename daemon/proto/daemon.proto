@@ -104,7 +104,7 @@ service Daemon {
     };
   }
 
-  rpc AddChallenge(AddChallengeRequest) returns (stream AddChallengeResponse) {
+  rpc AddChallenge(AddChallengeRequest) returns (AddChallengeResponse) {
     option (google.api.http) = {
       post: "/admin/challenge/add"
       body: "*"
@@ -142,7 +142,7 @@ service Daemon {
       get: "/admin/exercise/list"
     };
   }
-  rpc ResetExercise (ResetExerciseRequest) returns (stream ResetTeamStatus) {
+  rpc ResetExercise (ResetExerciseRequest) returns (ResetTeamStatus) {
     option (google.api.http) = {
       post: "/admin/event/reset/exercise"
       body: "*"
@@ -159,7 +159,7 @@ service Daemon {
       get: "/admin/frontends/list"
     };
   }
-  rpc ResetFrontends (ResetFrontendsRequest) returns (stream ResetTeamStatus) {
+  rpc ResetFrontends (ResetFrontendsRequest) returns (ResetTeamStatus) {
     option (google.api.http) = {
       post: "/admin/frontend/reset"
       body: "*"
@@ -199,19 +199,19 @@ service Daemon {
   }
   rpc SaveProfile (SaveProfileRequest) returns ( ProfileStatus) {
     option (google.api.http) = {
-      post: "/admin/event/save/profile"
+      post: "/admin/profile/save"
       body: "*"
     };
   }
   rpc DeleteProfile (DeleteProfileRequest) returns ( ProfileStatus) {
     option (google.api.http) = {
-      post: "/admin/event/delete/profile"
+      post: "/admin/profile/delete"
       body: "*"
     };
   }
   rpc EditProfile (SaveProfileRequest) returns ( ProfileStatus) {
     option (google.api.http) = {
-      post: "/admin/event/edit/profile"
+      post: "/admin/profile/edit"
       body: "*"
     };
   }

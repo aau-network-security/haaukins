@@ -38,16 +38,16 @@ type DaemonClient interface {
 	ListEventTeams(ctx context.Context, in *ListEventTeamsRequest, opts ...grpc.CallOption) (*ListEventTeamsResponse, error)
 	RestartTeamLab(ctx context.Context, in *RestartTeamLabRequest, opts ...grpc.CallOption) (*EventStatus, error)
 	SolveChallenge(ctx context.Context, in *SolveChallengeRequest, opts ...grpc.CallOption) (*SolveChallengeResponse, error)
-	AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (Daemon_AddChallengeClient, error)
+	AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (*AddChallengeResponse, error)
 	AddNotification(ctx context.Context, in *AddNotificationRequest, opts ...grpc.CallOption) (*AddNotificationResponse, error)
 	DeleteTeam(ctx context.Context, in *DeleteTeamRequest, opts ...grpc.CallOption) (*DeleteTeamResponse, error)
 	GetTeamChals(ctx context.Context, in *GetTeamInfoRequest, opts ...grpc.CallOption) (*TeamChalsInfo, error)
 	StressEvent(ctx context.Context, in *TestEventLoadReq, opts ...grpc.CallOption) (*TestEventLoadResp, error)
 	ListExercises(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListExercisesResponse, error)
-	ResetExercise(ctx context.Context, in *ResetExerciseRequest, opts ...grpc.CallOption) (Daemon_ResetExerciseClient, error)
+	ResetExercise(ctx context.Context, in *ResetExerciseRequest, opts ...grpc.CallOption) (*ResetTeamStatus, error)
 	GetExercisesByTags(ctx context.Context, in *GetExsByTagsReq, opts ...grpc.CallOption) (*GetExsByTagsResp, error)
 	ListFrontends(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListFrontendsResponse, error)
-	ResetFrontends(ctx context.Context, in *ResetFrontendsRequest, opts ...grpc.CallOption) (Daemon_ResetFrontendsClient, error)
+	ResetFrontends(ctx context.Context, in *ResetFrontendsRequest, opts ...grpc.CallOption) (*ResetTeamStatus, error)
 	SetFrontendMemory(ctx context.Context, in *SetFrontendMemoryRequest, opts ...grpc.CallOption) (*Empty, error)
 	SetFrontendCpu(ctx context.Context, in *SetFrontendCpuRequest, opts ...grpc.CallOption) (*Empty, error)
 	GetTeamInfo(ctx context.Context, in *GetTeamInfoRequest, opts ...grpc.CallOption) (*GetTeamInfoResponse, error)
@@ -212,36 +212,13 @@ func (c *daemonClient) SolveChallenge(ctx context.Context, in *SolveChallengeReq
 	return out, nil
 }
 
-func (c *daemonClient) AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (Daemon_AddChallengeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[0], "/daemon.Daemon/AddChallenge", opts...)
+func (c *daemonClient) AddChallenge(ctx context.Context, in *AddChallengeRequest, opts ...grpc.CallOption) (*AddChallengeResponse, error) {
+	out := new(AddChallengeResponse)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/AddChallenge", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonAddChallengeClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Daemon_AddChallengeClient interface {
-	Recv() (*AddChallengeResponse, error)
-	grpc.ClientStream
-}
-
-type daemonAddChallengeClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonAddChallengeClient) Recv() (*AddChallengeResponse, error) {
-	m := new(AddChallengeResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *daemonClient) AddNotification(ctx context.Context, in *AddNotificationRequest, opts ...grpc.CallOption) (*AddNotificationResponse, error) {
@@ -289,36 +266,13 @@ func (c *daemonClient) ListExercises(ctx context.Context, in *Empty, opts ...grp
 	return out, nil
 }
 
-func (c *daemonClient) ResetExercise(ctx context.Context, in *ResetExerciseRequest, opts ...grpc.CallOption) (Daemon_ResetExerciseClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[1], "/daemon.Daemon/ResetExercise", opts...)
+func (c *daemonClient) ResetExercise(ctx context.Context, in *ResetExerciseRequest, opts ...grpc.CallOption) (*ResetTeamStatus, error) {
+	out := new(ResetTeamStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/ResetExercise", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonResetExerciseClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Daemon_ResetExerciseClient interface {
-	Recv() (*ResetTeamStatus, error)
-	grpc.ClientStream
-}
-
-type daemonResetExerciseClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonResetExerciseClient) Recv() (*ResetTeamStatus, error) {
-	m := new(ResetTeamStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *daemonClient) GetExercisesByTags(ctx context.Context, in *GetExsByTagsReq, opts ...grpc.CallOption) (*GetExsByTagsResp, error) {
@@ -339,36 +293,13 @@ func (c *daemonClient) ListFrontends(ctx context.Context, in *Empty, opts ...grp
 	return out, nil
 }
 
-func (c *daemonClient) ResetFrontends(ctx context.Context, in *ResetFrontendsRequest, opts ...grpc.CallOption) (Daemon_ResetFrontendsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[2], "/daemon.Daemon/ResetFrontends", opts...)
+func (c *daemonClient) ResetFrontends(ctx context.Context, in *ResetFrontendsRequest, opts ...grpc.CallOption) (*ResetTeamStatus, error) {
+	out := new(ResetTeamStatus)
+	err := c.cc.Invoke(ctx, "/daemon.Daemon/ResetFrontends", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &daemonResetFrontendsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Daemon_ResetFrontendsClient interface {
-	Recv() (*ResetTeamStatus, error)
-	grpc.ClientStream
-}
-
-type daemonResetFrontendsClient struct {
-	grpc.ClientStream
-}
-
-func (x *daemonResetFrontendsClient) Recv() (*ResetTeamStatus, error) {
-	m := new(ResetTeamStatus)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *daemonClient) SetFrontendMemory(ctx context.Context, in *SetFrontendMemoryRequest, opts ...grpc.CallOption) (*Empty, error) {
@@ -399,7 +330,7 @@ func (c *daemonClient) GetTeamInfo(ctx context.Context, in *GetTeamInfoRequest, 
 }
 
 func (c *daemonClient) MonitorHost(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Daemon_MonitorHostClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[3], "/daemon.Daemon/MonitorHost", opts...)
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[0], "/daemon.Daemon/MonitorHost", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -504,16 +435,16 @@ type DaemonServer interface {
 	ListEventTeams(context.Context, *ListEventTeamsRequest) (*ListEventTeamsResponse, error)
 	RestartTeamLab(context.Context, *RestartTeamLabRequest) (*EventStatus, error)
 	SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error)
-	AddChallenge(*AddChallengeRequest, Daemon_AddChallengeServer) error
+	AddChallenge(context.Context, *AddChallengeRequest) (*AddChallengeResponse, error)
 	AddNotification(context.Context, *AddNotificationRequest) (*AddNotificationResponse, error)
 	DeleteTeam(context.Context, *DeleteTeamRequest) (*DeleteTeamResponse, error)
 	GetTeamChals(context.Context, *GetTeamInfoRequest) (*TeamChalsInfo, error)
 	StressEvent(context.Context, *TestEventLoadReq) (*TestEventLoadResp, error)
 	ListExercises(context.Context, *Empty) (*ListExercisesResponse, error)
-	ResetExercise(*ResetExerciseRequest, Daemon_ResetExerciseServer) error
+	ResetExercise(context.Context, *ResetExerciseRequest) (*ResetTeamStatus, error)
 	GetExercisesByTags(context.Context, *GetExsByTagsReq) (*GetExsByTagsResp, error)
 	ListFrontends(context.Context, *Empty) (*ListFrontendsResponse, error)
-	ResetFrontends(*ResetFrontendsRequest, Daemon_ResetFrontendsServer) error
+	ResetFrontends(context.Context, *ResetFrontendsRequest) (*ResetTeamStatus, error)
 	SetFrontendMemory(context.Context, *SetFrontendMemoryRequest) (*Empty, error)
 	SetFrontendCpu(context.Context, *SetFrontendCpuRequest) (*Empty, error)
 	GetTeamInfo(context.Context, *GetTeamInfoRequest) (*GetTeamInfoResponse, error)
@@ -578,8 +509,8 @@ func (UnimplementedDaemonServer) RestartTeamLab(context.Context, *RestartTeamLab
 func (UnimplementedDaemonServer) SolveChallenge(context.Context, *SolveChallengeRequest) (*SolveChallengeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SolveChallenge not implemented")
 }
-func (UnimplementedDaemonServer) AddChallenge(*AddChallengeRequest, Daemon_AddChallengeServer) error {
-	return status.Errorf(codes.Unimplemented, "method AddChallenge not implemented")
+func (UnimplementedDaemonServer) AddChallenge(context.Context, *AddChallengeRequest) (*AddChallengeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddChallenge not implemented")
 }
 func (UnimplementedDaemonServer) AddNotification(context.Context, *AddNotificationRequest) (*AddNotificationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddNotification not implemented")
@@ -596,8 +527,8 @@ func (UnimplementedDaemonServer) StressEvent(context.Context, *TestEventLoadReq)
 func (UnimplementedDaemonServer) ListExercises(context.Context, *Empty) (*ListExercisesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListExercises not implemented")
 }
-func (UnimplementedDaemonServer) ResetExercise(*ResetExerciseRequest, Daemon_ResetExerciseServer) error {
-	return status.Errorf(codes.Unimplemented, "method ResetExercise not implemented")
+func (UnimplementedDaemonServer) ResetExercise(context.Context, *ResetExerciseRequest) (*ResetTeamStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetExercise not implemented")
 }
 func (UnimplementedDaemonServer) GetExercisesByTags(context.Context, *GetExsByTagsReq) (*GetExsByTagsResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetExercisesByTags not implemented")
@@ -605,8 +536,8 @@ func (UnimplementedDaemonServer) GetExercisesByTags(context.Context, *GetExsByTa
 func (UnimplementedDaemonServer) ListFrontends(context.Context, *Empty) (*ListFrontendsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListFrontends not implemented")
 }
-func (UnimplementedDaemonServer) ResetFrontends(*ResetFrontendsRequest, Daemon_ResetFrontendsServer) error {
-	return status.Errorf(codes.Unimplemented, "method ResetFrontends not implemented")
+func (UnimplementedDaemonServer) ResetFrontends(context.Context, *ResetFrontendsRequest) (*ResetTeamStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetFrontends not implemented")
 }
 func (UnimplementedDaemonServer) SetFrontendMemory(context.Context, *SetFrontendMemoryRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetFrontendMemory not implemented")
@@ -938,25 +869,22 @@ func _Daemon_SolveChallenge_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_AddChallenge_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(AddChallengeRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Daemon_AddChallenge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddChallengeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(DaemonServer).AddChallenge(m, &daemonAddChallengeServer{stream})
-}
-
-type Daemon_AddChallengeServer interface {
-	Send(*AddChallengeResponse) error
-	grpc.ServerStream
-}
-
-type daemonAddChallengeServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonAddChallengeServer) Send(m *AddChallengeResponse) error {
-	return x.ServerStream.SendMsg(m)
+	if interceptor == nil {
+		return srv.(DaemonServer).AddChallenge(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/AddChallenge",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).AddChallenge(ctx, req.(*AddChallengeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_AddNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1049,25 +977,22 @@ func _Daemon_ListExercises_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_ResetExercise_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ResetExerciseRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Daemon_ResetExercise_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetExerciseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(DaemonServer).ResetExercise(m, &daemonResetExerciseServer{stream})
-}
-
-type Daemon_ResetExerciseServer interface {
-	Send(*ResetTeamStatus) error
-	grpc.ServerStream
-}
-
-type daemonResetExerciseServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonResetExerciseServer) Send(m *ResetTeamStatus) error {
-	return x.ServerStream.SendMsg(m)
+	if interceptor == nil {
+		return srv.(DaemonServer).ResetExercise(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/ResetExercise",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).ResetExercise(ctx, req.(*ResetExerciseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_GetExercisesByTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1106,25 +1031,22 @@ func _Daemon_ListFrontends_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_ResetFrontends_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ResetFrontendsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Daemon_ResetFrontends_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetFrontendsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(DaemonServer).ResetFrontends(m, &daemonResetFrontendsServer{stream})
-}
-
-type Daemon_ResetFrontendsServer interface {
-	Send(*ResetTeamStatus) error
-	grpc.ServerStream
-}
-
-type daemonResetFrontendsServer struct {
-	grpc.ServerStream
-}
-
-func (x *daemonResetFrontendsServer) Send(m *ResetTeamStatus) error {
-	return x.ServerStream.SendMsg(m)
+	if interceptor == nil {
+		return srv.(DaemonServer).ResetFrontends(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/daemon.Daemon/ResetFrontends",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).ResetFrontends(ctx, req.(*ResetFrontendsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_SetFrontendMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1382,6 +1304,10 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_SolveChallenge_Handler,
 		},
 		{
+			MethodName: "AddChallenge",
+			Handler:    _Daemon_AddChallenge_Handler,
+		},
+		{
 			MethodName: "AddNotification",
 			Handler:    _Daemon_AddNotification_Handler,
 		},
@@ -1402,12 +1328,20 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_ListExercises_Handler,
 		},
 		{
+			MethodName: "ResetExercise",
+			Handler:    _Daemon_ResetExercise_Handler,
+		},
+		{
 			MethodName: "GetExercisesByTags",
 			Handler:    _Daemon_GetExercisesByTags_Handler,
 		},
 		{
 			MethodName: "ListFrontends",
 			Handler:    _Daemon_ListFrontends_Handler,
+		},
+		{
+			MethodName: "ResetFrontends",
+			Handler:    _Daemon_ResetFrontends_Handler,
 		},
 		{
 			MethodName: "SetFrontendMemory",
@@ -1447,21 +1381,6 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "AddChallenge",
-			Handler:       _Daemon_AddChallenge_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "ResetExercise",
-			Handler:       _Daemon_ResetExercise_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "ResetFrontends",
-			Handler:       _Daemon_ResetFrontends_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "MonitorHost",
 			Handler:       _Daemon_MonitorHost_Handler,
