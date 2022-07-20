@@ -33,17 +33,27 @@ const (
 	VPNBrowser = 2
 )
 
+type notification struct {
+	message     string
+	loggedUsers bool
+}
+
 var (
-	NoPrivilegeToStressTest = errors.New("No privilege to have stress test on Haaukins !")
+	NoPrivilegeToStressTest = errors.New("no privilege to have stress test on Haaukins ")
 	NPUserMaxLabs           = 40
 	NotAvailableTag         = "not available tag, there is already an event which is either running, booked or suspended"
 	vpnIPPools              = newIPPoolFromHost()
-	CapacityExceedsErr      = errors.New("VPN Events can have maximum 252 people on board !")
-	OutOfQuota              = errors.New("Out of quota for members, you have limited access")
+	CapacityExceedsErr      = errors.New("VPN Events can have maximum 252 people on board ")
+	OutOfQuota              = errors.New("out of quota for members, you have limited access")
 )
 
+var notify *notification = &notification{
+	message:     "",
+	loggedUsers: false,
+}
+
 // INITIAL POINT OF CREATE EVENT FUNCTION, IT INITIALIZE EVENT AND ADDS EVENTPOOL
-func (d *daemon) startEvent(ev guacamole.Event) {
+func (d *daemon) startEvent(ctx context.Context, ev guacamole.Event) {
 	conf := ev.GetConfig()
 	var frontendNames []string
 	if ev.GetConfig().OnlyVPN != VPN {
@@ -62,8 +72,11 @@ func (d *daemon) startEvent(ev guacamole.Event) {
 		Msg("Creating event")
 
 	go ev.Start(context.TODO())
-
 	d.eventPool.AddEvent(ev)
+	d.AddNotification(ctx, &pb.AddNotificationRequest{
+		Message:     notify.message,
+		LoggedUsers: notify.loggedUsers,
+	})
 }
 
 func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEventServer) error {
@@ -187,7 +200,6 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 		}
 
 		secretKey := strings.TrimSpace(req.SecretEvent)
-
 		conf := store.EventConfig{
 			Name:           req.Name,
 			Tag:            evtag,
@@ -243,7 +255,7 @@ func (d *daemon) CreateEvent(req *pb.CreateEventRequest, resp pb.Daemon_CreateEv
 			ev.Close()
 			return err
 		}
-		d.startEvent(ev)
+		d.startEvent(ctx, ev)
 	}
 	return nil
 }
@@ -501,8 +513,8 @@ func (d *daemon) createEventFromEventDB(ctx context.Context, conf store.EventCon
 		log.Error().Err(err).Msg("Error creating event from database event")
 		return err
 	}
-
-	d.startEvent(ev)
+	daemonContext := context.WithValue(ctx, "daemon", "true")
+	d.startEvent(daemonContext, ev)
 
 	return nil
 }
@@ -548,6 +560,7 @@ func (d *daemon) SuspendEvent(req *pb.SuspendEventRequest, resp pb.Daemon_Suspen
 }
 
 func (d *daemon) AddNotification(ctx context.Context, req *pb.AddNotificationRequest) (*pb.AddNotificationResponse, error) {
+
 	usr, err := getUserFromIncomingContext(ctx)
 	if err != nil {
 		return &pb.AddNotificationResponse{}, err
@@ -555,15 +568,18 @@ func (d *daemon) AddNotification(ctx context.Context, req *pb.AddNotificationReq
 	if !usr.SuperUser {
 		return &pb.AddNotificationResponse{}, errors.New("this feature is only available for super users ")
 	}
-	var waitGroup sync.WaitGroup
-	message := strings.TrimSpace(req.Message)
-	loggedInUsers := req.LoggedUsers
 
+	message := strings.TrimSpace(req.Message)
+	var waitGroup sync.WaitGroup
+	notify = &notification{
+		message:     message,
+		loggedUsers: req.LoggedUsers,
+	}
 	for _, e := range d.eventPool.events {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			if err := e.AddNotification(message, loggedInUsers); err != nil {
+			if err := e.AddNotification(notify.message, notify.loggedUsers); err != nil {
 				log.Error().Msgf("[add-notification] err: %v ", err)
 				// todo: might be added return
 			}
