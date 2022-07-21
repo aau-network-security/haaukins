@@ -10,8 +10,6 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"google.golang.org/grpc/metadata"
-
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/logging"
@@ -21,7 +19,8 @@ import (
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
-
+	"github.com/tmc/grpc-websocket-proxy/wsproxy"
+	"google.golang.org/grpc/metadata"
 	"io"
 	"io/ioutil"
 	"math"
@@ -481,13 +480,13 @@ func (d *daemon) Run() error {
 			}
 			return
 		}
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.InSecure), d.eventPool); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.InSecure), wsproxy.WebsocketProxy(d.eventPool, wsproxy.WithTokenCookieName("user"))); err != nil {
 			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
 	// redirect if TLS enabled only...
 	if d.conf.Certs.Enabled {
-		go http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.InSecure), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		go http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.Secure), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
 		}))
 	}
