@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/logging"
@@ -19,19 +18,17 @@ import (
 	"github.com/aau-network-security/haaukins/svcs/guacamole"
 	"github.com/aau-network-security/haaukins/virtual/docker"
 	"github.com/aau-network-security/haaukins/virtual/vbox"
-	"github.com/tmc/grpc-websocket-proxy/wsproxy"
-	"google.golang.org/grpc/metadata"
-	"io"
-	"io/ioutil"
-	"math"
-
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
+	"math"
 
 	"net"
 	"net/http"
@@ -456,6 +453,13 @@ func authGateway(ctx context.Context, req *http.Request) metadata.MD {
 	return metadata.New(map[string]string{"token": token})
 }
 
+func runMoniorHostWebSocket() {
+	http.HandleFunc("/admin/host/monitor", monitorHost)
+	log.Info().Msgf("Monitoring host websocket started on port 8091")
+	http.ListenAndServe(fmt.Sprintf(":%d", 8091), nil)
+
+}
+
 func (d *daemon) Run() error {
 
 	// start frontend
@@ -480,7 +484,7 @@ func (d *daemon) Run() error {
 			}
 			return
 		}
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.InSecure), wsproxy.WebsocketProxy(d.eventPool, wsproxy.WithTokenCookieName("user"))); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", d.conf.Host.Http.Port.InSecure), d.eventPool); err != nil {
 			log.Warn().Msgf("Serving error: %s", err)
 		}
 	}()
@@ -512,7 +516,7 @@ func (d *daemon) Run() error {
 	}
 
 	go s.Serve(lis)
-
+	go runMoniorHostWebSocket()
 	// Create a client connection to the gRPC server we just started
 	// This is where the gRPC-Gateway proxies the requests
 
