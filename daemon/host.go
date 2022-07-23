@@ -17,14 +17,14 @@ import (
 var upgrader = websocket.Upgrader{}
 
 func monitorHost(w http.ResponseWriter, r *http.Request) {
-
+	t := time.NewTicker(2 * time.Second)
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
 	}
 	defer c.Close()
-	for {
+	for range t.C {
 
 		var cpuErr string
 		var cpuPercent float32
