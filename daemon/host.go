@@ -32,23 +32,23 @@ func monitorHost(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			cpuErr = err.Error()
 			log.Error().Err(err).Msgf("error getting cpu percent %v", cpuErr)
+			break
 		}
 		if len(cpus) == 1 {
 			cpuPercent = float32(cpus[0])
 		}
-		log.Debug().Msgf("CPU: %f", cpuPercent)
 
 		var memErr string
 		v, err := mem.VirtualMemory()
-		log.Debug().Msgf("Memory: %f", v.UsedPercent)
+
 		if err != nil {
 			memErr = err.Error()
 			log.Error().Msgf("Monitor memory error: %s", memErr)
+			break
+
 		}
 
 		message := "{\"cpuPercent\":\"" + fmt.Sprintf("%f", cpuPercent) + "\",\"memPercent\":\"" + fmt.Sprintf("%f", v.UsedPercent) + "\",\"memError\":\"" + memErr + "\",\"cpuError\":\"" + cpuErr + "\"}"
-
-		log.Debug().Msgf("Sending message: %s", string(message))
 
 		err = c.WriteMessage(websocket.TextMessage, []byte(message))
 		if err != nil {
