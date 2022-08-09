@@ -176,9 +176,17 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 			tags[i] = t
 		}
 		evtag, _ := store.NewTag(req.Tag)
-		finishTime, _ := time.Parse(dbTimeFormat, req.FinishTime)
-		startTime, _ := time.Parse(dbTimeFormat, req.StartTime)
-
+		finishTime, err := time.Parse(dbTimeFormat, req.FinishTime)
+		if err != nil {
+			log.Error().Err(err).Msgf("parsing finish time: %v", err)
+			return nil, errors.New("invalid finish time: please select finish time ! ") 
+		}
+		startTime, err := time.Parse(dbTimeFormat, req.StartTime)
+		if err != nil {
+			log.Error().Msgf("invalid start time: %v", err)
+			return nil, errors.New("invalid start time: please select start time !") 
+		}
+		
 		if isInvalidDate(startTime) {
 			return nil, fmt.Errorf("invalid startTime format %v", startTime)
 		}
