@@ -21,13 +21,29 @@
             team: Object,
             pos: Number,
         },
+
         components: {
             ChallengeCell,
+        },
+        mounted() {
+          let theme = localStorage.getItem("theme");
+          if (theme === 'dark') {
+            this.theme= 'dark'
+            this.dark_mode = true
+          } else {
+            this.theme='light'
+            this.dark_mode = false
+          }
         },
         methods: {
             get_background(index, user){
                 if (user){
-                    return 'bg-isUser'
+                  if (this.darkMode) {
+                    return 'bg-isUser-dark '
+                  } else {
+                    return 'bg-isUser-light'
+                  }
+
                 }
                 if (index % 2 === 0){
                     return 'even'
@@ -45,7 +61,10 @@
     .odd {
         background-color: rgb(233, 235, 245);
     }
-    .bg-isUser {
+    .bg-isUser-light {
         background-color: rgb(195, 203, 228)!important;
+    }
+    .bg-isUser-dark {
+      background-color: #707070!important;
     }
 </style>

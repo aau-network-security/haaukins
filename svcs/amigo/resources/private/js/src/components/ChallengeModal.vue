@@ -1,6 +1,6 @@
 <template>
     <div>
-        <b-modal ref="modal" id="challengeModal" centered hide-footer hide-header >
+        <b-modal size="lg" ref="modal" title="challenge.name" id="challengeModal" centered hide-footer hide-header>
             <div class="modal-body">
                 <button type="button" class="close" v-on:click="$bvModal.hide('challengeModal')">
                     <span aria-hidden="true">×</span>
@@ -86,4 +86,8 @@ export default {
         color: #211A52;
         text-decoration: none;
     }
+    * {
+      font-family: inherit!important;
+    }
+
 </style>

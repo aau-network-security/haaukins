@@ -1,46 +1,41 @@
 {{ define "content" }}
-	<img class="wave-bg" src="/assets/img/wave-login.png">
-	<div class="container h-100">
-		<div class="row h-100">
-			<div class="col myd-none" style="min-height: 800px!important;">
-				<div class="svg-login h-100">
-					<img src="/assets/img/login4.svg" class="img-fluid">
-				</div>
-			</div>
-			<div class="col" style="min-height: 800px!important; height: 100vh">
-				<div class="login-content h-100">
-					<form class="login-form" method="post" action="/login">
-						<img src="/assets/img/haaukins-login.png">
-						<h2>Welcome</h2>
-						<div class="input-div">
-							<div class="input-div-icon">
-								<i class="fas fa-user"></i>
-							</div>
-							<div class="input-div-input">
-								<h5>Username</h5>
-								<input class="input" name="username" type="text">
-							</div>
-						</div>
-						<div class="input-div mb-2">
-							<div class="input-div-icon">
-								<i class="fas fa-lock"></i>
-							</div>
-							<div class="input-div-input">
-								<h5>Password</h5>
-								<input class="input" name="password" type="password">
-							</div>
-						</div>
-						<input type="submit" class="btn btn-login mt-3" value="Login">
-						{{ with .Content }}
-							{{ if .LoginError }}
-								<div class="mt-2 text-danger">
-									{{ .LoginError }}
-								</div>
-							{{ end }}
-						{{ end }}
-					</form>
-				</div>
-			</div>
-		</div>
-	</div>
+<div class="container h-100" style="margin-top: 5%">
+   <div class="row h-100">
+      <div class="col" style="min-height: 800px!important; height: 100vh">
+         <div class="login-content h-100">
+            <form class="login-form" method="post" action="/login">
+               <div class="container" id="logo"></div>
+               <h2>Welcome</h2>
+               <div class="input-div">
+                  <div class="input-div-icon">
+                     <i class="fas fa-user"></i>
+                  </div>
+                  <div class="input-div-input">
+                     <h5>Username</h5>
+                     <input class="input" name="username" type="text">
+                  </div>
+               </div>
+               <div class="input-div mb-2">
+                  <div class="input-div-icon">
+                     <i class="fas fa-lock"></i>
+                  </div>
+                  <div class="input-div-input">
+                     <h5>Password</h5>
+                     <input class="input" name="password" type="password">
+                  </div>
+               </div>
+               <input type="submit" class="btn btn-login mt-3" value="Login">
+               {{ with .Content }}
+                  {{ if .LoginError }}
+                  <div class="mt-2 text-danger">
+                     {{ .LoginError }}
+                  </div>
+                  {{ end }}
+               {{ end }}
+            </form>
+         </div>
+      </div>
+   </div>
+</div>
+
 {{ end }}

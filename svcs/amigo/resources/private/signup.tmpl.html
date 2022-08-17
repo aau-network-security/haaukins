@@ -1,6 +1,5 @@
 {{ define "content" }}
-	<img class="wave-bg-signup" src="/assets/img/wave-signup.png">
-	<div class="container h-100">
+	<div class="container h-100" style="margin-top: 5%">
 		<div class="row h-100">
 			<div class="col" style="min-height: 800px!important; height: 100vh">
 				<div class="login-content h-100">
@@ -11,13 +10,14 @@
 						</h4>
 					{{ else }}
 						<form class="login-form" method="post" action="/signup">
-							<h4>Create a Team</h4>
+							<div class="container" id="logo"></div>
+							<h4>Create a User</h4>
 							<div class="input-div">
 								<div class="input-div-icon">
 									<i class="fas fa-user"></i>
 								</div>
 								<div class="input-div-input">
-									<h5>Team Name</h5>
+									<h5>Username</h5>
 									<input class="input" name="team-name" type="text" maxlength="15">
 								</div>
 							</div>
@@ -61,11 +61,6 @@
 								{{ end }}
 						</form>
 					{{ end }}
-				</div>
-			</div>
-			<div class="col myd-none" style="min-height: 800px!important;">
-				<div class="svg-login h-100">
-					<img src="/assets/img/login2.svg" class="img-fluid">
 				</div>
 			</div>
 		</div>

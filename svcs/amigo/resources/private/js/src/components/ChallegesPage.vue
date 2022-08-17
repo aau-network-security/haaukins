@@ -1,6 +1,5 @@
 <template>
   <div id="challenges-board" v-bind:style= "[this.isLabAssigned  ? {}: { 'pointer-events': 'none', 'opacity': '0.5' }]">
-
     <div class="row mt-2" v-for="category in challengesFromAmigo" v-bind:key="category[0].challenge.category">
       <div class="category-header col-md-12 mb-3">
         <h3>{{category[0].challenge.category}}</h3>
@@ -32,7 +31,6 @@ export default {
     }
   },
   created: function() {
-
     this.connectToWS();
   },
   methods: {
@@ -104,6 +102,7 @@ export default {
   color: #fff;
   background-color: #211A52;
   border-color: #211A52;
+  box-shadow: 4px 4px #00e6cc
 }
 .btn-haaukins:hover{
   color: #fff;
@@ -125,12 +124,15 @@ export default {
 .btn-success{
   background-color: #6ab55f;
   border-color: #6ab55f;
+  box-shadow: 4px 4px #00ff41;
 }
 .btn-success:hover{
   background-color: #55a04a;
   border-color: #55a04a;
 }
 .chal-name-font{
-  font-size: 14px;
+  font-size: 1.12em;
+
 }
+
 </style>
