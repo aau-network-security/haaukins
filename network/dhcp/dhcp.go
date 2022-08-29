@@ -50,7 +50,7 @@ func New(format func(n int) string) (*Server, error) {
 		return nil, err
 	}
 	cont := docker.NewContainer(docker.ContainerConfig{
-		Image: "networkboot/dhcpd",
+		Image: "networkboot/dhcpd:1.2.0",
 		Mounts: []string{
 			fmt.Sprintf("%s:/data/dhcpd.conf", confFile),
 		},
