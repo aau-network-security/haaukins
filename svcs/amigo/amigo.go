@@ -41,14 +41,12 @@ var (
 	ErrTeamNameCharacters   = errors.New("team name should NOT contain non-alphanumeric characters")
 	ErrEmailEmpty           = errors.New("email can NOT be empty")
 	ErrEmailToLarge         = errors.New("email is NOT within the defined character limit")
-	ErrEmailCharacters      = errors.New("Non alphabetic characters are NOT allowed in email address such as - , { [ _   ")
+	ErrEmailCharacters      = errors.New("non alphabetic characters are NOT allowed in email address such as - , { [ _   ")
 	ErrProtectedEvent       = errors.New("UNABLE TO SIGNUP: WRONG SECRET KEY FOR PROTECTED EVENT ! \n ASK EVENT ADMINISTRATOR FOR SECRET KEY FOR THIS EVENT ! ")
 	teamNameRegex           = "^[A-Za-z0-9]+$"
 	emailRegex              = "^[a-zA-Z0-9.!#$%&'*+^\\{|}~]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 	wd                      = GetWd()
-	passMaxLength           = 20
 	passMinLength           = 6
-	emailMaxLength          = 30
 	teamNameMaxLength       = 20
 )
 
@@ -637,15 +635,11 @@ func (am *Amigo) handleSignupPOST(hook func(t *store.Team) error) http.HandlerFu
 		}
 
 		if len(data.Password) < passMinLength {
-			return data, fmt.Errorf("Password needs to be at least %d characters", passMinLength)
-		}
-
-		if len(data.Password) > passMaxLength {
-			return data, fmt.Errorf("The maximum password length is %d characters", passMaxLength)
+			return data, fmt.Errorf("password needs to be at least %d characters", passMinLength)
 		}
 
 		if data.Password != r.PostFormValue("password-repeat") {
-			return data, fmt.Errorf("Password needs to match")
+			return data, fmt.Errorf("password needs to match")
 		}
 
 		return data, nil
@@ -1030,7 +1024,7 @@ func (am *Amigo) getTeamFromRequest(w http.ResponseWriter, r *http.Request) (*st
 	return t, nil
 }
 
-//Read json from request
+// Read json from request
 func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes int64) error {
 	r.Body = http.MaxBytesReader(w, r.Body, bytes)
 	defer r.Body.Close()
@@ -1047,7 +1041,7 @@ func safeReadJson(w http.ResponseWriter, r *http.Request, i interface{}, bytes i
 	return nil
 }
 
-//Return json format
+// Return json format
 func replyJson(sc int, w http.ResponseWriter, i interface{}) error {
 	w.Header().Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	w.Header().Set("Content-Type", "application/json")
@@ -1060,12 +1054,12 @@ type errReply struct {
 	Error string `json:"error"`
 }
 
-//Return json error
+// Return json error
 func replyJsonRequestErr(w http.ResponseWriter, err error) error {
 	return replyJson(http.StatusBadRequest, w, errReply{err.Error()})
 }
 
-//Return team information (id and name) from cookie token
+// Return team information (id and name) from cookie token
 func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
 	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -1098,7 +1092,7 @@ func (am *Amigo) getTeamInfoFromToken(token string) (*team, error) {
 
 type Middleware func(http.HandlerFunc) http.HandlerFunc
 
-//Check if the request method is GET
+// Check if the request method is GET
 func GETEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -1109,7 +1103,7 @@ func GETEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-//Check if the request method is POST
+// Check if the request method is POST
 func POSTEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -1120,7 +1114,7 @@ func POSTEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-//Check if the content-type of the request is in json
+// Check if the content-type of the request is in json
 func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
@@ -1131,11 +1125,11 @@ func JSONEndpoint(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-//Get the parent tag of the challenge.
-//in the exerise.yml file children challenges have a number
-//for example Parent: sql, Children: sql-1, sql-2 ....
-//In order to reset a challenge the parent tag is needed so, this
-//function check is the challenge tag contains a number, if so, remove the last 2 characters
+// Get the parent tag of the challenge.
+// in the exerise.yml file children challenges have a number
+// for example Parent: sql, Children: sql-1, sql-2 ....
+// In order to reset a challenge the parent tag is needed so, this
+// function check is the challenge tag contains a number, if so, remove the last 2 characters
 func getParentChallengeTag(child string) string {
 	for _, c := range child {
 		if unicode.IsDigit(c) {
@@ -1145,7 +1139,7 @@ func getParentChallengeTag(child string) string {
 	return child
 }
 
-//Get working directory of the project
+// Get working directory of the project
 func GetWd() string {
 	path, err := os.Getwd()
 	if err != nil {
