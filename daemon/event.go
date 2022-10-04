@@ -212,6 +212,16 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 			}
 			vpnAddress = fmt.Sprintf("%s.240.1/22", vpnIP)
 		}
+		if req.Available > req.Capacity {
+			log.Error().
+				Int32("Availability", req.Available).
+				Int32("Capacity", req.Capacity).
+				Str("tag", req.Tag).
+				Str("name", req.Name).
+				Str("createdBy", user.Username).
+				Msg("user tried to create event with larger capacity than availability")
+			return nil, errors.New("capacity should be larger than or equal to the availability")
+		}
 
 		secretKey := strings.TrimSpace(req.SecretEvent)
 		conf := store.EventConfig{
