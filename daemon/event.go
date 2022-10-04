@@ -415,9 +415,8 @@ func (d *daemon) StopEvent(ctx context.Context, req *pb.StopEventRequest) (*pb.E
 
 		if (user.NPUser && user.Username == createdBy) || !user.NPUser {
 			// remove the corrosponding event folder
-			if err := vbox.RemoveEventFolder(string(evtag)); err != nil {
-				//do nothing
-			}
+			vbox.RemoveEventFolder(string(evtag))
+
 			_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
 			if err != nil {
 				return nil, fmt.Errorf("error happened on setting up status of event, err: %v", err)
@@ -805,11 +804,11 @@ func (d *daemon) StressEvent(ctx context.Context, req *pb.TestEventLoadReq) (*pb
 
 	ev, err := d.eventPool.GetEvent(store.Tag(req.EventName))
 	if ev == nil {
-		return &pb.TestEventLoadResp{}, fmt.Errorf("no such an event called %s, error: %v !", req.EventName, err)
+		return &pb.TestEventLoadResp{}, fmt.Errorf("no such an event called %s, error: %v ", req.EventName, err)
 	}
 
 	if ev.GetConfig().Capacity < int(req.NumberOfTeams) {
-		return &pb.TestEventLoadResp{}, errors.New("event capacity is less than provided number of teams. skipping testing...")
+		return &pb.TestEventLoadResp{}, errors.New("event capacity is less than provided number of teams. skipping testing")
 	}
 	var port, protocol string
 	if d.conf.Certs.Enabled {
@@ -962,7 +961,7 @@ func (d *daemon) SaveProfile(ctx context.Context, req *pb.SaveProfileRequest) (*
 		}, nil
 	}
 
-	return nil, errors.New("You don't have the privilege to create profiles")
+	return nil, errors.New("you don't have the privilege to create profiles")
 
 }
 
@@ -1039,7 +1038,7 @@ func (d *daemon) EditProfile(ctx context.Context, req *pb.SaveProfileRequest) (*
 			Status: fmt.Sprintf("Profile %s updated", req.Name),
 		}, nil
 	}
-	return nil, errors.New("You don't have the privilege to update profiles")
+	return nil, errors.New("you don't have the privilege to update profiles")
 }
 
 func (d *daemon) DeleteProfile(ctx context.Context, req *pb.DeleteProfileRequest) (*pb.ProfileStatus, error) {
@@ -1066,5 +1065,5 @@ func (d *daemon) DeleteProfile(ctx context.Context, req *pb.DeleteProfileRequest
 		}, nil
 	}
 
-	return nil, errors.New("You don't have the privilege to delete profiles")
+	return nil, errors.New("you don't have the privilege to delete profiles")
 }
