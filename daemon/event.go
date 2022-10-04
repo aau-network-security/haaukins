@@ -100,12 +100,12 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 	// check from database if subnet is already assigned to an event or not
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
-		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		log.Warn().Err(err).Msg("User credentials not found ! ")
 		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
 	// checking through eventPool is not good enough since booked events are not added to eventpool
-	isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
+	eventResponse, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
 		EventTag: req.Tag,
 		// it will take INVERT condition which means that query from
 		//Running, Suspended and Booked events
@@ -114,7 +114,7 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("event does not exist or something is wrong: %v", err)
 	}
-	if isEventExist.IsExist {
+	if eventResponse.IsExist {
 		return nil, fmt.Errorf(NotAvailableTag)
 	}
 	log.Debug().Msgf("Checked existing events through database.")
@@ -179,14 +179,14 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 		finishTime, err := time.Parse(dbTimeFormat, req.FinishTime)
 		if err != nil {
 			log.Error().Err(err).Msgf("parsing finish time: %v", err)
-			return nil, errors.New("invalid finish time: please select finish time ! ") 
+			return nil, errors.New("invalid finish time: please select finish time ! ")
 		}
 		startTime, err := time.Parse(dbTimeFormat, req.StartTime)
 		if err != nil {
 			log.Error().Msgf("invalid start time: %v", err)
-			return nil, errors.New("invalid start time: please select start time !") 
+			return nil, errors.New("invalid start time: please select start time !")
 		}
-		
+
 		if isInvalidDate(startTime) {
 			return nil, fmt.Errorf("invalid startTime format %v", startTime)
 		}
@@ -610,7 +610,7 @@ func (d *daemon) AddNotification(ctx context.Context, req *pb.AddNotificationReq
 	return &pb.AddNotificationResponse{Response: "Given notification set for all events "}, nil
 }
 
-//removeDuplicates removes duplicated values in given list
+// removeDuplicates removes duplicated values in given list
 // used incoming CreateEventRequest
 func removeDuplicates(exercises []string) []string {
 	k := make(map[string]bool)
