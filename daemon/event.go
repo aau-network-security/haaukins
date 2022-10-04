@@ -117,32 +117,35 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 	if eventResponse.IsExist {
 		return nil, fmt.Errorf(NotAvailableTag)
 	}
-	log.Debug().Msgf("Checked existing events through database.")
+	log.Debug().Msg("Checked existing events through database.")
 
 	if (req.OnlyVPN == VPN || req.OnlyVPN == VPNBrowser) && req.Capacity > 253 {
 		log.Error().
+			Err(CapacityExceedsErr).
 			Str("tag", req.Tag).
 			Str("name", req.Name).
-			Msgf("Capacity Error: %v", CapacityExceedsErr)
+			Msg("requested event exceeds limits")
 		return nil, CapacityExceedsErr
 	}
 
 	if user.NPUser && req.Capacity > int32(NPUserMaxLabs) {
 		log.Error().
+			Err(OutOfQuota).
 			Str("tag", req.Tag).
 			Str("name", req.Name).
 			Str("createdBy", user.Username).
-			Msgf("Out of Quota Error: %v", OutOfQuota)
+			Msg("user quota reached")
 		return nil, OutOfQuota
 	}
 
 	isEligible, err := d.checkUserQuota(ctx, user.Username)
 	if err != nil {
 		log.Error().
+			Err(err).
 			Str("username", user.Username).
 			Str("event name", req.Name).
 			Str("event tag", req.Tag).
-			Msgf("user quota error: %v", err)
+			Msg("user quota reached")
 		return nil, err
 	}
 
@@ -167,7 +170,7 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 
 		for i, s := range exs.Exercises {
 			if s.Secret && !user.SuperUser {
-				return nil, fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", s.Tag)
+				return nil, fmt.Errorf("no privileges to create event with secret challenges [ %s ]. Secret challenges unique to super users only", s.Tag)
 			}
 			t, err := store.NewTag(s.Tag)
 			if err != nil {
@@ -178,13 +181,13 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 		evtag, _ := store.NewTag(req.Tag)
 		finishTime, err := time.Parse(dbTimeFormat, req.FinishTime)
 		if err != nil {
-			log.Error().Err(err).Msgf("parsing finish time: %v", err)
-			return nil, errors.New("invalid finish time: please select finish time ! ")
+			log.Error().Err(err).Msg("parsing finish time")
+			return nil, errors.New("invalid finish time: please select finish time")
 		}
 		startTime, err := time.Parse(dbTimeFormat, req.StartTime)
 		if err != nil {
-			log.Error().Msgf("invalid start time: %v", err)
-			return nil, errors.New("invalid start time: please select start time !")
+			log.Error().Err(err).Msg("invalid start time")
+			return nil, errors.New("invalid start time: please select start time")
 		}
 
 		if isInvalidDate(startTime) {
@@ -235,7 +238,7 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 			return nil, err
 		}
 		log.Debug().Str("event", string(conf.Tag)).
-			Msgf("Event configuration is validated")
+			Msg("Event configuration is validated")
 		_, err = d.eventPool.GetEvent(evtag)
 
 		if err == nil {
@@ -257,7 +260,7 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 
 		ev, err := d.ehost.CreateEventFromConfig(ctx, conf, d.conf.Rechaptcha)
 		if err != nil {
-			log.Error().Err(err).Msg("Error creating event from database event")
+			log.Error().Err(err).Msg("creating event from database event")
 			return nil, err
 		}
 		if err := d.ehost.SaveEventToDB(ctx, conf); err != nil {
