@@ -100,12 +100,12 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 	// check from database if subnet is already assigned to an event or not
 	user, err := getUserFromIncomingContext(ctx)
 	if err != nil {
-		log.Warn().Msgf("User credentials not found ! %v  ", err)
+		log.Warn().Err(err).Msg("User credentials not found ! ")
 		return nil, fmt.Errorf("user credentials could not found on context %v", err)
 	}
 
 	// checking through eventPool is not good enough since booked events are not added to eventpool
-	isEventExist, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
+	eventResponse, err := d.dbClient.IsEventExists(ctx, &pbc.GetEventByTagReq{
 		EventTag: req.Tag,
 		// it will take INVERT condition which means that query from
 		//Running, Suspended and Booked events
@@ -114,35 +114,38 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("event does not exist or something is wrong: %v", err)
 	}
-	if isEventExist.IsExist {
+	if eventResponse.IsExist {
 		return nil, fmt.Errorf(NotAvailableTag)
 	}
-	log.Debug().Msgf("Checked existing events through database.")
+	log.Debug().Msg("Checked existing events through database.")
 
 	if (req.OnlyVPN == VPN || req.OnlyVPN == VPNBrowser) && req.Capacity > 253 {
 		log.Error().
+			Err(CapacityExceedsErr).
 			Str("tag", req.Tag).
 			Str("name", req.Name).
-			Msgf("Capacity Error: %v", CapacityExceedsErr)
+			Msg("requested event exceeds limits")
 		return nil, CapacityExceedsErr
 	}
 
 	if user.NPUser && req.Capacity > int32(NPUserMaxLabs) {
 		log.Error().
+			Err(OutOfQuota).
 			Str("tag", req.Tag).
 			Str("name", req.Name).
 			Str("createdBy", user.Username).
-			Msgf("Out of Quota Error: %v", OutOfQuota)
+			Msg("user quota reached")
 		return nil, OutOfQuota
 	}
 
 	isEligible, err := d.checkUserQuota(ctx, user.Username)
 	if err != nil {
 		log.Error().
+			Err(err).
 			Str("username", user.Username).
 			Str("event name", req.Name).
 			Str("event tag", req.Tag).
-			Msgf("user quota error: %v", err)
+			Msg("user quota reached")
 		return nil, err
 	}
 
@@ -167,7 +170,7 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 
 		for i, s := range exs.Exercises {
 			if s.Secret && !user.SuperUser {
-				return nil, fmt.Errorf("No priviledge to create event with secret challenges [ %s ]. Secret challenges unique to super users only.", s.Tag)
+				return nil, fmt.Errorf("no privileges to create event with secret challenges [ %s ]. Secret challenges unique to super users only", s.Tag)
 			}
 			t, err := store.NewTag(s.Tag)
 			if err != nil {
@@ -178,15 +181,15 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 		evtag, _ := store.NewTag(req.Tag)
 		finishTime, err := time.Parse(dbTimeFormat, req.FinishTime)
 		if err != nil {
-			log.Error().Err(err).Msgf("parsing finish time: %v", err)
-			return nil, errors.New("invalid finish time: please select finish time ! ") 
+			log.Error().Err(err).Msg("parsing finish time")
+			return nil, errors.New("invalid finish time: please select finish time")
 		}
 		startTime, err := time.Parse(dbTimeFormat, req.StartTime)
 		if err != nil {
-			log.Error().Msgf("invalid start time: %v", err)
-			return nil, errors.New("invalid start time: please select start time !") 
+			log.Error().Err(err).Msg("invalid start time")
+			return nil, errors.New("invalid start time: please select start time")
 		}
-		
+
 		if isInvalidDate(startTime) {
 			return nil, fmt.Errorf("invalid startTime format %v", startTime)
 		}
@@ -208,6 +211,16 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 				log.Error().Msgf("Error on getting IP for VPN connection error: %v", err)
 			}
 			vpnAddress = fmt.Sprintf("%s.240.1/22", vpnIP)
+		}
+		if req.Available > req.Capacity {
+			log.Error().
+				Int32("Availability", req.Available).
+				Int32("Capacity", req.Capacity).
+				Str("tag", req.Tag).
+				Str("name", req.Name).
+				Str("createdBy", user.Username).
+				Msg("user tried to create event with larger capacity than availability")
+			return nil, errors.New("capacity should be larger than or equal to the availability")
 		}
 
 		secretKey := strings.TrimSpace(req.SecretEvent)
@@ -235,7 +248,7 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 			return nil, err
 		}
 		log.Debug().Str("event", string(conf.Tag)).
-			Msgf("Event configuration is validated")
+			Msg("Event configuration is validated")
 		_, err = d.eventPool.GetEvent(evtag)
 
 		if err == nil {
@@ -257,7 +270,7 @@ func (d *daemon) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*
 
 		ev, err := d.ehost.CreateEventFromConfig(ctx, conf, d.conf.Rechaptcha)
 		if err != nil {
-			log.Error().Err(err).Msg("Error creating event from database event")
+			log.Error().Err(err).Msg("creating event from database event")
 			return nil, err
 		}
 		if err := d.ehost.SaveEventToDB(ctx, conf); err != nil {
@@ -402,9 +415,8 @@ func (d *daemon) StopEvent(ctx context.Context, req *pb.StopEventRequest) (*pb.E
 
 		if (user.NPUser && user.Username == createdBy) || !user.NPUser {
 			// remove the corrosponding event folder
-			if err := vbox.RemoveEventFolder(string(evtag)); err != nil {
-				//do nothing
-			}
+			vbox.RemoveEventFolder(string(evtag))
+
 			_, err := d.dbClient.SetEventStatus(ctx, &pbc.SetEventStatusRequest{EventTag: string(evtag), Status: Closed})
 			if err != nil {
 				return nil, fmt.Errorf("error happened on setting up status of event, err: %v", err)
@@ -610,7 +622,7 @@ func (d *daemon) AddNotification(ctx context.Context, req *pb.AddNotificationReq
 	return &pb.AddNotificationResponse{Response: "Given notification set for all events "}, nil
 }
 
-//removeDuplicates removes duplicated values in given list
+// removeDuplicates removes duplicated values in given list
 // used incoming CreateEventRequest
 func removeDuplicates(exercises []string) []string {
 	k := make(map[string]bool)
@@ -792,11 +804,11 @@ func (d *daemon) StressEvent(ctx context.Context, req *pb.TestEventLoadReq) (*pb
 
 	ev, err := d.eventPool.GetEvent(store.Tag(req.EventName))
 	if ev == nil {
-		return &pb.TestEventLoadResp{}, fmt.Errorf("no such an event called %s, error: %v !", req.EventName, err)
+		return &pb.TestEventLoadResp{}, fmt.Errorf("no such an event called %s, error: %v ", req.EventName, err)
 	}
 
 	if ev.GetConfig().Capacity < int(req.NumberOfTeams) {
-		return &pb.TestEventLoadResp{}, errors.New("event capacity is less than provided number of teams. skipping testing...")
+		return &pb.TestEventLoadResp{}, errors.New("event capacity is less than provided number of teams. skipping testing")
 	}
 	var port, protocol string
 	if d.conf.Certs.Enabled {
@@ -949,7 +961,7 @@ func (d *daemon) SaveProfile(ctx context.Context, req *pb.SaveProfileRequest) (*
 		}, nil
 	}
 
-	return nil, errors.New("You don't have the privilege to create profiles")
+	return nil, errors.New("you don't have the privilege to create profiles")
 
 }
 
@@ -1026,7 +1038,7 @@ func (d *daemon) EditProfile(ctx context.Context, req *pb.SaveProfileRequest) (*
 			Status: fmt.Sprintf("Profile %s updated", req.Name),
 		}, nil
 	}
-	return nil, errors.New("You don't have the privilege to update profiles")
+	return nil, errors.New("you don't have the privilege to update profiles")
 }
 
 func (d *daemon) DeleteProfile(ctx context.Context, req *pb.DeleteProfileRequest) (*pb.ProfileStatus, error) {
@@ -1053,5 +1065,5 @@ func (d *daemon) DeleteProfile(ctx context.Context, req *pb.DeleteProfileRequest
 		}, nil
 	}
 
-	return nil, errors.New("You don't have the privilege to delete profiles")
+	return nil, errors.New("you don't have the privilege to delete profiles")
 }
