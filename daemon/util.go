@@ -125,11 +125,3 @@ func (d *daemon) ReloadConfig(confFile *string) error {
 func (s *contextStream) Context() context.Context {
 	return s.ctx
 }
-
-func combineErrors(errors []error) []string {
-	var errorString []string
-	for _, e := range errors {
-		errorString = append(errorString, e.Error())
-	}
-	return errorString
-}
