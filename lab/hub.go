@@ -56,11 +56,15 @@ func NewHub(creator Creator, buffer int, cap int, isVPN int32) (*hub, error) {
 			// todo: handle this in case of error
 			l, err := creator.NewLab(ctx, isVPN)
 			if err != nil {
-				log.Error().Msgf("Error while creating new lab %s", err.Error())
+				log.Error().Err(err).Msg("Error while creating new lab")
+				wg.Done()
+				continue
 			}
 
 			if err := l.Start(ctx); err != nil {
-				log.Error().Msgf("Error while starting lab %s", err.Error())
+				log.Error().Err(err).Msg("Error while starting lab")
+				wg.Done()
+				continue
 			}
 			select {
 			case labs <- l:
