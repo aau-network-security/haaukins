@@ -166,7 +166,7 @@ func TestStopEvent(t *testing.T) {
 				},
 			}
 
-			d.startEvent(&ev)
+			d.startEvent(ctx, &ev)
 
 			dialer, close := getServer(d)
 			defer close()
@@ -274,7 +274,7 @@ func TestListEvents(t *testing.T) {
 			for i := 1; i <= tc.count; i++ {
 				tempEvent := *ev
 				tempEvent.conf = store.EventConfig{StartedAt: &startedAt, Tag: store.Tag(fmt.Sprintf("tst-%d", i)), FinishExpected: &finishDate}
-				d.startEvent(&tempEvent)
+				d.startEvent(ctx, &tempEvent)
 			}
 
 			dialer, close := getServer(d)
