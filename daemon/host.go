@@ -3,9 +3,10 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-	"net/http"
 
 	"time"
 
@@ -54,6 +55,35 @@ func monitorHost(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Error().Msgf("error writing to websocket: %s", err)
 			break
+		}
+	}
+}
+
+func (d *daemon) MonitorHost(req *pb.Empty, stream pb.Daemon_MonitorHostServer) error {
+	for {
+		var cpuErr string
+		var cpuPercent float32
+		cpus, err := cpu.Percent(time.Second, false)
+		if err != nil {
+			cpuErr = err.Error()
+		}
+		if len(cpus) == 1 {
+			cpuPercent = float32(cpus[0])
+		}
+
+		var memErr string
+		v, err := mem.VirtualMemory()
+		if err != nil {
+			memErr = err.Error()
+		}
+
+		if err := stream.Send(&pb.MonitorHostResponse{
+			CPUPercent:      cpuPercent,
+			CPUReadError:    cpuErr,
+			MemoryPercent:   float32(v.UsedPercent),
+			MemoryReadError: memErr,
+		}); err != nil {
+			return err
 		}
 	}
 }
