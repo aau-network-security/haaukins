@@ -9,6 +9,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
+	"math"
+
 	pb "github.com/aau-network-security/haaukins/daemon/proto"
 	eproto "github.com/aau-network-security/haaukins/exercise/ex-proto"
 	"github.com/aau-network-security/haaukins/logging"
@@ -25,10 +28,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"gopkg.in/yaml.v2"
-	"io"
-	"io/ioutil"
-	"math"
+	"gopkg.in/yaml.v3"
 
 	"net"
 	"net/http"
@@ -112,7 +112,7 @@ func (m *MngtPortErr) Error() string {
 }
 
 func NewConfigFromFile(path string) (*Config, error) {
-	f, err := ioutil.ReadFile(path)
+	f, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +386,7 @@ func (d *daemon) enableCertificates() (credentials.TransportCredentials, error) 
 
 	// Create a certificate pool from the certificate authority
 	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(d.conf.Certs.CAFile)
+	ca, err := os.ReadFile(d.conf.Certs.CAFile)
 	if err != nil {
 		return nil, fmt.Errorf("HAAUKINS Grpc could not read ca certificate: %s", err)
 	}
