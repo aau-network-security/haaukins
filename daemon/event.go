@@ -467,7 +467,7 @@ func (d *daemon) StopEvent(ctx context.Context, req *pb.StopEventRequest) (*pb.E
 
 func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	var events []*pb.ListEventsResponse_Events
-	var event *pb.ListEventsResponse_Events
+
 	// in list events there is no need to distinguish based on users.
 	// could be changed based on feedback
 	// events are listed through database instead of eventPool
@@ -484,6 +484,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 	}
 
 	for _, e := range eventsFromDB.Events {
+		var event *pb.ListEventsResponse_Events
 		teamsFromDB, err := d.dbClient.GetEventTeams(ctx, &pbc.GetEventTeamsRequest{EventTag: e.Tag})
 		if err != nil {
 			log.Error().Msgf("Retrieving teams from db in ListEvent function %v", err)
@@ -491,6 +492,7 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 		}
 		teamCount := int32(len(teamsFromDB.Teams))
 		if user.SuperUser || user.Username == e.CreatedBy {
+
 			event = &pb.ListEventsResponse_Events{
 
 				Tag:          string(e.Tag),
@@ -505,22 +507,9 @@ func (d *daemon) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb
 				CreatedBy:    e.CreatedBy,
 				SecretEvent:  e.SecretKey,
 			}
-		} else {
-			event = &pb.ListEventsResponse_Events{
-
-				Tag:          string(e.Tag),
-				Name:         e.Name,
-				TeamCount:    teamCount,
-				Exercises:    e.Exercises,
-				Availability: e.Available,
-				Capacity:     e.Capacity,
-				CreationTime: e.StartedAt,
-				FinishTime:   e.ExpectedFinishTime, //This is the Expected finish time
-				Status:       e.Status,
-				CreatedBy:    e.CreatedBy,
-			}
+			events = append(events, event)
 		}
-		events = append(events, event)
+
 	}
 
 	return &pb.ListEventsResponse{Events: events}, nil
